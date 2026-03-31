@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">Reporting & Analyses</h2>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- CHART 1: Top Clients -->
+    <div class="glass p-6 rounded-xl">
+        <h3 class="text-lg font-bold text-white mb-4">Top 5 Clients (Volume Kg)</h3>
+        <canvas id="clientChart"></canvas>
+    </div>
+
+    <!-- CHART 2: Consommation Matière -->
+    <div class="glass p-6 rounded-xl">
+        <h3 class="text-lg font-bold text-white mb-4">Top Consommation Matières</h3>
+        <canvas id="matChart"></canvas>
+    </div>
+</div>
+
+<div class="mt-8 glass p-6 rounded-xl border-l-4 border-red-500">
+    <h3 class="text-lg font-bold text-white mb-4">🚨 Alertes Retards Production</h3>
+    <table class="w-full text-left text-sm text-gray-400">
+        <thead class="bg-slate-800 text-gray-200 uppercase">
+            <tr>
+                <th class="p-3">OF N°</th>
+                <th class="p-3">Client</th>
+                <th class="p-3">Date Prévue</th>
+                <th class="p-3">Statut</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700">
+            {% for of in delayed_ofs %}
+            <tr>
+                <td class="p-3 font-mono text-neon">{{ of.of_number }}</td>
+                <td class="p-3">{{ of.client.name }}</td>
+                <td class="p-3">{{ of.end_time|date:"d M Y" }}</td>
+                <td class="p-3"><span class="text-red-400 font-bold">EN RETARD</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="p-3 text-center text-green-400">Aucun retard ! Tout est sous contrôle.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // Chart Clients
+    new Chart(document.getElementById('clientChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ top_clients_labels|safe }},
+            datasets: [{
+                label: 'Kg Produits',
+                data: {{ top_clients_data|safe }},
+                backgroundColor: '#06b6d4',
+                borderRadius: 4
+            }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#334155' } }, x: { grid: { display: false } } } }
+    });
+
+    // Chart Matières
+    new Chart(document.getElementById('matChart'), {
+        type: 'doughnut',
+        data: {
+            labels: {{ top_consumptions_labels|safe }},
+            datasets: [{
+                data: {{ top_consumptions_data|safe }},
+                backgroundColor: ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6'],
+                borderWidth: 0
+            }]
+        }
+    });
+</script>
+{% endblock %}

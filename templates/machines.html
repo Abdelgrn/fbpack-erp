@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- EN-TÊTE DU MODULE -->
+<div class="mb-6 flex justify-between items-center">
+    <div>
+        <h1 class="text-3xl font-bold text-white tracking-wider">⚙️ Parc Machine</h1>
+        <p class="text-gray-400 text-sm mt-1">Supervisez l'état de vos extrudeuses, imprimeuses et découpeuses.</p>
+    </div>
+    
+    <!-- BOUTON D'AJOUT -->
+    <a href="{% url 'add_machine' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-6 rounded shadow-lg transition transform hover:-translate-y-0.5">
+        + Ajouter une Machine
+    </a>
+</div>
+
+<!-- STATISTIQUES RAPIDES -->
+<div class="grid grid-cols-4 gap-4 mb-8">
+    <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow">
+        <div class="text-gray-400 text-xs uppercase font-bold tracking-wider">Total Machines</div>
+        <div class="text-2xl font-bold text-white mt-1">{{ stats.total }}</div>
+    </div>
+    <div class="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl shadow">
+        <div class="text-emerald-400 text-xs uppercase font-bold tracking-wider">En Production</div>
+        <div class="text-2xl font-bold text-emerald-400 mt-1">{{ stats.run }}</div>
+    </div>
+    <div class="bg-slate-700/50 border border-slate-600 p-4 rounded-xl shadow">
+        <div class="text-gray-400 text-xs uppercase font-bold tracking-wider">À l'arrêt</div>
+        <div class="text-2xl font-bold text-gray-300 mt-1">{{ stats.stop }}</div>
+    </div>
+    <div class="bg-red-500/10 border border-red-500/30 p-4 rounded-xl shadow">
+        <div class="text-red-400 text-xs uppercase font-bold tracking-wider">En Panne</div>
+        <div class="text-2xl font-bold text-red-500 mt-1">{{ stats.panne }}</div>
+    </div>
+</div>
+
+<!-- TABLEAU DES MACHINES -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                    <th class="p-4 border-b border-slate-700">Nom Machine</th>
+                    <th class="p-4 border-b border-slate-700">Type</th>
+                    <th class="p-4 border-b border-slate-700">Statut Actuel</th>
+                    <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-200 text-sm">
+                {% for machine in machines %}
+                <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                    <td class="p-4 font-bold text-white text-lg flex items-center gap-3">
+                        {% if machine.type == 'EXT' %}🌀
+                        {% elif machine.type == 'IMP' %}🎨
+                        {% elif machine.type == 'DEC' %}✂️
+                        {% else %}⚙️{% endif %}
+                        {{ machine.name }}
+                    </td>
+                    <td class="p-4 text-gray-400">{{ machine.get_type_display }}</td>
+                    <td class="p-4 font-bold">
+                        <!-- Badges de couleur selon le statut -->
+                        {% if machine.status == 'RUN' %}
+                            <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-xs">🟢 En Production</span>
+                        {% elif machine.status == 'STOP' %}
+                            <span class="bg-slate-600/50 text-gray-400 border border-slate-500 px-3 py-1 rounded-full text-xs">⚪ Arrêt</span>
+                        {% elif machine.status == 'MAINT' %}
+                            <span class="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-3 py-1 rounded-full text-xs">🔧 Maintenance</span>
+                        {% elif machine.status == 'PANNE' %}
+                            <span class="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full text-xs animate-pulse">🚨 En Panne</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-right">
+                        <button class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">Modifier</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="p-8 text-center text-gray-500 italic">Aucune machine enregistrée dans le parc.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

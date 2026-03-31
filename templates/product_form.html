@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto mt-6">
+    <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl p-8">
+        
+        <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+            <h2 class="text-2xl font-bold text-white">{{ titre }}</h2>
+            <a href="{% url 'prepress_view' %}" class="text-gray-400 hover:text-white transition">✖ Fermer</a>
+        </div>
+
+        <!-- IMPORTANT : enctype est OBLIGATOIRE pour l'envoi de fichiers -->
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- CLIENT (Pleine largeur) -->
+                <div class="col-span-2">
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Client</label>
+                    {{ form.client }}
+                </div>
+
+                <!-- REF & NOM -->
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Référence Interne</label>
+                    {{ form.ref_internal }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Désignation Produit</label>
+                    {{ form.name }}
+                </div>
+
+                <!-- DETAILS TECHNIQUES -->
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Structure</label>
+                    {{ form.structure_type }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Nombre de Couleurs</label>
+                    {{ form.num_colors }}
+                </div>
+
+                <!-- DIMENSIONS -->
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Laize (mm)</label>
+                    {{ form.width_mm }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Pas de coupe (mm)</label>
+                    {{ form.cut_length_mm }}
+                </div>
+
+                <!-- FICHIER (Pleine largeur) -->
+                <div class="col-span-2 border-t border-slate-700 pt-4 mt-2">
+                    <label class="block text-neon text-sm font-bold mb-2">Fichier Graphique (PDF/AI)</label>
+                    {{ form.artwork_file }}
+                    <p class="text-xs text-gray-500 mt-1">Formats acceptés : PDF, AI, JPG.</p>
+                </div>
+            </div>
+
+            <!-- BOUTONS -->
+            <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-slate-700">
+                <a href="{% url 'prepress_view' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition">
+                    Annuler
+                </a>
+                <button type="submit" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold py-2 px-6 rounded shadow-lg shadow-yellow-500/20 transition">
+                    💾 Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

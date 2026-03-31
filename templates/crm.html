@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+
+    <!-- EN-TÊTE -->
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white">CRM Commercial</h1>
+            <p class="text-gray-400 mt-1">Clients, opportunités, devis et pipeline de vente.</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <a href="{% url 'add_client' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow-lg transition flex items-center gap-2">
+                + Nouveau Client
+            </a>
+            <a href="{% url 'add_opportunite' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded shadow-lg transition flex items-center gap-2">
+                + Opportunité
+            </a>
+            <a href="{% url 'add_quote' %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2">
+                + Devis
+            </a>
+        </div>
+    </div>
+
+    <!-- ONGLETS -->
+    <div class="flex border-b border-slate-700 mb-6 overflow-x-auto">
+        <button onclick="openTab('tab-pipeline', this)" class="tab-btn px-5 py-3 text-sm font-bold text-white border-b-2 border-yellow-500 focus:outline-none whitespace-nowrap">
+            📊 Pipeline
+        </button>
+        <button onclick="openTab('tab-clients', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+            🤝 Clients ({{ clients.count }})
+        </button>
+        <button onclick="openTab('tab-opportunites', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+            🎯 Opportunités
+        </button>
+        <button onclick="openTab('tab-quotes', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+            📄 Devis
+        </button>
+    </div>
+
+    <!-- ===================== -->
+    <!-- ONGLET 1 : PIPELINE  -->
+    <!-- ===================== -->
+    <div id="tab-pipeline" class="tab-content block animate-fade-in">
+        <h2 class="text-xl font-bold text-white mb-4">Pipeline de vente</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+            {% for stage in pipeline_stages %}
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
+                <div class="text-xs text-gray-400 uppercase font-bold mb-2">{{ stage.label }}</div>
+                <div class="text-3xl font-bold text-white mb-1">{{ stage.count }}</div>
+                <div class="text-xs text-yellow-400 font-mono">
+                    {% if stage.montant %}
+                        {{ stage.montant|floatformat:0 }} DA
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
+                {% if stage.code == 'GAGNE' %}
+                    <div class="mt-2 w-2 h-2 bg-green-500 rounded-full mx-auto"></div>
+                {% elif stage.code == 'PERDU' %}
+                    <div class="mt-2 w-2 h-2 bg-red-500 rounded-full mx-auto"></div>
+                {% else %}
+                    <div class="mt-2 w-2 h-2 bg-blue-500 rounded-full mx-auto"></div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Kanban visuel des opportunités actives -->
+        <h3 class="text-lg font-bold text-white mb-3">Opportunités en cours</h3>
+        <div class="overflow-x-auto pb-4">
+            <div class="flex gap-4 min-w-max">
+                {% for stage_code, stage_label in opportunites.model.STAGE_CHOICES %}
+                {% if stage_code != 'GAGNE' and stage_code != 'PERDU' %}
+                <div class="w-64 flex-shrink-0">
+                    <div class="bg-slate-900 rounded-lg p-2 mb-2">
+                        <span class="text-xs font-bold text-gray-300 uppercase">{{ stage_label }}</span>
+                    </div>
+                    <div class="space-y-2">
+                        {% for opp in opportunites %}
+                        {% if opp.status == stage_code %}
+                        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-yellow-500/50 transition cursor-pointer" onclick="window.location='{% url 'edit_opportunite' opp.id %}'">
+                            <div class="font-bold text-white text-sm mb-1 truncate">{{ opp.titre }}</div>
+                            <div class="text-xs text-gray-400 mb-2">{{ opp.client.name }}</div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-yellow-400 font-mono">{{ opp.valeur_estimee|floatformat:0 }} DA</span>
+                                <span class="text-xs text-gray-500">{{ opp.probabilite }}%</span>
+                            </div>
+                            {% if opp.date_cloture_prevue %}
+                            <div class="text-xs text-gray-500 mt-1">📅 {{ opp.date_cloture_prevue|date:"d/m/Y" }}</div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% empty %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== -->
+    <!-- ONGLET 2 : CLIENTS   -->
+    <!-- ===================== -->
+    <div id="tab-clients" class="tab-content hidden animate-fade-in">
+
+        <!-- FILTRES -->
+        <form method="get" class="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-5">
+            <input type="hidden" name="tab" value="clients">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <input type="text" name="q" value="{{ search }}" placeholder="🔍 Rechercher..." class="bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500 col-span-2 md:col-span-1">
+                <select name="status" class="bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                    <option value="">Tous les statuts</option>
+                    {% for code, label in status_choices %}
+                    <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="segment" class="bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                    <option value="">Tous les segments</option>
+                    {% for code, label in segment_choices %}
+                    <option value="{{ code }}" {% if segment_filter == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div class="flex gap-2">
+                    <select name="region" class="bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500 flex-1">
+                        <option value="">Toutes régions</option>
+                        {% for code, label in region_choices %}
+                        <option value="{{ code }}" {% if region_filter == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-3 rounded text-sm transition">Filtrer</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- TABLEAU CLIENTS -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="px-5 py-4">Client / Code</th>
+                            <th class="px-5 py-4">Statut</th>
+                            <th class="px-5 py-4">Segment</th>
+                            <th class="px-5 py-4">Région</th>
+                            <th class="px-5 py-4">Contacts</th>
+                            <th class="px-5 py-4">Opport.</th>
+                            <th class="px-5 py-4">CA Estimé</th>
+                            <th class="px-5 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        {% for client in clients %}
+                        <tr class="hover:bg-slate-700/50 transition duration-150">
+                            <td class="px-5 py-4">
+                                <a href="{% url 'client_detail' client.id %}" class="font-bold text-white hover:text-yellow-400 transition text-base">{{ client.name }}</a>
+                                {% if client.code_client %}
+                                <div class="text-xs text-gray-500 font-mono">{{ client.code_client }}</div>
+                                {% endif %}
+                                <div class="text-xs text-gray-500">{{ client.city }}</div>
+                            </td>
+                            <td class="px-5 py-4">
+                                {% if client.status == 'ACTIVE' %}
+                                    <span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs border border-green-500/20">Actif</span>
+                                {% elif client.status == 'VIP' %}
+                                    <span class="bg-purple-500/10 text-purple-400 px-2 py-1 rounded text-xs border border-purple-500/20">⭐ VIP</span>
+                                {% elif client.status == 'PROSPECT' %}
+                                    <span class="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/20">Prospect</span>
+                                {% elif client.status == 'LOST' %}
+                                    <span class="bg-red-500/10 text-red-400 px-2 py-1 rounded text-xs border border-red-500/20">Perdu</span>
+                                {% else %}
+                                    <span class="bg-gray-500/10 text-gray-400 px-2 py-1 rounded text-xs border border-gray-500/20">{{ client.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4">
+                                <span class="bg-slate-700 text-gray-300 px-2 py-1 rounded text-xs">{{ client.get_segment_display }}</span>
+                            </td>
+                            <td class="px-5 py-4 text-gray-300">{{ client.get_region_display }}</td>
+                            <td class="px-5 py-4">
+                                <span class="text-white font-bold">{{ client.get_nb_contacts }}</span>
+                                <span class="text-gray-500 text-xs"> contact(s)</span>
+                            </td>
+                            <td class="px-5 py-4">
+                                <span class="text-white font-bold">{{ client.get_nb_opportunites }}</span>
+                            </td>
+                            <td class="px-5 py-4 text-yellow-400 font-mono text-xs">
+                                {% if client.ca_estime %}{{ client.ca_estime|floatformat:0 }} DA{% else %}—{% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <a href="{% url 'client_detail' client.id %}" class="text-yellow-400 hover:text-yellow-300 font-medium text-xs">Fiche</a>
+                                    <a href="{% url 'edit_client' client.id %}" class="text-blue-400 hover:text-blue-300 font-medium text-xs">Éditer</a>
+                                    <a href="{% url 'add_opportunite' %}?client_id={{ client.id }}" class="text-green-400 hover:text-green-300 font-medium text-xs">+ Opport.</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+                                Aucun client trouvé. <a href="{% url 'add_client' %}" class="text-yellow-400 hover:underline">Créer le premier client</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================== -->
+    <!-- ONGLET 3 : OPPORTUNITÉS   -->
+    <!-- ========================== -->
+    <div id="tab-opportunites" class="tab-content hidden animate-fade-in">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">Toutes les Opportunités</h2>
+            <a href="{% url 'add_opportunite' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition">+ Nouvelle Opportunité</a>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="px-5 py-4">Opportunité</th>
+                            <th class="px-5 py-4">Client</th>
+                            <th class="px-5 py-4">Étape</th>
+                            <th class="px-5 py-4">Valeur</th>
+                            <th class="px-5 py-4">Proba.</th>
+                            <th class="px-5 py-4">Clôture prévue</th>
+                            <th class="px-5 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        {% for opp in opportunites %}
+                        <tr class="hover:bg-slate-700/50 transition">
+                            <td class="px-5 py-4">
+                                <div class="font-bold text-white">{{ opp.titre }}</div>
+                                {% if opp.commercial %}<div class="text-xs text-gray-500">{{ opp.commercial.get_full_name|default:opp.commercial.username }}</div>{% endif %}
+                            </td>
+                            <td class="px-5 py-4">
+                                <a href="{% url 'client_detail' opp.client.id %}" class="text-blue-400 hover:underline">{{ opp.client.name }}</a>
+                            </td>
+                            <td class="px-5 py-4">
+                                {% if opp.status == 'GAGNE' %}
+                                    <span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs border border-green-500/20">{{ opp.get_status_display }}</span>
+                                {% elif opp.status == 'PERDU' %}
+                                    <span class="bg-red-500/10 text-red-400 px-2 py-1 rounded text-xs border border-red-500/20">{{ opp.get_status_display }}</span>
+                                {% elif opp.status == 'NEGOCIATION' %}
+                                    <span class="bg-orange-500/10 text-orange-400 px-2 py-1 rounded text-xs border border-orange-500/20">{{ opp.get_status_display }}</span>
+                                {% elif opp.status == 'PROPOSITION' %}
+                                    <span class="bg-yellow-500/10 text-yellow-400 px-2 py-1 rounded text-xs border border-yellow-500/20">{{ opp.get_status_display }}</span>
+                                {% else %}
+                                    <span class="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/20">{{ opp.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-yellow-400 font-mono text-xs">{{ opp.valeur_estimee|floatformat:0 }} DA</td>
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-16 bg-slate-700 rounded-full h-1.5">
+                                        <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ opp.probabilite }}%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-400">{{ opp.probabilite }}%</span>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 text-gray-300 text-xs">
+                                {{ opp.date_cloture_prevue|date:"d/m/Y"|default:"—" }}
+                            </td>
+                            <td class="px-5 py-4 text-right">
+                                <a href="{% url 'edit_opportunite' opp.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Éditer</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                                Aucune opportunité. <a href="{% url 'add_opportunite' %}" class="text-blue-400 hover:underline">En créer une</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================== -->
+    <!-- ONGLET 4 : DEVIS   -->
+    <!-- =================== -->
+    <div id="tab-quotes" class="tab-content hidden animate-fade-in">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">Devis & Offres</h2>
+            <a href="{% url 'add_quote' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition">+ Nouveau Devis</a>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="px-5 py-4">Référence</th>
+                            <th class="px-5 py-4">Date</th>
+                            <th class="px-5 py-4">Client</th>
+                            <th class="px-5 py-4">Montant</th>
+                            <th class="px-5 py-4">Statut</th>
+                            <th class="px-5 py-4">Validité</th>
+                            <th class="px-5 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        {% for q in quotes %}
+                        <tr class="hover:bg-slate-700/50 transition">
+                            <td class="px-5 py-4">
+                                <div class="font-mono text-yellow-400 font-bold">{{ q.reference }}</div>
+                                <div class="text-xs text-gray-500">v{{ q.version }}</div>
+                                {% if q.commande_creee %}
+                                <span class="text-xs text-green-400">✓ Converti commande</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-gray-300">{{ q.date|date:"d/m/Y" }}</td>
+                            <td class="px-5 py-4">
+                                <a href="{% url 'client_detail' q.client.id %}" class="text-white font-bold hover:text-yellow-400 transition">{{ q.client.name }}</a>
+                            </td>
+                            <td class="px-5 py-4 text-white font-mono">{{ q.total_amount|floatformat:0 }} DA</td>
+                            <td class="px-5 py-4">
+                                {% if q.status == 'SIGNED' or q.status == 'ACCEPTED' %}
+                                    <span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs border border-green-500/20">{{ q.get_status_display }}</span>
+                                {% elif q.status == 'SENT' %}
+                                    <span class="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/20">{{ q.get_status_display }}</span>
+                                {% elif q.status == 'REFUSED' %}
+                                    <span class="bg-red-500/10 text-red-400 px-2 py-1 rounded text-xs border border-red-500/20">{{ q.get_status_display }}</span>
+                                {% elif q.status == 'EXPIRED' %}
+                                    <span class="bg-orange-500/10 text-orange-400 px-2 py-1 rounded text-xs border border-orange-500/20">{{ q.get_status_display }}</span>
+                                {% else %}
+                                    <span class="bg-gray-500/10 text-gray-400 px-2 py-1 rounded text-xs border border-gray-500/20">{{ q.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-xs text-gray-400">{{ q.date_validite|date:"d/m/Y"|default:"—" }}</td>
+                            <td class="px-5 py-4 text-right">
+                                <div class="flex justify-end gap-2">
+                                    {% if q.pdf_file %}
+                                        <a href="{{ q.pdf_file.url }}" target="_blank" class="text-red-400 hover:text-red-300 text-xs">PDF</a>
+                                    {% endif %}
+                                    <a href="{% url 'edit_quote' q.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Éditer</a>
+                                    {% if q.status in 'ACCEPTED,SIGNED' and not q.commande_creee %}
+                                    <a href="{% url 'convert_quote' q.id %}" class="text-green-400 hover:text-green-300 text-xs">→ Commande</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">Aucun devis trouvé.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function openTab(tabName, btnElement) {
+    document.querySelectorAll(".tab-content").forEach(el => {
+        el.classList.add("hidden");
+        el.classList.remove("block");
+    });
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.classList.remove("text-white", "border-yellow-500");
+        btn.classList.add("text-gray-400", "border-transparent");
+    });
+    document.getElementById(tabName).classList.remove("hidden");
+    document.getElementById(tabName).classList.add("block");
+    btnElement.classList.remove("text-gray-400", "border-transparent");
+    btnElement.classList.add("text-white", "border-yellow-500");
+}
+</script>
+{% endblock %}

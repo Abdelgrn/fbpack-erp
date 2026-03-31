@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+
+    <!-- EN-TÊTE FICHE CLIENT -->
+    <div class="mb-6 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <a href="{% url 'crm_view' %}" class="text-gray-500 hover:text-white text-sm transition">← Retour CRM</a>
+            </div>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+                {{ client.name }}
+                {% if client.status == 'VIP' %}<span class="bg-purple-500/20 text-purple-400 text-sm px-2 py-1 rounded border border-purple-500/30">⭐ VIP</span>{% endif %}
+                {% if client.status == 'ACTIVE' %}<span class="bg-green-500/20 text-green-400 text-sm px-2 py-1 rounded border border-green-500/30">Actif</span>{% endif %}
+                {% if client.status == 'PROSPECT' %}<span class="bg-blue-500/20 text-blue-400 text-sm px-2 py-1 rounded border border-blue-500/30">Prospect</span>{% endif %}
+            </h1>
+            {% if client.code_client %}<div class="text-gray-500 text-sm font-mono mt-1">Code : {{ client.code_client }}</div>{% endif %}
+            <div class="text-gray-400 text-sm mt-1">{{ client.city }} {% if client.region %}· {{ client.get_region_display }}{% endif %} {% if client.segment %}· {{ client.get_segment_display }}{% endif %}</div>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <a href="{% url 'edit_client' client.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition text-sm">✏️ Modifier</a>
+            <a href="{% url 'add_contact' client.id %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Contact</a>
+            <a href="{% url 'add_opportunite' %}?client_id={{ client.id }}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Opportunité</a>
+            <a href="{% url 'add_quote' %}?client_id={{ client.id }}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded transition text-sm">+ Devis</a>
+            <a href="{% url 'add_interaction' client.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Interaction</a>
+        </div>
+    </div>
+
+    <!-- INFOS RAPIDES -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
+            <div class="text-2xl font-bold text-white">{{ contacts.count }}</div>
+            <div class="text-xs text-gray-400 mt-1">Contacts</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
+            <div class="text-2xl font-bold text-white">{{ opportunites.count }}</div>
+            <div class="text-xs text-gray-400 mt-1">Opportunités</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
+            <div class="text-2xl font-bold text-white">{{ quotes.count }}</div>
+            <div class="text-xs text-gray-400 mt-1">Devis</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
+            <div class="text-xl font-bold text-yellow-400 font-mono">
+                {% if client.ca_estime %}{{ client.ca_estime|floatformat:0 }}{% else %}—{% endif %}
+            </div>
+            <div class="text-xs text-gray-400 mt-1">CA Estimé (DA)</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- COLONNE GAUCHE : Infos + Contacts -->
+        <div class="space-y-5">
+
+            <!-- INFOS GÉNÉRALES -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <h3 class="text-white font-bold mb-4 border-b border-slate-700 pb-2">📋 Informations</h3>
+                <div class="space-y-2 text-sm">
+                    {% if client.phone %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Téléphone</span>
+                        <span class="text-white">{{ client.phone }}</span>
+                    </div>
+                    {% endif %}
+                    {% if client.email %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Email</span>
+                        <a href="mailto:{{ client.email }}" class="text-blue-400 hover:underline">{{ client.email }}</a>
+                    </div>
+                    {% endif %}
+                    {% if client.website %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Web</span>
+                        <a href="{{ client.website }}" target="_blank" class="text-blue-400 hover:underline text-xs">{{ client.website|truncatechars:30 }}</a>
+                    </div>
+                    {% endif %}
+                    {% if client.sector %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Secteur</span>
+                        <span class="text-white">{{ client.sector }}</span>
+                    </div>
+                    {% endif %}
+                    {% if client.size %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Taille</span>
+                        <span class="text-white">{{ client.get_size_display }}</span>
+                    </div>
+                    {% endif %}
+                    {% if client.commercial %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Commercial</span>
+                        <span class="text-white">{{ client.commercial.get_full_name|default:client.commercial.username }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Client depuis</span>
+                        <span class="text-white">{{ client.date_creation|date:"d/m/Y" }}</span>
+                    </div>
+                </div>
+                {% if client.notes %}
+                <div class="mt-4 pt-4 border-t border-slate-700">
+                    <div class="text-xs text-gray-500 mb-1">Notes</div>
+                    <p class="text-gray-300 text-sm">{{ client.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- CONTACTS -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h3 class="text-white font-bold">👥 Contacts ({{ contacts.count }})</h3>
+                    <a href="{% url 'add_contact' client.id %}" class="text-xs text-blue-400 hover:text-blue-300">+ Ajouter</a>
+                </div>
+                {% if contacts %}
+                <div class="space-y-3">
+                    {% for contact in contacts %}
+                    <div class="bg-slate-700/50 rounded-lg p-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-bold text-white text-sm flex items-center gap-2">
+                                    {{ contact.name }}
+                                    {% if contact.is_primary %}<span class="text-xs bg-yellow-500/20 text-yellow-400 px-1 rounded">Principal</span>{% endif %}
+                                </div>
+                                <div class="text-xs text-gray-400">{{ contact.get_role_display_full }}</div>
+                                {% if contact.phone %}<div class="text-xs text-gray-500 mt-1">📞 {{ contact.phone }}</div>{% endif %}
+                                {% if contact.email %}<div class="text-xs text-gray-500">✉ <a href="mailto:{{ contact.email }}" class="text-blue-400 hover:underline">{{ contact.email }}</a></div>{% endif %}
+                            </div>
+                            <div class="flex gap-1 flex-shrink-0">
+                                <a href="{% url 'edit_contact' contact.id %}" class="text-xs text-blue-400 hover:text-blue-300">Édit.</a>
+                                <form method="post" action="{% url 'delete_contact' contact.id %}" onsubmit="return confirm('Supprimer ce contact ?')" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-xs text-red-400 hover:text-red-300">Suppr.</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-sm text-center py-4">Aucun contact. <a href="{% url 'add_contact' client.id %}" class="text-blue-400 hover:underline">En ajouter un</a></p>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <!-- COLONNE DROITE : Opportunités + Devis + Historique + Production -->
+        <div class="lg:col-span-2 space-y-5">
+
+            <!-- OPPORTUNITÉS -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h3 class="text-white font-bold">🎯 Opportunités ({{ opportunites.count }})</h3>
+                    <a href="{% url 'add_opportunite' %}?client_id={{ client.id }}" class="text-xs text-green-400 hover:text-green-300">+ Ajouter</a>
+                </div>
+                {% if opportunites %}
+                <div class="space-y-2">
+                    {% for opp in opportunites %}
+                    <div class="bg-slate-700/50 rounded-lg p-3 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-white text-sm">{{ opp.titre }}</div>
+                            <div class="flex items-center gap-3 mt-1">
+                                {% if opp.status == 'GAGNE' %}
+                                    <span class="text-xs text-green-400">{{ opp.get_status_display }}</span>
+                                {% elif opp.status == 'PERDU' %}
+                                    <span class="text-xs text-red-400">{{ opp.get_status_display }}</span>
+                                {% else %}
+                                    <span class="text-xs text-blue-400">{{ opp.get_status_display }}</span>
+                                {% endif %}
+                                <span class="text-xs text-yellow-400 font-mono">{{ opp.valeur_estimee|floatformat:0 }} DA</span>
+                                <span class="text-xs text-gray-500">{{ opp.probabilite }}%</span>
+                            </div>
+                        </div>
+                        <a href="{% url 'edit_opportunite' opp.id %}" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0">Éditer</a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-sm text-center py-3">Aucune opportunité.</p>
+                {% endif %}
+            </div>
+
+            <!-- DEVIS -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h3 class="text-white font-bold">📄 Devis ({{ quotes.count }})</h3>
+                    <a href="{% url 'add_quote' %}?client_id={{ client.id }}" class="text-xs text-yellow-400 hover:text-yellow-300">+ Nouveau Devis</a>
+                </div>
+                {% if quotes %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-gray-400">
+                        <thead class="text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th class="pb-2 text-left">Réf.</th>
+                                <th class="pb-2 text-left">Date</th>
+                                <th class="pb-2 text-left">Montant</th>
+                                <th class="pb-2 text-left">Statut</th>
+                                <th class="pb-2"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for q in quotes %}
+                            <tr>
+                                <td class="py-2 font-mono text-yellow-400 text-xs">{{ q.reference }} <span class="text-gray-600">v{{ q.version }}</span></td>
+                                <td class="py-2 text-xs">{{ q.date|date:"d/m/Y" }}</td>
+                                <td class="py-2 font-mono text-white text-xs">{{ q.total_amount|floatformat:0 }} DA</td>
+                                <td class="py-2">
+                                    {% if q.status == 'SIGNED' or q.status == 'ACCEPTED' %}
+                                        <span class="text-green-400 text-xs">{{ q.get_status_display }}</span>
+                                    {% elif q.status == 'REFUSED' or q.status == 'EXPIRED' %}
+                                        <span class="text-red-400 text-xs">{{ q.get_status_display }}</span>
+                                    {% else %}
+                                        <span class="text-gray-400 text-xs">{{ q.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-2 text-right">
+                                    <a href="{% url 'edit_quote' q.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Édit.</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-sm text-center py-3">Aucun devis pour ce client.</p>
+                {% endif %}
+            </div>
+
+            <!-- COMMANDES PRODUCTION -->
+            {% if orders %}
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <h3 class="text-white font-bold mb-4 border-b border-slate-700 pb-2">🏭 Dernières Commandes Production</h3>
+                <div class="space-y-2">
+                    {% for of in orders %}
+                    <div class="bg-slate-700/50 rounded-lg p-3 flex justify-between items-center">
+                        <div>
+                            <div class="font-mono text-white text-sm">OF {{ of.of_number }}</div>
+                            <div class="text-xs text-gray-400">{{ of.product.name }} — {{ of.machine.name|default:"Machine non définie" }}</div>
+                        </div>
+                        <div class="text-right">
+                            {% if of.status == 'DONE' %}
+                                <span class="text-xs text-green-400">Terminé</span>
+                            {% elif of.status == 'IN_PROGRESS' %}
+                                <span class="text-xs text-blue-400">En cours</span>
+                            {% elif of.status == 'LATE' %}
+                                <span class="text-xs text-red-400">En retard</span>
+                            {% else %}
+                                <span class="text-xs text-gray-400">Planifié</span>
+                            {% endif %}
+                            <div class="text-xs text-gray-500">{{ of.start_time|date:"d/m/Y" }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- HISTORIQUE INTERACTIONS -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h3 class="text-white font-bold">📋 Historique Interactions</h3>
+                    <a href="{% url 'add_interaction' client.id %}" class="text-xs text-blue-400 hover:text-blue-300">+ Ajouter</a>
+                </div>
+                {% if interactions %}
+                <div class="space-y-3">
+                    {% for log in interactions %}
+                    <div class="border-l-2 border-slate-600 pl-4 pb-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    {% if log.type == 'CALL' %}<span class="text-xs bg-blue-500/20 text-blue-400 px-1 rounded">📞 Appel</span>
+                                    {% elif log.type == 'EMAIL' %}<span class="text-xs bg-yellow-500/20 text-yellow-400 px-1 rounded">✉ Email</span>
+                                    {% elif log.type == 'MEET' %}<span class="text-xs bg-green-500/20 text-green-400 px-1 rounded">🤝 RDV</span>
+                                    {% elif log.type == 'VISITE' %}<span class="text-xs bg-purple-500/20 text-purple-400 px-1 rounded">🚗 Visite</span>
+                                    {% else %}<span class="text-xs bg-slate-500/20 text-gray-400 px-1 rounded">📝 Note</span>{% endif %}
+                                    <span class="font-bold text-white text-sm">{{ log.summary }}</span>
+                                </div>
+                                {% if log.details %}<p class="text-xs text-gray-400 mt-1">{{ log.details|truncatechars:120 }}</p>{% endif %}
+                                {% if log.next_action %}
+                                <div class="text-xs text-yellow-400 mt-1">→ {{ log.next_action }}
+                                    {% if log.next_action_date %}({{ log.next_action_date|date:"d/m/Y" }}){% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-gray-500 flex-shrink-0 ml-4">{{ log.date|date:"d/m/Y" }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-sm text-center py-4">Aucune interaction enregistrée.</p>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

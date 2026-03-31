@@ -1,0 +1,114 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>Fb pack ERP Ultimate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { neon: '#f3b83a', darkbg: '#22375c', panel: '#1e293b' } } }
+        }
+    </script>
+    <style>
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
+        .nav-link:hover { color: #f3b83a; background: rgba(255,255,255,0.05); }
+        /* Scrollbar custom */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-darkbg text-gray-200 font-sans h-screen flex overflow-hidden">
+    
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-slate-900 border-r border-slate-700 flex flex-col shrink-0 transition-all duration-300">
+        <!-- LOGO (CORRIGÉ ICI) -->
+        <div class="h-16 flex items-center justify-center border-b border-slate-700 p-2 shadow-lg bg-slate-800/50">
+            <!-- L'image n'est plus en commentaire, elle va s'afficher ! -->
+            <img src="{% static 'logo.png' %}" alt="Logo FB PACK" class="h-12 w-auto object-contain">
+        </div>
+
+        <!-- MENU NAVIGATION -->
+        <nav class="flex-1 py-4 overflow-y-auto space-y-1">
+            <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group">
+                <span class="mr-3 text-lg">📊</span> Dashboard
+            </a>
+            <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group">
+                <span class="mr-3 text-lg">🏭</span> Planning Gantt
+            </a>
+            <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group">
+                <span class="mr-3 text-lg">📈</span> Reporting
+            </a>
+            
+            <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Gestion Opérationnelle</div>
+            
+            <a href="{% url 'crm_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+                <span class="mr-3">🤝</span> CRM & Devis
+            </a>
+            <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+                <span class="mr-3">🎨</span> Prépresse & Outils
+            </a>
+            <a href="{% url 'production_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+                <span class="mr-3">📝</span> Ordres Fabrication
+                <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+    <span class="mr-3">🏭</span> Production Spécial
+</a>
+            </a>
+            <a href="{% url 'stock_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+                <span class="mr-3">📦</span> Stocks & Achats
+            </a>
+            <a href="{% url 'machine_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+                <span class="mr-3">⚙️</span> Parc Machine
+            </a>
+            
+            <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Outils</div>
+            <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300">
+                <span class="mr-3">📥</span> Importer Excel
+            </a>
+        </nav>
+
+        <!-- ZONE UTILISATEUR -->
+        <div class="mt-auto border-t border-slate-700 p-4 bg-slate-900/80 backdrop-blur-sm">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold shadow-lg shadow-orange-500/20">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+                <div class="overflow-hidden">
+                    <p class="text-sm font-bold text-white truncate w-32">{{ user.username|default:"Utilisateur" }}</p>
+                    <p class="text-[10px] text-emerald-400 flex items-center gap-1">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        En ligne
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <a href="/admin/" target="_blank" class="flex items-center justify-center gap-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg border border-slate-600 transition duration-200">
+                    ⚙️ Admin
+                </a>
+                <form action="{% url 'logout' %}" method="post" class="w-full">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full flex items-center justify-center gap-1 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2 rounded-lg transition duration-200">
+                        🚪 Sortir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-auto bg-darkbg relative w-full h-full">
+        <div class="p-8">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </main>
+
+</body>
+</html>
