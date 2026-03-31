@@ -50,7 +50,7 @@
                 <div class="text-3xl font-bold text-white mb-1">{{ stage.count }}</div>
                 <div class="text-xs text-yellow-400 font-mono">
                     {% if stage.montant %}
-                        {{ stage.montant|floatformat:0 }} DA
+                        {{ stage.montant|floatformat:0 }} KG/Étiqu.
                     {% else %}
                         —
                     {% endif %}
@@ -83,7 +83,7 @@
                             <div class="font-bold text-white text-sm mb-1 truncate">{{ opp.titre }}</div>
                             <div class="text-xs text-gray-400 mb-2">{{ opp.client.name }}</div>
                             <div class="flex justify-between items-center">
-                                <span class="text-xs text-yellow-400 font-mono">{{ opp.valeur_estimee|floatformat:0 }} DA</span>
+                                <span class="text-xs text-yellow-400 font-mono">{{ opp.valeur_estimee|floatformat:0 }} KG/Étiqu.</span>
                                 <span class="text-xs text-gray-500">{{ opp.probabilite }}%</span>
                             </div>
                             {% if opp.date_cloture_prevue %}
@@ -186,7 +186,7 @@
                                 <span class="text-white font-bold">{{ client.get_nb_opportunites }}</span>
                             </td>
                             <td class="px-5 py-4 text-yellow-400 font-mono text-xs">
-                                {% if client.ca_estime %}{{ client.ca_estime|floatformat:0 }} DA{% else %}—{% endif %}
+                                {% if client.ca_estime %}{{ client.ca_estime|floatformat:0 }} KG/Étiqu.{% else %}—{% endif %}
                             </td>
                             <td class="px-5 py-4 text-right">
                                 <div class="flex justify-end gap-2">
@@ -254,7 +254,7 @@
                                     <span class="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/20">{{ opp.get_status_display }}</span>
                                 {% endif %}
                             </td>
-                            <td class="px-5 py-4 text-yellow-400 font-mono text-xs">{{ opp.valeur_estimee|floatformat:0 }} DA</td>
+                            <td class="px-5 py-4 text-yellow-400 font-mono text-xs">{{ opp.valeur_estimee|floatformat:0 }} KG/Étiqu.</td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-2">
                                     <div class="w-16 bg-slate-700 rounded-full h-1.5">

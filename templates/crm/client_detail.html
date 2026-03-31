@@ -45,7 +45,7 @@
             <div class="text-xl font-bold text-yellow-400 font-mono">
                 {% if client.ca_estime %}{{ client.ca_estime|floatformat:0 }}{% else %}—{% endif %}
             </div>
-            <div class="text-xs text-gray-400 mt-1">CA Estimé (DA)</div>
+            <div class="text-xs text-gray-400 mt-1">Volume Estimé (KG/Étiqu.)</div>
         </div>
     </div>
 
@@ -168,7 +168,7 @@
                                 {% else %}
                                     <span class="text-xs text-blue-400">{{ opp.get_status_display }}</span>
                                 {% endif %}
-                                <span class="text-xs text-yellow-400 font-mono">{{ opp.valeur_estimee|floatformat:0 }} DA</span>
+                                <span class="text-xs text-yellow-400 font-mono">{{ opp.valeur_estimee|floatformat:0 }} KG/Étiqu.</span>
                                 <span class="text-xs text-gray-500">{{ opp.probabilite }}%</span>
                             </div>
                         </div>
