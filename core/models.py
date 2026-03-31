@@ -44,7 +44,7 @@ class Client(models.Model):
     segment = models.CharField("Segment d'activité", max_length=20, choices=SEGMENT_CHOICES, default='FLEXO')
     size = models.CharField("Taille du client", max_length=10, choices=SIZE_CHOICES, blank=True)
     region = models.CharField("Région / Zone", max_length=10, choices=REGION_CHOICES, blank=True)
-    ca_estime = models.DecimalField("CA Estimé (DA)", max_digits=14, decimal_places=2, default=0)
+    ca_estime = models.DecimalField("Volume Estimé (KG/Étiquette)", max_digits=14, decimal_places=2, default=0)
 
     # Coordonnées
     sector = models.CharField("Secteur d'activité", max_length=100, blank=True)
@@ -173,7 +173,7 @@ class Opportunite(models.Model):
     titre = models.CharField("Titre de l'opportunité", max_length=200)
     description = models.TextField("Description", blank=True)
     status = models.CharField("Étape", max_length=20, choices=STAGE_CHOICES, default='PROSPECT')
-    valeur_estimee = models.DecimalField("Valeur Estimée (DA)", max_digits=14, decimal_places=2, default=0)
+    valeur_estimee = models.DecimalField("Volume Estimé (KG/Étiquette)", max_digits=14, decimal_places=2, default=0)
     probabilite = models.IntegerField("Probabilité de gain (%)", default=20)
     date_ouverture = models.DateField("Date d'ouverture", default=timezone.now)
     date_cloture_prevue = models.DateField("Date de clôture prévue", null=True, blank=True)

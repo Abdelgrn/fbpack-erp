@@ -287,7 +287,7 @@ def add_opportunite(request):
         if form.is_valid():
             opp = form.save()
             messages.success(request, f"Opportunité « {opp.titre} » créée.")
-            return redirect('opportunites_view')
+            return redirect('crm_view')
     else:
         # Pré-remplir le client si passé en GET
         initial = {}
@@ -306,7 +306,7 @@ def edit_opportunite(request, id):
         if form.is_valid():
             form.save()
             messages.success(request, "Opportunité mise à jour.")
-            return redirect('opportunites_view')
+            return redirect('crm_view')
     else:
         form = OpportuniteForm(instance=opp)
     return render(request, 'crm/opportunite_form.html', {'form': form, 'opp': opp, 'titre': f'Modifier : {opp.titre}'})
@@ -318,7 +318,7 @@ def delete_opportunite(request, id):
     if request.method == 'POST':
         opp.delete()
         messages.success(request, "Opportunité supprimée.")
-    return redirect('opportunites_view')
+    return redirect('crm_view')
 
 
 # ===========================================================================
@@ -338,7 +338,7 @@ def add_quote(request):
         if form.is_valid():
             quote = form.save()
             messages.success(request, f"Devis {quote.reference} créé.")
-            return redirect('quotes_view')
+            return redirect('crm_view')
     else:
         initial = {}
         client_id = request.GET.get('client_id')
@@ -356,7 +356,7 @@ def edit_quote(request, id):
         if form.is_valid():
             form.save()
             messages.success(request, "Devis mis à jour.")
-            return redirect('quotes_view')
+            return redirect('crm_view')
     else:
         form = QuoteForm(instance=quote)
     return render(request, 'crm/quote_form.html', {'form': form, 'titre': f'Modifier Devis {quote.reference}'})
@@ -370,7 +370,7 @@ def convert_quote_to_order(request, id):
         quote.commande_creee = True
         quote.save()
         messages.success(request, f"Devis {quote.reference} marqué comme converti en commande.")
-    return redirect('quotes_view')
+    return redirect('crm_view')
 
 
 # ===========================================================================

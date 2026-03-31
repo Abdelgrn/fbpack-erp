@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="mb-1">
+                <a href="{% url 'crm_view' %}" class="text-gray-500 hover:text-white text-sm transition">← Retour CRM</a>
+            </div>
+            <h1 class="text-3xl font-bold text-white">Opportunités</h1>
+            <p class="text-gray-400 mt-1">Pipeline de vente et suivi des opportunités.</p>
+        </div>
+        <a href="{% url 'add_opportunite' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded shadow-lg transition">
+            + Nouvelle Opportunité
+        </a>
+    </div>
+
+    <!-- Stats rapides -->
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+        {% for stage_code, stage_label in pipeline.items %}
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-3 text-center">
+            <div class="text-xs text-gray-400 mb-1 truncate">{{ pipeline|dictsort:stage_code }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-400">
+                <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-xs">
+                    <tr>
+                        <th class="px-5 py-4">Opportunité</th>
+                        <th class="px-5 py-4">Client</th>
+                        <th class="px-5 py-4">Étape</th>
+                        <th class="px-5 py-4">Valeur</th>
+                        <th class="px-5 py-4">Proba.</th>
+                        <th class="px-5 py-4">Clôture prévue</th>
+                        <th class="px-5 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for opp in opportunites %}
+                    <tr class="hover:bg-slate-700/50 transition">
+                        <td class="px-5 py-4">
+                            <div class="font-bold text-white">{{ opp.titre }}</div>
+                            {% if opp.commercial %}<div class="text-xs text-gray-500">{{ opp.commercial.get_full_name|default:opp.commercial.username }}</div>{% endif %}
+                        </td>
+                        <td class="px-5 py-4">
+                            <a href="{% url 'client_detail' opp.client.id %}" class="text-blue-400 hover:underline">{{ opp.client.name }}</a>
+                        </td>
+                        <td class="px-5 py-4">
+                            {% if opp.status == 'GAGNE' %}
+                                <span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs border border-green-500/20">{{ opp.get_status_display }}</span>
+                            {% elif opp.status == 'PERDU' %}
+                                <span class="bg-red-500/10 text-red-400 px-2 py-1 rounded text-xs border border-red-500/20">{{ opp.get_status_display }}</span>
+                            {% elif opp.status == 'NEGOCIATION' %}
+                                <span class="bg-orange-500/10 text-orange-400 px-2 py-1 rounded text-xs border border-orange-500/20">{{ opp.get_status_display }}</span>
+                            {% elif opp.status == 'PROPOSITION' %}
+                                <span class="bg-yellow-500/10 text-yellow-400 px-2 py-1 rounded text-xs border border-yellow-500/20">{{ opp.get_status_display }}</span>
+                            {% else %}
+                                <span class="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/20">{{ opp.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-yellow-400 font-mono text-xs">{{ opp.valeur_estimee|floatformat:0 }} KG/Étiqu.</td>
+                        <td class="px-5 py-4">
+                            <div class="flex items-center gap-2">
+                                <div class="w-16 bg-slate-700 rounded-full h-1.5">
+                                    <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ opp.probabilite }}%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400">{{ opp.probabilite }}%</span>
+                            </div>
+                        </td>
+                        <td class="px-5 py-4 text-gray-300 text-xs">{{ opp.date_cloture_prevue|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="px-5 py-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <a href="{% url 'edit_opportunite' opp.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Éditer</a>
+                                <form method="post" action="{% url 'delete_opportunite' opp.id %}" onsubmit="return confirm('Supprimer ?')" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-red-400 hover:text-red-300 text-xs">Suppr.</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                            Aucune opportunité. <a href="{% url 'add_opportunite' %}" class="text-blue-400 hover:underline">En créer une</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
