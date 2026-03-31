@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-3xl font-black text-white mb-2">🏭 Module Production</h1>
+<p class="text-gray-400 mb-6">Suivi de production, déchets et performance</p>
+
+{% include 'production_special/_nav.html' %}
+{% include 'production_special/_filters.html' %}
+
+<!-- KPIs PRINCIPAUX -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <!-- Total Prod ML -->
+    <div class="glass rounded-2xl p-6 border-2 border-green-500/30">
+        <p class="text-xs font-bold text-green-400 uppercase tracking-widest mb-2">TOTAL PROD (ML)</p>
+        <p class="text-4xl font-black text-green-400">{{ total_prod_ml|floatformat:1 }}</p>
+    </div>
+    <!-- Total Prod KG -->
+    <div class="glass rounded-2xl p-6 border-2 border-blue-500/30">
+        <p class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">TOTAL PROD (KG)</p>
+        <p class="text-4xl font-black text-blue-400">{{ total_prod_kg|floatformat:2 }}</p>
+    </div>
+    <!-- Total Déchets KG -->
+    <div class="glass rounded-2xl p-6 border-2 border-red-500/30">
+        <p class="text-xs font-bold text-red-400 uppercase tracking-widest mb-2">TOTAL DECHETS (KG)</p>
+        <p class="text-4xl font-black text-red-400">{{ total_dechets_kg|floatformat:2 }}</p>
+    </div>
+    <!-- Taux de Déchets -->
+    <div class="glass rounded-2xl p-6 border-2 border-yellow-500/30">
+        <p class="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-2">TAUX DE DECHETS (%)</p>
+        <p class="text-4xl font-black text-yellow-400">{{ taux_dechets }}%</p>
+    </div>
+</div>
+
+<!-- GRAPHIQUES LIGNE 1 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Prod ML par date -->
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-gray-300 mb-4">📊 Somme de Prod ML</h3>
+        <canvas id="chartProdML" height="200"></canvas>
+    </div>
+    <!-- Prod KG par date -->
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-gray-300 mb-4">📊 Somme de Prod KG</h3>
+        <canvas id="chartProdKG" height="200"></canvas>
+    </div>
+</div>
+
+<!-- GRAPHIQUES LIGNE 2 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Prod KG par Support (Pie) -->
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-gray-300 mb-4">🥧 Somme de Prod KG par Support</h3>
+        <canvas id="chartProdKGSupport" height="250"></canvas>
+    </div>
+    <!-- Taux de déchets par date (Line) -->
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-gray-300 mb-4">📈 Moyenne de Taux De Dechets</h3>
+        <canvas id="chartTauxDechets" height="250"></canvas>
+    </div>
+</div>
+
+<!-- GRAPHIQUE LIGNE 3 -->
+<div class="glass rounded-2xl p-6 mb-6">
+    <h3 class="text-sm font-bold text-gray-300 mb-4">📊 Somme de Déchet KG par Date (Empilé)</h3>
+    <canvas id="chartDechetsDate" height="150"></canvas>
+</div>
+
+<script>
+// Couleurs
+const COLORS = [
+    '#22c55e','#3b82f6','#ef4444','#f59e0b','#8b5cf6','#ec4899',
+    '#06b6d4','#84cc16','#f97316','#14b8a6','#a855f7','#e11d48'
+];
+
+// 1. Prod ML par date (Bar)
+new Chart(document.getElementById('chartProdML'), {
+    type: 'bar',
+    data: {
+        labels: {{ prod_ml_dates|safe }},
+        datasets: [{
+            label: 'Prod ML',
+            data: {{ prod_ml_values|safe }},
+            backgroundColor: '#22c55e',
+            borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#9ca3af', maxRotation: 45, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+    }
+});
+
+// 2. Prod KG par date (Bar)
+new Chart(document.getElementById('chartProdKG'), {
+    type: 'bar',
+    data: {
+        labels: {{ prod_kg_dates|safe }},
+        datasets: [{
+            label: 'Prod KG',
+            data: {{ prod_kg_values|safe }},
+            backgroundColor: '#3b82f6',
+            borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#9ca3af', maxRotation: 45, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+    }
+});
+
+// 3. Prod KG par Support (Pie)
+const pieLabels = {{ prod_kg_support_labels|safe }};
+const pieData = {{ prod_kg_support_values|safe }};
+new Chart(document.getElementById('chartProdKGSupport'), {
+    type: 'pie',
+    data: {
+        labels: pieLabels,
+        datasets: [{
+            data: pieData,
+            backgroundColor: COLORS.slice(0, pieLabels.length),
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'right', labels: { color: '#d1d5db', font: { size: 10 } } }
+        }
+    }
+});
+
+// 4. Taux de déchets par date (Line)
+new Chart(document.getElementById('chartTauxDechets'), {
+    type: 'line',
+    data: {
+        labels: {{ taux_dechets_dates|safe }},
+        datasets: [{
+            label: 'Taux Déchets %',
+            data: {{ taux_dechets_values|safe }},
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34,197,94,0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: '#22c55e',
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#9ca3af', maxRotation: 45, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            y: { ticks: { color: '#9ca3af', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+    }
+});
+
+// 5. Déchets KG par date (Stacked Bar Horizontal)
+new Chart(document.getElementById('chartDechetsDate'), {
+    type: 'bar',
+    data: {
+        labels: {{ dechets_dates|safe }},
+        datasets: [
+            { label: 'Démarrage', data: {{ dechets_dem_values|safe }}, backgroundColor: '#22c55e' },
+            { label: 'Lisière', data: {{ dechets_lis_values|safe }}, backgroundColor: '#3b82f6' },
+            { label: 'Jonction', data: {{ dechets_jon_values|safe }}, backgroundColor: '#ef4444' },
+            { label: 'Transport', data: {{ dechets_tra_values|safe }}, backgroundColor: '#f59e0b' },
+        ]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { labels: { color: '#d1d5db' } } },
+        scales: {
+            x: { stacked: true, ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+            y: { stacked: true, ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+    }
+});
+</script>
+{% endblock %}

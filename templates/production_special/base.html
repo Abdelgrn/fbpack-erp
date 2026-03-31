@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-3xl font-black text-white mb-2">🏭 Module Production</h1>
+<p class="text-gray-400 mb-6">Base de données complète</p>
+
+{% include 'production_special/_nav.html' %}
+{% include 'production_special/_filters.html' %}
+
+<!-- TABLEAU COMPLET -->
+<div class="glass rounded-2xl p-4 overflow-x-auto">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-gray-300">🗄️ Toutes les données ({{ entries|length }} entrées)</h2>
+        <a href="{% url 'prod_saisie' %}" class="bg-green-500 hover:bg-green-400 text-white font-bold px-4 py-2 rounded-lg text-sm transition">
+            ➕ Nouvelle Saisie
+        </a>
+    </div>
+    
+    <table class="w-full text-xs whitespace-nowrap">
+        <thead>
+            <tr class="text-yellow-400 border-b-2 border-yellow-500/30 bg-slate-800/50">
+                <th class="py-3 px-2 text-left">Date</th>
+                <th class="py-3 px-2 text-left">Produit</th>
+                <th class="py-3 px-2 text-left">Support</th>
+                <th class="py-3 px-2 text-right">Qté Lancée</th>
+                <th class="py-3 px-2 text-left">Lot</th>
+                <th class="py-3 px-2 text-right">Laize</th>
+                <th class="py-3 px-2 text-left">Client</th>
+                <th class="py-3 px-2 text-center">Éq.</th>
+                <th class="py-3 px-2 text-left">Machine</th>
+                <th class="py-3 px-2 text-center">H.Début</th>
+                <th class="py-3 px-2 text-center">H.Fin</th>
+                <th class="py-3 px-2 text-center">Tps Ouv.</th>
+                <th class="py-3 px-2 text-right">Prod ML</th>
+                <th class="py-3 px-2 text-right text-orange-400">Déch.Dém</th>
+                <th class="py-3 px-2 text-right text-orange-400">Déch.Lis</th>
+                <th class="py-3 px-2 text-right text-orange-400">Déch.Jon</th>
+                <th class="py-3 px-2 text-right text-orange-400">Déch.Tra</th>
+                <th class="py-3 px-2 text-right">Prod KG</th>
+                <th class="py-3 px-2 text-right">Rebob.KG</th>
+                <th class="py-3 px-2 text-right text-red-400">Déchet KG</th>
+                <th class="py-3 px-2 text-right text-red-400">Taux %</th>
+                <th class="py-3 px-2 text-right text-cyan-400">Décalage</th>
+                <th class="py-3 px-2 text-center">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in entries %}
+            <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 transition {% cycle 'bg-slate-800/20' '' %}">
+                <td class="py-2 px-2 text-gray-300">{{ e.date|date:"d/m/Y" }}</td>
+                <td class="py-2 px-2 text-white font-medium">{{ e.produit|truncatechars:20 }}</td>
+                <td class="py-2 px-2 text-gray-300">{{ e.support }}</td>
+                <td class="py-2 px-2 text-right text-gray-300">{{ e.quantite_lancee|floatformat:1 }}</td>
+                <td class="py-2 px-2 text-gray-400">{{ e.lot }}</td>
+                <td class="py-2 px-2 text-right text-gray-300">{{ e.laize|floatformat:0 }}</td>
+                <td class="py-2 px-2 text-gray-300">{{ e.client|default:"-" }}</td>
+                <td class="py-2 px-2 text-center">
+                    <span class="px-1.5 py-0.5 rounded text-xs font-bold
+                        {% if e.equipe == 'A' %}bg-blue-500/20 text-blue-400
+                        {% elif e.equipe == 'B' %}bg-green-500/20 text-green-400
+                        {% else %}bg-purple-500/20 text-purple-400{% endif %}">
+                        {{ e.equipe }}
+                    </span>
+                </td>
+                <td class="py-2 px-2 text-gray-300">{{ e.machine|default:"-" }}</td>
+                <td class="py-2 px-2 text-center text-gray-400">{{ e.heure_debut|time:"H:i"|default:"-" }}</td>
+                <td class="py-2 px-2 text-center text-gray-400">{{ e.heure_fin|time:"H:i"|default:"-" }}</td>
+                <td class="py-2 px-2 text-center text-cyan-400 font-medium">{{ e.temps_ouverture }}</td>
+                <td class="py-2 px-2 text-right text-gray-300">{{ e.prod_ml|floatformat:1 }}</td>
+                <td class="py-2 px-2 text-right text-orange-400">{{ e.dechets_demarrage|floatformat:2 }}</td>
+                <td class="py-2 px-2 text-right text-orange-400">{{ e.dechets_lisiere|floatformat:2 }}</td>
+                <td class="py-2 px-2 text-right text-orange-400">{{ e.dechets_jonction|floatformat:2 }}</td>
+                <td class="py-2 px-2 text-right text-orange-400">{{ e.dechets_transport|floatformat:2 }}</td>
+                <td class="py-2 px-2 text-right text-gray-300 font-medium">{{ e.prod_kg|floatformat:2 }}</td>
+                <td class="py-2 px-2 text-right text-gray-300">{{ e.rebobinage_kg|floatformat:2 }}</td>
+                <td class="py-2 px-2 text-right text-red-400 font-bold">{{ e.total_dechets_kg }}</td>
+                <td class="py-2 px-2 text-right font-bold
+                    {% if e.taux_dechets > 5 %}text-red-400
+                    {% elif e.taux_dechets > 3 %}text-yellow-400
+                    {% else %}text-green-400{% endif %}">
+                    {{ e.taux_dechets }}%
+                </td>
+                <td class="py-2 px-2 text-right font-bold
+                    {% if e.decalage < 0 %}text-red-400{% else %}text-green-400{% endif %}">
+                    {{ e.decalage }}
+                </td>
+                <td class="py-2 px-2 text-center">
+                    <div class="flex gap-1 justify-center">
+                        <a href="{% url 'prod_edit_entry' e.id %}" class="bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 px-2 py-1 rounded text-xs transition" title="Modifier">✏️</a>
+                        <a href="{% url 'prod_delete_entry' e.id %}" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 px-2 py-1 rounded text-xs transition" title="Supprimer">🗑️</a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="23" class="py-8 text-center text-gray-500">Aucune donnée</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

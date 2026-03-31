@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- EN-TÊTE DU MODULE -->
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-white tracking-wider">📦 Module Stocks & Achats</h1>
+    <p class="text-gray-400 text-sm mt-1">Gérez vos matières premières, vos consommations d'encre et votre annuaire fournisseurs.</p>
+</div>
+
+<!-- BARRE D'ONGLETS (TABS) -->
+<div class="flex border-b border-slate-700 mb-6">
+    <button onclick="showTab('materials')" id="tabBtn-materials" class="tab-btn px-6 py-3 text-sm font-bold border-b-2 border-yellow-500 text-yellow-500 transition">
+        📦 Matières Premières
+    </button>
+    <button onclick="showTab('consos')" id="tabBtn-consos" class="tab-btn px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">
+        🧪 Conso. Encres & Solvants
+    </button>
+    <button onclick="showTab('suppliers')" id="tabBtn-suppliers" class="tab-btn px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">
+        🏭 Fournisseurs
+    </button>
+</div>
+
+<!-- ========================================== -->
+<!-- ONGLET 1 : MATIÈRES PREMIÈRES -->
+<!-- ========================================== -->
+<div id="tab-materials" class="tab-content block">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-white">Liste des Matières</h2>
+        <a href="{% url 'add_material' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition">
+            + Nouvelle Matière
+        </a>
+    </div>
+    
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700">Désignation</th>
+                        <th class="p-4 border-b border-slate-700">Catégorie</th>
+                        <th class="p-4 border-b border-slate-700">Stock Réel</th>
+                        <th class="p-4 border-b border-slate-700">Seuil d'alerte</th>
+                        <th class="p-4 border-b border-slate-700">Fournisseur</th>
+                        <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for m in materials %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-4 font-bold text-neon">{{ m.name }}</td>
+                        <td class="p-4 text-gray-400">{{ m.get_category_display }}</td>
+                        <td class="p-4 font-bold {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
+                            {{ m.quantity }} {{ m.unit }}
+                            {% if m.is_low_stock %}
+                                <span class="ml-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">⚠️ ALERTE</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-gray-400">{{ m.min_threshold }} {{ m.unit }}</td>
+                        <td class="p-4">{{ m.supplier.name|default:"-" }}</td>
+                        <td class="p-4 text-right">
+                            <button class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">Éditer</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="p-8 text-center text-gray-500 italic">Aucune matière enregistrée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ONGLET 2 : CONSOMMATIONS (LE GRAND TABLEAU) -->
+<!-- ========================================== -->
+<div id="tab-consos" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-white">Historique des Consommations</h2>
+        <a href="{% url 'add_consommation' %}" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition">
+            + Saisir Conso
+        </a>
+    </div>
+    
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse whitespace-nowrap">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-3 border-b border-slate-700">Nom du Job</th>
+                        <th class="p-3 border-b border-slate-700">Date</th>
+                        <th class="p-3 border-b border-slate-700">Process</th>
+                        <th class="p-3 border-b border-slate-700">Total Encre</th>
+                        <th class="p-3 border-b border-slate-700">Total Solv.</th>
+                        <th class="p-3 border-b border-slate-700">Gain Masse</th>
+                        <th class="p-3 border-b border-slate-700">Évaporation</th>
+                        <th class="p-3 border-b border-slate-700">Grammage</th>
+                        <th class="p-3 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for c in consos %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-3 font-bold text-neon">{{ c.job_name }}</td>
+                        <td class="p-3 text-gray-400">{{ c.date|date:"d/m/Y" }}</td>
+                        <td class="p-3">{{ c.get_process_type_display }}</td>
+                        <td class="p-3 text-emerald-400 font-bold">{{ c.total_encre }} kg</td>
+                        <td class="p-3 text-blue-400 font-bold">{{ c.total_solvant }} kg</td>
+                        <td class="p-3">{{ c.gain_de_masse_kg }} kg <span class="text-xs text-gray-400">({{ c.gain_de_masse_percent }}%)</span></td>
+                        <td class="p-3">{{ c.matiere_evaporee_kg }} kg <span class="text-xs text-gray-400">({{ c.matiere_evaporee_percent }}%)</span></td>
+                        <td class="p-3 font-bold text-yellow-500">{{ c.grammage }} g/m²</td>
+                        <td class="p-3 text-right">
+                            <button class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">Détails</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9" class="p-8 text-center text-gray-500 italic">Aucune consommation enregistrée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ONGLET 3 : FOURNISSEURS -->
+<!-- ========================================== -->
+<div id="tab-suppliers" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-white">Annuaire des Fournisseurs</h2>
+        <a href="{% url 'add_supplier' %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition">
+            + Nouveau Fournisseur
+        </a>
+    </div>
+    
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700">Nom du fournisseur</th>
+                        <th class="p-4 border-b border-slate-700">Email Contact</th>
+                        <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for s in suppliers %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-4 font-bold flex items-center gap-3">
+                            <div class="h-8 w-8 rounded bg-slate-700 flex items-center justify-center text-lg">🏭</div>
+                            <span class="text-neon">{{ s.name }}</span>
+                        </td>
+                        <td class="p-4 text-gray-400">{{ s.email }}</td>
+                        <td class="p-4 text-right">
+                            <button class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">Éditer</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="p-8 text-center text-gray-500 italic">Aucun fournisseur enregistré.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPT POUR GÉRER LES ONGLETS SANS RECHARGER LA PAGE -->
+<script>
+    function showTab(tabName) {
+        // 1. Cacher tous les contenus
+        document.querySelectorAll('.tab-content').forEach(el => {
+            el.classList.add('hidden');
+            el.classList.remove('block');
+        });
+        
+        // 2. Enlever le style "actif" de tous les boutons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('border-yellow-500', 'text-yellow-500');
+            btn.classList.add('border-transparent', 'text-gray-400');
+        });
+        
+        // 3. Afficher le contenu ciblé
+        document.getElementById('tab-' + tabName).classList.remove('hidden');
+        document.getElementById('tab-' + tabName).classList.add('block');
+        
+        // 4. Mettre en surbrillance le bouton cliqué
+        const activeBtn = document.getElementById('tabBtn-' + tabName);
+        activeBtn.classList.remove('border-transparent', 'text-gray-400');
+        activeBtn.classList.add('border-yellow-500', 'text-yellow-500');
+    }
+</script>
+{% endblock %}

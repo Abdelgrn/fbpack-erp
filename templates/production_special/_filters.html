@@ -1,0 +1,48 @@
+<!-- Filtres Production -->
+<form method="GET" class="glass rounded-2xl p-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Date Début</label>
+            <input type="date" name="date_from" value="{{ selected_date_from }}" 
+                   class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Date Fin</label>
+            <input type="date" name="date_to" value="{{ selected_date_to }}" 
+                   class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Machine</label>
+            <select name="machine" class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                <option value="">-- Toutes --</option>
+                {% for m in all_machines %}
+                <option value="{{ m.id }}" {% if selected_machine == m.id|stringformat:"d" %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Support</label>
+            <select name="support" class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                <option value="">-- Tous --</option>
+                {% for s in all_supports %}
+                <option value="{{ s }}" {% if selected_support == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Équipe</label>
+            <select name="equipe" class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                <option value="">-- Toutes --</option>
+                <option value="A" {% if selected_equipe == 'A' %}selected{% endif %}>A</option>
+                <option value="B" {% if selected_equipe == 'B' %}selected{% endif %}>B</option>
+                <option value="C" {% if selected_equipe == 'C' %}selected{% endif %}>C</option>
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold px-4 py-2 rounded text-sm transition">
+                🔍 Filtrer
+            </button>
+            <a href="{{ request.path }}" class="bg-slate-600 hover:bg-slate-500 text-white px-3 py-2 rounded text-sm transition">✕</a>
+        </div>
+    </div>
+</form>

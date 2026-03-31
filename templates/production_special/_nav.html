@@ -1,0 +1,48 @@
+<!-- Navigation interne du module Production Spécial -->
+<div class="flex flex-wrap gap-3 mb-8">
+    <a href="{% url 'prod_dashboard' %}" 
+       class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg
+              {% if request.resolver_match.url_name == 'prod_dashboard' %}
+                  bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900
+              {% else %}
+                  bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600
+              {% endif %}">
+        📊 Tableau De Bord
+    </a>
+    <a href="{% url 'prod_saisie' %}" 
+       class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg
+              {% if request.resolver_match.url_name == 'prod_saisie' or request.resolver_match.url_name == 'prod_edit_entry' %}
+                  bg-gradient-to-r from-green-500 to-emerald-500 text-slate-900
+              {% else %}
+                  bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600
+              {% endif %}">
+        ✏️ Saisie
+    </a>
+    <a href="{% url 'prod_base' %}" 
+       class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg
+              {% if request.resolver_match.url_name == 'prod_base' %}
+                  bg-gradient-to-r from-blue-500 to-cyan-500 text-slate-900
+              {% else %}
+                  bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600
+              {% endif %}">
+        🗄️ Base
+    </a>
+    <a href="{% url 'prod_detail_qualite' %}" 
+       class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg
+              {% if request.resolver_match.url_name == 'prod_detail_qualite' %}
+                  bg-gradient-to-r from-red-500 to-pink-500 text-white
+              {% else %}
+                  bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600
+              {% endif %}">
+        🔍 Détail Qualité
+    </a>
+    <a href="{% url 'prod_synthese_temps' %}" 
+       class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg
+              {% if request.resolver_match.url_name == 'prod_synthese_temps' %}
+                  bg-gradient-to-r from-purple-500 to-violet-500 text-white
+              {% else %}
+                  bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600
+              {% endif %}">
+        ⏱️ Synthèse des Temps
+    </a>
+</div>
