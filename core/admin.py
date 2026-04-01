@@ -8,6 +8,8 @@ from .models import (
     ProductionOrder, ConsumptionLog, PurchaseOrder,
     Quote, ConsommationEncre, ProductionEntry
 )
+from .models import ProductionEntry
+
 
 
 # ===========================================================================

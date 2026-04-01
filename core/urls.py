@@ -90,7 +90,41 @@ urlpatterns = [
     path('prod/qualite/', views.prod_detail_qualite, name='prod_detail_qualite'),
     path('prod/synthese/', views.prod_synthese_temps, name='prod_synthese_temps'),
     path('import/template-special-prod/', views.download_template_special_prod, name='download_template_special_prod'),
-]
 
+# ==========================================
+    # MODULE STOCK AVANCÉ
+    # ==========================================
+    path('stock/', views.stock_advanced_view, name='stock_advanced'),
+
+    # Emplacements
+    path('stock/location/add/', views.location_add, name='location_add'),
+    path('stock/location/<int:id>/delete/', views.location_delete, name='location_delete'),
+
+    # Lots
+    path('stock/lot/add/', views.lot_add, name='lot_add'),
+    path('stock/lot/<int:id>/', views.lot_detail, name='lot_detail'),
+    path('stock/lot/<int:id>/valider/', views.lot_valider, name='lot_valider'),
+    path('stock/lot/<int:id>/bloquer/', views.lot_bloquer, name='lot_bloquer'),
+
+    # Mouvements
+    path('stock/mouvement/add/', views.mouvement_add, name='mouvement_add'),
+
+    # Demandes d'achat
+    path('stock/da/add/', views.da_add, name='da_add'),
+    path('stock/da/<int:id>/valider/', views.da_valider, name='da_valider'),
+    path('stock/da/<int:id>/refuser/', views.da_refuser, name='da_refuser'),
+
+    # Bons de commande
+    path('stock/bc/add/', views.bc_add, name='bc_add'),
+    path('stock/bc/<int:id>/envoyer/', views.bc_envoyer, name='bc_envoyer'),
+    path('stock/bc/<int:id>/reception/', views.bc_reception, name='bc_reception'),
+
+    # Seuils intelligents
+    path('stock/seuil/<int:material_id>/update/', views.seuil_update, name='seuil_update'),
+
+    # API Dashboard
+    path('stock/api/dashboard/', views.stock_dashboard_data, name='stock_dashboard_data'),
+]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+  

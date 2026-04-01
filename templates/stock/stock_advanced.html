@@ -1,0 +1,1110 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- ============================================================ -->
+<!-- EN-TÊTE MODULE STOCK AVANCÉ -->
+<!-- ============================================================ -->
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white tracking-wider">📦 Module Stocks & Achats <span class="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 px-2 py-1 rounded ml-2">v2.0 Pro</span></h1>
+            <p class="text-gray-400 text-sm mt-1">Gestion complète : lots, emplacements, mouvements, achats et prévisions intelligentes.</p>
+        </div>
+        <!-- KPI RAPIDES -->
+        <div class="flex flex-wrap gap-3">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-white">{{ total_matieres }}</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">Matières</div>
+            </div>
+            <div class="bg-red-900/30 border border-red-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-red-400">{{ nb_alertes }}</div>
+                <div class="text-[10px] text-red-400 uppercase tracking-wider">Alertes</div>
+            </div>
+            <div class="bg-orange-900/30 border border-orange-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-orange-400">{{ lots_bloques }}</div>
+                <div class="text-[10px] text-orange-400 uppercase tracking-wider">Lots bloqués</div>
+            </div>
+            <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-yellow-400">{{ lots_attente }}</div>
+                <div class="text-[10px] text-yellow-400 uppercase tracking-wider">En contrôle</div>
+            </div>
+            <div class="bg-blue-900/30 border border-blue-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-blue-400">{{ da_en_attente }}</div>
+                <div class="text-[10px] text-blue-400 uppercase tracking-wider">DA actives</div>
+            </div>
+            <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-emerald-400">{{ valeur_stock_total|floatformat:0 }}</div>
+                <div class="text-[10px] text-emerald-400 uppercase tracking-wider">DA Valeur</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BARRE D'ALERTES -->
+{% if alertes_stock %}
+<div class="bg-red-900/20 border border-red-500/30 rounded-xl p-4 mb-6">
+    <div class="flex items-center gap-3 mb-2">
+        <span class="text-red-400 text-lg">⚠️</span>
+        <span class="text-red-400 font-bold text-sm">{{ nb_alertes }} matière(s) en rupture ou sous le seuil d'alerte</span>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        {% for m in alertes_stock %}
+        <span class="bg-red-500/20 text-red-300 border border-red-500/30 text-xs px-3 py-1 rounded-full">
+            {{ m.name }} — {{ m.quantity }} {{ m.unit }}
+        </span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- PRÉVISIONS DE RUPTURE -->
+{% if previsions %}
+<div class="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4 mb-6">
+    <div class="flex items-center gap-3 mb-3">
+        <span class="text-orange-400 text-lg">🔮</span>
+        <span class="text-orange-400 font-bold text-sm">Prévisions de rupture (seuils intelligents)</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for p in previsions %}
+        <div class="bg-slate-800/80 border {% if p.critique %}border-red-500/50{% else %}border-orange-500/30{% endif %} rounded-lg p-3">
+            <div class="font-bold text-white text-sm truncate">{{ p.material }}</div>
+            <div class="text-xs text-gray-400 mt-1">Stock : <span class="text-white font-bold">{{ p.stock_actuel|floatformat:1 }} kg</span></div>
+            <div class="text-xs text-gray-400">Conso/j : {{ p.conso_jour|floatformat:1 }} kg</div>
+            <div class="mt-2 flex items-center justify-between">
+                <span class="text-[10px] {% if p.critique %}bg-red-500/20 text-red-400 border-red-500/30{% else %}bg-orange-500/20 text-orange-400 border-orange-500/30{% endif %} border px-2 py-1 rounded">
+                    {{ p.jours_restants|floatformat:0 }} jours
+                </span>
+                <span class="text-[10px] text-gray-500">Rupture : {{ p.date_rupture }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- ONGLETS PRINCIPAUX -->
+<!-- ============================================================ -->
+<div class="flex flex-wrap border-b border-slate-700 mb-6 gap-0" id="mainTabs">
+    <button onclick="showTab('matieres')" id="tabBtn-matieres" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-yellow-500 text-yellow-500 transition whitespace-nowrap">
+        📦 Matières
+    </button>
+    <button onclick="showTab('lots')" id="tabBtn-lots" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        🏷️ Lots & Traçabilité
+    </button>
+    <button onclick="showTab('mouvements')" id="tabBtn-mouvements" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        🔄 Journal Mouvements
+    </button>
+    <button onclick="showTab('emplacements')" id="tabBtn-emplacements" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        🏭 Emplacements
+    </button>
+    <button onclick="showTab('achats')" id="tabBtn-achats" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        🛒 Achats & DA
+    </button>
+    <button onclick="showTab('consos')" id="tabBtn-consos" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        🧪 Conso. Encres
+    </button>
+    <button onclick="showTab('fournisseurs')" id="tabBtn-fournisseurs" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        🏢 Fournisseurs
+    </button>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- ONGLET 1 : MATIÈRES PREMIÈRES -->
+<!-- ============================================================ -->
+<div id="tab-matieres" class="tab-content block">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <h2 class="text-xl font-bold text-white">Matières Premières</h2>
+        <div class="flex gap-2">
+            <a href="{% url 'add_material' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">+ Nouvelle Matière</a>
+        </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700">Désignation</th>
+                        <th class="p-4 border-b border-slate-700">Catégorie</th>
+                        <th class="p-4 border-b border-slate-700">Stock Réel</th>
+                        <th class="p-4 border-b border-slate-700">Seuil Alerte</th>
+                        <th class="p-4 border-b border-slate-700">Seuil Intelligent</th>
+                        <th class="p-4 border-b border-slate-700">Lots actifs</th>
+                        <th class="p-4 border-b border-slate-700">Fournisseur</th>
+                        <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for m in materials %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-4 font-bold text-cyan-400">{{ m.name }}</td>
+                        <td class="p-4 text-gray-400">{{ m.get_category_display }}</td>
+                        <td class="p-4 font-bold {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
+                            {{ m.quantity }} {{ m.unit }}
+                            {% if m.is_low_stock %}
+                            <span class="ml-1 text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30">ALERTE</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-gray-400">{{ m.min_threshold }} {{ m.unit }}</td>
+                        <td class="p-4">
+                            {% with seuil=m.seuil_intelligent %}
+                            {% if seuil %}
+                            <div class="text-yellow-400 text-xs font-bold">{{ seuil.seuil_calcule }} kg</div>
+                            <div class="text-gray-500 text-[10px]">≈ {{ seuil.jours_de_stock|floatformat:0 }}j de stock</div>
+                            {% else %}
+                            <button onclick="openSeuilModal({{ m.id }}, '{{ m.name|escapejs }}')"
+                                class="text-[10px] text-blue-400 border border-blue-400/30 px-2 py-1 rounded hover:bg-blue-400/10 transition">
+                                + Configurer
+                            </button>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="p-4">
+                            <span class="text-white font-bold">{{ m.lots.count }}</span>
+                            <span class="text-gray-500 text-xs ml-1">lots</span>
+                        </td>
+                        <td class="p-4 text-gray-400">{{ m.supplier.name|default:"—" }}</td>
+                        <td class="p-4 text-right">
+                            <a href="{% url 'add_material' %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">Éditer</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="p-8 text-center text-gray-500 italic">Aucune matière enregistrée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- ONGLET 2 : LOTS & TRAÇABILITÉ -->
+<!-- ============================================================ -->
+<div id="tab-lots" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <h2 class="text-xl font-bold text-white">Gestion des Lots</h2>
+        <button onclick="document.getElementById('modalLot').classList.remove('hidden')"
+            class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+            + Nouveau Lot
+        </button>
+    </div>
+
+    <!-- Filtres rapides par statut -->
+    <div class="flex flex-wrap gap-2 mb-4">
+        <button onclick="filterLots('ALL')" class="lot-filter-btn bg-slate-700 text-white text-xs px-3 py-1.5 rounded-full border border-slate-600 active">Tous</button>
+        <button onclick="filterLots('CONFORME')" class="lot-filter-btn bg-emerald-500/10 text-emerald-400 text-xs px-3 py-1.5 rounded-full border border-emerald-500/30">✓ Conformes</button>
+        <button onclick="filterLots('EN_ATTENTE')" class="lot-filter-btn bg-yellow-500/10 text-yellow-400 text-xs px-3 py-1.5 rounded-full border border-yellow-500/30">⏳ En attente</button>
+        <button onclick="filterLots('BLOQUE')" class="lot-filter-btn bg-red-500/10 text-red-400 text-xs px-3 py-1.5 rounded-full border border-red-500/30">✗ Bloqués</button>
+        <button onclick="filterLots('QUARANTAINE')" class="lot-filter-btn bg-purple-500/10 text-purple-400 text-xs px-3 py-1.5 rounded-full border border-purple-500/30">🔒 Quarantaine</button>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse" id="lotsTable">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-3 border-b border-slate-700">N° Lot</th>
+                        <th class="p-3 border-b border-slate-700">Matière</th>
+                        <th class="p-3 border-b border-slate-700">Date Récep.</th>
+                        <th class="p-3 border-b border-slate-700">Fournisseur</th>
+                        <th class="p-3 border-b border-slate-700">Emplacement</th>
+                        <th class="p-3 border-b border-slate-700">Qté initiale</th>
+                        <th class="p-3 border-b border-slate-700">Qté restante</th>
+                        <th class="p-3 border-b border-slate-700">Consommé</th>
+                        <th class="p-3 border-b border-slate-700">Statut</th>
+                        <th class="p-3 border-b border-slate-700">Certif.</th>
+                        <th class="p-3 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for lot in lots %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50 lot-row" data-statut="{{ lot.statut }}">
+                        <td class="p-3 font-bold text-cyan-400">{{ lot.numero_lot }}</td>
+                        <td class="p-3 text-white">{{ lot.material.name }}</td>
+                        <td class="p-3 text-gray-400">{{ lot.date_reception|date:"d/m/Y" }}</td>
+                        <td class="p-3 text-gray-400">{{ lot.fournisseur.name|default:"—" }}</td>
+                        <td class="p-3 text-gray-400">{{ lot.emplacement|default:"—" }}</td>
+                        <td class="p-3 text-gray-300">{{ lot.quantite_initiale }} kg</td>
+                        <td class="p-3 font-bold {% if lot.quantite_restante < lot.quantite_initiale|divisibleby:4 %}text-red-400{% else %}text-emerald-400{% endif %}">
+                            {{ lot.quantite_restante }} kg
+                        </td>
+                        <td class="p-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-16 bg-slate-700 rounded-full h-1.5">
+                                    <div class="bg-yellow-500 h-1.5 rounded-full" style="width: {{ lot.taux_consommation }}%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400">{{ lot.taux_consommation }}%</span>
+                            </div>
+                        </td>
+                        <td class="p-3">
+                            {% if lot.statut == 'CONFORME' %}
+                            <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Conforme</span>
+                            {% elif lot.statut == 'BLOQUE' %}
+                            <span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Bloqué</span>
+                            {% elif lot.statut == 'EN_ATTENTE' %}
+                            <span class="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded border border-yellow-500/30">⏳ Contrôle</span>
+                            {% elif lot.statut == 'QUARANTAINE' %}
+                            <span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">🔒 Quarant.</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3">
+                            {% if lot.certificat_qualite %}
+                            <a href="{{ lot.certificat_qualite.url }}" target="_blank"
+                               class="text-[10px] text-blue-400 border border-blue-400/30 px-2 py-1 rounded hover:bg-blue-400/10">📄 PDF</a>
+                            {% else %}
+                            <span class="text-gray-600 text-[10px]">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3 text-right">
+                            <div class="flex justify-end gap-1">
+                                <a href="{% url 'lot_detail' lot.id %}" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-white py-1 px-2 rounded border border-slate-500 transition">👁 Détail</a>
+                                {% if lot.statut == 'EN_ATTENTE' %}
+                                <form method="post" action="{% url 'lot_valider' lot.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white py-1 px-2 rounded transition">✓ Valider</button>
+                                </form>
+                                <form method="post" action="{% url 'lot_bloquer' lot.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-[10px] bg-red-600 hover:bg-red-500 text-white py-1 px-2 rounded transition">✗ Bloquer</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="11" class="p-8 text-center text-gray-500 italic">Aucun lot enregistré. Commencez par réceptionner une commande fournisseur.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- ONGLET 3 : JOURNAL DES MOUVEMENTS -->
+<!-- ============================================================ -->
+<div id="tab-mouvements" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <h2 class="text-xl font-bold text-white">Journal des Mouvements de Stock</h2>
+        <button onclick="document.getElementById('modalMouvement').classList.remove('hidden')"
+            class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+            + Saisir Mouvement
+        </button>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-3 border-b border-slate-700">Date</th>
+                        <th class="p-3 border-b border-slate-700">Type</th>
+                        <th class="p-3 border-b border-slate-700">Matière</th>
+                        <th class="p-3 border-b border-slate-700">Lot</th>
+                        <th class="p-3 border-b border-slate-700">Quantité</th>
+                        <th class="p-3 border-b border-slate-700">Source → Destination</th>
+                        <th class="p-3 border-b border-slate-700">Machine / OF</th>
+                        <th class="p-3 border-b border-slate-700">Utilisateur</th>
+                        <th class="p-3 border-b border-slate-700">Motif</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for mv in mouvements %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-3 text-gray-400 whitespace-nowrap">{{ mv.date|date:"d/m/Y H:i" }}</td>
+                        <td class="p-3">
+                            {% if mv.type == 'ENTREE' %}
+                            <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">⬆ Entrée</span>
+                            {% elif mv.type == 'SORTIE' %}
+                            <span class="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">⬇ Sortie</span>
+                            {% elif mv.type == 'TRANSFERT' %}
+                            <span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">↔ Transfert</span>
+                            {% elif mv.type == 'AJUSTEMENT' %}
+                            <span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">⚙ Ajust.</span>
+                            {% elif mv.type == 'PERTE' %}
+                            <span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Perte</span>
+                            {% else %}
+                            <span class="text-[10px] bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ mv.get_type_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3 font-bold text-cyan-400">{{ mv.material.name }}</td>
+                        <td class="p-3 text-xs text-gray-400">{{ mv.lot.numero_lot|default:"—" }}</td>
+                        <td class="p-3 font-bold {% if mv.type == 'ENTREE' %}text-emerald-400{% else %}text-red-400{% endif %}">
+                            {% if mv.type == 'ENTREE' %}+{% else %}-{% endif %}{{ mv.quantite }} kg
+                        </td>
+                        <td class="p-3 text-xs text-gray-400">
+                            {{ mv.emplacement_source|default:"—" }} → {{ mv.emplacement_destination|default:"—" }}
+                        </td>
+                        <td class="p-3 text-xs text-gray-400">
+                            {% if mv.machine %}{{ mv.machine.name }}{% endif %}
+                            {% if mv.of %}/ OF {{ mv.of.of_number }}{% endif %}
+                            {% if not mv.machine and not mv.of %}—{% endif %}
+                        </td>
+                        <td class="p-3 text-xs text-gray-400">{{ mv.utilisateur.username|default:"—" }}</td>
+                        <td class="p-3 text-xs text-gray-500 max-w-[200px] truncate">{{ mv.motif|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9" class="p-8 text-center text-gray-500 italic">Aucun mouvement enregistré. Le journal se remplit automatiquement lors des réceptions et validations de lots.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- ONGLET 4 : EMPLACEMENTS -->
+<!-- ============================================================ -->
+<div id="tab-emplacements" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <h2 class="text-xl font-bold text-white">Emplacements de Stockage</h2>
+        <button onclick="document.getElementById('modalLocation').classList.remove('hidden')"
+            class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+            + Nouvel Emplacement
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+        {% for loc in locations %}
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 hover:border-slate-500 transition">
+            <div class="flex items-start justify-between">
+                <div class="text-2xl mb-2">
+                    {% if loc.type == 'GENERAL' %}🏢
+                    {% elif loc.type == 'TAMPON' %}📦
+                    {% elif loc.type == 'PRODUCTION' %}⚙️
+                    {% elif loc.type == 'DECHET' %}🗑️
+                    {% elif loc.type == 'QUARANTAINE' %}🔒
+                    {% else %}📍{% endif %}
+                </div>
+                <form method="post" action="{% url 'location_delete' loc.id %}">
+                    {% csrf_token %}
+                    <button type="submit" onclick="return confirm('Supprimer cet emplacement ?')"
+                        class="text-gray-600 hover:text-red-400 text-xs transition">✕</button>
+                </form>
+            </div>
+            <div class="font-bold text-white text-sm">{{ loc.name }}</div>
+            <div class="text-xs text-gray-400 mt-1">{{ loc.get_type_display }}</div>
+            {% if loc.description %}
+            <div class="text-xs text-gray-500 mt-2">{{ loc.description }}</div>
+            {% endif %}
+            <!-- Lots dans cet emplacement -->
+            {% with nb_lots=loc.stocklot_set.count %}
+            {% if nb_lots > 0 %}
+            <div class="mt-3 text-xs bg-slate-700/50 rounded px-2 py-1 text-gray-300">
+                <span class="font-bold text-yellow-400">{{ nb_lots }}</span> lot(s) stocké(s)
+            </div>
+            {% endif %}
+            {% endwith %}
+        </div>
+        {% empty %}
+        <div class="col-span-4 p-8 text-center text-gray-500 italic bg-slate-800 border border-slate-700 rounded-xl">
+            Aucun emplacement configuré.<br>
+            <span class="text-xs">Exemples : Magasin Central, Stock Tampon Ligne 1, Zone Production Flexo…</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Types d'emplacements expliqués -->
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+        <h3 class="text-sm font-bold text-gray-300 mb-3">Guide des types d'emplacements</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+            <div class="flex gap-2"><span>🏢</span><div><div class="text-white font-bold">Magasin Général</div><div class="text-gray-400">Stock principal, entrées fournisseurs</div></div></div>
+            <div class="flex gap-2"><span>📦</span><div><div class="text-white font-bold">Stock Tampon</div><div class="text-gray-400">Zone intermédiaire entre magasin et production</div></div></div>
+            <div class="flex gap-2"><span>⚙️</span><div><div class="text-white font-bold">Zone Production</div><div class="text-gray-400">Matières directement sur la ligne de prod.</div></div></div>
+            <div class="flex gap-2"><span>🗑️</span><div><div class="text-white font-bold">Zone Déchets</div><div class="text-gray-400">Rebuts, chutes, pertes mesurées</div></div></div>
+            <div class="flex gap-2"><span>🔒</span><div><div class="text-white font-bold">Quarantaine</div><div class="text-gray-400">Lots en attente ou non-conformes</div></div></div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- ONGLET 5 : ACHATS & DA -->
+<!-- ============================================================ -->
+<div id="tab-achats" class="tab-content hidden">
+
+    <!-- Sous-onglets Achats -->
+    <div class="flex gap-0 mb-5 border-b border-slate-700">
+        <button onclick="showSubTab('da')" id="subTabBtn-da" class="sub-tab-btn px-4 py-2 text-sm font-bold border-b-2 border-blue-400 text-blue-400 transition">
+            📋 Demandes d'Achat
+        </button>
+        <button onclick="showSubTab('bc')" id="subTabBtn-bc" class="sub-tab-btn px-4 py-2 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">
+            📄 Bons de Commande
+        </button>
+    </div>
+
+    <!-- Sous-onglet DA -->
+    <div id="subtab-da" class="subtab-content block">
+        <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+            <h2 class="text-xl font-bold text-white">Demandes d'Achat</h2>
+            <button onclick="document.getElementById('modalDA').classList.remove('hidden')"
+                class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+                + Nouvelle Demande
+            </button>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                            <th class="p-3 border-b border-slate-700">Référence</th>
+                            <th class="p-3 border-b border-slate-700">Matière</th>
+                            <th class="p-3 border-b border-slate-700">Qté demandée</th>
+                            <th class="p-3 border-b border-slate-700">Urgence</th>
+                            <th class="p-3 border-b border-slate-700">Demandeur</th>
+                            <th class="p-3 border-b border-slate-700">Date</th>
+                            <th class="p-3 border-b border-slate-700">Besoin le</th>
+                            <th class="p-3 border-b border-slate-700">Statut</th>
+                            <th class="p-3 border-b border-slate-700 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-200 text-sm">
+                        {% for da in demandes %}
+                        <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                            <td class="p-3 font-bold text-cyan-400">{{ da.reference }}</td>
+                            <td class="p-3 text-white">{{ da.material.name }}</td>
+                            <td class="p-3 font-bold text-yellow-400">{{ da.quantite_demandee }} kg</td>
+                            <td class="p-3">
+                                {% if da.urgence == 'CRITIQUE' %}
+                                <span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30 animate-pulse">!! Critique</span>
+                                {% elif da.urgence == 'URGENTE' %}
+                                <span class="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">! Urgente</span>
+                                {% else %}
+                                <span class="text-[10px] bg-slate-600 text-gray-400 px-2 py-1 rounded">Normale</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 text-gray-400">{{ da.demandeur.username|default:"—" }}</td>
+                            <td class="p-3 text-gray-400">{{ da.date_creation|date:"d/m/Y" }}</td>
+                            <td class="p-3 text-gray-400">{{ da.date_besoin|date:"d/m/Y"|default:"—" }}</td>
+                            <td class="p-3">
+                                {% if da.statut == 'BROUILLON' %}<span class="text-[10px] bg-slate-600 text-gray-300 px-2 py-1 rounded">Brouillon</span>
+                                {% elif da.statut == 'SOUMISE' %}<span class="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded border border-yellow-500/30">En attente</span>
+                                {% elif da.statut == 'VALIDEE' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Validée</span>
+                                {% elif da.statut == 'REFUSEE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Refusée</span>
+                                {% elif da.statut == 'COMMANDEE' %}<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">BC émis</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 text-right">
+                                {% if da.statut == 'SOUMISE' %}
+                                <div class="flex justify-end gap-1">
+                                    <form method="post" action="{% url 'da_valider' da.id %}" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white py-1 px-2 rounded transition">✓ Valider</button>
+                                    </form>
+                                    <form method="post" action="{% url 'da_refuser' da.id %}" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-[10px] bg-red-600 hover:bg-red-500 text-white py-1 px-2 rounded transition">✗ Refuser</button>
+                                    </form>
+                                </div>
+                                {% else %}
+                                <span class="text-gray-600 text-xs">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="9" class="p-8 text-center text-gray-500 italic">Aucune demande d'achat.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sous-onglet BC -->
+    <div id="subtab-bc" class="subtab-content hidden">
+        <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+            <h2 class="text-xl font-bold text-white">Bons de Commande</h2>
+            <button onclick="document.getElementById('modalBC').classList.remove('hidden')"
+                class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+                + Nouveau BC
+            </button>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                            <th class="p-3 border-b border-slate-700">Référence</th>
+                            <th class="p-3 border-b border-slate-700">Fournisseur</th>
+                            <th class="p-3 border-b border-slate-700">Date Cde</th>
+                            <th class="p-3 border-b border-slate-700">Livraison prévue</th>
+                            <th class="p-3 border-b border-slate-700">Nb lignes</th>
+                            <th class="p-3 border-b border-slate-700">Montant</th>
+                            <th class="p-3 border-b border-slate-700">Statut</th>
+                            <th class="p-3 border-b border-slate-700 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-200 text-sm">
+                        {% for bc in bons_commande %}
+                        <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                            <td class="p-3 font-bold text-cyan-400">{{ bc.reference }}</td>
+                            <td class="p-3 text-white">{{ bc.fournisseur.name }}</td>
+                            <td class="p-3 text-gray-400">{{ bc.date_commande|date:"d/m/Y" }}</td>
+                            <td class="p-3 text-gray-400">{{ bc.date_livraison_prevue|date:"d/m/Y"|default:"—" }}</td>
+                            <td class="p-3 text-center text-white">{{ bc.nb_lignes }}</td>
+                            <td class="p-3 font-bold text-yellow-400">{{ bc.montant_total|floatformat:0 }} DA</td>
+                            <td class="p-3">
+                                {% if bc.statut == 'BROUILLON' %}<span class="text-[10px] bg-slate-600 text-gray-300 px-2 py-1 rounded">Brouillon</span>
+                                {% elif bc.statut == 'ENVOYE' %}<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">📤 Envoyé</span>
+                                {% elif bc.statut == 'CONFIRME' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Confirmé</span>
+                                {% elif bc.statut == 'RECU_TOTAL' %}<span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30">📦 Reçu</span>
+                                {% elif bc.statut == 'ANNULE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Annulé</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 text-right">
+                                <div class="flex justify-end gap-1">
+                                    {% if bc.statut == 'BROUILLON' %}
+                                    <form method="post" action="{% url 'bc_envoyer' bc.id %}" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-[10px] bg-blue-600 hover:bg-blue-500 text-white py-1 px-2 rounded transition">📤 Envoyer</button>
+                                    </form>
+                                    {% elif bc.statut in 'ENVOYE CONFIRME' %}
+                                    <form method="post" action="{% url 'bc_reception' bc.id %}" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white py-1 px-2 rounded transition">📦 Réceptionner</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="p-8 text-center text-gray-500 italic">Aucun bon de commande.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- ONGLET 6 : CONSOMMATIONS ENCRES -->
+<!-- ============================================================ -->
+<div id="tab-consos" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <h2 class="text-xl font-bold text-white">Historique des Consommations</h2>
+        <a href="{% url 'add_consommation' %}" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">+ Saisir Conso</a>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse whitespace-nowrap">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-3 border-b border-slate-700">Nom du Job</th>
+                        <th class="p-3 border-b border-slate-700">Date</th>
+                        <th class="p-3 border-b border-slate-700">Process</th>
+                        <th class="p-3 border-b border-slate-700">Total Encre</th>
+                        <th class="p-3 border-b border-slate-700">Total Solv.</th>
+                        <th class="p-3 border-b border-slate-700">Gain Masse</th>
+                        <th class="p-3 border-b border-slate-700">Évaporation</th>
+                        <th class="p-3 border-b border-slate-700">Grammage</th>
+                        <th class="p-3 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for c in consos %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-3 font-bold text-cyan-400">{{ c.job_name }}</td>
+                        <td class="p-3 text-gray-400">{{ c.date|date:"d/m/Y" }}</td>
+                        <td class="p-3">{{ c.get_process_type_display }}</td>
+                        <td class="p-3 text-emerald-400 font-bold">{{ c.total_encre }} kg</td>
+                        <td class="p-3 text-blue-400 font-bold">{{ c.total_solvant }} kg</td>
+                        <td class="p-3">{{ c.gain_de_masse_kg }} kg <span class="text-xs text-gray-400">({{ c.gain_de_masse_percent }}%)</span></td>
+                        <td class="p-3">{{ c.matiere_evaporee_kg }} kg <span class="text-xs text-gray-400">({{ c.matiere_evaporee_percent }}%)</span></td>
+                        <td class="p-3 font-bold text-yellow-500">{{ c.grammage }} g/m²</td>
+                        <td class="p-3 text-right">
+                            <button class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">Détails</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9" class="p-8 text-center text-gray-500 italic">Aucune consommation.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- ONGLET 7 : FOURNISSEURS -->
+<!-- ============================================================ -->
+<div id="tab-fournisseurs" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <h2 class="text-xl font-bold text-white">Annuaire des Fournisseurs</h2>
+        <a href="{% url 'add_supplier' %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">+ Nouveau Fournisseur</a>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700">Fournisseur</th>
+                        <th class="p-4 border-b border-slate-700">Email</th>
+                        <th class="p-4 border-b border-slate-700">Lots livrés</th>
+                        <th class="p-4 border-b border-slate-700">BC en cours</th>
+                        <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for s in suppliers %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-4 font-bold flex items-center gap-3">
+                            <div class="h-8 w-8 rounded bg-slate-700 flex items-center justify-center text-lg">🏭</div>
+                            <span class="text-cyan-400">{{ s.name }}</span>
+                        </td>
+                        <td class="p-4 text-gray-400">{{ s.email }}</td>
+                        <td class="p-4 text-center text-white font-bold">{{ s.stocklot_set.count }}</td>
+                        <td class="p-4 text-center text-white font-bold">{{ s.boncommande_set.filter.count|default:"0" }}</td>
+                        <td class="p-4 text-right">
+                            <button class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">Éditer</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="p-8 text-center text-gray-500 italic">Aucun fournisseur enregistré.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- MODALS -->
+<!-- ============================================================ -->
+
+<!-- Modal : Nouveau Lot -->
+<div id="modalLot" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white">🏷️ Nouveau Lot Fournisseur</h3>
+            <button onclick="document.getElementById('modalLot').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+        <form method="post" action="{% url 'lot_add' %}" enctype="multipart/form-data" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="block text-xs text-gray-400 mb-1">Matière première *</label>
+                    <select name="material" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">— Choisir —</option>
+                        {% for m in materials %}
+                        <option value="{{ m.id }}">{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">N° Lot fournisseur *</label>
+                    <input type="text" name="numero_lot" required placeholder="Ex: LOT-2026-001"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Date réception *</label>
+                    <input type="date" name="date_reception" required
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Fournisseur</label>
+                    <select name="fournisseur" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">— Aucun —</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Emplacement</label>
+                    <select name="emplacement" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">— Aucun —</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}">{{ loc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Quantité initiale (kg) *</label>
+                    <input type="number" name="quantite_initiale" required min="0" step="0.1" placeholder="0"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Prix unitaire (DA/kg)</label>
+                    <input type="number" name="prix_unitaire" min="0" step="0.01" placeholder="0.00"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs text-gray-400 mb-1">Statut qualité *</label>
+                    <select name="statut" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="EN_ATTENTE">⏳ En attente de contrôle</option>
+                        <option value="CONFORME">✓ Conforme (entrée en stock immédiate)</option>
+                        <option value="BLOQUE">✗ Bloqué</option>
+                        <option value="QUARANTAINE">🔒 Quarantaine</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs text-gray-400 mb-1">Certificat qualité (PDF)</label>
+                    <input type="file" name="certificat_qualite" accept=".pdf"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs text-gray-400 mb-1">Notes / Remarques</label>
+                    <textarea name="notes" rows="2" placeholder="Observations..."
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
+                </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2.5 rounded-lg transition">
+                    ✓ Créer le lot
+                </button>
+                <button type="button" onclick="document.getElementById('modalLot').classList.add('hidden')"
+                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal : Nouveau Mouvement -->
+<div id="modalMouvement" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-lg">
+        <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white">🔄 Nouveau Mouvement de Stock</h3>
+            <button onclick="document.getElementById('modalMouvement').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+        <form method="post" action="{% url 'mouvement_add' %}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="block text-xs text-gray-400 mb-1">Type de mouvement *</label>
+                    <select name="type" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="ENTREE">⬆ Entrée (Achat / Réception)</option>
+                        <option value="SORTIE">⬇ Sortie (Production)</option>
+                        <option value="TRANSFERT">↔ Transfert interne</option>
+                        <option value="AJUSTEMENT">⚙ Ajustement inventaire</option>
+                        <option value="PERTE">✗ Perte / Déchet</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Matière *</label>
+                    <select name="material" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        {% for m in materials %}
+                        <option value="{{ m.id }}">{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Quantité (kg) *</label>
+                    <input type="number" name="quantite" required min="0.001" step="0.001" placeholder="0"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Source (emplacement)</label>
+                    <select name="emplacement_source" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">—</option>
+                        {% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Destination</label>
+                    <select name="emplacement_destination" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">—</option>
+                        {% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs text-gray-400 mb-1">Motif / Référence</label>
+                    <input type="text" name="motif" placeholder="Ex: Transfert vers Flexo, Ajustement inventaire…"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-bold py-2.5 rounded-lg transition">✓ Enregistrer</button>
+                <button type="button" onclick="document.getElementById('modalMouvement').classList.add('hidden')"
+                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal : Nouvel Emplacement -->
+<div id="modalLocation" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white">🏭 Nouvel Emplacement</h3>
+            <button onclick="document.getElementById('modalLocation').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+        <form method="post" action="{% url 'location_add' %}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Nom *</label>
+                <input type="text" name="name" required placeholder="Ex: Magasin Central, Stock Tampon Flexo…"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Type *</label>
+                <select name="type" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <option value="GENERAL">🏢 Magasin Général</option>
+                    <option value="TAMPON">📦 Stock Tampon</option>
+                    <option value="PRODUCTION">⚙️ Zone Production</option>
+                    <option value="DECHET">🗑️ Zone Déchets</option>
+                    <option value="QUARANTAINE">🔒 Quarantaine</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Description</label>
+                <textarea name="description" rows="2"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 rounded-lg transition">✓ Créer</button>
+                <button type="button" onclick="document.getElementById('modalLocation').classList.add('hidden')"
+                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal : Nouvelle DA -->
+<div id="modalDA" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white">📋 Nouvelle Demande d'Achat</h3>
+            <button onclick="document.getElementById('modalDA').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+        <form method="post" action="{% url 'da_add' %}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Matière *</label>
+                <select name="material" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    {% for m in materials %}<option value="{{ m.id }}">{{ m.name }} (stock: {{ m.quantity }} kg)</option>{% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Quantité (kg) *</label>
+                    <input type="number" name="quantite_demandee" required min="0" step="0.1" placeholder="0"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Urgence</label>
+                    <select name="urgence" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="NORMALE">Normale</option>
+                        <option value="URGENTE">! Urgente</option>
+                        <option value="CRITIQUE">!! Critique</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Date besoin souhaitée</label>
+                <input type="date" name="date_besoin"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Motif</label>
+                <textarea name="motif" rows="2" placeholder="Pourquoi cette demande ?"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-bold py-2.5 rounded-lg transition">✓ Soumettre</button>
+                <button type="button" onclick="document.getElementById('modalDA').classList.add('hidden')"
+                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal : Nouveau BC -->
+<div id="modalBC" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white">📄 Nouveau Bon de Commande</h3>
+            <button onclick="document.getElementById('modalBC').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+        <form method="post" action="{% url 'bc_add' %}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Fournisseur *</label>
+                    <select name="fournisseur" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">— Choisir —</option>
+                        {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Livraison prévue</label>
+                    <input type="date" name="date_livraison_prevue"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Lignes de commande -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs text-gray-400 font-bold uppercase tracking-wider">Lignes de commande</label>
+                    <button type="button" onclick="addLigneBC()" class="text-xs text-cyan-400 border border-cyan-400/30 px-2 py-1 rounded hover:bg-cyan-400/10 transition">+ Ajouter ligne</button>
+                </div>
+                <div id="lignesBC" class="space-y-2">
+                    <div class="grid grid-cols-3 gap-2 ligne-bc">
+                        <select name="material_1" class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+                            {% for m in materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
+                        </select>
+                        <input type="number" name="quantite_1" placeholder="Qté (kg)" min="0" step="0.1"
+                            class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+                        <input type="number" name="prix_1" placeholder="Prix DA/kg" min="0" step="0.01"
+                            class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Notes / Conditions</label>
+                <textarea name="notes" rows="2"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2.5 rounded-lg transition">✓ Créer le BC</button>
+                <button type="button" onclick="document.getElementById('modalBC').classList.add('hidden')"
+                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal : Seuil Intelligent -->
+<div id="modalSeuil" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white">🔮 Seuil Intelligent</h3>
+            <button onclick="document.getElementById('modalSeuil').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+        <form method="post" id="formSeuil" action="" class="p-6 space-y-4">
+            {% csrf_token %}
+            <p class="text-sm text-gray-300">Configuration pour : <span id="seuilMatName" class="text-cyan-400 font-bold"></span></p>
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-3 text-xs text-gray-400">
+                <strong class="text-yellow-400">Formule :</strong> Seuil = (Délai fournisseur + Jours sécurité) × Conso journalière
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Consommation moyenne / jour (kg)</label>
+                <input type="number" name="conso_jour" min="0" step="0.1" placeholder="Ex: 50"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Délai fournisseur (jours)</label>
+                    <input type="number" name="delai_jours" min="1" value="7" step="1"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Jours de sécurité</label>
+                    <input type="number" name="securite_jours" min="0" value="3" step="1"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 rounded-lg transition">✓ Enregistrer</button>
+                <button type="button" onclick="document.getElementById('modalSeuil').classList.add('hidden')"
+                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- SCRIPTS -->
+<!-- ============================================================ -->
+<script>
+// --- Gestion des onglets principaux ---
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => {
+        el.classList.add('hidden'); el.classList.remove('block');
+    });
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-yellow-500', 'text-yellow-500', 'border-cyan-500', 'text-cyan-500');
+        btn.classList.add('border-transparent', 'text-gray-400');
+    });
+    const tab = document.getElementById('tab-' + tabName);
+    if (tab) { tab.classList.remove('hidden'); tab.classList.add('block'); }
+    const btn = document.getElementById('tabBtn-' + tabName);
+    if (btn) {
+        btn.classList.remove('border-transparent', 'text-gray-400');
+        btn.classList.add('border-yellow-500', 'text-yellow-500');
+    }
+}
+
+// --- Gestion des sous-onglets Achats ---
+function showSubTab(name) {
+    document.querySelectorAll('.subtab-content').forEach(el => {
+        el.classList.add('hidden'); el.classList.remove('block');
+    });
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+        btn.classList.remove('border-blue-400', 'text-blue-400');
+        btn.classList.add('border-transparent', 'text-gray-400');
+    });
+    const tab = document.getElementById('subtab-' + name);
+    if (tab) { tab.classList.remove('hidden'); tab.classList.add('block'); }
+    const btn = document.getElementById('subTabBtn-' + name);
+    if (btn) {
+        btn.classList.remove('border-transparent', 'text-gray-400');
+        btn.classList.add('border-blue-400', 'text-blue-400');
+    }
+}
+
+// --- Filtre des lots par statut ---
+function filterLots(statut) {
+    document.querySelectorAll('.lot-row').forEach(row => {
+        if (statut === 'ALL' || row.dataset.statut === statut) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    document.querySelectorAll('.lot-filter-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-yellow-400'));
+    event.currentTarget.classList.add('ring-2', 'ring-yellow-400');
+}
+
+// --- Ajout de lignes BC ---
+let ligneIdx = 1;
+const materialsOptions = `{% for m in materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}`;
+function addLigneBC() {
+    ligneIdx++;
+    const div = document.createElement('div');
+    div.className = 'grid grid-cols-3 gap-2 ligne-bc';
+    div.innerHTML = `
+        <select name="material_${ligneIdx}" class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+            ${materialsOptions}
+        </select>
+        <input type="number" name="quantite_${ligneIdx}" placeholder="Qté (kg)" min="0" step="0.1"
+            class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+        <input type="number" name="prix_${ligneIdx}" placeholder="Prix DA/kg" min="0" step="0.01"
+            class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+    `;
+    document.getElementById('lignesBC').appendChild(div);
+}
+
+// --- Modal seuil intelligent ---
+function openSeuilModal(materialId, materialName) {
+    document.getElementById('seuilMatName').textContent = materialName;
+    document.getElementById('formSeuil').action = `/stock/seuil/${materialId}/update/`;
+    document.getElementById('modalSeuil').classList.remove('hidden');
+}
+
+// --- Fermer les modals en cliquant hors ---
+document.querySelectorAll('[id^="modal"]').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) this.classList.add('hidden');
+    });
+});
+
+// --- Ouvrir l'onglet depuis l'URL (ex: ?tab=lots) ---
+const urlParams = new URLSearchParams(window.location.search);
+const tabParam = urlParams.get('tab');
+if (tabParam) showTab(tabParam);
+</script>
+
+{% endblock %}
