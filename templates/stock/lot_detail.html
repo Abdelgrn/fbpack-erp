@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{% url 'stock_advanced' %}?tab=lots" class="text-gray-400 hover:text-white text-sm transition">← Retour aux lots</a>
+    <h1 class="text-2xl font-bold text-white mt-2">🏷️ Lot : <span class="text-cyan-400">{{ lot.numero_lot }}</span></h1>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Fiche lot -->
+    <div class="lg:col-span-1 bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-base font-bold text-white mb-4">Informations du lot</h2>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span class="text-gray-400">Matière :</span><span class="text-white font-bold">{{ lot.material.name }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">N° Lot :</span><span class="text-cyan-400 font-bold">{{ lot.numero_lot }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Fournisseur :</span><span class="text-white">{{ lot.fournisseur.name|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Date réception :</span><span class="text-white">{{ lot.date_reception|date:"d/m/Y" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Emplacement :</span><span class="text-white">{{ lot.emplacement|default:"—" }}</span></div>
+            <hr class="border-slate-700">
+            <div class="flex justify-between"><span class="text-gray-400">Qté initiale :</span><span class="text-white font-bold">{{ lot.quantite_initiale }} kg</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Qté restante :</span>
+                <span class="font-bold {% if lot.quantite_restante <= lot.quantite_initiale|floatformat:0|add:"0"|floatformat:0 %}text-emerald-400{% endif %}">{{ lot.quantite_restante }} kg</span>
+            </div>
+            <div class="flex justify-between"><span class="text-gray-400">Consommé :</span><span class="text-yellow-400">{{ lot.taux_consommation }}%</span></div>
+            <div class="w-full bg-slate-700 rounded-full h-2 mt-1">
+                <div class="bg-yellow-500 h-2 rounded-full" style="width: {{ lot.taux_consommation }}%"></div>
+            </div>
+            <hr class="border-slate-700">
+            <div class="flex justify-between"><span class="text-gray-400">Prix unitaire :</span><span class="text-white">{{ lot.prix_unitaire }} DA/kg</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Valeur restante :</span><span class="text-emerald-400 font-bold">{{ lot.valeur_stock }} DA</span></div>
+            <hr class="border-slate-700">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-400">Statut :</span>
+                {% if lot.statut == 'CONFORME' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Conforme</span>
+                {% elif lot.statut == 'BLOQUE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Bloqué</span>
+                {% elif lot.statut == 'EN_ATTENTE' %}<span class="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded border border-yellow-500/30">⏳ Contrôle</span>
+                {% elif lot.statut == 'QUARANTAINE' %}<span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">🔒 Quarantaine</span>
+                {% endif %}
+            </div>
+            {% if lot.notes %}
+            <div class="bg-slate-700/50 rounded p-2 text-xs text-gray-300 italic">{{ lot.notes }}</div>
+            {% endif %}
+        </div>
+
+        {% if lot.certificat_qualite %}
+        <div class="mt-4">
+            <a href="{{ lot.certificat_qualite.url }}" target="_blank"
+               class="w-full flex items-center justify-center gap-2 bg-blue-500/20 border border-blue-500/30 text-blue-400 py-2 rounded-lg text-sm hover:bg-blue-500/30 transition">
+                📄 Voir le certificat qualité
+            </a>
+        </div>
+        {% endif %}
+
+        {% if lot.statut == 'EN_ATTENTE' %}
+        <div class="mt-4 flex gap-2">
+            <form method="post" action="{% url 'lot_valider' lot.id %}" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2 rounded-lg transition">✓ Valider</button>
+            </form>
+            <form method="post" action="{% url 'lot_bloquer' lot.id %}" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2 rounded-lg transition">✗ Bloquer</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Journal des mouvements de ce lot -->
+    <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-base font-bold text-white mb-4">Journal de traçabilité de ce lot</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="text-gray-400 text-[11px] uppercase border-b border-slate-700">
+                        <th class="pb-3 pr-4">Date</th>
+                        <th class="pb-3 pr-4">Type</th>
+                        <th class="pb-3 pr-4">Quantité</th>
+                        <th class="pb-3 pr-4">Machine / OF</th>
+                        <th class="pb-3 pr-4">Utilisateur</th>
+                        <th class="pb-3">Motif</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mv in mouvements %}
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
+                        <td class="py-2 pr-4 text-gray-400 whitespace-nowrap">{{ mv.date|date:"d/m/Y H:i" }}</td>
+                        <td class="py-2 pr-4">
+                            {% if mv.type == 'ENTREE' %}<span class="text-emerald-400 text-xs">⬆ Entrée</span>
+                            {% elif mv.type == 'SORTIE' %}<span class="text-orange-400 text-xs">⬇ Sortie</span>
+                            {% else %}<span class="text-gray-400 text-xs">{{ mv.get_type_display }}</span>{% endif %}
+                        </td>
+                        <td class="py-2 pr-4 font-bold {% if mv.type == 'ENTREE' %}text-emerald-400{% else %}text-red-400{% endif %}">
+                            {% if mv.type == 'ENTREE' %}+{% else %}-{% endif %}{{ mv.quantite }} kg
+                        </td>
+                        <td class="py-2 pr-4 text-gray-400 text-xs">
+                            {% if mv.machine %}{{ mv.machine.name }}{% endif %}{% if mv.of %} / {{ mv.of.of_number }}{% endif %}{% if not mv.machine and not mv.of %}—{% endif %}
+                        </td>
+                        <td class="py-2 pr-4 text-gray-400 text-xs">{{ mv.utilisateur.username|default:"—" }}</td>
+                        <td class="py-2 text-gray-500 text-xs">{{ mv.motif|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="py-8 text-center text-gray-500 italic">Aucun mouvement enregistré pour ce lot.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

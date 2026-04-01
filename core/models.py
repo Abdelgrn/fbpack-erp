@@ -627,3 +627,334 @@ class ProductionEntry(models.Model):
     @property
     def decalage(self):
         return round(self.prod_kg - self.quantite_lancee, 2)
+    
+
+# ===========================================================================
+# --- GESTION DES EMPLACEMENTS (Multi-magasins) ---
+# ===========================================================================
+
+class StockLocation(models.Model):
+    TYPE_CHOICES = [
+        ('GENERAL', 'Magasin Général'),
+        ('TAMPON', 'Stock Tampon'),
+        ('PRODUCTION', 'Zone Production'),
+        ('DECHET', 'Zone Déchets'),
+        ('QUARANTAINE', 'Quarantaine'),
+    ]
+    name = models.CharField("Nom de l'emplacement", max_length=100)
+    type = models.CharField("Type", max_length=20, choices=TYPE_CHOICES, default='GENERAL')
+    description = models.TextField("Description", blank=True)
+    is_active = models.BooleanField("Actif", default=True)
+
+    class Meta:
+        verbose_name = "Emplacement Stock"
+        verbose_name_plural = "Emplacements Stock"
+
+    def __str__(self):
+        return f"{self.get_type_display()} – {self.name}"
+
+
+# ===========================================================================
+# --- GESTION DES LOTS FOURNISSEURS ---
+# ===========================================================================
+
+class StockLot(models.Model):
+    STATUT_CHOICES = [
+        ('CONFORME', 'Conforme ✓'),
+        ('BLOQUE', 'Bloqué ✗'),
+        ('EN_ATTENTE', 'En attente contrôle'),
+        ('QUARANTAINE', 'Quarantaine'),
+    ]
+
+    material = models.ForeignKey(
+        'Material', on_delete=models.CASCADE,
+        related_name='lots', verbose_name="Matière première"
+    )
+    numero_lot = models.CharField("N° Lot fournisseur", max_length=100)
+    date_reception = models.DateField("Date réception", default=timezone.now)
+    fournisseur = models.ForeignKey(
+        'Supplier', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Fournisseur"
+    )
+    emplacement = models.ForeignKey(
+        StockLocation, on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Emplacement"
+    )
+    quantite_initiale = models.FloatField("Quantité initiale (kg)", default=0)
+    quantite_restante = models.FloatField("Quantité restante (kg)", default=0)
+    prix_unitaire = models.DecimalField("Prix unitaire (DA/kg)", max_digits=10, decimal_places=2, default=0)
+    statut = models.CharField("Statut qualité", max_length=20, choices=STATUT_CHOICES, default='EN_ATTENTE')
+    certificat_qualite = models.FileField(
+        "Certificat qualité (PDF)", upload_to='certificats/', blank=True, null=True
+    )
+    notes = models.TextField("Notes / Remarques", blank=True)
+    date_expiration = models.DateField("Date expiration", null=True, blank=True)
+    created_by = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Créé par"
+    )
+
+    class Meta:
+        verbose_name = "Lot de stock"
+        verbose_name_plural = "Lots de stock"
+        ordering = ['-date_reception']
+
+    def __str__(self):
+        return f"Lot {self.numero_lot} — {self.material.name}"
+
+    @property
+    def valeur_stock(self):
+        return round(float(self.quantite_restante) * float(self.prix_unitaire), 2)
+
+    @property
+    def est_expire(self):
+        if self.date_expiration:
+            return timezone.now().date() > self.date_expiration
+        return False
+
+    @property
+    def taux_consommation(self):
+        if self.quantite_initiale == 0:
+            return 0
+        return round((1 - self.quantite_restante / self.quantite_initiale) * 100, 1)
+
+
+# ===========================================================================
+# --- JOURNAL DES MOUVEMENTS DE STOCK ---
+# ===========================================================================
+
+class StockMovement(models.Model):
+    TYPE_CHOICES = [
+        ('ENTREE', 'Entrée (Achat / Réception)'),
+        ('SORTIE', 'Sortie (Production)'),
+        ('TRANSFERT', 'Transfert interne'),
+        ('AJUSTEMENT', 'Ajustement inventaire'),
+        ('RETOUR', 'Retour fournisseur'),
+        ('PERTE', 'Perte / Déchet'),
+    ]
+
+    date = models.DateTimeField("Date", default=timezone.now)
+    type = models.CharField("Type de mouvement", max_length=20, choices=TYPE_CHOICES)
+    material = models.ForeignKey(
+        'Material', on_delete=models.CASCADE,
+        related_name='mouvements', verbose_name="Matière"
+    )
+    lot = models.ForeignKey(
+        StockLot, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='mouvements', verbose_name="Lot"
+    )
+    quantite = models.FloatField("Quantité (kg)")
+    emplacement_source = models.ForeignKey(
+        StockLocation, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='mouvements_sortie', verbose_name="Emplacement source"
+    )
+    emplacement_destination = models.ForeignKey(
+        StockLocation, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='mouvements_entree', verbose_name="Emplacement destination"
+    )
+    of = models.ForeignKey(
+        'ProductionOrder', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="OF lié"
+    )
+    machine = models.ForeignKey(
+        'Machine', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Machine"
+    )
+    utilisateur = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Utilisateur"
+    )
+    motif = models.CharField("Motif / Référence", max_length=200, blank=True)
+    notes = models.TextField("Notes", blank=True)
+
+    class Meta:
+        verbose_name = "Mouvement de stock"
+        verbose_name_plural = "Mouvements de stock"
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.get_type_display()} – {self.material.name} – {self.quantite} kg ({self.date.strftime('%d/%m/%Y')})"
+
+    def save(self, *args, **kwargs):
+        """Met à jour automatiquement le stock de la matière et du lot."""
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new:
+            mat = self.material
+            if self.type in ['ENTREE']:
+                mat.quantity += self.quantite
+            elif self.type in ['SORTIE', 'PERTE', 'RETOUR']:
+                mat.quantity -= self.quantite
+            mat.save()
+            # Mise à jour du lot si lié
+            if self.lot:
+                lot = self.lot
+                if self.type in ['SORTIE', 'PERTE']:
+                    lot.quantite_restante = max(0, lot.quantite_restante - self.quantite)
+                elif self.type == 'ENTREE':
+                    lot.quantite_restante += self.quantite
+                lot.save()
+
+
+# ===========================================================================
+# --- MODULE ACHATS AMÉLIORÉ ---
+# ===========================================================================
+
+class DemandeAchat(models.Model):
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('SOUMISE', 'Soumise pour validation'),
+        ('VALIDEE', 'Validée ✓'),
+        ('REFUSEE', 'Refusée ✗'),
+        ('COMMANDEE', 'Bon de commande émis'),
+    ]
+    URGENCE_CHOICES = [
+        ('NORMALE', 'Normale'),
+        ('URGENTE', 'Urgente'),
+        ('CRITIQUE', 'Critique !!'),
+    ]
+
+    reference = models.CharField("Référence DA", max_length=50, unique=True)
+    material = models.ForeignKey(
+        'Material', on_delete=models.CASCADE, verbose_name="Matière demandée"
+    )
+    quantite_demandee = models.FloatField("Quantité demandée (kg)")
+    motif = models.TextField("Motif de la demande", blank=True)
+    urgence = models.CharField("Niveau d'urgence", max_length=10, choices=URGENCE_CHOICES, default='NORMALE')
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    demandeur = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='demandes_achat', verbose_name="Demandeur"
+    )
+    valideur = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='validations_achat', verbose_name="Validé par"
+    )
+    date_creation = models.DateField("Date création", default=timezone.now)
+    date_validation = models.DateField("Date validation", null=True, blank=True)
+    date_besoin = models.DateField("Date besoin souhaitée", null=True, blank=True)
+    bon_commande = models.ForeignKey(
+        'BonCommande', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="BC généré"
+    )
+
+    class Meta:
+        verbose_name = "Demande d'achat"
+        verbose_name_plural = "Demandes d'achat"
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return f"DA-{self.reference} — {self.material.name}"
+
+
+class BonCommande(models.Model):
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('ENVOYE', 'Envoyé fournisseur'),
+        ('CONFIRME', 'Confirmé'),
+        ('RECU_PARTIEL', 'Reçu partiellement'),
+        ('RECU_TOTAL', 'Reçu totalement'),
+        ('ANNULE', 'Annulé'),
+    ]
+
+    reference = models.CharField("Référence BC", max_length=50, unique=True)
+    fournisseur = models.ForeignKey(
+        'Supplier', on_delete=models.CASCADE, verbose_name="Fournisseur"
+    )
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    date_commande = models.DateField("Date commande", default=timezone.now)
+    date_livraison_prevue = models.DateField("Livraison prévue", null=True, blank=True)
+    date_livraison_reelle = models.DateField("Livraison réelle", null=True, blank=True)
+    montant_total = models.DecimalField("Montant total (DA)", max_digits=14, decimal_places=2, default=0)
+    notes = models.TextField("Notes / Conditions", blank=True)
+    cree_par = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Créé par"
+    )
+
+    class Meta:
+        verbose_name = "Bon de commande"
+        verbose_name_plural = "Bons de commande"
+        ordering = ['-date_commande']
+
+    def __str__(self):
+        return f"BC-{self.reference} — {self.fournisseur.name}"
+
+    @property
+    def nb_lignes(self):
+        return self.lignes.count()
+
+
+class LigneBonCommande(models.Model):
+    bon_commande = models.ForeignKey(
+        BonCommande, on_delete=models.CASCADE, related_name='lignes'
+    )
+    material = models.ForeignKey(
+        'Material', on_delete=models.CASCADE, verbose_name="Matière"
+    )
+    quantite_commandee = models.FloatField("Quantité commandée (kg)")
+    quantite_recue = models.FloatField("Quantité reçue (kg)", default=0)
+    prix_unitaire = models.DecimalField("Prix unitaire (DA/kg)", max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = "Ligne BC"
+
+    @property
+    def montant_ligne(self):
+        return round(self.quantite_commandee * float(self.prix_unitaire), 2)
+
+    @property
+    def est_recu(self):
+        return self.quantite_recue >= self.quantite_commandee
+
+
+# ===========================================================================
+# --- SEUILS INTELLIGENTS & PRÉVISIONS ---
+# ===========================================================================
+
+class StockSeuil(models.Model):
+    """Seuil intelligent basé sur la consommation réelle."""
+    material = models.OneToOneField(
+        'Material', on_delete=models.CASCADE,
+        related_name='seuil_intelligent', verbose_name="Matière"
+    )
+    consommation_journaliere_moy = models.FloatField(
+        "Conso. moyenne/jour (kg)", default=0
+    )
+    delai_fournisseur_jours = models.IntegerField(
+        "Délai fournisseur (jours)", default=7
+    )
+    stock_securite_jours = models.IntegerField(
+        "Jours de sécurité supplémentaires", default=3
+    )
+    derniere_maj = models.DateTimeField("Dernière mise à jour", auto_now=True)
+
+    class Meta:
+        verbose_name = "Seuil intelligent"
+        verbose_name_plural = "Seuils intelligents"
+
+    @property
+    def seuil_calcule(self):
+        """Seuil = (délai fournisseur + sécurité) × conso journalière"""
+        return round(
+            (self.delai_fournisseur_jours + self.stock_securite_jours)
+            * self.consommation_journaliere_moy, 2
+        )
+
+    @property
+    def jours_de_stock(self):
+        """Combien de jours de stock reste-t-il ?"""
+        if self.consommation_journaliere_moy == 0:
+            return 999
+        return round(self.material.quantity / self.consommation_journaliere_moy, 1)
+
+    @property
+    def date_rupture_prevue(self):
+        """Date estimée de rupture."""
+        if self.consommation_journaliere_moy == 0:
+            return None
+        jours = self.jours_de_stock
+        return timezone.now().date() + datetime.timedelta(days=int(jours))
+
+    def __str__(self):
+        return f"Seuil — {self.material.name}"
