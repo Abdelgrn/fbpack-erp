@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-white">📦 Semi-produits</h1>
+            <p class="text-gray-400 mt-1">Gestion des produits intermédiaires entre étapes</p>
+        </div>
+        <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-2 px-4 rounded transition">
+            ← Retour OF
+        </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
+            <div class="text-3xl font-bold text-white">{{ stats.total }}</div>
+            <div class="text-gray-400 text-sm">Total</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-green-500/30 p-4 text-center">
+            <div class="text-3xl font-bold text-green-400">{{ stats.disponible }}</div>
+            <div class="text-green-400/70 text-sm">Disponibles</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-blue-500/30 p-4 text-center">
+            <div class="text-3xl font-bold text-blue-400">{{ stats.reserve }}</div>
+            <div class="text-blue-400/70 text-sm">Réservés</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-neon/30 p-4 text-center">
+            <div class="text-3xl font-bold text-neon">{{ stats.total_kg|floatformat:0 }}</div>
+            <div class="text-neon/70 text-sm">kg disponibles</div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-6">
+        <form method="get" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-gray-400 text-xs mb-1">Statut</label>
+                <select name="statut" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
+                    <option value="">Tous</option>
+                    {% for code, label in statut_choices %}
+                    <option value="{{ code }}" {% if selected_statut == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-gray-400 text-xs mb-1">Type</label>
+                <select name="type" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
+                    <option value="">Tous</option>
+                    {% for code, label in type_choices %}
+                    <option value="{{ code }}" {% if selected_type == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition">
+                    🔍 Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tableau -->
+    <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-400">
+                <thead class="bg-slate-900 text-gray-200 uppercase font-bold">
+                    <tr>
+                        <th class="px-4 py-4">Référence</th>
+                        <th class="px-4 py-4">Désignation</th>
+                        <th class="px-4 py-4">Type</th>
+                        <th class="px-4 py-4">OF Origine</th>
+                        <th class="px-4 py-4">Quantité</th>
+                        <th class="px-4 py-4">Statut</th>
+                        <th class="px-4 py-4">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for sp in semi_produits %}
+                    <tr class="hover:bg-slate-700/50 transition">
+                        <td class="px-4 py-4">
+                            <a href="{% url 'semi_produit_detail' sp.id %}" class="font-mono text-neon font-bold hover:underline">
+                                {{ sp.reference }}
+                            </a>
+                        </td>
+                        <td class="px-4 py-4 text-white">{{ sp.designation|truncatechars:40 }}</td>
+                        <td class="px-4 py-4">{{ sp.get_type_semi_produit_display }}</td>
+                        <td class="px-4 py-4">
+                            {% if sp.of_origine %}
+                            <a href="{% url 'of_detail' sp.of_origine.id %}" class="text-blue-400 hover:underline">{{ sp.of_origine.numero_of }}</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-white font-bold">{{ sp.quantite|floatformat:1 }} {{ sp.unite }}</td>
+                        <td class="px-4 py-4">
+                            {% if sp.statut == 'DISPONIBLE' %}
+                                <span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs border border-green-500/30">Disponible</span>
+                            {% elif sp.statut == 'RESERVE' %}
+                                <span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/30">Réservé</span>
+                            {% elif sp.statut == 'CONSOMME' %}
+                                <span class="bg-gray-500/20 text-gray-400 px-2 py-1 rounded text-xs border border-gray-500/30">Consommé</span>
+                            {% elif sp.statut == 'BLOQUE' %}
+                                <span class="bg-orange-500/20 text-orange-400 px-2 py-1 rounded text-xs border border-orange-500/30">Bloqué</span>
+                            {% else %}
+                                <span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs border border-red-500/30">Rebut</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-gray-400 text-xs">{{ sp.date_creation|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-16 text-center text-gray-500">
+                            <p>Aucun semi-produit trouvé</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

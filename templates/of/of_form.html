@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-white">{{ titre }}</h1>
+            <p class="text-gray-400 mt-1">Configurez l'OF et ses étapes de production</p>
+        </div>
+        <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-2 px-4 rounded transition">
+            ← Retour
+        </a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Informations principales -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                <div class="bg-slate-900 px-4 py-3 border-b border-slate-700">
+                    <h3 class="text-white font-bold">📋 Informations principales</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">N° OF</label>
+                            <input type="text" name="numero_of" value="{{ form.numero_of.value|default:'' }}" placeholder="Auto-généré si vide" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">N° Lot</label>
+                            <input type="text" name="numero_lot" value="{{ form.numero_lot.value|default:'' }}" placeholder="Ex: LOT-2025-001" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-1">Client *</label>
+                        <select name="client" required class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                            <option value="">-- Sélectionner --</option>
+                            {% for client in form.client.field.queryset %}
+                            <option value="{{ client.id }}" {% if form.client.value == client.id|stringformat:"s" or form.client.value == client.id %}selected{% endif %}>{{ client.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-1">Produit *</label>
+                        <select name="produit" required class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                            <option value="">-- Sélectionner --</option>
+                            {% for produit in form.produit.field.queryset %}
+                            <option value="{{ produit.id }}" {% if form.produit.value == produit.id|stringformat:"s" or form.produit.value == produit.id %}selected{% endif %}>{{ produit.ref_internal }} - {{ produit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Quantité prévue (kg) *</label>
+                            <input type="number" name="quantite_prevue" value="{{ form.quantite_prevue.value|default:'' }}" step="0.01" min="0" required class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Priorité</label>
+                            <select name="priorite" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                                {% for code, label in form.priorite.field.choices %}
+                                <option value="{{ code }}" {% if form.priorite.value == code %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Date lancement</label>
+                            <input type="date" name="date_lancement" value="{{ form.date_lancement.value|date:'Y-m-d'|default:'' }}" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Date fin prévue</label>
+                            <input type="date" name="date_prevue_fin" value="{{ form.date_prevue_fin.value|date:'Y-m-d'|default:'' }}" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spécifications techniques -->
+            <div class="bg-slate-800 rounded-xl border border-blue-500/30 overflow-hidden">
+                <div class="bg-blue-900/30 px-4 py-3 border-b border-blue-500/30">
+                    <h3 class="text-blue-400 font-bold">📐 Spécifications techniques</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Laize (mm)</label>
+                            <input type="number" name="laize" value="{{ form.laize.value|default:'' }}" step="0.1" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Épaisseur (μm)</label>
+                            <input type="number" name="epaisseur" value="{{ form.epaisseur.value|default:'' }}" step="0.1" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Dimension mandrin (mm)</label>
+                            <input type="number" name="dimension_mandrin" value="{{ form.dimension_mandrin.value|default:'76' }}" step="0.1" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Diamètre bobine fille (mm)</label>
+                            <input type="number" name="diametre_bobine_fille" value="{{ form.diametre_bobine_fille.value|default:'' }}" step="0.1" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">BAT Validé</label>
+                            <input type="file" name="bat_file" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Fiche technique</label>
+                            <input type="file" name="fiche_technique" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-1">Notes / Instructions</label>
+                        <textarea name="notes" rows="3" placeholder="Instructions spéciales..." class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">{{ form.notes.value|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étapes de production -->
+        <div class="bg-slate-800 rounded-xl border border-green-500/30 overflow-hidden mb-6">
+            <div class="bg-green-900/30 px-4 py-3 border-b border-green-500/30 flex justify-between items-center">
+                <h3 class="text-green-400 font-bold">⚙️ Étapes de production</h3>
+                <button type="button" id="add-etape" class="bg-green-600 hover:bg-green-500 text-white text-sm py-1 px-3 rounded transition">
+                    + Ajouter une étape
+                </button>
+            </div>
+            <div class="p-4">
+                {{ formset.management_form }}
+                
+                <div id="etapes-container" class="space-y-4">
+                    {% for etape_form in formset %}
+                    <div class="etape-row bg-slate-700/50 rounded-lg border border-slate-600 p-4">
+                        {{ etape_form.id }}
+                        <div class="grid grid-cols-6 gap-4">
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">N°</label>
+                                <input type="number" name="{{ etape_form.numero_etape.html_name }}" value="{{ etape_form.numero_etape.value|default:forloop.counter }}" min="1" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Processus</label>
+                                <select name="{{ etape_form.process_type.html_name }}" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                                    <option value="">--</option>
+                                    {% for pt in process_types %}
+                                    <option value="{{ pt.id }}" {% if etape_form.process_type.value == pt.id|stringformat:"s" or etape_form.process_type.value == pt.id %}selected{% endif %}>{{ pt.icone }} {{ pt.nom }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Nom personnalisé</label>
+                                <input type="text" name="{{ etape_form.nom_etape.html_name }}" value="{{ etape_form.nom_etape.value|default:'' }}" placeholder="Ex: Flexo" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Machine</label>
+                                <select name="{{ etape_form.machine.html_name }}" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                                    <option value="">--</option>
+                                    {% for m in machines %}
+                                    <option value="{{ m.id }}" {% if etape_form.machine.value == m.id|stringformat:"s" or etape_form.machine.value == m.id %}selected{% endif %}>{{ m.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Qté entrée (kg)</label>
+                                <input type="number" name="{{ etape_form.quantite_entree.html_name }}" value="{{ etape_form.quantite_entree.value|default:'' }}" step="0.01" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <label class="flex items-center gap-1 text-gray-400 text-xs">
+                                    <input type="checkbox" name="{{ etape_form.genere_semi_produit.html_name }}" {% if etape_form.genere_semi_produit.value %}checked{% endif %} class="rounded">
+                                    Semi-produit
+                                </label>
+                                {% if etape_form.DELETE %}
+                                <label class="flex items-center gap-1 text-red-400 text-xs">
+                                    <input type="checkbox" name="{{ etape_form.DELETE.html_name }}" class="rounded">
+                                    Suppr.
+                                </label>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons -->
+        <div class="flex justify-end gap-4">
+            <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-3 px-6 rounded transition">
+                Annuler
+            </a>
+            <button type="submit" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 px-6 rounded transition">
+                💾 Enregistrer (Brouillon)
+            </button>
+            <button type="submit" name="lancer" value="1" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded shadow-lg shadow-green-500/20 transition">
+                ▶ Enregistrer et Lancer
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('add-etape').addEventListener('click', function() {
+    const container = document.getElementById('etapes-container');
+    const totalForms = document.getElementById('id_etapes-TOTAL_FORMS');
+    const currentCount = parseInt(totalForms.value);
+    
+    const lastRow = container.querySelector('.etape-row:last-child');
+    if (lastRow) {
+        const newRow = lastRow.cloneNode(true);
+        newRow.querySelectorAll('input, select').forEach(function(el) {
+            if (el.name) {
+                el.name = el.name.replace(/-\d+-/, '-' + currentCount + '-');
+            }
+            if (el.id) {
+                el.id = el.id.replace(/-\d+-/, '-' + currentCount + '-');
+            }
+            if (el.type === 'checkbox') {
+                el.checked = el.name.includes('genere_semi_produit');
+            } else if (el.tagName === 'SELECT') {
+                el.selectedIndex = 0;
+            } else if (el.type === 'number' && el.name.includes('numero_etape')) {
+                el.value = currentCount + 1;
+            } else {
+                el.value = '';
+            }
+        });
+        container.appendChild(newRow);
+        totalForms.value = currentCount + 1;
+    }
+});
+</script>
+{% endblock %}

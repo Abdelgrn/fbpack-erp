@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-white">⚡ Lancement Rapide OF</h1>
+            <p class="text-gray-400 mt-1">Créez un OF avec des étapes prédéfinies en un clic</p>
+        </div>
+        <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-2 px-4 rounded transition">
+            ← Retour
+        </a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Informations principales -->
+            <div class="bg-slate-800 rounded-xl border border-neon/30 overflow-hidden">
+                <div class="bg-yellow-900/30 px-4 py-3 border-b border-neon/30">
+                    <h3 class="text-neon font-bold">📋 Informations OF</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-1">Client *</label>
+                        <select name="client" required class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                            <option value="">-- Sélectionner un client --</option>
+                            {% for client in form.client.field.queryset %}
+                            <option value="{{ client.id }}">{{ client.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-1">Produit *</label>
+                        <select name="produit" required class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                            <option value="">-- Sélectionner un produit --</option>
+                            {% for produit in form.produit.field.queryset %}
+                            <option value="{{ produit.id }}">{{ produit.ref_internal }} - {{ produit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Quantité (kg) *</label>
+                            <input type="number" name="quantite" required step="0.01" min="0" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Priorité</label>
+                            <select name="priorite" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                                <option value="NORMALE">🔵 Normale</option>
+                                <option value="HAUTE">🟠 Haute</option>
+                                <option value="URGENTE">🔴 Urgente</option>
+                                <option value="BASSE">⚪ Basse</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-1">Date lancement *</label>
+                        <input type="date" name="date_lancement" required class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Étapes prédéfinies -->
+            <div class="bg-slate-800 rounded-xl border border-green-500/30 overflow-hidden">
+                <div class="bg-green-900/30 px-4 py-3 border-b border-green-500/30">
+                    <h3 class="text-green-400 font-bold">⚙️ Étapes à inclure</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    <!-- Extrusion -->
+                    <div class="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                        <div class="flex items-center gap-3 mb-3">
+                            <input type="checkbox" name="etape_extrusion" id="etape_extrusion" checked class="rounded">
+                            <label for="etape_extrusion" class="text-white font-bold">🔥 Extrusion</label>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 ml-6">
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Machine</label>
+                                <select name="machine_extrusion" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                                    <option value="">--</option>
+                                    {% for m in form.machine_extrusion.field.queryset %}
+                                    <option value="{{ m.id }}">{{ m.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Quantité (kg)</label>
+                                <input type="number" name="qte_extrusion" step="0.01" placeholder="= Qté OF" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Impression -->
+                    <div class="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                        <div class="flex items-center gap-3 mb-3">
+                            <input type="checkbox" name="etape_impression" id="etape_impression" checked class="rounded">
+                            <label for="etape_impression" class="text-white font-bold">🎨 Impression</label>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 ml-6">
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Machine</label>
+                                <select name="machine_impression" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                                    <option value="">--</option>
+                                    {% for m in form.machine_impression.field.queryset %}
+                                    <option value="{{ m.id }}">{{ m.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Quantité (kg)</label>
+                                <input type="number" name="qte_impression" step="0.01" placeholder="= Qté OF" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Découpe -->
+                    <div class="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                        <div class="flex items-center gap-3 mb-3">
+                            <input type="checkbox" name="etape_decoupe" id="etape_decoupe" checked class="rounded">
+                            <label for="etape_decoupe" class="text-white font-bold">✂️ Découpe / Façonnage</label>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 ml-6">
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Machine</label>
+                                <select name="machine_decoupe" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                                    <option value="">--</option>
+                                    {% for m in form.machine_decoupe.field.queryset %}
+                                    <option value="{{ m.id }}">{{ m.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-xs mb-1">Quantité (kg)</label>
+                                <input type="number" name="qte_decoupe" step="0.01" placeholder="= Qté OF" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-sm focus:border-neon focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons -->
+        <div class="flex justify-end gap-4">
+            <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-3 px-6 rounded transition">
+                Annuler
+            </a>
+            <button type="submit" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 rounded shadow-lg shadow-green-500/20 transition flex items-center gap-2">
+                ⚡ Lancer l'OF
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

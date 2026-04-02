@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <!-- Breadcrumb -->
+    <nav class="mb-4">
+        <ol class="flex items-center gap-2 text-sm text-gray-400">
+            <li><a href="{% url 'of_list' %}" class="hover:text-neon transition">OF</a></li>
+            <li>→</li>
+            <li><a href="{% url 'of_detail' of.id %}" class="hover:text-neon transition">{{ of.numero_of }}</a></li>
+            <li>→</li>
+            <li class="text-white">Étape {{ etape.numero_etape }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+                {% if etape.process_type %}{{ etape.process_type.icone }}{% endif %}
+                Étape {{ etape.numero_etape }}: {{ etape.get_nom_display }}
+                {% if etape.statut == 'EN_COURS' %}
+                    <span class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded text-sm border border-blue-500/30 animate-pulse">En cours</span>
+                {% elif etape.statut == 'TERMINE' %}
+                    <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded text-sm border border-green-500/30">✓ Terminé</span>
+                {% elif etape.statut == 'PRET' %}
+                    <span class="bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded text-sm border border-cyan-500/30">Prêt</span>
+                {% else %}
+                    <span class="bg-gray-500/20 text-gray-400 px-3 py-1 rounded text-sm border border-gray-500/30">{{ etape.get_statut_display }}</span>
+                {% endif %}
+            </h1>
+            <p class="text-gray-400 mt-1">OF: {{ of.numero_of }} | {{ of.client.name }} | {{ of.produit.name }}</p>
+        </div>
+        <div class="flex gap-3">
+            {% if etape.statut == 'EN_ATTENTE' or etape.statut == 'PRET' or etape.statut == 'PAUSE' %}
+            <a href="{% url 'etape_demarrer' etape.id %}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded shadow-lg transition flex items-center gap-2">
+                ▶ Démarrer
+            </a>
+            {% elif etape.statut == 'EN_COURS' %}
+            <a href="{% url 'etape_terminer' etape.id %}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded shadow-lg transition flex items-center gap-2">
+                ✓ Terminer
+            </a>
+            {% endif %}
+            <a href="{% url 'of_detail' of.id %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-2 px-4 rounded transition">
+                ← Retour OF
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Colonne gauche -->
+        <div class="space-y-6">
+            <!-- Infos étape -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                <div class="bg-slate-900 px-4 py-3 border-b border-slate-700">
+                    <h3 class="text-white font-bold">📋 Informations</h3>
+                </div>
+                <div class="p-4 space-y-3">
+                    {% if etape.machine %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Machine</span>
+                        <span class="text-white font-bold">{{ etape.machine.name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if etape.operateur %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Opérateur</span>
+                        <span class="text-white">{{ etape.operateur.username }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Début réel</span>
+                        <span class="text-white">{{ etape.date_debut_reel|date:"d/m/Y H:i"|default:"-" }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Fin réelle</span>
+                        <span class="text-white">{{ etape.date_fin_reel|date:"d/m/Y H:i"|default:"-" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quantités -->
+            <div class="bg-slate-800 rounded-xl border border-blue-500/30 overflow-hidden">
+                <div class="bg-blue-900/30 px-4 py-3 border-b border-blue-500/30">
+                    <h3 class="text-blue-400 font-bold">📊 Production</h3>
+                </div>
+                <div class="p-4">
+                    <div class="mb-4">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-gray-400 text-sm">Progression</span>
+                            <span class="text-white font-bold">{{ etape.progression }}%</span>
+                        </div>
+                        <div class="bg-slate-700 rounded-full h-3 overflow-hidden">
+                            <div class="h-full {% if etape.statut == 'TERMINE' %}bg-green-500{% else %}bg-blue-500{% endif %}" style="width: {{ etape.progression }}%;"></div>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Quantité entrée</span>
+                            <span class="text-white font-bold">{{ etape.quantite_entree|floatformat:1 }} kg</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Quantité sortie</span>
+                            <span class="text-green-400 font-bold">{{ etape.quantite_sortie|floatformat:1 }} kg</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Rebuts</span>
+                            <span class="text-red-400 font-bold">{{ etape.quantite_rebut|floatformat:1 }} kg</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Rendement</span>
+                            <span class="text-white">{{ etape.rendement }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Colonne droite -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Formulaire de suivi rapide -->
+            {% if etape.statut == 'EN_COURS' %}
+            <div class="bg-slate-800 rounded-xl border border-neon/30 overflow-hidden">
+                <div class="bg-yellow-900/30 px-4 py-3 border-b border-neon/30">
+                    <h3 class="text-neon font-bold">📝 Saisir un événement</h3>
+                </div>
+                <div class="p-4">
+                    <form method="post" class="grid grid-cols-3 gap-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Type</label>
+                            <select name="type_evenement" required class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                                {% for code, label in form.type_evenement.field.choices %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Qté produite (kg)</label>
+                            <input type="number" name="quantite_produite" step="0.01" value="0" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-1">Rebut (kg)</label>
+                            <input type="number" name="quantite_rebut" step="0.01" value="0" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-gray-400 text-sm mb-1">Commentaire</label>
+                            <input type="text" name="commentaire" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-neon focus:outline-none">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full bg-neon hover:bg-yellow-500 text-slate-900 font-bold py-2 px-4 rounded transition">
+                                ✓ Enregistrer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Historique des suivis -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                <div class="bg-slate-900 px-4 py-3 border-b border-slate-700">
+                    <h3 class="text-white font-bold">📜 Historique des événements</h3>
+                </div>
+                <div class="max-h-80 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-900 text-gray-400 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-2 text-left">Date/Heure</th>
+                                <th class="px-4 py-2 text-left">Événement</th>
+                                <th class="px-4 py-2 text-left">Opérateur</th>
+                                <th class="px-4 py-2 text-left">Qté</th>
+                                <th class="px-4 py-2 text-left">Commentaire</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for s in suivis %}
+                            <tr class="hover:bg-slate-700/50">
+                                <td class="px-4 py-2 text-gray-400">{{ s.date_heure|date:"d/m H:i" }}</td>
+                                <td class="px-4 py-2 text-white">{{ s.get_type_evenement_display }}</td>
+                                <td class="px-4 py-2 text-gray-400">{{ s.operateur.username|default:"-" }}</td>
+                                <td class="px-4 py-2 text-green-400">{{ s.quantite_produite|floatformat:1 }} kg</td>
+                                <td class="px-4 py-2 text-gray-400">{{ s.commentaire|truncatechars:40 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="px-4 py-8 text-center text-gray-500">Aucun événement</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Semi-produits -->
+            {% if semi_produits %}
+            <div class="bg-slate-800 rounded-xl border border-cyan-500/30 overflow-hidden">
+                <div class="bg-cyan-900/30 px-4 py-3 border-b border-cyan-500/30">
+                    <h3 class="text-cyan-400 font-bold">📦 Semi-produits générés</h3>
+                </div>
+                <div class="p-4">
+                    {% for sp in semi_produits %}
+                    <div class="flex justify-between items-center py-2 border-b border-slate-700 last:border-0">
+                        <div>
+                            <a href="{% url 'semi_produit_detail' sp.id %}" class="text-neon hover:underline font-mono">{{ sp.reference }}</a>
+                            <div class="text-gray-400 text-xs">{{ sp.get_type_semi_produit_display }}</div>
+                        </div>
+                        <div class="text-white font-bold">{{ sp.quantite|floatformat:1 }} {{ sp.unite }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-xl mx-auto mt-8">
+    <div class="bg-slate-800 rounded-xl border border-green-500/30 overflow-hidden shadow-2xl">
+        <div class="bg-green-900/30 px-6 py-4 border-b border-green-500/30">
+            <h2 class="text-green-400 font-bold text-xl">✓ Terminer l'étape {{ etape.numero_etape }}</h2>
+        </div>
+        <div class="p-6">
+            <div class="bg-slate-700/50 rounded-lg p-4 mb-6">
+                <div class="text-gray-400">OF: <span class="text-white font-bold">{{ etape.of.numero_of }}</span></div>
+                <div class="text-gray-400">Étape: <span class="text-white">{{ etape.get_nom_display }}</span></div>
+                <div class="text-gray-400">Machine: <span class="text-white">{{ etape.machine.name|default:"-" }}</span></div>
+                <div class="text-gray-400">Quantité entrée: <span class="text-white">{{ etape.quantite_entree|floatformat:1 }} kg</span></div>
+            </div>
+
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-gray-400 text-sm mb-1">Quantité sortie (kg) *</label>
+                    <input type="number" name="quantite_sortie" required step="0.01" min="0" value="{{ etape.quantite_sortie|default:etape.quantite_entree }}" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-3 text-white text-lg focus:border-neon focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-sm mb-1">Quantité rebut (kg)</label>
+                    <input type="number" name="quantite_rebut" step="0.01" min="0" value="{{ etape.quantite_rebut|default:0 }}" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-3 text-white text-lg focus:border-neon focus:outline-none">
+                </div>
+
+                {% if etape.genere_semi_produit %}
+                <div class="bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-4">
+                    <p class="text-cyan-400 text-sm">
+                        📦 Un semi-produit sera automatiquement créé avec la quantité sortie.
+                    </p>
+                </div>
+                {% endif %}
+
+                <div class="flex justify-end gap-4 pt-4">
+                    <a href="{% url 'etape_detail' etape.id %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-3 px-6 rounded transition">
+                        Annuler
+                    </a>
+                    <button type="submit" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 rounded shadow-lg shadow-green-500/20 transition">
+                        ✓ Terminer l'étape
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
