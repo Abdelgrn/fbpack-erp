@@ -80,18 +80,17 @@
 
         <!-- Zone de saisie -->
         <div class="p-4 border-t border-slate-700 bg-slate-900">
-            <form id="chat-form" class="flex gap-3">
-                <input type="text" id="chat-input" 
-                       placeholder="Tapez votre message..." 
-                       autocomplete="off"
-                       class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-neon focus:outline-none focus:ring-1 focus:ring-neon">
-                <button type="submit" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold px-6 py-3 rounded-lg transition flex items-center gap-2">
-                    <span>Envoyer</span>
-                    <span>➤</span>
-                </button>
-            </form>
-        </div>
-    </div>
+    <form id="chat-form" class="flex gap-3">
+        {% csrf_token %}
+        <input type="text" id="chat-input" 
+               placeholder="Tapez votre message..." 
+               autocomplete="off"
+               class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-neon focus:outline-none focus:ring-1 focus:ring-neon">
+        <button type="submit" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold px-6 py-3 rounded-lg transition flex items-center gap-2">
+            <span>Envoyer</span>
+            <span>➤</span>
+        </button>
+    </form>
 </div>
 
 <script>
@@ -99,115 +98,171 @@
     const currentUserId = {{ request.user.id }};
     const currentUsername = '{{ request.user.username }}';
     
-    // WebSocket
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const chatSocket = new WebSocket(wsProtocol + '//' + window.location.host + '/ws/chat/' + roomSlug + '/');
-    
     const messagesContainer = document.getElementById('chat-messages');
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
-    const typingIndicator = document.getElementById('typing-indicator');
-    const typingUser = document.getElementById('typing-user');
     
     // Scroll en bas au chargement
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     
-    // Réception des messages
-    chatSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
+    let lastMessageId = 0;
+    let useWebSocket = false;
+    let chatSocket = null;
+    
+    // Trouver le dernier message ID
+    const allMessages = document.querySelectorAll('[data-message-id]');
+    if (allMessages.length > 0) {
+        lastMessageId = parseInt(allMessages[allMessages.length - 1].dataset.messageId) || 0;
+    }
+    
+    // ==========================================
+    // Essayer WebSocket d'abord
+    // ==========================================
+    try {
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        chatSocket = new WebSocket(wsProtocol + '//' + window.location.host + '/ws/chat/' + roomSlug + '/');
         
-        if (data.type === 'message') {
-            addMessage(data);
-        } else if (data.type === 'user_join') {
-            addSystemMessage(`${data.username} a rejoint le salon`);
-        } else if (data.type === 'user_leave') {
-            addSystemMessage(`${data.username} a quitté le salon`);
-        } else if (data.type === 'typing') {
-            if (data.is_typing) {
-                typingUser.textContent = data.username;
-                typingIndicator.classList.remove('hidden');
-            } else {
-                typingIndicator.classList.add('hidden');
+        chatSocket.onopen = function() {
+            console.log('✅ WebSocket connecté');
+            useWebSocket = true;
+        };
+        
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            
+            if (data.type === 'message') {
+                addMessage(data);
+                lastMessageId = data.message_id;
+            } else if (data.type === 'user_join') {
+                addSystemMessage(data.username + ' a rejoint le salon');
+            } else if (data.type === 'user_leave') {
+                addSystemMessage(data.username + ' a quitté le salon');
             }
-        }
-    };
+        };
+        
+        chatSocket.onclose = function() {
+            console.log('⚠️ WebSocket fermé, passage en mode polling');
+            useWebSocket = false;
+            startPolling();
+        };
+        
+        chatSocket.onerror = function() {
+            console.log('⚠️ WebSocket erreur, passage en mode polling');
+            useWebSocket = false;
+            startPolling();
+        };
+    } catch (e) {
+        console.log('⚠️ WebSocket non disponible, mode polling activé');
+        useWebSocket = false;
+        startPolling();
+    }
     
-    chatSocket.onclose = function(e) {
-        console.log('Chat socket closed. Reconnecting...');
-        setTimeout(() => {
-            window.location.reload();
-        }, 3000);
-    };
+    // ==========================================
+    // Mode Polling (fallback sans WebSocket)
+    // ==========================================
+    function startPolling() {
+        setInterval(function() {
+            fetch('/chat/api/messages/' + roomSlug + '/?last_id=' + lastMessageId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(function(msg) {
+                            addMessage({
+                                message: msg.contenu,
+                                username: msg.auteur,
+                                user_id: msg.auteur_id,
+                                timestamp: msg.timestamp,
+                                message_id: msg.id,
+                            });
+                            lastMessageId = msg.id;
+                        });
+                    }
+                })
+                .catch(err => console.log('Polling error:', err));
+        }, 2000); // Vérifier toutes les 2 secondes
+    }
     
-    chatSocket.onerror = function(e) {
-        console.error('WebSocket error:', e);
-    };
-    
+    // ==========================================
     // Envoi de message
+    // ==========================================
     chatForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const message = chatInput.value.trim();
         
-        if (message && chatSocket.readyState === WebSocket.OPEN) {
+        if (!message) return;
+        
+        if (useWebSocket && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            // Envoyer via WebSocket
             chatSocket.send(JSON.stringify({
                 'type': 'message',
                 'message': message
             }));
             chatInput.value = '';
-        }
-    });
-    
-    // Indicateur de frappe
-    let typingTimeout;
-    chatInput.addEventListener('input', function() {
-        if (chatSocket.readyState === WebSocket.OPEN) {
-            chatSocket.send(JSON.stringify({
-                'type': 'typing',
-                'is_typing': true
-            }));
+        } else {
+            // Envoyer via HTTP (fallback)
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value 
+                || '{{ csrf_token }}';
             
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                chatSocket.send(JSON.stringify({
-                    'type': 'typing',
-                    'is_typing': false
-                }));
-            }, 1000);
+            fetch('/chat/api/send/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: 'room_slug=' + roomSlug + '&message=' + encodeURIComponent(message)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Ajouter le message localement
+                    addMessage({
+                        message: message,
+                        username: currentUsername,
+                        user_id: currentUserId,
+                        timestamp: data.timestamp,
+                        message_id: data.message_id,
+                    });
+                    lastMessageId = data.message_id;
+                    chatInput.value = '';
+                }
+            })
+            .catch(err => console.error('Send error:', err));
         }
     });
     
+    // ==========================================
+    // Fonctions d'affichage
+    // ==========================================
     function addMessage(data) {
         const isMe = data.user_id === currentUserId;
         const messageDiv = document.createElement('div');
-        messageDiv.className = `flex items-start gap-3 ${isMe ? 'flex-row-reverse' : ''}`;
+        messageDiv.className = 'flex items-start gap-3 ' + (isMe ? 'flex-row-reverse' : '');
         messageDiv.dataset.messageId = data.message_id;
         
-        messageDiv.innerHTML = `
-            <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                ${data.username.charAt(0).toUpperCase()}
-            </div>
-            <div class="max-w-[70%] ${isMe ? 'text-right' : ''}">
-                <div class="flex items-center gap-2 mb-1 ${isMe ? 'flex-row-reverse' : ''}">
-                    <span class="text-sm font-bold ${isMe ? 'text-neon' : 'text-blue-400'}">
-                        ${data.username}
-                    </span>
-                    <span class="text-xs text-gray-500">${data.timestamp}</span>
-                </div>
-                <div class="${isMe ? 'bg-neon/20 text-white' : 'bg-slate-700 text-gray-200'} rounded-lg px-4 py-2 inline-block text-left">
-                    ${escapeHtml(data.message)}
-                </div>
-            </div>
-        `;
+        messageDiv.innerHTML = 
+            '<div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">' +
+                data.username.charAt(0).toUpperCase() +
+            '</div>' +
+            '<div class="max-w-[70%] ' + (isMe ? 'text-right' : '') + '">' +
+                '<div class="flex items-center gap-2 mb-1 ' + (isMe ? 'flex-row-reverse' : '') + '">' +
+                    '<span class="text-sm font-bold ' + (isMe ? 'text-neon' : 'text-blue-400') + '">' +
+                        escapeHtml(data.username) +
+                    '</span>' +
+                    '<span class="text-xs text-gray-500">' + data.timestamp + '</span>' +
+                '</div>' +
+                '<div class="' + (isMe ? 'bg-neon/20 text-white' : 'bg-slate-700 text-gray-200') + ' rounded-lg px-4 py-2 inline-block text-left">' +
+                    escapeHtml(data.message) +
+                '</div>' +
+            '</div>';
         
         messagesContainer.appendChild(messageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        typingIndicator.classList.add('hidden');
     }
     
     function addSystemMessage(message) {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'text-center text-gray-500 text-sm py-2';
-        messageDiv.innerHTML = `<span class="bg-slate-700 px-3 py-1 rounded-full">🔔 ${escapeHtml(message)}</span>`;
+        messageDiv.innerHTML = '<span class="bg-slate-700 px-3 py-1 rounded-full">🔔 ' + escapeHtml(message) + '</span>';
         messagesContainer.appendChild(messageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
