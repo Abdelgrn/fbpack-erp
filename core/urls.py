@@ -124,6 +124,13 @@ urlpatterns = [
 
     # API Dashboard
     path('stock/api/dashboard/', views.stock_dashboard_data, name='stock_dashboard_data'),
+
+    path('administration/', views.admin_view, name='admin_view'),
+    # Dans core/urls.py — ajouter ces lignes
+    path('administration/', views.admin_view, name='admin_view'),
+    path('administration/user/add/', views.admin_add_user, name='admin_add_user'),
+    path('administration/user/<int:user_id>/edit/', views.admin_edit_user, name='admin_edit_user'),
+    path('administration/user/<int:user_id>/toggle/', views.admin_toggle_user, name='admin_toggle_user'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
