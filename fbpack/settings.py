@@ -100,3 +100,39 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# Détecter si on est sur Render
+IS_RENDER = os.environ.get('RENDER', False)
+
+if IS_RENDER:
+    # En production sur Render (pas de WebSocket, chat en mode polling)
+    INSTALLED_APPS = [
+        'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
+        'core',
+    ]
+else:
+    # En local (avec WebSocket)
+    INSTALLED_APPS = [
+        'daphne',
+        'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
+        'channels',
+        'core',
+    ]
+
+    ASGI_APPLICATION = 'fbpack.asgi.application'
+    
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
