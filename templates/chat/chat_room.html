@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="flex h-[calc(100vh-120px)] gap-4">
+    
+    <!-- Sidebar des salons -->
+    <div class="w-64 bg-slate-800 rounded-xl border border-slate-700 flex flex-col shrink-0 overflow-hidden">
+        <div class="p-4 border-b border-slate-700 bg-slate-900">
+            <h3 class="text-white font-bold">💬 Salons</h3>
+        </div>
+        <div class="flex-1 overflow-y-auto p-2 space-y-1">
+            {% for r in rooms %}
+            <a href="{% url 'chat_room' r.slug %}" 
+               class="flex items-center gap-2 px-3 py-2 rounded-lg transition {% if r.slug == room.slug %}bg-neon/20 text-neon border border-neon/30{% else %}text-gray-300 hover:bg-slate-700{% endif %}">
+                <span>{{ r.icone }}</span>
+                <span class="truncate">{{ r.name }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        
+        <!-- Utilisateurs en ligne -->
+        <div class="border-t border-slate-700 p-4 bg-slate-900">
+            <h4 class="text-gray-400 text-xs uppercase mb-2">En ligne ({{ online_users.count }})</h4>
+            <div class="space-y-1 max-h-32 overflow-y-auto">
+                {% for presence in online_users %}
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    <span class="text-gray-300 truncate">{{ presence.user.username }}</span>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-xs">Personne dans ce salon</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Zone de chat principale -->
+    <div class="flex-1 bg-slate-800 rounded-xl border border-slate-700 flex flex-col overflow-hidden">
+        
+        <!-- Header du salon -->
+        <div class="px-6 py-4 border-b border-slate-700 bg-slate-900 flex justify-between items-center">
+            <div>
+                <h2 class="text-white font-bold text-xl">{{ room.icone }} {{ room.name }}</h2>
+                <p class="text-gray-400 text-sm">{{ room.description|default:"Chat en temps réel" }}</p>
+            </div>
+            <div id="typing-indicator" class="text-gray-400 text-sm italic hidden">
+                <span id="typing-user"></span> est en train d'écrire...
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+            {% for msg in messages %}
+            <div class="flex items-start gap-3 {% if msg.auteur == request.user %}flex-row-reverse{% endif %}" data-message-id="{{ msg.id }}">
+                <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                    {{ msg.auteur.username|slice:":1"|upper }}
+                </div>
+                <div class="max-w-[70%] {% if msg.auteur == request.user %}text-right{% endif %}">
+                    <div class="flex items-center gap-2 mb-1 {% if msg.auteur == request.user %}flex-row-reverse{% endif %}">
+                        <span class="text-sm font-bold {% if msg.auteur == request.user %}text-neon{% else %}text-blue-400{% endif %}">
+                            {{ msg.auteur.username }}
+                        </span>
+                        <span class="text-xs text-gray-500">{{ msg.get_time_display }}</span>
+                    </div>
+                    <div class="{% if msg.type_message == 'SYSTEM' %}bg-yellow-900/30 border border-yellow-500/30 text-yellow-400{% elif msg.auteur == request.user %}bg-neon/20 text-white{% else %}bg-slate-700 text-gray-200{% endif %} rounded-lg px-4 py-2 inline-block text-left">
+                        {% if msg.type_message == 'SYSTEM' %}⚠️ {% endif %}{{ msg.contenu }}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-gray-500 py-8">
+                <p class="text-lg mb-2">💬 Bienvenue dans {{ room.name }} !</p>
+                <p class="text-sm">Soyez le premier à envoyer un message.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Zone de saisie -->
+        <div class="p-4 border-t border-slate-700 bg-slate-900">
+            <form id="chat-form" class="flex gap-3">
+                <input type="text" id="chat-input" 
+                       placeholder="Tapez votre message..." 
+                       autocomplete="off"
+                       class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-neon focus:outline-none focus:ring-1 focus:ring-neon">
+                <button type="submit" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold px-6 py-3 rounded-lg transition flex items-center gap-2">
+                    <span>Envoyer</span>
+                    <span>➤</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const roomSlug = '{{ room.slug }}';
+    const currentUserId = {{ request.user.id }};
+    const currentUsername = '{{ request.user.username }}';
+    
+    // WebSocket
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const chatSocket = new WebSocket(wsProtocol + '//' + window.location.host + '/ws/chat/' + roomSlug + '/');
+    
+    const messagesContainer = document.getElementById('chat-messages');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const typingUser = document.getElementById('typing-user');
+    
+    // Scroll en bas au chargement
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Réception des messages
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        
+        if (data.type === 'message') {
+            addMessage(data);
+        } else if (data.type === 'user_join') {
+            addSystemMessage(`${data.username} a rejoint le salon`);
+        } else if (data.type === 'user_leave') {
+            addSystemMessage(`${data.username} a quitté le salon`);
+        } else if (data.type === 'typing') {
+            if (data.is_typing) {
+                typingUser.textContent = data.username;
+                typingIndicator.classList.remove('hidden');
+            } else {
+                typingIndicator.classList.add('hidden');
+            }
+        }
+    };
+    
+    chatSocket.onclose = function(e) {
+        console.log('Chat socket closed. Reconnecting...');
+        setTimeout(() => {
+            window.location.reload();
+        }, 3000);
+    };
+    
+    chatSocket.onerror = function(e) {
+        console.error('WebSocket error:', e);
+    };
+    
+    // Envoi de message
+    chatForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const message = chatInput.value.trim();
+        
+        if (message && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                'type': 'message',
+                'message': message
+            }));
+            chatInput.value = '';
+        }
+    });
+    
+    // Indicateur de frappe
+    let typingTimeout;
+    chatInput.addEventListener('input', function() {
+        if (chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                'type': 'typing',
+                'is_typing': true
+            }));
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                chatSocket.send(JSON.stringify({
+                    'type': 'typing',
+                    'is_typing': false
+                }));
+            }, 1000);
+        }
+    });
+    
+    function addMessage(data) {
+        const isMe = data.user_id === currentUserId;
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `flex items-start gap-3 ${isMe ? 'flex-row-reverse' : ''}`;
+        messageDiv.dataset.messageId = data.message_id;
+        
+        messageDiv.innerHTML = `
+            <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                ${data.username.charAt(0).toUpperCase()}
+            </div>
+            <div class="max-w-[70%] ${isMe ? 'text-right' : ''}">
+                <div class="flex items-center gap-2 mb-1 ${isMe ? 'flex-row-reverse' : ''}">
+                    <span class="text-sm font-bold ${isMe ? 'text-neon' : 'text-blue-400'}">
+                        ${data.username}
+                    </span>
+                    <span class="text-xs text-gray-500">${data.timestamp}</span>
+                </div>
+                <div class="${isMe ? 'bg-neon/20 text-white' : 'bg-slate-700 text-gray-200'} rounded-lg px-4 py-2 inline-block text-left">
+                    ${escapeHtml(data.message)}
+                </div>
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        typingIndicator.classList.add('hidden');
+    }
+    
+    function addSystemMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'text-center text-gray-500 text-sm py-2';
+        messageDiv.innerHTML = `<span class="bg-slate-700 px-3 py-1 rounded-full">🔔 ${escapeHtml(message)}</span>`;
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

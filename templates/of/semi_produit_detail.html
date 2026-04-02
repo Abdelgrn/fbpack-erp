@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <!-- Breadcrumb -->
+    <nav class="mb-4">
+        <ol class="flex items-center gap-2 text-sm text-gray-400">
+            <li><a href="{% url 'semi_produit_list' %}" class="hover:text-neon transition">Semi-produits</a></li>
+            <li>→</li>
+            <li class="text-white">{{ semi_produit.reference }}</li>
+        </ol>
+    </nav>
+
+    <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="bg-slate-900 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-white font-bold text-xl">📦 {{ semi_produit.reference }}</h2>
+            {% if semi_produit.statut == 'DISPONIBLE' %}
+                <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded text-sm border border-green-500/30">Disponible</span>
+            {% elif semi_produit.statut == 'RESERVE' %}
+                <span class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded text-sm border border-blue-500/30">Réservé</span>
+            {% elif semi_produit.statut == 'CONSOMME' %}
+                <span class="bg-gray-500/20 text-gray-400 px-3 py-1 rounded text-sm border border-gray-500/30">Consommé</span>
+            {% else %}
+                <span class="bg-red-500/20 text-red-400 px-3 py-1 rounded text-sm border border-red-500/30">{{ semi_produit.get_statut_display }}</span>
+            {% endif %}
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Désignation</span>
+                        <span class="text-white">{{ semi_produit.designation }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Type</span>
+                        <span class="text-white">{{ semi_produit.get_type_semi_produit_display }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Quantité</span>
+                        <span class="text-neon font-bold text-xl">{{ semi_produit.quantite|floatformat:1 }} {{ semi_produit.unite }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Date création</span>
+                        <span class="text-white">{{ semi_produit.date_creation|date:"d/m/Y H:i" }}</span>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">OF Origine</span>
+                        {% if semi_produit.of_origine %}
+                        <a href="{% url 'of_detail' semi_produit.of_origine.id %}" class="text-neon hover:underline">{{ semi_produit.of_origine.numero_of }}</a>
+                        {% else %}
+                        <span class="text-white">-</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Étape origine</span>
+                        <span class="text-white">{{ semi_produit.etape_origine.get_nom_display|default:"-" }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Laize</span>
+                        <span class="text-white">{{ semi_produit.laize|floatformat:0 }} mm</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Emplacement</span>
+                        <span class="text-white">{{ semi_produit.emplacement|default:"-" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            {% if semi_produit.notes_qualite %}
+            <div class="mt-6 pt-6 border-t border-slate-700">
+                <h4 class="text-gray-400 text-sm mb-2">Notes qualité</h4>
+                <p class="text-white">{{ semi_produit.notes_qualite }}</p>
+            </div>
+            {% endif %}
+
+            <div class="mt-6 pt-6 border-t border-slate-700 flex justify-end">
+                <a href="{% url 'semi_produit_list' %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-2 px-4 rounded transition">
+                    ← Retour à la liste
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

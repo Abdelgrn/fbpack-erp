@@ -25,12 +25,18 @@ from .models import (
     PurchaseOrder,
     StockLocation, StockLot, StockMovement,
     DemandeAchat, BonCommande, LigneBonCommande, StockSeuil,
+    OrdreFabrication, EtapeProduction, SemiProduit,
+    SuiviProduction, ConsommationMatiere, ProcessType,
+    ChatRoom, ChatMessage, UserPresence,
 )
 from .forms import (
     ClientForm, ClientContactForm, InteractionLogForm, OpportuniteForm,
     ProductForm, ToolForm, QuoteForm,
     ProductionOrderForm, SupplierForm, MaterialForm, ConsommationEncreForm,
     MachineForm, ProductionEntryForm,
+    OrdreFabricationForm, EtapeProductionForm, EtapeProductionFormSet,
+    SuiviProductionForm, SemiProduitForm, ConsommationMatiereForm,
+    ProcessTypeForm, OFLancementRapideForm,
 )
 
 
@@ -49,6 +55,20 @@ def dashboard(request):
         'count_opportunites': Opportunite.objects.filter(status__in=['PROSPECT', 'QUALIFICATION', 'PROPOSITION', 'NEGOCIATION']).count(),
         'count_devis_envoyes': Quote.objects.filter(status='SENT').count(),
         'pipeline_total': Opportunite.objects.exclude(status__in=['GAGNE', 'PERDU']).aggregate(total=Sum('valeur_estimee'))['total'] or 0,
+        # Nouvelles stats OF
+        'of_total': OrdreFabrication.objects.count(),
+        'of_en_cours': OrdreFabrication.objects.filter(statut='EN_COURS').count(),
+        'of_en_retard': sum(1 for of in OrdreFabrication.objects.filter(
+            statut__in=['LANCE', 'EN_COURS']
+        ) if of.est_en_retard),
+        'of_termine_mois': OrdreFabrication.objects.filter(
+            statut='TERMINE',
+            date_fin_reelle__month=timezone.now().month
+        ).count(),
+        'semi_produits_dispo': SemiProduit.objects.filter(statut='DISPONIBLE').count(),
+        'of_recents': OrdreFabrication.objects.select_related(
+            'client', 'produit'
+        ).order_by('-date_creation')[:5],
     }
     return render(request, 'dashboard.html', context)
 
@@ -139,13 +159,15 @@ def client_detail(request, id):
     opportunites = Opportunite.objects.filter(client=client).order_by('-date_ouverture')
     quotes = Quote.objects.filter(client=client).order_by('-date')
     orders = ProductionOrder.objects.filter(client=client).order_by('-start_time')[:5]
+    ofs = OrdreFabrication.objects.filter(client=client).order_by('-date_creation')[:5]
     context = {
         'client': client,
         'contacts': contacts,
         'interactions': interactions,
         'opportunites': opportunites,
         'quotes': quotes,
-        'orders': orders
+        'orders': orders,
+        'ofs': ofs,
     }
     return render(request, 'crm/client_detail.html', context)
 
@@ -431,7 +453,7 @@ def edit_tool(request, id):
 
 
 # ===========================================================================
-# --- PRODUCTION (OF) ---
+# --- PRODUCTION (OF ANCIEN) ---
 # ===========================================================================
 
 @login_required
@@ -469,6 +491,571 @@ def edit_production(request, id):
         'form': form,
         'titre': f'Modifier OF {of.of_number}'
     })
+
+
+# ===========================================================================
+# --- OF MULTI-PROCESSUS (NOUVEAU) ---
+# ===========================================================================
+
+@login_required
+def of_list_view(request):
+    """Liste des Ordres de Fabrication avec filtres"""
+    
+    statut = request.GET.get('statut', '')
+    priorite = request.GET.get('priorite', '')
+    client_id = request.GET.get('client', '')
+    search = request.GET.get('q', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    
+    ofs = OrdreFabrication.objects.select_related(
+        'client', 'produit', 'cree_par'
+    ).prefetch_related('etapes').order_by('-date_creation')
+    
+    if statut:
+        ofs = ofs.filter(statut=statut)
+    if priorite:
+        ofs = ofs.filter(priorite=priorite)
+    if client_id:
+        ofs = ofs.filter(client_id=client_id)
+    if search:
+        ofs = ofs.filter(
+            Q(numero_of__icontains=search) |
+            Q(numero_lot__icontains=search) |
+            Q(produit__name__icontains=search) |
+            Q(client__name__icontains=search)
+        )
+    if date_from:
+        ofs = ofs.filter(date_lancement__gte=date_from)
+    if date_to:
+        ofs = ofs.filter(date_lancement__lte=date_to)
+    
+    stats = {
+        'total': ofs.count(),
+        'brouillon': ofs.filter(statut='BROUILLON').count(),
+        'en_cours': ofs.filter(statut='EN_COURS').count(),
+        'termine': ofs.filter(statut='TERMINE').count(),
+        'en_retard': sum(1 for of in ofs if of.est_en_retard),
+    }
+    
+    context = {
+        'ofs': ofs[:100],
+        'stats': stats,
+        'statut_choices': OrdreFabrication.STATUT_CHOICES,
+        'priorite_choices': OrdreFabrication.PRIORITE_CHOICES,
+        'clients': Client.objects.filter(status='ACTIVE'),
+        'selected_statut': statut,
+        'selected_priorite': priorite,
+        'selected_client': client_id,
+        'search': search,
+        'selected_date_from': date_from,
+        'selected_date_to': date_to,
+    }
+    return render(request, 'of/of_list.html', context)
+
+
+@login_required
+def of_create_view(request):
+    """Créer un nouvel OF avec ses étapes"""
+    
+    if request.method == 'POST':
+        form = OrdreFabricationForm(request.POST, request.FILES)
+        formset = EtapeProductionFormSet(request.POST, prefix='etapes')
+        
+        if form.is_valid():
+            of = form.save(commit=False)
+            of.cree_par = request.user
+            of.save()
+            
+            if formset.is_valid():
+                etapes = formset.save(commit=False)
+                for etape in etapes:
+                    etape.of = of
+                    etape.save()
+                for obj in formset.deleted_objects:
+                    obj.delete()
+            
+            messages.success(request, f"OF {of.numero_of} créé avec succès !")
+            return redirect('of_detail', of_id=of.id)
+        else:
+            messages.error(request, "Erreur dans le formulaire. Vérifiez les champs.")
+    else:
+        form = OrdreFabricationForm()
+        formset = EtapeProductionFormSet(prefix='etapes', queryset=EtapeProduction.objects.none())
+    
+    context = {
+        'form': form,
+        'formset': formset,
+        'process_types': ProcessType.objects.filter(est_actif=True),
+        'machines': Machine.objects.all(),
+        'titre': 'Nouvel Ordre de Fabrication',
+    }
+    return render(request, 'of/of_form.html', context)
+
+
+@login_required
+def of_detail_view(request, of_id):
+    """Détail d'un OF avec toutes ses étapes et suivi"""
+    
+    of = get_object_or_404(
+        OrdreFabrication.objects.select_related('client', 'produit', 'cree_par'),
+        id=of_id
+    )
+    
+    etapes = of.etapes.select_related(
+        'process_type', 'machine', 'operateur'
+    ).prefetch_related('suivis', 'consommations').order_by('numero_etape')
+    
+    semi_produits = SemiProduit.objects.filter(of_origine=of).order_by('-date_creation')
+    
+    suivis = SuiviProduction.objects.filter(
+        etape__of=of
+    ).select_related('etape', 'operateur').order_by('-date_heure')[:50]
+    
+    etapes_data = []
+    for etape in etapes:
+        etapes_data.append({
+            'nom': etape.get_nom_display(),
+            'progression': etape.progression,
+            'statut': etape.statut,
+            'couleur': etape.get_statut_color(),
+        })
+    
+    context = {
+        'of': of,
+        'etapes': etapes,
+        'semi_produits': semi_produits,
+        'suivis': suivis,
+        'etapes_data_json': json.dumps(etapes_data),
+    }
+    return render(request, 'of/of_detail.html', context)
+
+
+@login_required
+def of_edit_view(request, of_id):
+    """Modifier un OF existant"""
+    
+    of = get_object_or_404(OrdreFabrication, id=of_id)
+    
+    if request.method == 'POST':
+        form = OrdreFabricationForm(request.POST, request.FILES, instance=of)
+        formset = EtapeProductionFormSet(request.POST, instance=of, prefix='etapes')
+        
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            messages.success(request, f"OF {of.numero_of} mis à jour !")
+            return redirect('of_detail', of_id=of.id)
+        else:
+            messages.error(request, "Erreur dans le formulaire.")
+    else:
+        form = OrdreFabricationForm(instance=of)
+        formset = EtapeProductionFormSet(instance=of, prefix='etapes')
+    
+    context = {
+        'form': form,
+        'formset': formset,
+        'of': of,
+        'process_types': ProcessType.objects.filter(est_actif=True),
+        'machines': Machine.objects.all(),
+        'titre': f'Modifier OF {of.numero_of}',
+    }
+    return render(request, 'of/of_form.html', context)
+
+
+@login_required
+def of_delete_view(request, of_id):
+    """Supprimer un OF"""
+    
+    of = get_object_or_404(OrdreFabrication, id=of_id)
+    
+    if request.method == 'POST':
+        numero = of.numero_of
+        of.delete()
+        messages.success(request, f"OF {numero} supprimé.")
+        return redirect('of_list')
+    
+    return render(request, 'of/of_confirm_delete.html', {'of': of})
+
+
+@login_required
+def of_changer_statut(request, of_id, nouveau_statut):
+    """Changer le statut d'un OF"""
+    
+    of = get_object_or_404(OrdreFabrication, id=of_id)
+    ancien_statut = of.statut
+    
+    if nouveau_statut in dict(OrdreFabrication.STATUT_CHOICES):
+        of.statut = nouveau_statut
+        
+        if nouveau_statut == 'LANCE' and not of.date_lancement:
+            of.date_lancement = timezone.now().date()
+        elif nouveau_statut == 'TERMINE':
+            of.date_fin_reelle = timezone.now().date()
+        
+        of.save()
+        messages.success(
+            request, 
+            f"OF {of.numero_of} : {ancien_statut} → {nouveau_statut}"
+        )
+    else:
+        messages.error(request, "Statut invalide.")
+    
+    return redirect('of_detail', of_id=of_id)
+
+
+@login_required
+def of_lancement_rapide(request):
+    """Formulaire de lancement rapide d'OF avec étapes prédéfinies"""
+    
+    if request.method == 'POST':
+        form = OFLancementRapideForm(request.POST)
+        
+        if form.is_valid():
+            of = OrdreFabrication.objects.create(
+                client=form.cleaned_data['client'],
+                produit=form.cleaned_data['produit'],
+                quantite_prevue=form.cleaned_data['quantite'],
+                priorite=form.cleaned_data['priorite'],
+                date_lancement=form.cleaned_data['date_lancement'],
+                statut='LANCE',
+                cree_par=request.user,
+            )
+            
+            numero = 1
+            
+            if form.cleaned_data.get('etape_extrusion'):
+                process = ProcessType.objects.filter(code='EXTRUSION').first()
+                EtapeProduction.objects.create(
+                    of=of,
+                    numero_etape=numero,
+                    process_type=process,
+                    machine=form.cleaned_data.get('machine_extrusion'),
+                    quantite_entree=form.cleaned_data.get('qte_extrusion') or form.cleaned_data['quantite'],
+                    statut='PRET',
+                )
+                numero += 1
+            
+            if form.cleaned_data.get('etape_impression'):
+                process = ProcessType.objects.filter(code='IMPRESSION').first()
+                EtapeProduction.objects.create(
+                    of=of,
+                    numero_etape=numero,
+                    process_type=process,
+                    machine=form.cleaned_data.get('machine_impression'),
+                    quantite_entree=form.cleaned_data.get('qte_impression') or form.cleaned_data['quantite'],
+                    statut='EN_ATTENTE',
+                )
+                numero += 1
+            
+            if form.cleaned_data.get('etape_decoupe'):
+                process = ProcessType.objects.filter(code='DECOUPE').first()
+                EtapeProduction.objects.create(
+                    of=of,
+                    numero_etape=numero,
+                    process_type=process,
+                    machine=form.cleaned_data.get('machine_decoupe'),
+                    quantite_entree=form.cleaned_data.get('qte_decoupe') or form.cleaned_data['quantite'],
+                    statut='EN_ATTENTE',
+                )
+            
+            messages.success(request, f"OF {of.numero_of} lancé avec {of.nb_etapes} étapes !")
+            return redirect('of_detail', of_id=of.id)
+    else:
+        form = OFLancementRapideForm()
+    
+    context = {
+        'form': form,
+        'titre': 'Lancement Rapide OF',
+    }
+    return render(request, 'of/of_lancement_rapide.html', context)
+
+
+# ===========================================================================
+# --- ÉTAPES DE PRODUCTION ---
+# ===========================================================================
+
+@login_required
+def etape_detail_view(request, etape_id):
+    """Détail d'une étape avec son suivi"""
+    
+    etape = get_object_or_404(
+        EtapeProduction.objects.select_related('of', 'process_type', 'machine', 'operateur'),
+        id=etape_id
+    )
+    
+    suivis = etape.suivis.select_related('operateur').order_by('-date_heure')
+    consommations = etape.consommations.select_related('material', 'lot')
+    semi_produits = SemiProduit.objects.filter(etape_origine=etape)
+    
+    if request.method == 'POST':
+        form = SuiviProductionForm(request.POST)
+        if form.is_valid():
+            suivi = form.save(commit=False)
+            suivi.etape = etape
+            suivi.operateur = request.user
+            suivi.save()
+            
+            etape.quantite_sortie += suivi.quantite_produite
+            etape.quantite_rebut += suivi.quantite_rebut
+            
+            if suivi.type_evenement == 'DEMARRAGE':
+                etape.statut = 'EN_COURS'
+                if not etape.date_debut_reel:
+                    etape.date_debut_reel = timezone.now()
+            elif suivi.type_evenement == 'FIN':
+                etape.statut = 'TERMINE'
+                etape.date_fin_reel = timezone.now()
+            elif suivi.type_evenement == 'ARRET':
+                etape.statut = 'PAUSE'
+            
+            etape.save()
+            
+            of = etape.of
+            of.quantite_produite = sum(e.quantite_sortie for e in of.etapes.filter(statut='TERMINE'))
+            of.quantite_rebut = sum(e.quantite_rebut for e in of.etapes.all())
+            of.save()
+            
+            messages.success(request, "Suivi enregistré !")
+            return redirect('etape_detail', etape_id=etape_id)
+    else:
+        form = SuiviProductionForm()
+    
+    context = {
+        'etape': etape,
+        'of': etape.of,
+        'suivis': suivis,
+        'consommations': consommations,
+        'semi_produits': semi_produits,
+        'form': form,
+    }
+    return render(request, 'of/etape_detail.html', context)
+
+
+@login_required
+def etape_demarrer(request, etape_id):
+    """Démarrer une étape"""
+    
+    etape = get_object_or_404(EtapeProduction, id=etape_id)
+    
+    if etape.statut in ['EN_ATTENTE', 'PRET', 'PAUSE']:
+        etape.statut = 'EN_COURS'
+        if not etape.date_debut_reel:
+            etape.date_debut_reel = timezone.now()
+        etape.save()
+        
+        SuiviProduction.objects.create(
+            etape=etape,
+            operateur=request.user,
+            type_evenement='DEMARRAGE',
+            commentaire="Étape démarrée"
+        )
+        
+        if etape.of.statut == 'LANCE':
+            etape.of.statut = 'EN_COURS'
+            etape.of.save()
+        
+        messages.success(request, f"Étape {etape.numero_etape} démarrée !")
+    
+    return redirect('etape_detail', etape_id=etape_id)
+
+
+@login_required
+def etape_terminer(request, etape_id):
+    """Terminer une étape et créer le semi-produit"""
+    
+    etape = get_object_or_404(EtapeProduction, id=etape_id)
+    
+    if request.method == 'POST':
+        quantite_sortie = float(request.POST.get('quantite_sortie', 0))
+        quantite_rebut = float(request.POST.get('quantite_rebut', 0))
+        
+        etape.quantite_sortie = quantite_sortie
+        etape.quantite_rebut = quantite_rebut
+        etape.statut = 'TERMINE'
+        etape.date_fin_reel = timezone.now()
+        etape.save()
+        
+        if etape.genere_semi_produit and quantite_sortie > 0:
+            type_sp = 'FILM_EXTRUDE'
+            if etape.process_type:
+                if 'IMP' in etape.process_type.code.upper():
+                    type_sp = 'FILM_IMPRIME'
+                elif 'COMP' in etape.process_type.code.upper():
+                    type_sp = 'FILM_COMPLEXE'
+            
+            SemiProduit.objects.create(
+                designation=f"SP - {etape.of.produit.name} - Étape {etape.numero_etape}",
+                type_semi_produit=type_sp,
+                of_origine=etape.of,
+                etape_origine=etape,
+                quantite=quantite_sortie,
+                laize=etape.of.laize,
+                conforme=True,
+            )
+        
+        SuiviProduction.objects.create(
+            etape=etape,
+            operateur=request.user,
+            type_evenement='FIN',
+            quantite_produite=quantite_sortie,
+            quantite_rebut=quantite_rebut,
+            commentaire="Étape terminée"
+        )
+        
+        of = etape.of
+        if all(e.statut == 'TERMINE' for e in of.etapes.all()):
+            of.statut = 'TERMINE'
+            of.date_fin_reelle = timezone.now().date()
+            of.quantite_produite = quantite_sortie
+        
+        of.quantite_rebut = sum(e.quantite_rebut for e in of.etapes.all())
+        of.save()
+        
+        etape_suivante = EtapeProduction.objects.filter(
+            of=of,
+            numero_etape=etape.numero_etape + 1
+        ).first()
+        
+        if etape_suivante:
+            etape_suivante.statut = 'PRET'
+            etape_suivante.quantite_entree = quantite_sortie
+            etape_suivante.save()
+        
+        messages.success(request, f"Étape {etape.numero_etape} terminée !")
+        return redirect('of_detail', of_id=etape.of.id)
+    
+    return render(request, 'of/etape_terminer.html', {'etape': etape})
+
+
+# ===========================================================================
+# --- SEMI-PRODUITS ---
+# ===========================================================================
+
+@login_required
+def semi_produit_list(request):
+    """Liste des semi-produits"""
+    
+    statut = request.GET.get('statut', '')
+    type_sp = request.GET.get('type', '')
+    
+    semi_produits = SemiProduit.objects.select_related(
+        'of_origine', 'etape_origine', 'emplacement'
+    ).order_by('-date_creation')
+    
+    if statut:
+        semi_produits = semi_produits.filter(statut=statut)
+    if type_sp:
+        semi_produits = semi_produits.filter(type_semi_produit=type_sp)
+    
+    stats = {
+        'total': semi_produits.count(),
+        'disponible': semi_produits.filter(statut='DISPONIBLE').count(),
+        'reserve': semi_produits.filter(statut='RESERVE').count(),
+        'total_kg': semi_produits.filter(statut='DISPONIBLE').aggregate(
+            t=Sum('quantite')
+        )['t'] or 0,
+    }
+    
+    context = {
+        'semi_produits': semi_produits[:100],
+        'stats': stats,
+        'statut_choices': SemiProduit.STATUT_CHOICES,
+        'type_choices': SemiProduit.TYPE_CHOICES,
+        'selected_statut': statut,
+        'selected_type': type_sp,
+    }
+    return render(request, 'of/semi_produit_list.html', context)
+
+
+@login_required
+def semi_produit_detail(request, sp_id):
+    """Détail d'un semi-produit"""
+    
+    sp = get_object_or_404(
+        SemiProduit.objects.select_related(
+            'of_origine', 'etape_origine', 'etape_destination', 'emplacement'
+        ),
+        id=sp_id
+    )
+    
+    context = {'semi_produit': sp}
+    return render(request, 'of/semi_produit_detail.html', context)
+
+
+# ===========================================================================
+# --- PROCESS TYPES ---
+# ===========================================================================
+
+@login_required
+def process_type_list(request):
+    """Liste et gestion des types de processus"""
+    
+    process_types = ProcessType.objects.all().order_by('ordre_defaut')
+    
+    if request.method == 'POST':
+        form = ProcessTypeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Type de processus créé !")
+            return redirect('process_type_list')
+    else:
+        form = ProcessTypeForm()
+    
+    context = {
+        'process_types': process_types,
+        'form': form,
+    }
+    return render(request, 'of/process_type_list.html', context)
+
+
+@login_required
+def process_type_delete(request, pt_id):
+    """Supprimer un type de processus"""
+    
+    pt = get_object_or_404(ProcessType, id=pt_id)
+    if request.method == 'POST':
+        pt.delete()
+        messages.success(request, "Type de processus supprimé.")
+    return redirect('process_type_list')
+
+
+# ===========================================================================
+# --- API JSON ---
+# ===========================================================================
+
+@login_required
+def of_stats_api(request):
+    """API JSON pour statistiques OF"""
+    
+    from collections import defaultdict
+    
+    statuts = {}
+    for code, label in OrdreFabrication.STATUT_CHOICES:
+        statuts[code] = OrdreFabrication.objects.filter(statut=code).count()
+    
+    date_30j = timezone.now().date() - timedelta(days=30)
+    ofs_recents = OrdreFabrication.objects.filter(
+        date_lancement__gte=date_30j
+    ).values('date_lancement').annotate(
+        qte=Sum('quantite_produite')
+    ).order_by('date_lancement')
+    
+    prod_par_jour = {str(of['date_lancement']): of['qte'] or 0 for of in ofs_recents}
+    
+    top_clients = OrdreFabrication.objects.values(
+        'client__name'
+    ).annotate(
+        total=Sum('quantite_prevue')
+    ).order_by('-total')[:5]
+    
+    data = {
+        'statuts': statuts,
+        'production_par_jour': prod_par_jour,
+        'top_clients': list(top_clients),
+    }
+    
+    return JsonResponse(data)
 
 
 # ===========================================================================
@@ -554,17 +1141,14 @@ def stock_advanced_view(request):
 
     total_matieres = materials.count()
     
-    # ── Alertes enrichies ──────────────────────────────────────────────
     alertes_stock = []
     for m in materials:
         if m.is_low_stock():
-            # Calcul du pourcentage de stock restant
             if m.min_threshold > 0:
                 pct = round((m.quantity / m.min_threshold) * 100, 1)
             else:
                 pct = 0
             
-            # Niveau de criticité
             if m.quantity == 0:
                 niveau = 'RUPTURE'
                 couleur = 'danger'
@@ -578,7 +1162,6 @@ def stock_advanced_view(request):
                 couleur = 'info'
                 icone = '🟡'
             
-            # Catégorie lisible
             cat_labels = {
                 'FILM': 'Film/Papier',
                 'INK': 'Encre',
@@ -601,28 +1184,24 @@ def stock_advanced_view(request):
                 'supplier': m.supplier.name if m.supplier else 'N/A',
             })
     
-    # Trier : ruptures d'abord, puis critiques, puis alertes
     niveau_ordre = {'RUPTURE': 0, 'CRITIQUE': 1, 'ALERTE': 2}
     alertes_stock.sort(key=lambda x: (niveau_ordre[x['niveau']], x['pct']))
     
-    # Stats par niveau
-    nb_ruptures  = sum(1 for a in alertes_stock if a['niveau'] == 'RUPTURE')
+    nb_ruptures = sum(1 for a in alertes_stock if a['niveau'] == 'RUPTURE')
     nb_critiques = sum(1 for a in alertes_stock if a['niveau'] == 'CRITIQUE')
     nb_alertes_simples = sum(1 for a in alertes_stock if a['niveau'] == 'ALERTE')
     
-    # Stats par catégorie pour graphe
     from collections import defaultdict
     cat_stats = defaultdict(lambda: {'rupture': 0, 'critique': 0, 'alerte': 0, 'total': 0})
     for a in alertes_stock:
         cat_stats[a['cat_label']][a['niveau'].lower()] += 1
         cat_stats[a['cat_label']]['total'] += 1
     
-    cat_labels_list  = list(cat_stats.keys())
-    cat_rupture_data = [cat_stats[c]['rupture']  for c in cat_labels_list]
-    cat_critique_data= [cat_stats[c]['critique'] for c in cat_labels_list]
-    cat_alerte_data  = [cat_stats[c]['alerte']   for c in cat_labels_list]
+    cat_labels_list = list(cat_stats.keys())
+    cat_rupture_data = [cat_stats[c]['rupture'] for c in cat_labels_list]
+    cat_critique_data = [cat_stats[c]['critique'] for c in cat_labels_list]
+    cat_alerte_data = [cat_stats[c]['alerte'] for c in cat_labels_list]
     
-    # Top 10 pour le graphe barres horizontales (les pires en premier)
     top_alertes_chart = alertes_stock[:10]
     
     lots_bloques = StockLot.objects.filter(statut='BLOQUE').count()
@@ -670,15 +1249,11 @@ def stock_advanced_view(request):
         'demandes': demandes,
         'bons_commande': bons_commande,
         'total_matieres': total_matieres,
-        
-        # Alertes enrichies
         'alertes_stock': alertes_stock,
         'nb_alertes': len(alertes_stock),
         'nb_ruptures': nb_ruptures,
         'nb_critiques': nb_critiques,
         'nb_alertes_simples': nb_alertes_simples,
-        
-        # Données graphes alertes
         'cat_labels_json': json.dumps(cat_labels_list),
         'cat_rupture_json': json.dumps(cat_rupture_data),
         'cat_critique_json': json.dumps(cat_critique_data),
@@ -687,11 +1262,10 @@ def stock_advanced_view(request):
         'top_alertes_stock': json.dumps([a['quantity'] for a in top_alertes_chart]),
         'top_alertes_seuil': json.dumps([a['min_threshold'] for a in top_alertes_chart]),
         'top_alertes_couleurs': json.dumps([
-            '#dc3545' if a['niveau']=='RUPTURE' else
-            '#fd7e14' if a['niveau']=='CRITIQUE' else '#ffc107'
+            '#dc3545' if a['niveau'] == 'RUPTURE' else
+            '#fd7e14' if a['niveau'] == 'CRITIQUE' else '#ffc107'
             for a in top_alertes_chart
         ]),
-        
         'lots_bloques': lots_bloques,
         'lots_attente': lots_attente,
         'da_en_attente': da_en_attente,
@@ -743,18 +1317,18 @@ def lot_list(request):
 def lot_add(request):
     if request.method == 'POST':
         try:
-            material_id   = request.POST.get('material')
-            numero_lot    = request.POST.get('numero_lot', '').strip()
+            material_id = request.POST.get('material')
+            numero_lot = request.POST.get('numero_lot', '').strip()
             date_reception = request.POST.get('date_reception')
             fournisseur_id = request.POST.get('fournisseur') or None
             emplacement_id = request.POST.get('emplacement') or None
-            quantite      = float(request.POST.get('quantite_initiale', 0))
-            prix          = float(request.POST.get('prix_unitaire', 0))
-            statut        = request.POST.get('statut', 'EN_ATTENTE')
-            notes         = request.POST.get('notes', '')
-            material      = get_object_or_404(Material, id=material_id)
-            fournisseur   = Supplier.objects.filter(id=fournisseur_id).first() if fournisseur_id else None
-            emplacement   = StockLocation.objects.filter(id=emplacement_id).first() if emplacement_id else None
+            quantite = float(request.POST.get('quantite_initiale', 0))
+            prix = float(request.POST.get('prix_unitaire', 0))
+            statut = request.POST.get('statut', 'EN_ATTENTE')
+            notes = request.POST.get('notes', '')
+            material = get_object_or_404(Material, id=material_id)
+            fournisseur = Supplier.objects.filter(id=fournisseur_id).first() if fournisseur_id else None
+            emplacement = StockLocation.objects.filter(id=emplacement_id).first() if emplacement_id else None
             lot = StockLot.objects.create(
                 material=material, numero_lot=numero_lot,
                 date_reception=date_reception, fournisseur=fournisseur,
@@ -824,19 +1398,19 @@ def lot_detail(request, id):
 def mouvement_add(request):
     if request.method == 'POST':
         try:
-            material   = get_object_or_404(Material, id=request.POST.get('material'))
-            type_mvt   = request.POST.get('type')
-            quantite   = float(request.POST.get('quantite', 0))
-            lot_id     = request.POST.get('lot') or None
-            src_id     = request.POST.get('emplacement_source') or None
-            dst_id     = request.POST.get('emplacement_destination') or None
-            of_id      = request.POST.get('of') or None
+            material = get_object_or_404(Material, id=request.POST.get('material'))
+            type_mvt = request.POST.get('type')
+            quantite = float(request.POST.get('quantite', 0))
+            lot_id = request.POST.get('lot') or None
+            src_id = request.POST.get('emplacement_source') or None
+            dst_id = request.POST.get('emplacement_destination') or None
+            of_id = request.POST.get('of') or None
             machine_id = request.POST.get('machine') or None
-            motif      = request.POST.get('motif', '')
-            lot        = StockLot.objects.filter(id=lot_id).first() if lot_id else None
-            src        = StockLocation.objects.filter(id=src_id).first() if src_id else None
-            dst        = StockLocation.objects.filter(id=dst_id).first() if dst_id else None
-            of_obj     = ProductionOrder.objects.filter(id=of_id).first() if of_id else None
+            motif = request.POST.get('motif', '')
+            lot = StockLot.objects.filter(id=lot_id).first() if lot_id else None
+            src = StockLocation.objects.filter(id=src_id).first() if src_id else None
+            dst = StockLocation.objects.filter(id=dst_id).first() if dst_id else None
+            of_obj = ProductionOrder.objects.filter(id=of_id).first() if of_id else None
             machine_obj = Machine.objects.filter(id=machine_id).first() if machine_id else None
             StockMovement.objects.create(
                 type=type_mvt, material=material, lot=lot,
@@ -914,7 +1488,7 @@ def bc_add(request):
                     id=request.POST.get(f'material_{idx}')
                 ).first()
                 if mat:
-                    qte  = float(request.POST.get(f'quantite_{idx}', 0))
+                    qte = float(request.POST.get(f'quantite_{idx}', 0))
                     prix = float(request.POST.get(f'prix_{idx}', 0))
                     LigneBonCommande.objects.create(
                         bon_commande=bc, material=mat,
@@ -1026,11 +1600,11 @@ def add_machine(request):
 
 def _get_filtered_entries(request):
     entries = ProductionEntry.objects.all().order_by('-date', '-heure_debut')
-    date_from  = request.GET.get('date_from', '')
-    date_to    = request.GET.get('date_to', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
     machine_id = request.GET.get('machine', '')
-    support    = request.GET.get('support', '')
-    equipe     = request.GET.get('equipe', '')
+    support = request.GET.get('support', '')
+    equipe = request.GET.get('equipe', '')
     if date_from:
         entries = entries.filter(date__gte=date_from)
     if date_to:
@@ -1051,18 +1625,18 @@ def _get_filter_context(request):
             'support', flat=True
         ).distinct().order_by('support'),
         'selected_date_from': request.GET.get('date_from', ''),
-        'selected_date_to':   request.GET.get('date_to', ''),
-        'selected_machine':   request.GET.get('machine', ''),
-        'selected_support':   request.GET.get('support', ''),
-        'selected_equipe':    request.GET.get('equipe', ''),
+        'selected_date_to': request.GET.get('date_to', ''),
+        'selected_machine': request.GET.get('machine', ''),
+        'selected_support': request.GET.get('support', ''),
+        'selected_equipe': request.GET.get('equipe', ''),
     }
 
 
 @login_required
 def prod_dashboard(request):
     entries = _get_filtered_entries(request)
-    total_prod_ml  = entries.aggregate(t=Sum('prod_ml'))['t'] or 0
-    total_prod_kg  = entries.aggregate(t=Sum('prod_kg'))['t'] or 0
+    total_prod_ml = entries.aggregate(t=Sum('prod_ml'))['t'] or 0
+    total_prod_kg = entries.aggregate(t=Sum('prod_kg'))['t'] or 0
     total_dechets_kg = round(sum(e.total_dechets_kg for e in entries), 2)
     taux_dechets = round(
         (total_dechets_kg / float(total_prod_kg) * 100), 2
@@ -1074,8 +1648,8 @@ def prod_dashboard(request):
     )
     for e in entries:
         d = str(e.date)
-        data_par_date[d]['ml']  += e.prod_ml
-        data_par_date[d]['kg']  += e.prod_kg
+        data_par_date[d]['ml'] += e.prod_ml
+        data_par_date[d]['kg'] += e.prod_kg
         data_par_date[d]['dem'] += e.dechets_demarrage
         data_par_date[d]['lis'] += e.dechets_lisiere
         data_par_date[d]['jon'] += e.dechets_jonction
@@ -1091,24 +1665,24 @@ def prod_dashboard(request):
 
     context = {
         'entries': entries[:20],
-        'total_prod_ml':   round(float(total_prod_ml), 2),
-        'total_prod_kg':   round(float(total_prod_kg), 2),
+        'total_prod_ml': round(float(total_prod_ml), 2),
+        'total_prod_kg': round(float(total_prod_kg), 2),
         'total_dechets_kg': total_dechets_kg,
-        'taux_dechets':    taux_dechets,
-        'count':           entries.count(),
-        'prod_ml_dates':   json.dumps(dates_sorted),
-        'prod_ml_values':  json.dumps([round(data_par_date[d]['ml'], 1) for d in dates_sorted]),
-        'prod_kg_dates':   json.dumps(dates_sorted),
-        'prod_kg_values':  json.dumps([round(data_par_date[d]['kg'], 2) for d in dates_sorted]),
+        'taux_dechets': taux_dechets,
+        'count': entries.count(),
+        'prod_ml_dates': json.dumps(dates_sorted),
+        'prod_ml_values': json.dumps([round(data_par_date[d]['ml'], 1) for d in dates_sorted]),
+        'prod_kg_dates': json.dumps(dates_sorted),
+        'prod_kg_values': json.dumps([round(data_par_date[d]['kg'], 2) for d in dates_sorted]),
         'prod_kg_support_labels': json.dumps(list(support_data.keys())),
         'prod_kg_support_values': json.dumps([round(v, 2) for v in support_data.values()]),
-        'taux_dechets_dates':  json.dumps(dates_sorted),
+        'taux_dechets_dates': json.dumps(dates_sorted),
         'taux_dechets_values': json.dumps([
             round(sum(data_par_date[d]['taux']) / len(data_par_date[d]['taux']), 2)
             if data_par_date[d]['taux'] else 0
             for d in dates_sorted
         ]),
-        'dechets_dates':      json.dumps(dates_sorted),
+        'dechets_dates': json.dumps(dates_sorted),
         'dechets_dem_values': json.dumps([round(data_par_date[d]['dem'], 2) for d in dates_sorted]),
         'dechets_lis_values': json.dumps([round(data_par_date[d]['lis'], 2) for d in dates_sorted]),
         'dechets_jon_values': json.dumps([round(data_par_date[d]['jon'], 2) for d in dates_sorted]),
@@ -1185,10 +1759,10 @@ def prod_base(request):
 @login_required
 def prod_detail_qualite(request):
     entries = _get_filtered_entries(request)
-    total_dechets_kg        = round(sum(e.total_dechets_kg for e in entries), 2)
+    total_dechets_kg = round(sum(e.total_dechets_kg for e in entries), 2)
     total_dechets_demarrage = round(sum(e.dechets_demarrage for e in entries), 2)
-    total_dechets_lisiere   = round(sum(e.dechets_lisiere for e in entries), 2)
-    total_dechets_jonction  = round(sum(e.dechets_jonction for e in entries), 2)
+    total_dechets_lisiere = round(sum(e.dechets_lisiere for e in entries), 2)
+    total_dechets_jonction = round(sum(e.dechets_jonction for e in entries), 2)
     total_dechets_transport = round(sum(e.dechets_transport for e in entries), 2)
 
     from collections import defaultdict
@@ -1197,7 +1771,7 @@ def prod_detail_qualite(request):
         'jon_a': 0, 'jon_b': 0, 'tra_a': 0, 'tra_b': 0, 'total': 0
     })
     for e in entries:
-        d  = str(e.date)
+        d = str(e.date)
         eq = e.equipe
         data_dates[d]['dem_' + eq.lower()] += e.dechets_demarrage
         data_dates[d]['lis_' + eq.lower()] += e.dechets_lisiere
@@ -1208,10 +1782,10 @@ def prod_detail_qualite(request):
     dates_sorted = sorted(data_dates.keys())
     context = {
         'entries': entries,
-        'total_dechets_kg':        total_dechets_kg,
+        'total_dechets_kg': total_dechets_kg,
         'total_dechets_demarrage': total_dechets_demarrage,
-        'total_dechets_lisiere':   total_dechets_lisiere,
-        'total_dechets_jonction':  total_dechets_jonction,
+        'total_dechets_lisiere': total_dechets_lisiere,
+        'total_dechets_jonction': total_dechets_jonction,
         'total_dechets_transport': total_dechets_transport,
         'dates_labels': json.dumps(dates_sorted),
         'dem_a': json.dumps([round(data_dates[d]['dem_a'], 2) for d in dates_sorted]),
@@ -1237,13 +1811,13 @@ def prod_synthese_temps(request):
     entries = _get_filtered_entries(request)
     decalage_total = round(sum(e.decalage for e in entries), 2)
     temps_ouverture_total_min = sum(e.temps_ouverture_minutes for e in entries)
-    heures  = int(temps_ouverture_total_min // 60)
+    heures = int(temps_ouverture_total_min // 60)
     minutes = int(temps_ouverture_total_min % 60)
     temps_ouverture_total = f"{heures}:{minutes:02d}"
     total_rebobinage = round(sum(e.rebobinage_kg for e in entries), 2)
 
     from collections import defaultdict
-    data_dec    = defaultdict(float)
+    data_dec = defaultdict(float)
     data_temps_a = defaultdict(float)
     data_temps_b = defaultdict(float)
     produits_set = set()
@@ -1257,19 +1831,19 @@ def prod_synthese_temps(request):
         elif e.equipe == 'B':
             data_temps_b[e.produit[:20]] += e.temps_ouverture_minutes / 60
 
-    dates_sorted   = sorted(data_dec.keys())
+    dates_sorted = sorted(data_dec.keys())
     produits_sorted = sorted(produits_set)
 
     context = {
         'entries': entries,
-        'decalage_total':        decalage_total,
+        'decalage_total': decalage_total,
         'temps_ouverture_total': temps_ouverture_total,
-        'total_rebobinage':      total_rebobinage,
-        'decalage_dates':        json.dumps(dates_sorted),
-        'decalage_values':       json.dumps([round(data_dec[d], 2) for d in dates_sorted]),
-        'temps_produit_labels':  json.dumps(produits_sorted),
-        'temps_produit_a':       json.dumps([round(data_temps_a.get(p, 0), 2) for p in produits_sorted]),
-        'temps_produit_b':       json.dumps([round(data_temps_b.get(p, 0), 2) for p in produits_sorted]),
+        'total_rebobinage': total_rebobinage,
+        'decalage_dates': json.dumps(dates_sorted),
+        'decalage_values': json.dumps([round(data_dec[d], 2) for d in dates_sorted]),
+        'temps_produit_labels': json.dumps(produits_sorted),
+        'temps_produit_a': json.dumps([round(data_temps_a.get(p, 0), 2) for p in produits_sorted]),
+        'temps_produit_b': json.dumps([round(data_temps_b.get(p, 0), 2) for p in produits_sorted]),
     }
     context.update(_get_filter_context(request))
     return render(request, 'production_special/synthese_temps.html', context)
@@ -1305,13 +1879,13 @@ def import_stock_view(request):
     if request.method == 'POST' and request.FILES.get('excel_file'):
         try:
             import_type = request.POST.get('import_type')
-            excel_file  = request.FILES['excel_file']
-            fs          = FileSystemStorage()
-            filename    = fs.save(excel_file.name, excel_file)
-            file_path   = fs.path(filename)
-            df          = pd.read_excel(file_path).fillna(0)
-            count   = 0
-            errors  = 0
+            excel_file = request.FILES['excel_file']
+            fs = FileSystemStorage()
+            filename = fs.save(excel_file.name, excel_file)
+            file_path = fs.path(filename)
+            df = pd.read_excel(file_path).fillna(0)
+            count = 0
+            errors = 0
             details = []
 
             if import_type == 'STOCK':
@@ -1324,9 +1898,9 @@ def import_stock_view(request):
                         Material.objects.update_or_create(
                             name=row.get('Designation', 'Inconnu'),
                             defaults={
-                                'category':      cat_map.get(cat_val, 'FILM'),
-                                'quantity':      row.get('Quantite', 0),
-                                'unit':          row.get('Unite', 'kg'),
+                                'category': cat_map.get(cat_val, 'FILM'),
+                                'quantity': row.get('Quantite', 0),
+                                'unit': row.get('Unite', 'kg'),
                                 'min_threshold': row.get('Seuil_Min', 0),
                                 'price_per_unit': row.get('Prix', 0)
                             }
@@ -1350,11 +1924,11 @@ def import_stock_view(request):
                             Client.objects.update_or_create(
                                 name=nom,
                                 defaults={
-                                    'city':    row.get('Ville', ''),
-                                    'phone':   row.get('Telephone', ''),
-                                    'email':   row.get('Email', ''),
-                                    'sector':  row.get('Secteur', ''),
-                                    'status':  status_map.get(row.get('Statut'), 'PROSPECT')
+                                    'city': row.get('Ville', ''),
+                                    'phone': row.get('Telephone', ''),
+                                    'email': row.get('Email', ''),
+                                    'sector': row.get('Secteur', ''),
+                                    'status': status_map.get(row.get('Statut'), 'PROSPECT')
                                 }
                             )
                             count += 1
@@ -1379,7 +1953,7 @@ def import_stock_view(request):
                             continue
 
                         client_obj = None
-                        cli_name   = str(row.get('Client', '')).strip()
+                        cli_name = str(row.get('Client', '')).strip()
                         if cli_name and cli_name not in ('0', ''):
                             client_obj, _ = Client.objects.get_or_create(
                                 name=cli_name,
@@ -1387,7 +1961,7 @@ def import_stock_view(request):
                             )
 
                         machine_obj = None
-                        mac_name    = str(row.get('Machine', '')).strip()
+                        mac_name = str(row.get('Machine', '')).strip()
                         if mac_name and mac_name not in ('0', ''):
                             machine_obj = Machine.objects.filter(
                                 name__icontains=mac_name
@@ -1403,7 +1977,7 @@ def import_stock_view(request):
                             equipe_val = 'A'
 
                         h_debut = parse_time_safe(row.get('H_Debut'))
-                        h_fin   = parse_time_safe(row.get('H_Fin'))
+                        h_fin = parse_time_safe(row.get('H_Fin'))
 
                         def safe_float(v, d=0):
                             try:
@@ -1447,7 +2021,7 @@ def import_stock_view(request):
                             d_prod = pd.to_datetime(row.get('Date')).date()
                         except Exception:
                             d_prod = datetime.date.today()
-                        raw_type   = str(row.get('Type', 'FLEXO')).upper()
+                        raw_type = str(row.get('Type', 'FLEXO')).upper()
                         final_type = 'HELIO' if 'HELIO' in raw_type else 'FLEXO'
                         ConsommationEncre.objects.create(
                             date=d_prod, process_type=final_type,
@@ -1499,9 +2073,9 @@ def import_stock_view(request):
                             Tooling.objects.update_or_create(
                                 serial_number=row.get('Serial'),
                                 defaults={
-                                    'product':           product,
-                                    'tool_type':         type_map.get(type_val, 'CYL'),
-                                    'max_impressions':   row.get('Tours_Max', 1000000),
+                                    'product': product,
+                                    'tool_type': type_map.get(type_val, 'CYL'),
+                                    'max_impressions': row.get('Tours_Max', 1000000),
                                     'current_impressions': row.get('Tours_Actuels', 0)
                                 }
                             )
@@ -1531,7 +2105,7 @@ def import_stock_view(request):
                                 }
                             )
                             mac_name = row.get('Machine')
-                            machine  = Machine.objects.filter(
+                            machine = Machine.objects.filter(
                                 name__icontains=str(mac_name)
                             ).first()
                             try:
@@ -1542,13 +2116,13 @@ def import_stock_view(request):
                             ProductionOrder.objects.update_or_create(
                                 of_number=str(row.get('OF_Numero')),
                                 defaults={
-                                    'client':           client,
-                                    'product':          product,
-                                    'machine':          machine,
-                                    'start_time':       start_d,
-                                    'end_time':         end_d,
+                                    'client': client,
+                                    'product': product,
+                                    'machine': machine,
+                                    'start_time': start_d,
+                                    'end_time': end_d,
                                     'quantity_planned': row.get('Qte_Prevue', 0),
-                                    'status':           'PLANNED'
+                                    'status': 'PLANNED'
                                 }
                             )
                             count += 1
@@ -1587,18 +2161,18 @@ def download_template_special_prod(request):
         'Dec_Demarrage', 'Dec_Lisiere', 'Dec_Jonction', 'Dec_Transport',
         'Prod_KG', 'Rebobinage_KG'
     ]
-    hf    = Font(name='Arial', bold=True, color='FFFFFF', size=11)
+    hf = Font(name='Arial', bold=True, color='FFFFFF', size=11)
     hfill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
-    tb    = Border(
+    tb = Border(
         left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'),  bottom=Side(style='thin')
+        top=Side(style='thin'), bottom=Side(style='thin')
     )
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
-        cell.font      = hf
-        cell.fill      = hfill
+        cell.font = hf
+        cell.fill = hfill
         cell.alignment = Alignment(horizontal='center')
-        cell.border    = tb
+        cell.border = tb
     example = [
         '15/01/2025', 'Sac Lait 1L', 'PEBD 50μ', 500, 'LOT-001', 320,
         'Laiterie Atlas', 'A', 'IMP-01', '08:00', '16:30', 12000,
@@ -1607,8 +2181,8 @@ def download_template_special_prod(request):
     ef = PatternFill(start_color='E8F5E9', end_color='E8F5E9', fill_type='solid')
     for col, val in enumerate(example, 1):
         cell = ws.cell(row=2, column=col, value=val)
-        cell.fill      = ef
-        cell.border    = tb
+        cell.fill = ef
+        cell.border = tb
         cell.alignment = Alignment(horizontal='center')
     for col in ws.columns:
         ml = max((len(str(c.value)) for c in col if c.value), default=0)
@@ -1630,86 +2204,53 @@ def download_template_special_prod(request):
 @login_required
 @staff_member_required
 def admin_view(request):
-    """Page d'administration personnalisée ERP"""
-
-    # ── Stats utilisateurs ──────────────────────────────────────────────
-    users        = User.objects.all().order_by('-date_joined')
-    total_users  = users.count()
+    users = User.objects.all().order_by('-date_joined')
+    total_users = users.count()
     active_users = users.filter(is_active=True).count()
-    staff_users  = users.filter(is_staff=True).count()
-    groups       = Group.objects.annotate(user_count=Count('user')).all()
+    staff_users = users.filter(is_staff=True).count()
+    groups = Group.objects.annotate(user_count=Count('user')).all()
 
-    # ── Stats modules — utilise les modèles déjà importés en haut ──────
     stats_modules = [
         {
-            'nom':   'CRM & Clients',
+            'nom': 'CRM & Clients',
             'icone': '🤝',
             'items': [
-                {
-                    'label': 'Clients',
-                    'count': Client.objects.count(),
-                    'url':   'crm_view'
-                },
-                {
-                    'label': 'Opportunités',
-                    'count': Opportunite.objects.count(),
-                    'url':   'opportunites_view'
-                },
-                {
-                    'label': 'Devis',
-                    'count': Quote.objects.count(),
-                    'url':   'quotes_view'
-                },
+                {'label': 'Clients', 'count': Client.objects.count(), 'url': 'crm_view'},
+                {'label': 'Opportunités', 'count': Opportunite.objects.count(), 'url': 'opportunites_view'},
+                {'label': 'Devis', 'count': Quote.objects.count(), 'url': 'quotes_view'},
             ]
         },
         {
-            'nom':   'Production',
+            'nom': 'Production',
             'icone': '🏭',
             'items': [
-                {
-                    'label': 'Ordres Fabrication',
-                    'count': ProductionOrder.objects.count(),
-                    'url':   'production_view'
-                },
-                {
-                    'label': 'Saisies Production',
-                    'count': ProductionEntry.objects.count(),
-                    'url':   'prod_dashboard'
-                },
+                {'label': 'OF Multi-Processus', 'count': OrdreFabrication.objects.count(), 'url': 'of_list'},
+                {'label': 'Saisies Production', 'count': ProductionEntry.objects.count(), 'url': 'prod_dashboard'},
             ]
         },
         {
-            'nom':   'Stock & Machines',
+            'nom': 'Stock & Machines',
             'icone': '📦',
             'items': [
-                {
-                    'label': 'Matières Premières',
-                    'count': Material.objects.count(),
-                    'url':   'stock_advanced'
-                },
-                {
-                    'label': 'Machines',
-                    'count': Machine.objects.count(),
-                    'url':   'machine_view'
-                },
+                {'label': 'Matières Premières', 'count': Material.objects.count(), 'url': 'stock_advanced'},
+                {'label': 'Machines', 'count': Machine.objects.count(), 'url': 'machine_view'},
             ]
         },
     ]
 
-    # ── Journal des 20 dernières actions Django ─────────────────────────
     recent_actions = LogEntry.objects.select_related(
         'user', 'content_type'
     ).order_by('-action_time')[:20]
 
     context = {
-        'users':          users,
-        'total_users':    total_users,
-        'active_users':   active_users,
-        'staff_users':    staff_users,
-        'groups':         groups,
-        'stats_modules':  stats_modules,
+        'users': users,
+        'total_users': total_users,
+        'active_users': active_users,
+        'staff_users': staff_users,
+        'groups': groups,
+        'stats_modules': stats_modules,
         'recent_actions': recent_actions,
-        'page_title':     'Administration',
+        'page_title': 'Administration',
     }
     return render(request, 'admin_custom.html', context)
 
@@ -1718,10 +2259,10 @@ def admin_view(request):
 @staff_member_required
 def admin_add_user(request):
     if request.method == 'POST':
-        username  = request.POST.get('username', '').strip()
-        email     = request.POST.get('email', '').strip()
-        password  = request.POST.get('password', '')
-        is_staff  = request.POST.get('is_staff') == 'on'
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+        is_staff = request.POST.get('is_staff') == 'on'
         is_active = request.POST.get('is_active') == 'on'
         if username and password:
             if not User.objects.filter(username=username).exists():
@@ -1730,7 +2271,7 @@ def admin_add_user(request):
                     email=email,
                     password=password
                 )
-                u.is_staff  = is_staff
+                u.is_staff = is_staff
                 u.is_active = is_active
                 u.save()
                 messages.success(request, f"✅ Utilisateur '{username}' créé avec succès !")
@@ -1746,14 +2287,14 @@ def admin_add_user(request):
 def admin_edit_user(request, user_id):
     u = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
-        username  = request.POST.get('username', '').strip()
-        email     = request.POST.get('email', '').strip()
-        password  = request.POST.get('password', '')
-        is_staff  = request.POST.get('is_staff') == 'on'
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+        is_staff = request.POST.get('is_staff') == 'on'
         is_active = request.POST.get('is_active') == 'on'
-        u.username  = username or u.username
-        u.email     = email
-        u.is_staff  = is_staff
+        u.username = username or u.username
+        u.email = email
+        u.is_staff = is_staff
         u.is_active = is_active
         if password:
             u.set_password(password)
@@ -1772,3 +2313,131 @@ def admin_toggle_user(request, user_id):
         etat = "activé" if u.is_active else "désactivé"
         messages.success(request, f"✅ Utilisateur '{u.username}' {etat}.")
     return redirect('admin_view')
+# ===========================================================================
+# --- CHAT EN TEMPS RÉEL ---
+# ===========================================================================
+
+@login_required
+def chat_home(request):
+    """Page principale du chat avec liste des salons"""
+    rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
+    
+    # Créer les salons par défaut s'ils n'existent pas
+    default_rooms = [
+        {'name': 'Général', 'slug': 'general', 'type': 'GENERAL', 'icone': '💬'},
+        {'name': 'Production', 'slug': 'production', 'type': 'PRODUCTION', 'icone': '🏭'},
+        {'name': 'Commercial', 'slug': 'commercial', 'type': 'COMMERCIAL', 'icone': '💼'},
+        {'name': 'Technique', 'slug': 'technique', 'type': 'TECHNIQUE', 'icone': '🔧'},
+        {'name': 'Urgences', 'slug': 'urgences', 'type': 'URGENCE', 'icone': '🚨'},
+    ]
+    
+    for room_data in default_rooms:
+        ChatRoom.objects.get_or_create(
+            slug=room_data['slug'],
+            defaults=room_data
+        )
+    
+    rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
+    
+    # Utilisateurs en ligne
+    online_users = UserPresence.objects.filter(is_online=True).select_related('user')
+    
+    context = {
+        'rooms': rooms,
+        'online_users': online_users,
+    }
+    return render(request, 'chat/chat_home.html', context)
+
+
+@login_required
+def chat_room(request, room_slug):
+    """Page d'un salon de chat"""
+    room = get_object_or_404(ChatRoom, slug=room_slug, est_actif=True)
+    
+    # Ajouter l'utilisateur aux membres du salon
+    room.membres.add(request.user)
+    
+    # Récupérer les derniers messages
+    messages = room.messages.select_related('auteur').order_by('-date_envoi')[:50]
+    messages = list(messages)[::-1]  # Inverser pour avoir les plus récents en bas
+    
+    # Tous les salons pour la sidebar
+    rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
+    
+    # Utilisateurs en ligne dans ce salon
+    online_users = UserPresence.objects.filter(
+        is_online=True, current_room=room
+    ).select_related('user')
+    
+    context = {
+        'room': room,
+        'rooms': rooms,
+        'messages': messages,
+        'online_users': online_users,
+    }
+    return render(request, 'chat/chat_room.html', context)
+
+
+@login_required
+def chat_send_message(request):
+    """API pour envoyer un message (fallback sans WebSocket)"""
+    if request.method == 'POST':
+        room_slug = request.POST.get('room_slug')
+        content = request.POST.get('message', '').strip()
+        
+        if room_slug and content:
+            room = get_object_or_404(ChatRoom, slug=room_slug)
+            message = ChatMessage.objects.create(
+                room=room,
+                auteur=request.user,
+                contenu=content,
+                type_message='TEXT'
+            )
+            return JsonResponse({
+                'success': True,
+                'message_id': message.id,
+                'timestamp': message.get_time_display(),
+            })
+    
+    return JsonResponse({'success': False}, status=400)
+
+
+@login_required
+def chat_get_messages(request, room_slug):
+    """API pour récupérer les nouveaux messages"""
+    room = get_object_or_404(ChatRoom, slug=room_slug)
+    last_id = request.GET.get('last_id', 0)
+    
+    messages = room.messages.filter(id__gt=last_id).select_related('auteur').order_by('date_envoi')
+    
+    data = [{
+        'id': msg.id,
+        'auteur': msg.auteur.username,
+        'auteur_id': msg.auteur.id,
+        'contenu': msg.contenu,
+        'timestamp': msg.get_time_display(),
+        'type': msg.type_message,
+    } for msg in messages]
+    
+    return JsonResponse({'messages': data})
+
+
+@login_required  
+def send_system_notification(request):
+    """Envoyer une notification système à tous les salons"""
+    if request.method == 'POST' and request.user.is_staff:
+        message = request.POST.get('message', '').strip()
+        room_slug = request.POST.get('room_slug', 'general')
+        
+        if message:
+            room = ChatRoom.objects.filter(slug=room_slug).first()
+            if room:
+                ChatMessage.objects.create(
+                    room=room,
+                    auteur=request.user,
+                    contenu=message,
+                    type_message='SYSTEM'
+                )
+                messages.success(request, "Notification envoyée !")
+    
+    return redirect('chat_home')

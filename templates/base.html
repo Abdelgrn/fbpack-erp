@@ -15,6 +15,7 @@
     <style>
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
         .nav-link:hover { color: #f3b83a; background: rgba(255,255,255,0.05); }
+        .nav-link.active { color: #f3b83a; background: rgba(243, 184, 58, 0.1); border-right: 3px solid #f3b83a; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -36,7 +37,7 @@
                 <span class="mr-3 text-lg">📊</span> Dashboard
             </a>
             <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group">
-                <span class="mr-3 text-lg">🏭</span> Planning Gantt
+                <span class="mr-3 text-lg">📅</span> Planning Gantt
             </a>
             <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group">
                 <span class="mr-3 text-lg">📈</span> Reporting
@@ -52,22 +53,28 @@
             <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
                 <span class="mr-3">🎨</span> Prépresse & Outils
             </a>
-            <a href="{% url 'production_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
-                <span class="mr-3">📝</span> Ordres Fabrication
+            
+            <!-- ✅ NOUVEAU MODULE OF MULTI-PROCESSUS -->
+            <a href="{% url 'of_list' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+                <span class="mr-3">🏭</span> Ordres Fabrication
             </a>
+            
             <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
-                <span class="mr-3">🏭</span> Production Spécial
+                <span class="mr-3">⚙️</span> Production Spécial
             </a>
             <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
                 <span class="mr-3">📦</span> Stocks & Achats
             </a>
             <a href="{% url 'machine_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
-                <span class="mr-3">⚙️</span> Parc Machine
+                <span class="mr-3">🔧</span> Parc Machine
             </a>
             
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                 Outils
             </div>
+            <a href="{% url 'chat_home' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+    <span class="mr-3">💬</span> Chat d'Équipe
+</a>
             <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300">
                 <span class="mr-3">📥</span> Importer Excel
             </a>
@@ -92,8 +99,6 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2">
-
-                <!-- ✅ CHANGEMENT ICI : était href="/admin/" target="_blank" -->
                 <a href="{% url 'admin_view' %}" 
                    class="flex items-center justify-center gap-1 text-xs font-medium 
                           bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg 
@@ -110,7 +115,6 @@
                         🚪 Sortir
                     </button>
                 </form>
-
             </div>
         </div>
     </aside>
