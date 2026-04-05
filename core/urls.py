@@ -103,6 +103,12 @@ urlpatterns = [
     path('stock/supplier/add/', views.add_supplier, name='add_supplier'),
     path('stock/consommation/add/', views.add_consommation, name='add_consommation'),
     path('stock/consommation/list/', views.conso_list_view, name='conso_list'),
+    path('stock/material/<int:id>/edit/',
+     views.edit_material, name='edit_material'),
+    path('stock/material/<int:id>/delete/',
+     views.delete_material, name='delete_material'),
+    path('stock/supplier/<int:id>/edit/',
+     views.edit_supplier, name='edit_supplier'),
     
     # RECHERCHE INTELLIGENTE (CORRIGÉ)
     path('stock/search/api/', views.material_search_api, name='material_search_api'),
