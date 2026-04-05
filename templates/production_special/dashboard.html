@@ -1,5 +1,89 @@
 {% extends 'base.html' %}
 {% block content %}
+<!-- EN-TÊTE -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-3xl font-extrabold text-white flex items-center gap-3">
+      ⚙️ <span>Module Production Spécial</span>
+    </h1>
+    <p class="text-gray-400 mt-1">Découpe · Impression · Encres & Solvants</p>
+  </div>
+  <a href="{% url 'prod_saisie' %}"
+     class="bg-yellow-500 hover:bg-yellow-400 text-black font-bold 
+            px-5 py-2.5 rounded-xl shadow transition flex items-center gap-2">
+    ➕ Nouvelle Saisie Découpe
+  </a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NAVIGATION INTERNE DU MODULE — 4 GRANDES TUILES
+════════════════════════════════════════════════════════════ -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+  <!-- Tuile 1 : Suivi Production (page actuelle) -->
+  <a href="{% url 'prod_dashboard' %}"
+     class="group glass rounded-2xl p-5 border-2 border-yellow-500/50 
+            hover:border-yellow-400 hover:bg-yellow-500/5 transition-all duration-200 
+            flex flex-col items-center text-center gap-3 cursor-pointer">
+    <div class="text-4xl group-hover:scale-110 transition-transform">📊</div>
+    <div>
+      <p class="font-bold text-white text-sm">Suivi Production</p>
+      <p class="text-xs text-gray-400 mt-0.5">Dashboard · ML · KG</p>
+    </div>
+    <span class="text-xs bg-yellow-500 text-black font-bold px-3 py-0.5 rounded-full">
+      Actif
+    </span>
+  </a>
+
+  <!-- Tuile 2 : Déchets & Qualité -->
+  <a href="{% url 'prod_detail_qualite' %}"
+     class="group glass rounded-2xl p-5 border border-slate-600 
+            hover:border-red-400/50 hover:bg-red-500/5 transition-all duration-200 
+            flex flex-col items-center text-center gap-3 cursor-pointer">
+    <div class="text-4xl group-hover:scale-110 transition-transform">♻️</div>
+    <div>
+      <p class="font-bold text-white text-sm">Déchets & Qualité</p>
+      <p class="text-xs text-gray-400 mt-0.5">Démarrage · Lisière · Jonction</p>
+    </div>
+    <span class="text-xs bg-red-500/20 text-red-400 
+                 border border-red-500/30 px-3 py-0.5 rounded-full">
+      Analyse
+    </span>
+  </a>
+
+  <!-- Tuile 3 : Performance & Temps -->
+  <a href="{% url 'prod_synthese_temps' %}"
+     class="group glass rounded-2xl p-5 border border-slate-600 
+            hover:border-blue-400/50 hover:bg-blue-500/5 transition-all duration-200 
+            flex flex-col items-center text-center gap-3 cursor-pointer">
+    <div class="text-4xl group-hover:scale-110 transition-transform">⏱️</div>
+    <div>
+      <p class="font-bold text-white text-sm">Performance & Temps</p>
+      <p class="text-xs text-gray-400 mt-0.5">Décalage · Rebobinage</p>
+    </div>
+    <span class="text-xs bg-blue-500/20 text-blue-400 
+                 border border-blue-500/30 px-3 py-0.5 rounded-full">
+      Synthèse
+    </span>
+  </a>
+
+  <!-- Tuile 4 : Encre & Impression  ← NOUVEAU -->
+  <a href="{% url 'encre_dashboard' %}"
+     class="group glass rounded-2xl p-5 border border-slate-600 
+            hover:border-purple-400/50 hover:bg-purple-500/5 transition-all duration-200 
+            flex flex-col items-center text-center gap-3 cursor-pointer">
+    <div class="text-4xl group-hover:scale-110 transition-transform">🎨</div>
+    <div>
+      <p class="font-bold text-white text-sm">Encre & Impression</p>
+      <p class="text-xs text-gray-400 mt-0.5">Conso · Solvants · Grammage</p>
+    </div>
+    <span class="text-xs bg-purple-500/20 text-purple-400 
+                 border border-purple-500/30 px-3 py-0.5 rounded-full">
+      Nouveau
+    </span>
+  </a>
+
+</div>
 <h1 class="text-3xl font-black text-white mb-2">🏭 Module Production</h1>
 <p class="text-gray-400 mb-6">Suivi de production, déchets et performance</p>
 

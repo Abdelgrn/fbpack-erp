@@ -45,4 +45,15 @@
               {% endif %}">
         ⏱️ Synthèse des Temps
     </a>
+
+    <!-- ═══ NOUVEAU BOUTON ENCRE ═══ -->
+    <a href="{% url 'encre_dashboard' %}" 
+       class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg
+              {% if request.resolver_match.url_name == 'encre_dashboard' or request.resolver_match.url_name == 'encre_saisie' or request.resolver_match.url_name == 'encre_edit' or request.resolver_match.url_name == 'encre_detail' or request.resolver_match.url_name == 'encre_analyse' %}
+                  bg-gradient-to-r from-purple-600 to-pink-600 text-white
+              {% else %}
+                  bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600
+              {% endif %}">
+        🎨 Encre & Impression
+    </a>
 </div>

@@ -103,6 +103,10 @@ urlpatterns = [
     path('stock/supplier/add/', views.add_supplier, name='add_supplier'),
     path('stock/consommation/add/', views.add_consommation, name='add_consommation'),
     path('stock/consommation/list/', views.conso_list_view, name='conso_list'),
+    
+    # RECHERCHE INTELLIGENTE (CORRIGÉ)
+    path('stock/search/api/', views.material_search_api, name='material_search_api'),
+    path('stock/export/', views.export_search_results, name='export_search_results'),
 
     # ==========================================
     # PARC MACHINE
@@ -121,7 +125,17 @@ urlpatterns = [
     path('prod/qualite/', views.prod_detail_qualite, name='prod_detail_qualite'),
     path('prod/synthese/', views.prod_synthese_temps, name='prod_synthese_temps'),
     path('import/template-special-prod/', views.download_template_special_prod, name='download_template_special_prod'),
-
+    
+    # ==========================================
+    # MODULE PRODUCTION SPÉCIAL — ENCRE
+    # ==========================================
+    path('prod/encre/', views.encre_dashboard, name='encre_dashboard'),
+    path('prod/encre/saisie/', views.encre_saisie, name='encre_saisie'),
+    path('prod/encre/<int:id>/edit/', views.encre_edit, name='encre_edit'),
+    path('prod/encre/<int:id>/delete/', views.encre_delete, name='encre_delete'),
+    path('prod/encre/<int:id>/detail/', views.encre_detail, name='encre_detail'),
+    path('prod/encre/analyse/', views.encre_analyse, name='encre_analyse'),
+    
     # ==========================================
     # MODULE STOCK AVANCÉ
     # ==========================================
@@ -149,7 +163,8 @@ urlpatterns = [
     path('administration/user/add/', views.admin_add_user, name='admin_add_user'),
     path('administration/user/<int:user_id>/edit/', views.admin_edit_user, name='admin_edit_user'),
     path('administration/user/<int:user_id>/toggle/', views.admin_toggle_user, name='admin_toggle_user'),
-        # ==========================================
+    
+    # ==========================================python manage.py runserver
     # CHAT EN TEMPS RÉEL
     # ==========================================
     path('chat/', views.chat_home, name='chat_home'),

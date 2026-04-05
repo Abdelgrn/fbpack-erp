@@ -45,4 +45,45 @@
             <a href="{{ request.path }}" class="bg-slate-600 hover:bg-slate-500 text-white px-3 py-2 rounded text-sm transition">✕</a>
         </div>
     </div>
+
+    <!-- LIGNE 2 : Filtre Produit/Job -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-700">
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">🏷️ Produit (Job)</label>
+            <select name="produit" class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                <option value="">-- Tous les produits --</option>
+                {% for p in all_produits %}
+                <option value="{{ p }}" {% if selected_produit == p %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <!-- Badges filtres actifs -->
+        <div class="flex items-end">
+            {% if selected_date_from or selected_date_to or selected_machine or selected_support or selected_equipe or selected_produit %}
+            <div class="flex flex-wrap gap-2">
+                <span class="text-xs text-gray-500 self-center">Actifs :</span>
+                {% if selected_date_from %}
+                <span class="text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-2 py-1 rounded-full">📅 {{ selected_date_from }}</span>
+                {% endif %}
+                {% if selected_date_to %}
+                <span class="text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 px-2 py-1 rounded-full">📅 {{ selected_date_to }}</span>
+                {% endif %}
+                {% if selected_machine %}
+                <span class="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-1 rounded-full">🔧 Machine</span>
+                {% endif %}
+                {% if selected_support %}
+                <span class="text-xs bg-green-500/20 text-green-300 border border-green-500/30 px-2 py-1 rounded-full">🗂️ {{ selected_support }}</span>
+                {% endif %}
+                {% if selected_equipe %}
+                <span class="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-1 rounded-full">👥 Éq.{{ selected_equipe }}</span>
+                {% endif %}
+                {% if selected_produit %}
+                <span class="text-xs bg-pink-500/20 text-pink-300 border border-pink-500/30 px-2 py-1 rounded-full">🏷️ {{ selected_produit|truncatechars:15 }}</span>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="text-xs text-gray-600">Aucun filtre actif</p>
+            {% endif %}
+        </div>
+    </div>
 </form>

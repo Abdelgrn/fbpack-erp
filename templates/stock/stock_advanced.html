@@ -490,18 +490,149 @@ function ouvrirDA(materialId, materialName, seuil, unite) {
 
 
 <!-- ============================================================ -->
-<!-- ONGLET 1 : MATIÈRES PREMIÈRES -->
+<!-- ONGLET 1 : MATIÈRES PREMIÈRES AVEC RECHERCHE INTELLIGENTE -->
 <!-- ============================================================ -->
 <div id="tab-matieres" class="tab-content block">
-    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
-        <h2 class="text-xl font-bold text-white">Matières Premières</h2>
-        <div class="flex gap-2">
-            <a href="{% url 'add_material' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">+ Nouvelle Matière</a>
+    
+    <!-- BARRE DE RECHERCHE AVANCÉE -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-5">
+        <form method="get" action="{% url 'stock_advanced' %}" id="searchForm">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                
+                <!-- Champ de recherche principal -->
+                <div class="md:col-span-4">
+                    <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider">
+                        🔍 Recherche rapide
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            name="q" 
+                            id="searchInput"
+                            class="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-3 text-white text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                            placeholder="Tapez 'opp', 'encre', 'gulf'..."
+                            value="{{ search_query }}"
+                            autocomplete="off"
+                        >
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
+                        {% if search_query %}
+                        <button type="button" onclick="clearSearch()" 
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                            ✕
+                        </button>
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-500 text-[10px] mt-1">
+                        Recherche par nom, catégorie ou fournisseur (insensible aux majuscules)
+                    </p>
+                </div>
+                
+                <!-- Filtre catégorie -->
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider">
+                        Catégorie
+                    </label>
+                    <select name="category" id="categoryFilter"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">Toutes</option>
+                        {% for code, label in categories %}
+                        <option value="{{ code }}" {% if category_filter == code %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtre fournisseur -->
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider">
+                        Fournisseur
+                    </label>
+                    <select name="supplier" id="supplierFilter"
+                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">Tous</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.id }}" {% if supplier_filter == s.id|stringformat:"s" %}selected{% endif %}>
+                            {{ s.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Stock faible -->
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider">
+                        Filtres
+                    </label>
+                    <label class="flex items-center gap-2 bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 cursor-pointer hover:bg-slate-600 transition">
+                        <input type="checkbox" name="low_stock" id="lowStockFilter"
+                            class="w-4 h-4 rounded border-slate-500 text-red-500 focus:ring-red-500"
+                            {% if low_stock_only %}checked{% endif %}>
+                        <span class="text-sm text-white">⚠️ Stock faible</span>
+                    </label>
+                </div>
+                
+                <!-- Boutons -->
+                <div class="md:col-span-2 flex gap-2">
+                    <button type="submit" 
+                        class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-3 px-4 rounded-lg shadow transition">
+                        🔍 Filtrer
+                    </button>
+                    <a href="{% url 'stock_advanced' %}?tab=matieres" 
+                        class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg transition"
+                        title="Réinitialiser">
+                        ↺
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Conserver l'onglet actif -->
+            <input type="hidden" name="tab" value="matieres">
+        </form>
+        
+        <!-- Résultats en direct (AJAX) -->
+        <div id="liveSearchResults" class="hidden mt-4 bg-slate-900 border border-slate-600 rounded-lg max-h-80 overflow-y-auto">
+            <!-- Les résultats AJAX s'afficheront ici -->
         </div>
     </div>
+    
+    <!-- EN-TÊTE AVEC COMPTEUR ET ACTIONS -->
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                📦 Matières Premières
+                {% if search_query %}
+                <span class="text-sm font-normal text-cyan-400">
+                    — Recherche : "{{ search_query }}"
+                </span>
+                {% endif %}
+            </h2>
+            <p class="text-sm text-gray-400 mt-1">
+                {% if search_query or category_filter or low_stock_only %}
+                    <span class="text-yellow-400 font-bold">{{ materials|length }}</span> résultat(s) trouvé(s)
+                    {% if search_query %}pour "{{ search_query }}"{% endif %}
+                {% else %}
+                    <span class="text-cyan-400 font-bold">{{ total_matieres }}</span> matière(s) au total
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <!-- Export Excel -->
+            <a href="{% url 'export_search_results' %}?q={{ search_query }}&category={{ category_filter }}" 
+                class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded shadow transition text-sm flex items-center gap-2">
+                📊 Export Excel
+            </a>
+            <a href="{% url 'add_material' %}" 
+                class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+                + Nouvelle Matière
+            </a>
+        </div>
+    </div>
+    
+    <!-- TABLEAU DES MATIÈRES -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-left border-collapse" id="materialsTable">
                 <thead>
                     <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
                         <th class="p-4 border-b border-slate-700">Désignation</th>
@@ -511,14 +642,29 @@ function ouvrirDA(materialId, materialName, seuil, unite) {
                         <th class="p-4 border-b border-slate-700">Seuil Intelligent</th>
                         <th class="p-4 border-b border-slate-700">Lots actifs</th>
                         <th class="p-4 border-b border-slate-700">Fournisseur</th>
+                        <th class="p-4 border-b border-slate-700">Prix/U</th>
                         <th class="p-4 border-b border-slate-700 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="text-gray-200 text-sm">
                     {% for m in materials %}
-                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
-                        <td class="p-4 font-bold text-cyan-400">{{ m.name }}</td>
-                        <td class="p-4 text-gray-400">{{ m.get_category_display }}</td>
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50 material-row"
+                        data-name="{{ m.name|lower }}"
+                        data-category="{{ m.category }}"
+                        data-supplier="{{ m.supplier.name|default:''|lower }}">
+                        <td class="p-4 font-bold text-cyan-400">
+                            {% if search_query %}
+                                {{ m.name }}
+                            {% else %}
+                                {{ m.name }}
+                            {% endif %}
+                        </td>
+                        <td class="p-4">
+                            <span class="text-xs font-bold px-2 py-1 rounded-full"
+                                style="{% if m.category == 'FILM' %}background:#1e3a5f; color:#60a5fa;{% elif m.category == 'INK' %}background:#3b1a2e; color:#f472b6;{% elif m.category == 'GLUE' %}background:#14302a; color:#34d399;{% else %}background:#2d1a00; color:#fb923c;{% endif %}">
+                                {{ m.get_category_display }}
+                            </span>
+                        </td>
                         <td class="p-4 font-bold {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
                             {{ m.quantity }} {{ m.unit }}
                             {% if m.is_low_stock %}
@@ -544,16 +690,55 @@ function ouvrirDA(materialId, materialName, seuil, unite) {
                             <span class="text-gray-500 text-xs ml-1">lots</span>
                         </td>
                         <td class="p-4 text-gray-400">{{ m.supplier.name|default:"—" }}</td>
+                        <td class="p-4 text-yellow-400 font-bold">{{ m.price_per_unit|floatformat:2 }} DA</td>
                         <td class="p-4 text-right">
-                            <a href="{% url 'add_material' %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">Éditer</a>
+                            <div class="flex justify-end gap-1">
+                                <a href="{% url 'add_material' %}" 
+                                    class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">
+                                    ✏️ Éditer
+                                </a>
+                                <button onclick="ouvrirDA({{ m.id }}, '{{ m.name|escapejs }}', {{ m.min_threshold }}, '{{ m.unit }}')"
+                                    class="text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 py-1 px-2 rounded border border-blue-500/30 transition"
+                                    title="Créer une Demande d'Achat">
+                                    🛒 DA
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="8" class="p-8 text-center text-gray-500 italic">Aucune matière enregistrée.</td></tr>
+                    <tr>
+                        <td colspan="9" class="p-8 text-center">
+                            {% if search_query %}
+                            <div class="text-gray-400">
+                                <div class="text-4xl mb-3">🔍</div>
+                                <div class="text-lg font-bold">Aucun résultat pour "{{ search_query }}"</div>
+                                <p class="text-sm mt-2">Essayez avec d'autres termes ou vérifiez l'orthographe.</p>
+                                <a href="{% url 'stock_advanced' %}?tab=matieres" 
+                                    class="inline-block mt-4 text-cyan-400 hover:text-cyan-300 underline">
+                                    ← Voir toutes les matières
+                                </a>
+                            </div>
+                            {% else %}
+                            <div class="text-gray-500 italic">Aucune matière enregistrée.</div>
+                            {% endif %}
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pied de tableau avec stats -->
+        {% if materials %}
+        <div class="px-5 py-3 border-t border-slate-700 bg-slate-900/30 flex justify-between items-center text-xs text-gray-400">
+            <span>
+                💡 Tapez au moins 2 lettres pour une recherche rapide. Exemple : <code class="bg-slate-700 px-1 rounded">op</code> pour trouver "OPP20", "Gulfpack OPP"...
+            </span>
+            <span class="text-emerald-400 font-bold">
+                {{ materials|length }} matière(s) affichée(s)
+            </span>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -1466,5 +1651,87 @@ function ouvrirDA(materialId, materialName, seuil, unite) {
 }
 
 </script>
+<!-- RECHERCHE TEMPS RÉEL -->
+<script>
+// ══════════════════════════════════════════════════════════════
+// RECHERCHE EN TEMPS RÉEL (CÔTÉ CLIENT)
+// ══════════════════════════════════════════════════════════════
 
+const searchInput = document.getElementById('searchInput');
+let searchTimeout = null;
+
+if (searchInput) {
+    // Recherche locale en temps réel
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        
+        // Si moins de 2 caractères, afficher tout
+        if (query.length < 2) {
+            document.querySelectorAll('.material-row').forEach(row => {
+                row.style.display = '';
+            });
+            return;
+        }
+        
+        // Filtrer les lignes du tableau
+        document.querySelectorAll('.material-row').forEach(row => {
+            const name = row.dataset.name || '';
+            const category = row.dataset.category || '';
+            const supplier = row.dataset.supplier || '';
+            
+            if (name.includes(query) || category.toLowerCase().includes(query) || supplier.includes(query)) {
+                row.style.display = '';
+                // Surligner le texte trouvé
+                highlightText(row, query);
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+    
+    // Soumettre avec Entrée
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('searchForm').submit();
+        }
+    });
+}
+
+// Fonction pour surligner le texte
+function highlightText(row, query) {
+    const nameCell = row.querySelector('td:first-child');
+    if (nameCell) {
+        const originalText = row.dataset.name || '';
+        // Créer le HTML avec surlignage
+        const regex = new RegExp(`(${query})`, 'gi');
+        const highlighted = originalText.replace(regex, '<mark class="bg-yellow-400 text-black px-0.5 rounded">$1</mark>');
+        // Ne pas modifier si déjà surligné
+        if (!nameCell.innerHTML.includes('<mark')) {
+            nameCell.dataset.original = nameCell.innerHTML;
+        }
+    }
+}
+
+// Effacer la recherche
+function clearSearch() {
+    searchInput.value = '';
+    document.querySelectorAll('.material-row').forEach(row => {
+        row.style.display = '';
+    });
+    // Soumettre pour réinitialiser côté serveur aussi
+    document.getElementById('searchForm').submit();
+}
+
+// Soumettre automatiquement après 800ms d'inactivité (optionnel)
+/*
+searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        if (this.value.length >= 2) {
+            document.getElementById('searchForm').submit();
+        }
+    }, 800);
+});
+*/
+</script>
 {% endblock %}
