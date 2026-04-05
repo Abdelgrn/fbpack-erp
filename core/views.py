@@ -1077,16 +1077,65 @@ def stock_view(request):
     })
 
 
+# ===========================================================================
+# --- STOCKS — MATIÈRES PREMIÈRES & FOURNISSEURS ---
+# ===========================================================================
+
 @login_required
 def add_material(request):
     if request.method == 'POST':
         form = MaterialForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('stock_view')
+            messages.success(request, '✅ Matière ajoutée avec succès !')
+            return redirect('stock_advanced')
+        else:
+            messages.error(request, '❌ Erreur dans le formulaire.')
     else:
         form = MaterialForm()
-    return render(request, 'stock_list.html', {'form': form, 'titre': 'Nouveau Matériau'})
+
+    suppliers = Supplier.objects.all()
+    return render(request, 'stock/material_form.html', {
+        'form': form,
+        'suppliers': suppliers,
+        'title': 'Nouvelle Matière Première',
+        'btn_label': 'Ajouter la Matière',
+    })
+
+
+@login_required
+def edit_material(request, id):
+    material = get_object_or_404(Material, id=id)
+    if request.method == 'POST':
+        form = MaterialForm(request.POST, instance=material)
+        if form.is_valid():
+            form.save()
+            messages.success(request,
+                f'✅ Matière "{material.name}" modifiée !')
+            return redirect('stock_advanced')
+        else:
+            messages.error(request, '❌ Erreur dans le formulaire.')
+    else:
+        form = MaterialForm(instance=material)
+
+    suppliers = Supplier.objects.all()
+    return render(request, 'stock/material_form.html', {
+        'form': form,
+        'material': material,
+        'suppliers': suppliers,
+        'title': f'Modifier : {material.name}',
+        'btn_label': 'Enregistrer les modifications',
+    })
+
+
+@login_required
+def delete_material(request, id):
+    material = get_object_or_404(Material, id=id)
+    if request.method == 'POST':
+        nom = material.name
+        material.delete()
+        messages.success(request, f'🗑️ Matière "{nom}" supprimée.')
+    return redirect('stock_advanced')
 
 
 @login_required
@@ -1095,11 +1144,51 @@ def add_supplier(request):
         form = SupplierForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('stock_view')
+            messages.success(request, '✅ Fournisseur ajouté avec succès !')
+            return redirect('stock_advanced')
+        else:
+            messages.error(request, '❌ Erreur dans le formulaire.')
     else:
         form = SupplierForm()
-    return render(request, 'stock_list.html', {'form': form, 'titre': 'Nouveau Fournisseur'})
 
+    return render(request, 'stock/supplier_form.html', {
+        'form': form,
+        'title': 'Nouveau Fournisseur',
+        'btn_label': 'Ajouter le Fournisseur',
+    })
+
+
+@login_required
+def edit_supplier(request, id):
+    supplier = get_object_or_404(Supplier, id=id)
+    if request.method == 'POST':
+        form = SupplierForm(request.POST, instance=supplier)
+        if form.is_valid():
+            form.save()
+            messages.success(request,
+                f'✅ Fournisseur "{supplier.name}" modifié !')
+            return redirect('stock_advanced')
+        else:
+            messages.error(request, '❌ Erreur dans le formulaire.')
+    else:
+        form = SupplierForm(instance=supplier)
+
+    return render(request, 'stock/supplier_form.html', {
+        'form': form,
+        'supplier': supplier,
+        'title': f'Modifier : {supplier.name}',
+        'btn_label': 'Enregistrer les modifications',
+    })
+
+
+@login_required
+def delete_supplier(request, id):
+    supplier = get_object_or_404(Supplier, id=id)
+    if request.method == 'POST':
+        nom = supplier.name
+        supplier.delete()
+        messages.success(request, f'🗑️ Fournisseur "{nom}" supprimé.')
+    return redirect('stock_advanced')
 
 @login_required
 def add_consommation(request):
