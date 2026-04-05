@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">⏱️ {{ titre }}</h1>
+            <p class="text-gray-400 text-sm mt-1">Enregistrer un pointage individuel</p>
+        </div>
+        <a href="{% url 'attendance_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition text-sm">
+            ← Retour
+        </a>
+    </div>
+</div>
+
+<div class="max-w-2xl">
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
+            <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <span>👤</span> Informations du Pointage
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-gray-400 mb-1">Employé *</label>
+                    {{ form.employee }}
+                    {% if form.employee.errors %}<p class="text-red-400 text-xs mt-1">{{ form.employee.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Date *</label>
+                    {{ form.date }}
+                    {% if form.date.errors %}<p class="text-red-400 text-xs mt-1">{{ form.date.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Équipe (Shift)</label>
+                    {{ form.shift }}
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Statut *</label>
+                    {{ form.statut }}
+                    {% if form.statut.errors %}<p class="text-red-400 text-xs mt-1">{{ form.statut.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Machine affectée</label>
+                    {{ form.machine }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Horaires -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
+            <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <span>🕐</span> Horaires
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Heure d'arrivée</label>
+                    {{ form.heure_arrivee }}
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Heure de départ</label>
+                    {{ form.heure_depart }}
+                </div>
+            </div>
+            <p class="text-xs text-gray-500">💡 Les heures supplémentaires et retards seront calculés automatiquement.</p>
+        </div>
+
+        <!-- Observations -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <span>📝</span> Observations
+            </h2>
+            {{ form.notes }}
+        </div>
+
+        <!-- Boutons -->
+        <div class="flex gap-4">
+            <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-3 rounded-lg transition">
+                ✓ Enregistrer le Pointage
+            </button>
+            <a href="{% url 'attendance_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg transition">
+                Annuler
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

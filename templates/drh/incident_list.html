@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">🚨 Incidents & Sécurité</h1>
+            <p class="text-gray-400 text-sm mt-1">Déclaration et suivi des incidents au travail</p>
+        </div>
+        <a href="{% url 'incident_create' %}" class="bg-red-500 hover:bg-red-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+            ⚠️ Déclarer un Incident
+        </a>
+    </div>
+</div>
+
+<!-- STATS -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-white">{{ stats.total }}</div>
+        <div class="text-xs text-gray-400 uppercase mt-1">Total</div>
+    </div>
+    <div class="bg-red-900/30 border border-red-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-red-400">{{ stats.accidents }}</div>
+        <div class="text-xs text-red-400 uppercase mt-1">Accidents</div>
+    </div>
+    <div class="bg-orange-900/30 border border-orange-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-orange-400">{{ stats.non_clotures }}</div>
+        <div class="text-xs text-orange-400 uppercase mt-1">Non Clôturés</div>
+    </div>
+    <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-yellow-400">{{ stats.jours_arret }}</div>
+        <div class="text-xs text-yellow-400 uppercase mt-1">Jours d'Arrêt</div>
+    </div>
+</div>
+
+<!-- FILTRES -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Type</label>
+            <select name="type" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                {% for code, label in type_choices %}
+                <option value="{{ code }}" {% if selected_type == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Gravité</label>
+            <select name="gravite" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Toutes</option>
+                {% for code, label in gravite_choices %}
+                <option value="{{ code }}" {% if selected_gravite == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Clôture</label>
+            <select name="cloture" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                <option value="0" {% if selected_cloture == '0' %}selected{% endif %}>Non clôturés</option>
+                <option value="1" {% if selected_cloture == '1' %}selected{% endif %}>Clôturés</option>
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-2 px-4 rounded transition">
+                🔍 Filtrer
+            </button>
+            <a href="{% url 'incident_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-3 rounded transition">↺</a>
+        </div>
+    </form>
+</div>
+
+<!-- TABLEAU -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-300 text-xs uppercase tracking-wider">
+                    <th class="p-4 border-b border-slate-700">Référence</th>
+                    <th class="p-4 border-b border-slate-700">Date</th>
+                    <th class="p-4 border-b border-slate-700">Employé</th>
+                    <th class="p-4 border-b border-slate-700">Type</th>
+                    <th class="p-4 border-b border-slate-700">Lieu</th>
+                    <th class="p-4 border-b border-slate-700">Gravité</th>
+                    <th class="p-4 border-b border-slate-700">J. Arrêt</th>
+                    <th class="p-4 border-b border-slate-700">Statut</th>
+                    <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-200">
+                {% for inc in incidents %}
+                <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/40
+                    {% if inc.gravite == 'GRAVE' or inc.gravite == 'TRES_GRAVE' %}border-l-2 border-l-red-500{% endif %}">
+                    <td class="p-4 font-mono text-yellow-400 font-bold">{{ inc.reference }}</td>
+                    <td class="p-4 text-gray-300 font-mono text-xs">{{ inc.date_incident|date:"d/m/Y H:i" }}</td>
+                    <td class="p-4">
+                        {% if inc.employee %}
+                        <a href="{% url 'employee_detail' inc.employee.id %}" class="text-cyan-400 hover:underline font-bold">
+                            {{ inc.employee.nom_complet }}
+                        </a>
+                        {% else %}
+                        <span class="text-gray-500">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4">
+                        {% if inc.type_incident == 'ACCIDENT' %}
+                        <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">🚑 Accident</span>
+                        {% elif inc.type_incident == 'PRESQU_ACCIDENT' %}
+                        <span class="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">⚠️ Presque-acc.</span>
+                        {% elif inc.type_incident == 'MALADIE_PRO' %}
+                        <span class="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">🏥 Maladie Pro.</span>
+                        {% else %}
+                        <span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ inc.get_type_incident_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-gray-400 text-xs">{{ inc.lieu|default:"—" }}</td>
+                    <td class="p-4">
+                        {% if inc.gravite == 'LEGERE' %}
+                        <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">🟡 Légère</span>
+                        {% elif inc.gravite == 'MODEREE' %}
+                        <span class="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">🟠 Modérée</span>
+                        {% elif inc.gravite == 'GRAVE' %}
+                        <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">🔴 Grave</span>
+                        {% elif inc.gravite == 'TRES_GRAVE' %}
+                        <span class="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded border border-red-500">🔴 Très Grave</span>
+                        {% else %}
+                        <span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ inc.get_gravite_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-center">
+                        {% if inc.jours_arret > 0 %}
+                        <span class="text-red-400 font-bold">{{ inc.jours_arret }}</span>
+                        {% else %}
+                        <span class="text-gray-600">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4">
+                        {% if inc.cloture %}
+                        <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Clôturé</span>
+                        {% else %}
+                        <span class="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">⏳ En cours</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-right">
+                        <a href="{% url 'incident_detail' inc.id %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded transition">
+                            👁️ Voir
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="p-8 text-center text-gray-500 italic">
+                        Aucun incident enregistré. 👍
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

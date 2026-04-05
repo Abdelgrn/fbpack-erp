@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">💰 {{ titre }}</h1>
+            <p class="text-gray-400 text-sm mt-1">Créer un bulletin de paie individuel</p>
+        </div>
+        <a href="{% url 'payslip_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition text-sm">
+            ← Retour
+        </a>
+    </div>
+</div>
+
+<form method="post" class="space-y-6 max-w-4xl">
+    {% csrf_token %}
+
+    <!-- Employé & Période -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><span>👤</span> Employé & Période</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="md:col-span-1">
+                <label class="block text-xs text-gray-400 mb-1">Employé *</label>
+                {{ form.employee }}
+                {% if form.employee.errors %}<p class="text-red-400 text-xs mt-1">{{ form.employee.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Mois *</label>
+                {{ form.mois }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Année *</label>
+                {{ form.annee }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Présences -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><span>📅</span> Présences</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Jours travaillés</label>
+                {{ form.jours_travailles }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Jours absence</label>
+                {{ form.jours_absence }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Jours congé</label>
+                {{ form.jours_conge }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Heures supplémentaires -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><span>⏱️</span> Heures Supplémentaires</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">H.Sup 25%</label>
+                {{ form.heures_supplementaires_25 }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">H.Sup 50%</label>
+                {{ form.heures_supplementaires_50 }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">H.Sup 100%</label>
+                {{ form.heures_supplementaires_100 }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Heures de nuit</label>
+                {{ form.heures_nuit }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Primes -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><span>🏆</span> Primes & Indemnités</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Prime rendement (DA)</label>
+                {{ form.prime_rendement }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Prime présence (DA)</label>
+                {{ form.prime_presence }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Prime transport (DA)</label>
+                {{ form.prime_transport }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Prime panier (DA)</label>
+                {{ form.prime_panier }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Autres primes (DA)</label>
+                {{ form.autres_primes }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Retenues -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><span>📉</span> Retenues Spéciales</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Avance sur salaire (DA)</label>
+                {{ form.avance_salaire }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Remboursement prêt (DA)</label>
+                {{ form.pret }}
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">💡 Les cotisations CNAS, CNR, CNAC et l'IRG sont calculés automatiquement selon le barème algérien.</p>
+    </div>
+
+    <!-- Boutons -->
+    <div class="flex gap-4">
+        <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-3 rounded-lg transition">
+            💰 Créer & Calculer le Bulletin
+        </button>
+        <a href="{% url 'payslip_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg transition">
+            Annuler
+        </a>
+    </div>
+</form>
+{% endblock %}

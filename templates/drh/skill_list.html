@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">🎯 Compétences</h1>
+    <p class="text-gray-400 text-sm mt-1">Référentiel des compétences et qualifications</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Formulaire -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-white font-bold mb-4">➕ Nouvelle Compétence</h2>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 rounded-lg transition">
+                ✓ Créer la Compétence
+            </button>
+        </form>
+    </div>
+
+    <!-- Liste -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-slate-700 bg-slate-900/50">
+            <h2 class="text-white font-bold">📋 Référentiel Compétences</h2>
+        </div>
+        <div class="divide-y divide-slate-700/50 max-h-[500px] overflow-y-auto">
+            {% for skill in skills %}
+            <div class="p-4 flex items-center justify-between hover:bg-slate-700/30 transition">
+                <div>
+                    <div class="text-white font-bold">{{ skill.name }}</div>
+                    <div class="text-xs text-gray-500">
+                        {{ skill.get_category_display|default:"—" }}
+                        {% if skill.machine_associee %} • Machine: {{ skill.machine_associee.name }}{% endif %}
+                    </div>
+                    {% if skill.description %}
+                    <div class="text-xs text-gray-400 mt-1">{{ skill.description|truncatewords:8 }}</div>
+                    {% endif %}
+                </div>
+                {% if skill.requiert_habilitation %}
+                <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded border border-yellow-500/30">🔑 Habilitation</span>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="p-8 text-center text-gray-500 italic">Aucune compétence définie.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">🦺 Équipements de Protection (EPI)</h1>
+            <p class="text-gray-400 text-sm mt-1">Suivi des attributions d'équipements de protection individuelle</p>
+        </div>
+        <a href="{% url 'epi_create' %}" class="bg-orange-500 hover:bg-orange-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+            ➕ Attribuer un EPI
+        </a>
+    </div>
+</div>
+
+<!-- EPI Expirés -->
+{% if expires %}
+<div class="bg-red-900/20 border border-red-500/30 rounded-xl p-4 mb-6">
+    <h3 class="text-red-400 font-bold mb-2">🔴 {{ expires|length }} EPI expiré(s) — Renouvellement requis</h3>
+    <div class="flex flex-wrap gap-2">
+        {% for e in expires %}
+        <span class="text-xs bg-red-900/40 text-red-300 px-3 py-1 rounded border border-red-500/30">
+            {{ e.employee.nom_complet }} — {{ e.designation }}
+        </span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Tableau -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-300 text-xs uppercase tracking-wider">
+                    <th class="p-4 border-b border-slate-700">Employé</th>
+                    <th class="p-4 border-b border-slate-700">EPI</th>
+                    <th class="p-4 border-b border-slate-700">Type</th>
+                    <th class="p-4 border-b border-slate-700">Quantité</th>
+                    <th class="p-4 border-b border-slate-700">Attribution</th>
+                    <th class="p-4 border-b border-slate-700">Expiration</th>
+                    <th class="p-4 border-b border-slate-700">État</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-200">
+                {% for epi in epis %}
+                <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/40">
+                    <td class="p-4">
+                        <a href="{% url 'employee_detail' epi.employee.id %}" class="text-cyan-400 hover:underline font-bold">
+                            {{ epi.employee.nom_complet }}
+                        </a>
+                    </td>
+                    <td class="p-4 text-white font-bold">{{ epi.designation }}</td>
+                    <td class="p-4 text-gray-400 text-xs">{{ epi.get_type_equipement_display }}</td>
+                    <td class="p-4 text-center text-white font-bold">{{ epi.quantite }}</td>
+                    <td class="p-4 font-mono text-gray-300 text-xs">{{ epi.date_attribution|date:"d/m/Y" }}</td>
+                    <td class="p-4 font-mono text-xs">
+                        {% if epi.date_expiration %}
+                        <span class="{% if epi.est_expire %}text-red-400 font-bold{% else %}text-gray-300{% endif %}">
+                            {{ epi.date_expiration|date:"d/m/Y" }}
+                        </span>
+                        {% else %}
+                        <span class="text-gray-600">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4">
+                        {% if epi.est_expire %}
+                        <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">Expiré</span>
+                        {% else %}
+                        <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Valide</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="p-8 text-center text-gray-500 italic">Aucun EPI attribué.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

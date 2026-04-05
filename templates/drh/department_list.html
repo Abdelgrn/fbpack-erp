@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-white">🏢 Départements</h1>
+            <p class="text-gray-400 text-sm mt-1">Gestion des départements de l'entreprise</p>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Formulaire ajout -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-white font-bold mb-4">➕ Nouveau Département</h2>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 rounded-lg transition">
+                ✓ Créer le Département
+            </button>
+        </form>
+    </div>
+
+    <!-- Liste -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-slate-700 bg-slate-900/50">
+            <h2 class="text-white font-bold">📋 Liste des Départements</h2>
+        </div>
+        <div class="divide-y divide-slate-700/50">
+            {% for dept in departments %}
+            <div class="p-4 flex items-center justify-between hover:bg-slate-700/30 transition">
+                <div>
+                    <div class="text-white font-bold">{{ dept.name }}</div>
+                    <div class="text-xs text-gray-500">
+                        {{ dept.nb_emp }} employé(s) actif(s)
+                        {% if dept.responsable %} • Resp: {{ dept.responsable.nom_complet }}{% endif %}
+                    </div>
+                    {% if dept.description %}
+                    <div class="text-xs text-gray-400 mt-1">{{ dept.description|truncatewords:10 }}</div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if dept.is_active %}
+                    <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">Actif</span>
+                    {% else %}
+                    <span class="text-xs bg-slate-600 text-gray-400 px-2 py-1 rounded">Inactif</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-8 text-center text-gray-500 italic">Aucun département créé.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

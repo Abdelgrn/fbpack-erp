@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">💰 Bulletins de Paie</h1>
+            <p class="text-gray-400 text-sm mt-1">Gestion de la paie mensuelle</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'payslip_bulk_generate' %}" class="bg-purple-500 hover:bg-purple-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+                ⚡ Génération en Masse
+            </a>
+            <a href="{% url 'payslip_create' %}" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+                ➕ Nouveau Bulletin
+            </a>
+            <a href="{% url 'export_payslips' %}?mois={{ mois }}&annee={{ annee }}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+                📊 Export Excel
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- FILTRES PÉRIODE -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Mois</label>
+            <select name="mois" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                {% for num, label in mois_list %}
+                <option value="{{ num }}" {% if mois == num %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Année</label>
+            <select name="annee" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                {% for y in annee_list %}
+                <option value="{{ y }}" {% if annee == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Département</label>
+            <select name="department" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                {% for d in departments %}
+                <option value="{{ d.id }}" {% if selected_department == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Statut</label>
+            <select name="statut" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                {% for code, label in statut_choices %}
+                <option value="{{ code }}" {% if selected_statut == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button type="submit" class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-2 px-4 rounded transition">
+                🔍 Afficher
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- TOTAUX DU MOIS -->
+{% if totaux.total_net %}
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-xl font-black text-white">{{ payslips|length }}</div>
+        <div class="text-xs text-gray-400 uppercase mt-1">Bulletins</div>
+    </div>
+    <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-4 text-center">
+        <div class="text-xl font-black text-yellow-400">{{ totaux.total_brut|floatformat:0 }}</div>
+        <div class="text-xs text-yellow-400 uppercase mt-1">Total Brut (DA)</div>
+    </div>
+    <div class="bg-red-900/30 border border-red-500/40 rounded-xl p-4 text-center">
+        <div class="text-xl font-black text-red-400">{{ totaux.total_cotisations|floatformat:0 }}</div>
+        <div class="text-xs text-red-400 uppercase mt-1">Cotisations (DA)</div>
+    </div>
+    <div class="bg-orange-900/30 border border-orange-500/40 rounded-xl p-4 text-center">
+        <div class="text-xl font-black text-orange-400">{{ totaux.total_irg|floatformat:0 }}</div>
+        <div class="text-xs text-orange-400 uppercase mt-1">IRG (DA)</div>
+    </div>
+    <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-xl p-4 text-center">
+        <div class="text-xl font-black text-emerald-400">{{ totaux.total_net|floatformat:0 }}</div>
+        <div class="text-xs text-emerald-400 uppercase mt-1">Masse Salariale Nette (DA)</div>
+    </div>
+</div>
+{% endif %}
+
+<!-- TABLEAU BULLETINS -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-300 text-xs uppercase tracking-wider">
+                    <th class="p-4 border-b border-slate-700">Employé</th>
+                    <th class="p-4 border-b border-slate-700">Période</th>
+                    <th class="p-4 border-b border-slate-700 text-right">Brut</th>
+                    <th class="p-4 border-b border-slate-700 text-right">Cotisations</th>
+                    <th class="p-4 border-b border-slate-700 text-right">IRG</th>
+                    <th class="p-4 border-b border-slate-700 text-right">Net</th>
+                    <th class="p-4 border-b border-slate-700">Jours</th>
+                    <th class="p-4 border-b border-slate-700">Statut</th>
+                    <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-200">
+                {% for slip in payslips %}
+                <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/40">
+                    <td class="p-4">
+                        <a href="{% url 'employee_detail' slip.employee.id %}" class="font-bold text-cyan-400 hover:underline">
+                            {{ slip.employee.nom_complet }}
+                        </a>
+                        <div class="text-xs text-gray-500">{{ slip.employee.department.name|default:"—" }}</div>
+                    </td>
+                    <td class="p-4 font-mono text-gray-300">
+                        {{ slip.mois|stringformat:"02d" }}/{{ slip.annee }}
+                    </td>
+                    <td class="p-4 text-right text-yellow-400 font-bold">
+                        {{ slip.salaire_brut|floatformat:0 }}
+                    </td>
+                    <td class="p-4 text-right text-red-400">
+                        -{{ slip.total_cotisations|floatformat:0 }}
+                    </td>
+                    <td class="p-4 text-right text-orange-400">
+                        -{{ slip.irg|floatformat:0 }}
+                    </td>
+                    <td class="p-4 text-right">
+                        <span class="text-emerald-400 font-black text-base">{{ slip.salaire_net|floatformat:0 }}</span>
+                        <span class="text-gray-500 text-xs"> DA</span>
+                    </td>
+                    <td class="p-4 text-gray-400 text-xs">
+                        {{ slip.jours_travailles|floatformat:0 }}j
+                        {% if slip.jours_absence > 0 %}
+                        <span class="text-red-400">/ {{ slip.jours_absence|floatformat:0 }}j abs.</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4">
+                        {% if slip.statut == 'BROUILLON' %}
+                        <span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">Brouillon</span>
+                        {% elif slip.statut == 'CALCULE' %}
+                        <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded border border-yellow-500/30">Calculé</span>
+                        {% elif slip.statut == 'VALIDE' %}
+                        <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Validé</span>
+                        {% elif slip.statut == 'PAYE' %}
+                        <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">💳 Payé</span>
+                        {% else %}
+                        <span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ slip.get_statut_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-right">
+                        <div class="flex justify-end gap-1">
+                            <a href="{% url 'payslip_detail' slip.id %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-2 rounded transition">
+                                👁️
+                            </a>
+                            {% if slip.statut == 'CALCULE' %}
+                            <form method="post" action="{% url 'payslip_validate' slip.id %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white py-1 px-2 rounded transition">
+                                    ✓
+                                </button>
+                            </form>
+                            {% endif %}
+                            {% if slip.statut in 'BROUILLON,CALCULE' %}
+                            <form method="post" action="{% url 'payslip_calculate' slip.id %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" title="Recalculer" class="text-xs bg-blue-600 hover:bg-blue-500 text-white py-1 px-2 rounded transition">
+                                    🔄
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="p-8 text-center text-gray-500 italic">
+                        Aucun bulletin pour {{ mois|stringformat:"02d" }}/{{ annee }}.
+                        <a href="{% url 'payslip_bulk_generate' %}" class="text-cyan-400 hover:underline ml-2">Générer automatiquement →</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

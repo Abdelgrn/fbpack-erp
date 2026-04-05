@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">🏖️ Gestion des Congés</h1>
+            <p class="text-gray-400 text-sm mt-1">Demandes, validations et suivi des soldes</p>
+        </div>
+        <a href="{% url 'leave_create' %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+            ➕ Nouvelle Demande
+        </a>
+    </div>
+</div>
+
+<!-- STATS -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-yellow-400">{{ stats.en_attente }}</div>
+        <div class="text-xs text-yellow-400 uppercase tracking-wider mt-1">En attente de validation</div>
+    </div>
+    <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-emerald-400">{{ stats.validees }}</div>
+        <div class="text-xs text-emerald-400 uppercase tracking-wider mt-1">Validées ce mois</div>
+    </div>
+    <div class="bg-red-900/30 border border-red-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-red-400">{{ stats.refusees }}</div>
+        <div class="text-xs text-red-400 uppercase tracking-wider mt-1">Refusées</div>
+    </div>
+</div>
+
+<!-- FILTRES -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Statut</label>
+            <select name="statut" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                {% for code, label in statut_choices %}
+                <option value="{{ code }}" {% if selected_statut == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Type de congé</label>
+            <select name="type" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                {% for t in types %}
+                <option value="{{ t.id }}" {% if selected_type == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Département</label>
+            <select name="department" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                {% for d in departments %}
+                <option value="{{ d.id }}" {% if selected_department == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-2 px-4 rounded transition">
+                🔍 Filtrer
+            </button>
+            <a href="{% url 'leave_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-3 rounded transition">↺</a>
+        </div>
+    </form>
+</div>
+
+<!-- TABLEAU -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-300 text-xs uppercase tracking-wider">
+                    <th class="p-4 border-b border-slate-700">Employé</th>
+                    <th class="p-4 border-b border-slate-700">Type</th>
+                    <th class="p-4 border-b border-slate-700">Période</th>
+                    <th class="p-4 border-b border-slate-700">Jours</th>
+                    <th class="p-4 border-b border-slate-700">Demandé le</th>
+                    <th class="p-4 border-b border-slate-700">Statut</th>
+                    <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-200">
+                {% for leave in leaves %}
+                <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/40">
+                    <td class="p-4">
+                        <a href="{% url 'employee_detail' leave.employee.id %}" class="font-bold text-cyan-400 hover:underline">
+                            {{ leave.employee.nom_complet }}
+                        </a>
+                        <div class="text-xs text-gray-500">{{ leave.employee.department.name|default:"—" }}</div>
+                    </td>
+                    <td class="p-4 text-gray-300">{{ leave.type_conge.name }}</td>
+                    <td class="p-4">
+                        <div class="text-white font-mono text-xs">
+                            {{ leave.date_debut|date:"d/m/Y" }} → {{ leave.date_fin|date:"d/m/Y" }}
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <span class="text-cyan-400 font-bold text-lg">{{ leave.nb_jours|floatformat:0 }}</span>
+                        <span class="text-gray-500 text-xs"> j</span>
+                    </td>
+                    <td class="p-4 text-gray-400 text-xs">{{ leave.date_demande|date:"d/m/Y" }}</td>
+                    <td class="p-4">
+                        {% if leave.statut == 'SOUMISE' %}
+                        <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded border border-yellow-500/30">⏳ En attente</span>
+                        {% elif leave.statut == 'VALIDEE_N1' %}
+                        <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">✓ Validé N+1</span>
+                        {% elif leave.statut == 'VALIDEE_RH' %}
+                        <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Approuvé</span>
+                        {% elif leave.statut == 'REFUSEE' %}
+                        <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Refusé</span>
+                        {% elif leave.statut == 'ANNULEE' %}
+                        <span class="text-xs bg-slate-600 text-gray-400 px-2 py-1 rounded">Annulé</span>
+                        {% else %}
+                        <span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ leave.get_statut_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-right">
+                        <div class="flex justify-end gap-1 flex-wrap">
+                            {% if leave.statut == 'SOUMISE' %}
+                            <form method="post" action="{% url 'leave_validate_n1' leave.id %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" title="Valider N+1"
+                                    class="text-xs bg-blue-600 hover:bg-blue-500 text-white py-1 px-2 rounded transition">
+                                    ✓ N+1
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'leave_reject' leave.id %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="motif_refus" value="Refusé">
+                                <button type="submit" title="Refuser"
+                                    class="text-xs bg-red-600 hover:bg-red-500 text-white py-1 px-2 rounded transition">
+                                    ✗
+                                </button>
+                            </form>
+                            {% elif leave.statut == 'VALIDEE_N1' %}
+                            <form method="post" action="{% url 'leave_validate_rh' leave.id %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" title="Validation RH finale"
+                                    class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white py-1 px-2 rounded transition">
+                                    ✓ RH
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'leave_reject' leave.id %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="motif_refus" value="Refusé par RH">
+                                <button type="submit"
+                                    class="text-xs bg-red-600 hover:bg-red-500 text-white py-1 px-2 rounded transition">
+                                    ✗
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="p-8 text-center text-gray-500 italic">
+                        Aucune demande de congé trouvée.
+                        <a href="{% url 'leave_create' %}" class="text-cyan-400 hover:underline ml-2">Créer une demande →</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
