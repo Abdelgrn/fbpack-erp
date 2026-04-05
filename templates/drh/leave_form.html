@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">🏖️ {{ titre }}</h1>
+            <p class="text-gray-400 text-sm mt-1">Soumettre une demande de congé</p>
+        </div>
+        <a href="{% url 'leave_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition text-sm">
+            ← Retour
+        </a>
+    </div>
+</div>
+
+<div class="max-w-2xl">
+
+    {% if employee %}
+    <!-- Carte employé si pré-sélectionné -->
+    <div class="bg-slate-800 border border-emerald-500/30 rounded-xl p-4 mb-6 flex items-center gap-4">
+        {% if employee.photo %}
+        <img src="{{ employee.photo.url }}" class="w-12 h-12 rounded-full object-cover border-2 border-slate-600">
+        {% else %}
+        <div class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-xl font-bold text-gray-300">
+            {{ employee.nom.0|upper }}{{ employee.prenom.0|upper }}
+        </div>
+        {% endif %}
+        <div>
+            <div class="text-white font-bold">{{ employee.nom_complet }}</div>
+            <div class="text-gray-400 text-sm">{{ employee.position.name|default:"—" }} • {{ employee.department.name|default:"—" }}</div>
+            <div class="text-blue-400 text-sm font-bold">Solde congé : {{ employee.solde_conge|floatformat:1 }} jours</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+        {% csrf_token %}
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
+            <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <span>📋</span> Détails de la Demande
+            </h2>
+
+            {% if not employee %}
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Employé *</label>
+                <select name="employee" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" required>
+                    <option value="">— Sélectionner un employé —</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.id }}">{{ emp.nom_complet }} (Solde: {{ emp.solde_conge|floatformat:0 }}j)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <input type="hidden" name="employee" value="{{ employee.id }}">
+            {% endif %}
+
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Type de congé *</label>
+                {{ form.type_conge }}
+                {% if form.type_conge.errors %}<p class="text-red-400 text-xs mt-1">{{ form.type_conge.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Date de début *</label>
+                    {{ form.date_debut }}
+                    {% if form.date_debut.errors %}<p class="text-red-400 text-xs mt-1">{{ form.date_debut.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Date de fin *</label>
+                    {{ form.date_fin }}
+                    {% if form.date_fin.errors %}<p class="text-red-400 text-xs mt-1">{{ form.date_fin.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            <!-- Calcul automatique des jours -->
+            <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-3 text-sm">
+                <span class="text-gray-400">Nombre de jours calculé : </span>
+                <span class="text-cyan-400 font-bold text-lg" id="nbJoursCalc">—</span>
+                <span class="text-gray-500 text-xs ml-1">jours ouvrables</span>
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Motif / Observations</label>
+                {{ form.motif }}
+            </div>
+
+            {% if form.justificatif %}
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Justificatif (PDF/Image)</label>
+                {{ form.justificatif }}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Info solde -->
+        {% if employee %}
+        <div class="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4 text-sm">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">ℹ️</span>
+                <div>
+                    <div class="text-blue-400 font-bold">Solde actuel : {{ employee.solde_conge|floatformat:1 }} jours</div>
+                    <div class="text-gray-400 text-xs">Après validation, le solde sera automatiquement mis à jour.</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Boutons -->
+        <div class="flex gap-4">
+            <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-bold py-3 rounded-lg transition">
+                📤 Soumettre la Demande
+            </button>
+            <a href="{% url 'leave_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg transition">
+                Annuler
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Calcul automatique des jours
+function calcJours() {
+    const debut = document.querySelector('[name="date_debut"]');
+    const fin = document.querySelector('[name="date_fin"]');
+    const label = document.getElementById('nbJoursCalc');
+    if (!debut || !fin || !debut.value || !fin.value) return;
+    const d1 = new Date(debut.value);
+    const d2 = new Date(fin.value);
+    if (d2 < d1) { label.textContent = '⚠️ Date invalide'; label.className = 'text-red-400 font-bold text-lg'; return; }
+    // Compter les jours ouvrables (lundi-vendredi)
+    let count = 0;
+    let cur = new Date(d1);
+    while (cur <= d2) {
+        const day = cur.getDay();
+        if (day !== 0 && day !== 6) count++;
+        cur.setDate(cur.getDate() + 1);
+    }
+    label.textContent = count;
+    label.className = 'text-cyan-400 font-bold text-lg';
+}
+document.querySelector('[name="date_debut"]')?.addEventListener('change', calcJours);
+document.querySelector('[name="date_fin"]')?.addEventListener('change', calcJours);
+</script>
+{% endblock %}

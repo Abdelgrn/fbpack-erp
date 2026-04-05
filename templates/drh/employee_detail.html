@@ -1,0 +1,362 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div class="flex items-center gap-4">
+            {% if employee.photo %}
+            <img src="{{ employee.photo.url }}" alt="{{ employee.nom }}" class="w-20 h-20 rounded-full object-cover border-4 border-slate-700">
+            {% else %}
+            <div class="w-20 h-20 rounded-full bg-slate-700 flex items-center justify-center text-3xl font-bold text-gray-400">
+                {{ employee.nom.0|upper }}{{ employee.prenom.0|upper }}
+            </div>
+            {% endif %}
+            <div>
+                <h1 class="text-2xl font-bold text-white">{{ employee.nom }} {{ employee.prenom }}</h1>
+                <p class="text-gray-400 text-sm">{{ employee.matricule }} • {{ employee.position.name|default:"Poste non défini" }}</p>
+                <div class="flex gap-2 mt-2">
+                    {% if employee.statut == 'ACTIF' %}
+                    <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Actif</span>
+                    {% else %}
+                    <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">{{ employee.get_statut_display }}</span>
+                    {% endif %}
+                    <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">{{ employee.get_type_contrat_display }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'employee_edit' employee.id %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+                ✏️ Modifier
+            </a>
+            <a href="{% url 'employee_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition text-sm">
+                ← Retour
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- KPI EMPLOYÉ -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-white">{{ employee.anciennete_display }}</div>
+        <div class="text-xs text-gray-400 uppercase">Ancienneté</div>
+    </div>
+    <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-emerald-400">{{ jours_presents }}</div>
+        <div class="text-xs text-emerald-400 uppercase">Jours présents (mois)</div>
+    </div>
+    <div class="bg-blue-900/30 border border-blue-500/40 rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-blue-400">{{ solde_conge|floatformat:1 }}</div>
+        <div class="text-xs text-blue-400 uppercase">Solde congé (j)</div>
+    </div>
+    <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-yellow-400">{{ total_hs|floatformat:1 }}</div>
+        <div class="text-xs text-yellow-400 uppercase">Heures sup. (mois)</div>
+    </div>
+</div>
+
+<!-- ONGLETS -->
+<div class="flex flex-wrap border-b border-slate-700 mb-6 gap-0" id="mainTabs">
+    <button onclick="showTab('infos')" id="tabBtn-infos" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-cyan-500 text-cyan-500 transition">📋 Informations</button>
+    <button onclick="showTab('competences')" id="tabBtn-competences" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">🎯 Compétences</button>
+    <button onclick="showTab('pointages')" id="tabBtn-pointages" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">⏱️ Pointages</button>
+    <button onclick="showTab('conges')" id="tabBtn-conges" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">🏖️ Congés</button>
+    <button onclick="showTab('paie')" id="tabBtn-paie" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">💰 Paie</button>
+    <button onclick="showTab('documents')" id="tabBtn-documents" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">📁 Documents</button>
+    <button onclick="showTab('securite')" id="tabBtn-securite" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">🦺 Santé & Sécurité</button>
+</div>
+
+<!-- ONGLET INFORMATIONS -->
+<div id="tab-infos" class="tab-content block">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h3 class="text-white font-bold mb-4 flex items-center gap-2"><span>🪪</span> Identité</h3>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div><div class="text-gray-500 text-xs">Nom complet</div><div class="text-white font-bold">{{ employee.nom }} {{ employee.prenom }}</div></div>
+                {% if employee.nom_arabe %}<div><div class="text-gray-500 text-xs">الإسم بالعربية</div><div class="text-white font-bold" dir="rtl">{{ employee.nom_arabe }}</div></div>{% endif %}
+                <div><div class="text-gray-500 text-xs">Date de naissance</div><div class="text-gray-300">{{ employee.date_naissance|date:"d/m/Y"|default:"—" }} {% if employee.age %}<span class="text-gray-500">({{ employee.age }} ans)</span>{% endif %}</div></div>
+                <div><div class="text-gray-500 text-xs">Lieu de naissance</div><div class="text-gray-300">{{ employee.lieu_naissance|default:"—" }}</div></div>
+                <div><div class="text-gray-500 text-xs">Genre</div><div class="text-gray-300">{{ employee.get_genre_display }}</div></div>
+                <div><div class="text-gray-500 text-xs">Situation familiale</div><div class="text-gray-300">{{ employee.get_situation_familiale_display }} - {{ employee.nb_enfants }} enfant(s)</div></div>
+                <div><div class="text-gray-500 text-xs">N° CIN</div><div class="text-gray-300 font-mono">{{ employee.cin|default:"—" }}</div></div>
+                <div><div class="text-gray-500 text-xs">N° Sécurité Sociale</div><div class="text-gray-300 font-mono">{{ employee.num_securite_sociale|default:"—" }}</div></div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h3 class="text-white font-bold mb-4 flex items-center gap-2"><span>📞</span> Contact</h3>
+            <div class="grid grid-cols-1 gap-4 text-sm">
+                <div><div class="text-gray-500 text-xs">Adresse</div><div class="text-gray-300">{{ employee.adresse|default:"—" }}</div></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><div class="text-gray-500 text-xs">Wilaya</div><div class="text-gray-300">{{ employee.wilaya|default:"—" }}</div></div>
+                    <div><div class="text-gray-500 text-xs">Commune</div><div class="text-gray-300">{{ employee.commune|default:"—" }}</div></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><div class="text-gray-500 text-xs">Téléphone</div><div class="text-cyan-400 font-mono">{{ employee.telephone|default:"—" }}</div></div>
+                    <div><div class="text-gray-500 text-xs">Urgence</div><div class="text-orange-400 font-mono">{{ employee.telephone_urgence|default:"—" }}</div></div>
+                </div>
+                <div><div class="text-gray-500 text-xs">Email</div><div class="text-cyan-400">{{ employee.email|default:"—" }}</div></div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h3 class="text-white font-bold mb-4 flex items-center gap-2"><span>💼</span> Informations Professionnelles</h3>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div><div class="text-gray-500 text-xs">Département</div><div class="text-white font-bold">{{ employee.department.name|default:"—" }}</div></div>
+                <div><div class="text-gray-500 text-xs">Poste</div><div class="text-white font-bold">{{ employee.position.name|default:"—" }}</div></div>
+                <div><div class="text-gray-500 text-xs">Supérieur hiérarchique</div><div class="text-gray-300">{{ employee.superieur.nom_complet|default:"—" }}</div></div>
+                <div><div class="text-gray-500 text-xs">Machine affectée</div><div class="text-blue-400">{{ employee.machine_affectee.name|default:"—" }}</div></div>
+                <div><div class="text-gray-500 text-xs">Type de contrat</div><div class="text-gray-300">{{ employee.get_type_contrat_display }}</div></div>
+                <div><div class="text-gray-500 text-xs">Date d'embauche</div><div class="text-emerald-400 font-bold">{{ employee.date_embauche|date:"d/m/Y" }}</div></div>
+                {% if employee.date_fin_contrat %}<div><div class="text-gray-500 text-xs">Fin de contrat</div><div class="text-orange-400">{{ employee.date_fin_contrat|date:"d/m/Y" }}</div></div>{% endif %}
+            </div>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h3 class="text-white font-bold mb-4 flex items-center gap-2"><span>💰</span> Rémunération</h3>
+            <div class="text-center py-4">
+                <div class="text-4xl font-black text-emerald-400">{{ employee.salaire_base|floatformat:0 }}</div>
+                <div class="text-gray-400 text-sm">DA / mois (base)</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-sm mt-4">
+                <div><div class="text-gray-500 text-xs">Solde congé</div><div class="text-blue-400 font-bold">{{ employee.solde_conge|floatformat:1 }} jours</div></div>
+                <div><div class="text-gray-500 text-xs">Ancienneté</div><div class="text-yellow-400 font-bold">{{ employee.anciennete_annees }} an(s)</div></div>
+            </div>
+        </div>
+    </div>
+
+    {% if subordonnes %}
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mt-6">
+        <h3 class="text-white font-bold mb-4">👥 Équipe sous sa responsabilité ({{ subordonnes.count }})</h3>
+        <div class="flex flex-wrap gap-2">
+            {% for sub in subordonnes %}
+            <a href="{% url 'employee_detail' sub.id %}" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-sm text-gray-300 transition">
+                {{ sub.nom_complet }} <span class="text-gray-500">({{ sub.position.name|default:"?" }})</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ONGLET COMPÉTENCES -->
+<div id="tab-competences" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-white">🎯 Compétences & Autorisations</h2>
+        <div class="flex gap-2">
+            <a href="{% url 'employee_skill_add' employee.id %}" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded text-sm">➕ Compétence</a>
+            <a href="{% url 'machine_authorization_add' employee.id %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded text-sm">🔑 Autorisation Machine</a>
+        </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 bg-slate-900/50"><h3 class="text-white font-bold">🎯 Compétences acquises</h3></div>
+            <div class="p-4">
+                {% for comp in competences %}
+                <div class="flex items-center justify-between py-3 border-b border-slate-700/50 last:border-0">
+                    <div><div class="text-white font-bold">{{ comp.skill.name }}</div><div class="text-xs text-gray-500">{{ comp.skill.get_category_display }} • {{ comp.date_acquisition|date:"d/m/Y" }}</div></div>
+                    <div class="text-yellow-400">{{ comp.get_level_display }}</div>
+                </div>
+                {% empty %}<p class="text-gray-500 text-center py-4 italic">Aucune compétence enregistrée</p>{% endfor %}
+            </div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 bg-slate-900/50"><h3 class="text-white font-bold">🔑 Autorisations machines</h3></div>
+            <div class="p-4">
+                {% for auth in autorisations %}
+                <div class="flex items-center justify-between py-3 border-b border-slate-700/50 last:border-0">
+                    <div><div class="text-cyan-400 font-bold">{{ auth.machine.name }}</div><div class="text-xs text-gray-500">{{ auth.get_niveau_autorisation_display }}</div></div>
+                    <div>
+                        {% if auth.est_valide %}<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">✓ Valide</span>
+                        {% elif auth.statut == 'EN_ATTENTE' %}<span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">⏳ En attente</span>
+                        {% else %}<span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">{{ auth.get_statut_display }}</span>{% endif %}
+                    </div>
+                </div>
+                {% empty %}<p class="text-gray-500 text-center py-4 italic">Aucune autorisation machine</p>{% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ONGLET POINTAGES -->
+<div id="tab-pointages" class="tab-content hidden">
+    <h2 class="text-xl font-bold text-white mb-4">⏱️ Historique des Pointages</h2>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-900/50 text-gray-400 text-xs uppercase">
+                <tr>
+                    <th class="p-3 text-left">Date</th><th class="p-3 text-left">Équipe</th>
+                    <th class="p-3 text-left">Arrivée</th><th class="p-3 text-left">Départ</th>
+                    <th class="p-3 text-left">H. Normales</th><th class="p-3 text-left">H. Sup</th>
+                    <th class="p-3 text-left">Retard</th><th class="p-3 text-left">Statut</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-300">
+                {% for p in pointages %}
+                <tr class="border-b border-slate-700/50 hover:bg-slate-700/30">
+                    <td class="p-3 font-bold text-white">{{ p.date|date:"d/m/Y" }}</td>
+                    <td class="p-3 text-gray-400">{{ p.shift.name|default:"—" }}</td>
+                    <td class="p-3 text-emerald-400">{{ p.heure_arrivee|time:"H:i"|default:"—" }}</td>
+                    <td class="p-3 text-blue-400">{{ p.heure_depart|time:"H:i"|default:"—" }}</td>
+                    <td class="p-3">{{ p.heures_normales|floatformat:1 }}h</td>
+                    <td class="p-3 text-yellow-400">{{ p.heures_supplementaires|floatformat:1 }}h</td>
+                    <td class="p-3 {% if p.minutes_retard > 0 %}text-red-400{% endif %}">{{ p.minutes_retard }} min</td>
+                    <td class="p-3">
+                        {% if p.statut == 'PRESENT' %}<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">✓</span>
+                        {% elif p.statut == 'ABSENT' %}<span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">Absent</span>
+                        {% else %}<span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ p.get_statut_display }}</span>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}<tr><td colspan="8" class="p-4 text-center text-gray-500 italic">Aucun pointage enregistré</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ONGLET CONGÉS -->
+<div id="tab-conges" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4">
+        <div>
+            <h2 class="text-xl font-bold text-white">🏖️ Congés</h2>
+            <p class="text-gray-400 text-sm">Solde actuel : <span class="text-blue-400 font-bold">{{ solde_conge|floatformat:1 }} jours</span></p>
+        </div>
+        <a href="{% url 'leave_create_emp' employee.id %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded text-sm">➕ Nouvelle Demande</a>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-900/50 text-gray-400 text-xs uppercase">
+                <tr><th class="p-3 text-left">Type</th><th class="p-3 text-left">Période</th><th class="p-3 text-left">Jours</th><th class="p-3 text-left">Statut</th><th class="p-3 text-left">Demandé le</th></tr>
+            </thead>
+            <tbody class="text-gray-300">
+                {% for c in conges %}
+                <tr class="border-b border-slate-700/50 hover:bg-slate-700/30">
+                    <td class="p-3 font-bold text-white">{{ c.type_conge.name }}</td>
+                    <td class="p-3 text-gray-400">{{ c.date_debut|date:"d/m/Y" }} → {{ c.date_fin|date:"d/m/Y" }}</td>
+                    <td class="p-3 text-cyan-400 font-bold">{{ c.nb_jours|floatformat:0 }}</td>
+                    <td class="p-3">
+                        {% if c.statut == 'VALIDEE_RH' %}<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">✓ Validé</span>
+                        {% elif c.statut == 'SOUMISE' %}<span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">En attente</span>
+                        {% elif c.statut == 'REFUSEE' %}<span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">Refusé</span>
+                        {% else %}<span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ c.get_statut_display }}</span>{% endif %}
+                    </td>
+                    <td class="p-3 text-gray-500">{{ c.date_demande|date:"d/m/Y" }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="5" class="p-4 text-center text-gray-500 italic">Aucune demande de congé</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ONGLET PAIE -->
+<div id="tab-paie" class="tab-content hidden">
+    <h2 class="text-xl font-bold text-white mb-4">💰 Bulletins de Paie</h2>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-900/50 text-gray-400 text-xs uppercase">
+                <tr><th class="p-3 text-left">Période</th><th class="p-3 text-right">Brut</th><th class="p-3 text-right">Cotisations</th><th class="p-3 text-right">IRG</th><th class="p-3 text-right">Net</th><th class="p-3 text-left">Statut</th><th class="p-3 text-right">Actions</th></tr>
+            </thead>
+            <tbody class="text-gray-300">
+                {% for b in bulletins %}
+                <tr class="border-b border-slate-700/50 hover:bg-slate-700/30">
+                    <td class="p-3 font-bold text-white">{{ b.mois|stringformat:"02d" }}/{{ b.annee }}</td>
+                    <td class="p-3 text-right text-yellow-400">{{ b.salaire_brut|floatformat:0 }}</td>
+                    <td class="p-3 text-right text-red-400">-{{ b.total_cotisations|floatformat:0 }}</td>
+                    <td class="p-3 text-right text-orange-400">-{{ b.irg|floatformat:0 }}</td>
+                    <td class="p-3 text-right text-emerald-400 font-bold">{{ b.salaire_net|floatformat:0 }} DA</td>
+                    <td class="p-3">
+                        {% if b.statut == 'VALIDE' or b.statut == 'PAYE' %}<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">✓ {{ b.get_statut_display }}</span>
+                        {% else %}<span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ b.get_statut_display }}</span>{% endif %}
+                    </td>
+                    <td class="p-3 text-right"><a href="{% url 'payslip_detail' b.id %}" class="text-cyan-400 hover:underline text-xs">Voir →</a></td>
+                </tr>
+                {% empty %}<tr><td colspan="7" class="p-4 text-center text-gray-500 italic">Aucun bulletin de paie</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ONGLET DOCUMENTS -->
+<div id="tab-documents" class="tab-content hidden">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-white">📁 Documents</h2>
+        <a href="{% url 'employee_document_add' employee.id %}" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded text-sm">➕ Ajouter Document</a>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for doc in documents %}
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 hover:border-slate-500 transition">
+            <div class="flex items-start justify-between">
+                <div class="text-2xl mb-2">{% if doc.type_document == 'CONTRAT' %}📄{% elif doc.type_document == 'DIPLOME' %}🎓{% elif doc.type_document == 'CIN' %}🪪{% else %}📁{% endif %}</div>
+                {% if doc.est_expire %}<span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">Expiré</span>{% endif %}
+            </div>
+            <div class="font-bold text-white text-sm">{{ doc.nom }}</div>
+            <div class="text-xs text-gray-400 mt-1">{{ doc.get_type_document_display }}</div>
+            <div class="text-xs text-gray-500 mt-2">Ajouté le {{ doc.date_upload|date:"d/m/Y" }}</div>
+            <a href="{{ doc.fichier.url }}" target="_blank" class="mt-3 inline-block text-xs text-cyan-400 hover:underline">📥 Télécharger</a>
+        </div>
+        {% empty %}
+        <div class="col-span-3 bg-slate-800 border border-slate-700 rounded-xl p-8 text-center text-gray-500 italic">Aucun document enregistré</div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ONGLET SÉCURITÉ -->
+<div id="tab-securite" class="tab-content hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 bg-slate-900/50"><h3 class="text-white font-bold">🏥 Visites Médicales</h3></div>
+            <div class="p-4">
+                {% for v in visites %}
+                <div class="py-3 border-b border-slate-700/50 last:border-0">
+                    <div class="flex justify-between items-center">
+                        <div><div class="text-white font-bold">{{ v.get_type_visite_display }}</div><div class="text-xs text-gray-500">{{ v.date_visite|date:"d/m/Y" }} - Dr. {{ v.medecin|default:"?" }}</div></div>
+                        <span class="text-xs px-2 py-1 rounded {% if v.resultat == 'APTE' %}bg-emerald-500/20 text-emerald-400{% elif v.resultat == 'APTE_RESTRICTION' %}bg-yellow-500/20 text-yellow-400{% else %}bg-red-500/20 text-red-400{% endif %}">{{ v.get_resultat_display }}</span>
+                    </div>
+                </div>
+                {% empty %}<p class="text-gray-500 text-center py-4 italic">Aucune visite médicale</p>{% endfor %}
+            </div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 bg-slate-900/50"><h3 class="text-white font-bold">🦺 Équipements de Protection</h3></div>
+            <div class="p-4">
+                {% for e in epi %}
+                <div class="py-3 border-b border-slate-700/50 last:border-0 flex justify-between items-center">
+                    <div><div class="text-white font-bold">{{ e.designation }}</div><div class="text-xs text-gray-500">{{ e.get_type_equipement_display }} • Qté: {{ e.quantite }}</div></div>
+                    {% if e.est_expire %}<span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">Expiré</span>
+                    {% else %}<span class="text-xs text-gray-500">{{ e.date_attribution|date:"d/m/Y" }}</span>{% endif %}
+                </div>
+                {% empty %}<p class="text-gray-500 text-center py-4 italic">Aucun EPI attribué</p>{% endfor %}
+            </div>
+        </div>
+        {% if incidents %}
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden lg:col-span-2">
+            <div class="p-4 border-b border-slate-700 bg-red-900/20"><h3 class="text-white font-bold">🚨 Incidents</h3></div>
+            <div class="p-4">
+                {% for inc in incidents %}
+                <div class="py-3 border-b border-slate-700/50 last:border-0">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="text-white font-bold">{{ inc.reference }} - {{ inc.get_type_incident_display }}</div>
+                            <div class="text-xs text-gray-500">{{ inc.date_incident|date:"d/m/Y H:i" }} - {{ inc.lieu }}</div>
+                            <div class="text-sm text-gray-400 mt-1">{{ inc.description|truncatewords:20 }}</div>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded {% if inc.gravite == 'GRAVE' or inc.gravite == 'TRES_GRAVE' %}bg-red-500/20 text-red-400{% elif inc.gravite == 'MODEREE' %}bg-orange-500/20 text-orange-400{% else %}bg-yellow-500/20 text-yellow-400{% endif %}">{{ inc.get_gravite_display }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => { el.classList.add('hidden'); el.classList.remove('block'); });
+    document.querySelectorAll('.tab-btn').forEach(btn => { btn.classList.remove('border-cyan-500', 'text-cyan-500'); btn.classList.add('border-transparent', 'text-gray-400'); });
+    const tab = document.getElementById('tab-' + tabName);
+    if (tab) { tab.classList.remove('hidden'); tab.classList.add('block'); }
+    const btn = document.getElementById('tabBtn-' + tabName);
+    if (btn) { btn.classList.remove('border-transparent', 'text-gray-400'); btn.classList.add('border-cyan-500', 'text-cyan-500'); }
+}
+</script>
+{% endblock %}

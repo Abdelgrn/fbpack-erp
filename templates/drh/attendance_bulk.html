@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">📋 {{ titre }}</h1>
+            <p class="text-gray-400 text-sm mt-1">Saisir le pointage de toute l'équipe en une seule opération</p>
+        </div>
+        <a href="{% url 'attendance_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition text-sm">
+            ← Retour
+        </a>
+    </div>
+</div>
+
+<form method="post" id="bulkForm">
+    {% csrf_token %}
+
+    <!-- PARAMÈTRES GLOBAUX -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
+        <h2 class="text-white font-bold mb-4 flex items-center gap-2">
+            <span>⚙️</span> Paramètres du Pointage
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">📅 Date *</label>
+                <input type="date" name="date" id="globalDate"
+                    value="{{ form.date.value|default:'' }}"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" required>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Équipe (Shift)</label>
+                <select name="shift" id="globalShift"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <option value="">— Sélectionner —</option>
+                    {% for s in form.shift.field.queryset %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Département (filtre)</label>
+                <select name="department" id="deptFilter"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <option value="">Tous les départements</option>
+                    {% for emp in employees %}
+                    {% if emp.department %}
+                    <option value="{{ emp.department.id }}">{{ emp.department.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACTIONS RAPIDES -->
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 mb-4 flex flex-wrap items-center gap-3">
+        <span class="text-sm text-gray-400 font-bold">Sélection rapide :</span>
+        <button type="button" onclick="setAllStatus('PRESENT')"
+            class="text-xs bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded transition">
+            ✓ Tous Présents
+        </button>
+        <button type="button" onclick="setAllStatus('ABSENT')"
+            class="text-xs bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded transition">
+            ✗ Tous Absents
+        </button>
+        <button type="button" onclick="setAllHours('08:00', '16:30')"
+            class="text-xs bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded transition">
+            🕗 Horaire Matin (8h-16h30)
+        </button>
+        <button type="button" onclick="setAllHours('16:30', '01:00')"
+            class="text-xs bg-purple-500/20 hover:bg-purple-500/40 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded transition">
+            🌙 Horaire Nuit (16h30-1h)
+        </button>
+        <span class="ml-auto text-xs text-gray-500" id="countLabel">{{ employees|length }} employé(s)</span>
+    </div>
+
+    <!-- TABLEAU EMPLOYÉS -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-xs uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700 text-left">Employé</th>
+                        <th class="p-4 border-b border-slate-700 text-left">Poste</th>
+                        <th class="p-4 border-b border-slate-700 text-left w-36">Statut *</th>
+                        <th class="p-4 border-b border-slate-700 text-left w-28">Arrivée</th>
+                        <th class="p-4 border-b border-slate-700 text-left w-28">Départ</th>
+                        <th class="p-4 border-b border-slate-700 text-left w-20">Note</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200" id="employeeTableBody">
+                    {% for emp in employees %}
+                    <tr class="hover:bg-slate-700/40 transition border-b border-slate-700/40 emp-row"
+                        data-dept="{{ emp.department.id|default:'' }}">
+                        <td class="p-3">
+                            <div class="flex items-center gap-3">
+                                {% if emp.photo %}
+                                <img src="{{ emp.photo.url }}" alt="{{ emp.nom }}"
+                                    class="w-8 h-8 rounded-full object-cover shrink-0">
+                                {% else %}
+                                <div class="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-sm font-bold text-gray-300 shrink-0">
+                                    {{ emp.nom.0|upper }}{{ emp.prenom.0|upper }}
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <div class="font-bold text-white">{{ emp.nom }} {{ emp.prenom }}</div>
+                                    <div class="text-xs text-gray-500">{{ emp.matricule }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-3 text-gray-400 text-xs">
+                            {{ emp.position.name|default:"—" }}<br>
+                            <span class="text-gray-600">{{ emp.department.name|default:"" }}</span>
+                        </td>
+                        <td class="p-3">
+                            <select name="statut_{{ emp.id }}"
+                                class="status-select w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-xs focus:border-cyan-500 focus:outline-none"
+                                onchange="styleRow(this)">
+                                <option value="PRESENT" class="bg-slate-700">✓ Présent</option>
+                                <option value="ABSENT" class="bg-slate-700">✗ Absent</option>
+                                <option value="RETARD" class="bg-slate-700">⏰ Retard</option>
+                                <option value="CONGE" class="bg-slate-700">🏖️ Congé</option>
+                                <option value="MALADIE" class="bg-slate-700">🏥 Maladie</option>
+                                <option value="MISSION" class="bg-slate-700">✈️ Mission</option>
+                            </select>
+                        </td>
+                        <td class="p-3">
+                            <input type="time" name="arrivee_{{ emp.id }}"
+                                class="arrivee-input w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-xs text-emerald-400 focus:border-cyan-500 focus:outline-none font-mono">
+                        </td>
+                        <td class="p-3">
+                            <input type="time" name="depart_{{ emp.id }}"
+                                class="depart-input w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-xs text-blue-400 focus:border-cyan-500 focus:outline-none font-mono">
+                        </td>
+                        <td class="p-3">
+                            <input type="text" name="note_{{ emp.id }}"
+                                placeholder="…"
+                                class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-xs text-gray-300 focus:border-cyan-500 focus:outline-none">
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-gray-500 italic">
+                            Aucun employé actif trouvé.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- BOUTONS -->
+    <div class="flex gap-4">
+        <button type="submit"
+            class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-3 rounded-lg transition text-base shadow-lg shadow-emerald-500/20">
+            ✓ Enregistrer le Pointage de l'Équipe
+        </button>
+        <a href="{% url 'attendance_list' %}"
+            class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg transition">
+            Annuler
+        </a>
+    </div>
+</form>
+
+<script>
+// Mettre tous les statuts à une valeur donnée
+function setAllStatus(value) {
+    document.querySelectorAll('.status-select').forEach(sel => {
+        sel.value = value;
+        styleRow(sel);
+    });
+}
+
+// Mettre toutes les heures
+function setAllHours(arrivee, depart) {
+    document.querySelectorAll('.arrivee-input').forEach(el => el.value = arrivee);
+    document.querySelectorAll('.depart-input').forEach(el => el.value = depart);
+}
+
+// Colorer la ligne selon le statut
+function styleRow(select) {
+    const row = select.closest('tr');
+    row.classList.remove(
+        'bg-emerald-900/10', 'bg-red-900/10',
+        'bg-yellow-900/10', 'bg-blue-900/10', 'bg-purple-900/10'
+    );
+    const colors = {
+        'PRESENT': 'bg-emerald-900/10',
+        'ABSENT':  'bg-red-900/10',
+        'RETARD':  'bg-yellow-900/10',
+        'CONGE':   'bg-blue-900/10',
+        'MALADIE': 'bg-purple-900/10',
+    };
+    if (colors[select.value]) row.classList.add(colors[select.value]);
+}
+
+// Filtre par département
+document.getElementById('deptFilter').addEventListener('change', function() {
+    const deptId = this.value;
+    let count = 0;
+    document.querySelectorAll('.emp-row').forEach(row => {
+        const rowDept = row.dataset.dept;
+        if (!deptId || rowDept === deptId) {
+            row.style.display = '';
+            count++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    document.getElementById('countLabel').textContent = count + ' employé(s)';
+});
+
+// Init couleurs au chargement
+document.querySelectorAll('.status-select').forEach(sel => styleRow(sel));
+</script>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">📅 Planning des Équipes</h1>
+            <p class="text-gray-400 text-sm mt-1">Gestion des plannings de travail</p>
+        </div>
+        <a href="{% url 'drh_dashboard' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition text-sm">← DRH</a>
+    </div>
+</div>
+
+<div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="p-4 border-b border-slate-700 bg-slate-900/50 flex justify-between items-center">
+        <h2 class="text-white font-bold">📋 Plannings Existants</h2>
+    </div>
+    <div class="divide-y divide-slate-700/50">
+        {% for sch in schedules %}
+        <div class="p-4 flex items-center justify-between hover:bg-slate-700/30 transition">
+            <div>
+                <div class="text-white font-bold">{{ sch.nom|default:"Planning sans nom" }}</div>
+                <div class="text-xs text-gray-500">
+                    {{ sch.date_debut|date:"d/m/Y" }} → {{ sch.date_fin|date:"d/m/Y" }}
+                    {% if sch.department %} • {{ sch.department.name }}{% endif %}
+                    {% if sch.machine %} • {{ sch.machine.name }}{% endif %}
+                </div>
+                {% if sch.description %}
+                <div class="text-xs text-gray-400 mt-1">{{ sch.description|truncatewords:10 }}</div>
+                {% endif %}
+            </div>
+            <a href="{% url 'schedule_detail' sch.id %}" class="text-xs bg-blue-600 hover:bg-blue-500 text-white py-1 px-3 rounded transition">
+                👁️ Voir
+            </a>
+        </div>
+        {% empty %}
+        <div class="p-8 text-center text-gray-500 italic">Aucun planning créé.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

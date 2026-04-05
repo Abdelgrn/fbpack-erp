@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">📅 {{ schedule.nom|default:"Planning" }}</h1>
+            <p class="text-gray-400 text-sm mt-1">
+                {{ schedule.date_debut|date:"d/m/Y" }} → {{ schedule.date_fin|date:"d/m/Y" }}
+                {% if schedule.department %} • {{ schedule.department.name }}{% endif %}
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'shift_assignment_add' schedule.id %}" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+                ➕ Ajouter Affectation
+            </a>
+            <a href="{% url 'schedule_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition text-sm">← Retour</a>
+        </div>
+    </div>
+</div>
+
+{% if affectations_par_date %}
+{% for date, affs in affectations_par_date.items %}
+<div class="mb-4">
+    <div class="text-sm font-bold text-cyan-400 mb-2 px-1">📆 {{ date|date:"l d/m/Y" }}</div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-900/50 text-gray-400 text-xs uppercase">
+                <tr>
+                    <th class="p-3 text-left">Employé</th>
+                    <th class="p-3 text-left">Équipe</th>
+                    <th class="p-3 text-left">Machine</th>
+                    <th class="p-3 text-left">Notes</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-300">
+                {% for aff in affs %}
+                <tr class="border-b border-slate-700/50 hover:bg-slate-700/30">
+                    <td class="p-3">
+                        <a href="{% url 'employee_detail' aff.employee.id %}" class="text-cyan-400 hover:underline font-bold">
+                            {{ aff.employee.nom_complet }}
+                        </a>
+                    </td>
+                    <td class="p-3">
+                        {% if aff.shift %}
+                        <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                            {{ aff.shift.name }} ({{ aff.shift.heure_debut|time:"H:i" }}-{{ aff.shift.heure_fin|time:"H:i" }})
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="p-3 text-gray-400">{{ aff.machine.name|default:"—" }}</td>
+                    <td class="p-3 text-gray-500 text-xs">{{ aff.notes|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center text-gray-500 italic">
+    Aucune affectation.
+    <a href="{% url 'shift_assignment_add' schedule.id %}" class="text-cyan-400 hover:underline ml-2">Ajouter →</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -163,6 +163,70 @@ urlpatterns = [
     path('administration/user/add/', views.admin_add_user, name='admin_add_user'),
     path('administration/user/<int:user_id>/edit/', views.admin_edit_user, name='admin_edit_user'),
     path('administration/user/<int:user_id>/toggle/', views.admin_toggle_user, name='admin_toggle_user'),
+
+    # ==========================================
+    # MODULE DRH
+    # ==========================================
+    
+    # Dashboard DRH
+    path('drh/', views.drh_dashboard, name='drh_dashboard'),
+    
+    # Employés
+    path('drh/employees/', views.employee_list, name='employee_list'),
+    path('drh/employee/create/', views.employee_create, name='employee_create'),
+    path('drh/employee/<int:emp_id>/', views.employee_detail, name='employee_detail'),
+    path('drh/employee/<int:emp_id>/edit/', views.employee_edit, name='employee_edit'),
+    path('drh/employee/<int:emp_id>/document/add/', views.employee_document_add, name='employee_document_add'),
+    
+    # Compétences
+    path('drh/skills/', views.skill_list, name='skill_list'),
+    path('drh/employee/<int:emp_id>/skill/add/', views.employee_skill_add, name='employee_skill_add'),
+    path('drh/employee/<int:emp_id>/authorization/add/', views.machine_authorization_add, name='machine_authorization_add'),
+    path('drh/authorization/<int:auth_id>/validate/', views.machine_authorization_validate, name='machine_authorization_validate'),
+    
+    # Pointage
+    path('drh/attendance/', views.attendance_list, name='attendance_list'),
+    path('drh/attendance/create/', views.attendance_create, name='attendance_create'),
+    path('drh/attendance/bulk/', views.attendance_bulk, name='attendance_bulk'),
+    
+    # Congés
+    path('drh/leaves/', views.leave_list, name='leave_list'),
+    path('drh/leave/create/', views.leave_create, name='leave_create'),
+    path('drh/leave/create/<int:emp_id>/', views.leave_create, name='leave_create_emp'),
+    path('drh/leave/<int:leave_id>/validate-n1/', views.leave_validate_n1, name='leave_validate_n1'),
+    path('drh/leave/<int:leave_id>/validate-rh/', views.leave_validate_rh, name='leave_validate_rh'),
+    path('drh/leave/<int:leave_id>/reject/', views.leave_reject, name='leave_reject'),
+    
+    # Paie
+    path('drh/payslips/', views.payslip_list, name='payslip_list'),
+    path('drh/payslip/create/', views.payslip_create, name='payslip_create'),
+    path('drh/payslip/<int:slip_id>/', views.payslip_detail, name='payslip_detail'),
+    path('drh/payslip/<int:slip_id>/calculate/', views.payslip_calculate, name='payslip_calculate'),
+    path('drh/payslip/<int:slip_id>/validate/', views.payslip_validate, name='payslip_validate'),
+    path('drh/payslips/generate/', views.payslip_bulk_generate, name='payslip_bulk_generate'),
+    
+    # Planning
+    path('drh/schedules/', views.schedule_list, name='schedule_list'),
+    path('drh/schedule/<int:schedule_id>/', views.schedule_detail, name='schedule_detail'),
+    path('drh/schedule/<int:schedule_id>/assign/', views.shift_assignment_add, name='shift_assignment_add'),
+    
+    # Santé & Sécurité
+    path('drh/incidents/', views.incident_list, name='incident_list'),
+    path('drh/incident/create/', views.incident_create, name='incident_create'),
+    path('drh/incident/<int:incident_id>/', views.incident_detail, name='incident_detail'),
+    path('drh/medical/', views.medical_visit_list, name='medical_list'),
+    path('drh/medical/create/', views.medical_visit_create, name='medical_create'),
+    path('drh/epi/', views.epi_list, name='epi_list'),
+    path('drh/epi/create/', views.epi_create, name='epi_create'),
+    
+    # Configuration
+    path('drh/departments/', views.department_list, name='department_list'),
+    path('drh/positions/', views.position_list, name='position_list'),
+    path('drh/shifts/', views.shift_list, name='shift_list'),
+    
+    # Exports
+    path('drh/export/employees/', views.export_employees_excel, name='export_employees'),
+    path('drh/export/payslips/', views.export_payslips_excel, name='export_payslips'),
     
     # ==========================================python manage.py runserver
     # CHAT EN TEMPS RÉEL

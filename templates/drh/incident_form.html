@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">⚠️ {{ titre }}</h1>
+            <p class="text-gray-400 text-sm mt-1">Déclarez immédiatement tout incident ou accident de travail</p>
+        </div>
+        <a href="{% url 'incident_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition text-sm">← Retour</a>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="space-y-6 max-w-3xl">
+    {% csrf_token %}
+
+    <!-- Infos principales -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><span>🚨</span> Informations Principales</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Employé concerné</label>
+                {{ form.employee }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Machine impliquée</label>
+                {{ form.machine }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Date & heure *</label>
+                {{ form.date_incident }}
+                {% if form.date_incident.errors %}<p class="text-red-400 text-xs mt-1">{{ form.date_incident.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Lieu *</label>
+                {{ form.lieu }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Type d'incident *</label>
+                {{ form.type_incident }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Gravité *</label>
+                {{ form.gravite }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Description -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><span>📝</span> Description</h2>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Description de l'incident *</label>
+                {{ form.description }}
+                {% if form.description.errors %}<p class="text-red-400 text-xs mt-1">{{ form.description.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Causes identifiées</label>
+                {{ form.causes }}
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Actions correctives prises</label>
+                {{ form.actions_correctives }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Conséquences -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><span>🏥</span> Conséquences</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Jours d'arrêt de travail</label>
+                {{ form.jours_arret }}
+            </div>
+            {% if form.photo %}
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Photo / Document</label>
+                {{ form.photo }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Boutons -->
+    <div class="flex gap-4">
+        <button type="submit" class="flex-1 bg-red-500 hover:bg-red-400 text-white font-bold py-3 rounded-lg transition">
+            🚨 Enregistrer la Déclaration
+        </button>
+        <a href="{% url 'incident_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg transition">
+            Annuler
+        </a>
+    </div>
+</form>
+{% endblock %}

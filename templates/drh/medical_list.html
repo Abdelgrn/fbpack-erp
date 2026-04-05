@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">🏥 Visites Médicales</h1>
+            <p class="text-gray-400 text-sm mt-1">Suivi de la santé au travail</p>
+        </div>
+        <a href="{% url 'medical_create' %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+            ➕ Nouvelle Visite
+        </a>
+    </div>
+</div>
+
+<!-- À planifier sous 30 jours -->
+{% if a_planifier %}
+<div class="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4 mb-6">
+    <h3 class="text-orange-400 font-bold mb-3">⚠️ {{ a_planifier|length }} visite(s) à planifier sous 30 jours</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {% for v in a_planifier %}
+        <div class="bg-slate-800 rounded-lg p-3 flex justify-between items-center">
+            <div>
+                <div class="text-white font-bold text-sm">{{ v.employee.nom_complet }}</div>
+                <div class="text-xs text-gray-400">{{ v.get_type_visite_display }}</div>
+            </div>
+            <div class="text-orange-400 font-bold text-sm">{{ v.date_prochaine_visite|date:"d/m/Y" }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Tableau -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-300 text-xs uppercase tracking-wider">
+                    <th class="p-4 border-b border-slate-700">Employé</th>
+                    <th class="p-4 border-b border-slate-700">Type</th>
+                    <th class="p-4 border-b border-slate-700">Date visite</th>
+                    <th class="p-4 border-b border-slate-700">Médecin</th>
+                    <th class="p-4 border-b border-slate-700">Résultat</th>
+                    <th class="p-4 border-b border-slate-700">Prochaine visite</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-200">
+                {% for v in visits %}
+                <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/40">
+                    <td class="p-4">
+                        <a href="{% url 'employee_detail' v.employee.id %}" class="text-cyan-400 hover:underline font-bold">
+                            {{ v.employee.nom_complet }}
+                        </a>
+                    </td>
+                    <td class="p-4 text-gray-300">{{ v.get_type_visite_display }}</td>
+                    <td class="p-4 font-mono text-gray-300">{{ v.date_visite|date:"d/m/Y" }}</td>
+                    <td class="p-4 text-gray-400">{{ v.medecin|default:"—" }}</td>
+                    <td class="p-4">
+                        {% if v.resultat == 'APTE' %}
+                        <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">✓ Apte</span>
+                        {% elif v.resultat == 'APTE_RESTRICTION' %}
+                        <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">⚠️ Apte avec restriction</span>
+                        {% elif v.resultat == 'INAPTE' %}
+                        <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">✗ Inapte</span>
+                        {% else %}
+                        <span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ v.get_resultat_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4">
+                        {% if v.date_prochaine_visite %}
+                        <span class="font-mono text-xs {% if v.date_prochaine_visite <= today %}text-red-400 font-bold{% else %}text-gray-300{% endif %}">
+                            {{ v.date_prochaine_visite|date:"d/m/Y" }}
+                        </span>
+                        {% else %}
+                        <span class="text-gray-600">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="p-8 text-center text-gray-500 italic">Aucune visite médicale enregistrée.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

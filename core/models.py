@@ -1420,6 +1420,1153 @@ class StockSeuil(models.Model):
 
     def __str__(self):
         return f"Seuil — {self.material.name}"
+    # ===========================================================================
+# --- MODULE DRH (RESSOURCES HUMAINES) ---
+# ===========================================================================
+
+class Department(models.Model):
+    """Départements de l'entreprise"""
+    
+    name = models.CharField("Nom du département", max_length=100)
+    code = models.CharField("Code", max_length=20, unique=True)
+    description = models.TextField("Description", blank=True)
+    responsable = models.ForeignKey(
+        'Employee', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='departements_geres',
+        verbose_name="Responsable"
+    )
+    is_active = models.BooleanField("Actif", default=True)
+    
+    class Meta:
+        verbose_name = "Département"
+        verbose_name_plural = "Départements"
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+    
+    @property
+    def nb_employes(self):
+        return self.employees.filter(statut='ACTIF').count()
+
+
+class Position(models.Model):
+    """Postes / Fonctions"""
+    
+    CATEGORY_CHOICES = [
+        ('PRODUCTION', 'Production'),
+        ('MAINTENANCE', 'Maintenance'),
+        ('QUALITE', 'Qualité'),
+        ('LOGISTIQUE', 'Logistique'),
+        ('ADMIN', 'Administratif'),
+        ('DIRECTION', 'Direction'),
+    ]
+    
+    name = models.CharField("Intitulé du poste", max_length=100)
+    code = models.CharField("Code poste", max_length=20, unique=True)
+    category = models.CharField("Catégorie", max_length=20, choices=CATEGORY_CHOICES, default='PRODUCTION')
+    department = models.ForeignKey(
+        Department, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='positions',
+        verbose_name="Département"
+    )
+    description = models.TextField("Description du poste", blank=True)
+    salaire_min = models.DecimalField("Salaire minimum (DA)", max_digits=12, decimal_places=2, default=0)
+    salaire_max = models.DecimalField("Salaire maximum (DA)", max_digits=12, decimal_places=2, default=0)
+    requires_machine_auth = models.BooleanField("Nécessite autorisation machine", default=False)
+    is_active = models.BooleanField("Actif", default=True)
+    
+    class Meta:
+        verbose_name = "Poste"
+        verbose_name_plural = "Postes"
+        ordering = ['category', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+
+
+class Employee(models.Model):
+    """Employés"""
+    
+    GENDER_CHOICES = [
+        ('M', 'Masculin'),
+        ('F', 'Féminin'),
+    ]
+    
+    STATUT_CHOICES = [
+        ('ACTIF', 'Actif'),
+        ('CONGE', 'En congé'),
+        ('SUSPENDU', 'Suspendu'),
+        ('DEMISSION', 'Démissionnaire'),
+        ('LICENCIE', 'Licencié'),
+        ('RETRAITE', 'Retraité'),
+    ]
+    
+    CONTRAT_CHOICES = [
+        ('CDI', 'CDI'),
+        ('CDD', 'CDD'),
+        ('INTERIM', 'Intérimaire'),
+        ('STAGE', 'Stagiaire'),
+        ('APPRENTI', 'Apprenti'),
+    ]
+    
+    SITUATION_CHOICES = [
+        ('CELIBATAIRE', 'Célibataire'),
+        ('MARIE', 'Marié(e)'),
+        ('DIVORCE', 'Divorcé(e)'),
+        ('VEUF', 'Veuf/Veuve'),
+    ]
+    
+    # Lien utilisateur Django (optionnel)
+    user = models.OneToOneField(
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='employee_profile',
+        verbose_name="Compte utilisateur"
+    )
+    
+    # Identité
+    matricule = models.CharField("Matricule", max_length=50, unique=True)
+    nom = models.CharField("Nom", max_length=100)
+    prenom = models.CharField("Prénom", max_length=100)
+    nom_arabe = models.CharField("الإسم بالعربية", max_length=200, blank=True)
+    date_naissance = models.DateField("Date de naissance", null=True, blank=True)
+    lieu_naissance = models.CharField("Lieu de naissance", max_length=100, blank=True)
+    genre = models.CharField("Genre", max_length=1, choices=GENDER_CHOICES, default='M')
+    situation_familiale = models.CharField(
+        "Situation familiale", max_length=20,
+        choices=SITUATION_CHOICES, default='CELIBATAIRE'
+    )
+    nb_enfants = models.IntegerField("Nombre d'enfants", default=0)
+    
+    # Documents officiels
+    cin = models.CharField("N° CIN (Carte d'identité)", max_length=50, blank=True)
+    num_securite_sociale = models.CharField("N° Sécurité Sociale (CNAS)", max_length=50, blank=True)
+    num_carte_chifa = models.CharField("N° Carte Chifa", max_length=50, blank=True)
+    
+    # Coordonnées
+    adresse = models.TextField("Adresse complète", blank=True)
+    wilaya = models.CharField("Wilaya", max_length=50, blank=True)
+    commune = models.CharField("Commune", max_length=50, blank=True)
+    telephone = models.CharField("Tél��phone", max_length=50, blank=True)
+    telephone_urgence = models.CharField("Téléphone urgence", max_length=50, blank=True)
+    email = models.EmailField("Email", blank=True)
+    
+    # Informations professionnelles
+    department = models.ForeignKey(
+        Department, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='employees',
+        verbose_name="Département"
+    )
+    position = models.ForeignKey(
+        Position, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='employees',
+        verbose_name="Poste"
+    )
+    superieur = models.ForeignKey(
+        'self', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='subordonnes',
+        verbose_name="Supérieur hiérarchique"
+    )
+    
+    # Affectation machine/ligne
+    machine_affectee = models.ForeignKey(
+        'Machine', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='operateurs',
+        verbose_name="Machine/Ligne affectée"
+    )
+    atelier = models.CharField("Atelier", max_length=50, blank=True)
+    
+    # Contrat et dates
+    type_contrat = models.CharField(
+        "Type de contrat", max_length=20,
+        choices=CONTRAT_CHOICES, default='CDI'
+    )
+    date_embauche = models.DateField("Date d'embauche")
+    date_fin_contrat = models.DateField("Date fin de contrat", null=True, blank=True)
+    date_depart = models.DateField("Date de départ", null=True, blank=True)
+    motif_depart = models.TextField("Motif de départ", blank=True)
+    
+    # Salaire
+    salaire_base = models.DecimalField(
+        "Salaire de base (DA)", max_digits=12, decimal_places=2, default=0
+    )
+    
+    # Congés
+    solde_conge = models.FloatField("Solde congé (jours)", default=30)
+    
+    # Statut
+    statut = models.CharField(
+        "Statut", max_length=20,
+        choices=STATUT_CHOICES, default='ACTIF'
+    )
+    
+    # Photo
+    photo = models.ImageField("Photo", upload_to='employees/photos/', blank=True, null=True)
+    
+    # Métadonnées
+    date_creation = models.DateTimeField("Date création", auto_now_add=True)
+    date_modification = models.DateTimeField("Dernière modification", auto_now=True)
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "Employé"
+        verbose_name_plural = "Employés"
+        ordering = ['nom', 'prenom']
+    
+    def __str__(self):
+        return f"{self.matricule} - {self.nom} {self.prenom}"
+    
+    @property
+    def nom_complet(self):
+        return f"{self.nom} {self.prenom}"
+    
+    @property
+    def age(self):
+        if self.date_naissance:
+            today = timezone.now().date()
+            return today.year - self.date_naissance.year - (
+                (today.month, today.day) < (self.date_naissance.month, self.date_naissance.day)
+            )
+        return None
+    
+    @property
+    def anciennete_annees(self):
+        if self.date_embauche:
+            today = timezone.now().date()
+            return today.year - self.date_embauche.year - (
+                (today.month, today.day) < (self.date_embauche.month, self.date_embauche.day)
+            )
+        return 0
+    
+    @property
+    def anciennete_display(self):
+        if self.date_embauche:
+            delta = timezone.now().date() - self.date_embauche
+            years = delta.days // 365
+            months = (delta.days % 365) // 30
+            if years > 0:
+                return f"{years} an(s) et {months} mois"
+            return f"{months} mois"
+        return "—"
+    
+    def save(self, *args, **kwargs):
+        # Générer matricule automatiquement si vide
+        if not self.matricule:
+            year = timezone.now().strftime('%Y')
+            last = Employee.objects.filter(
+                matricule__startswith=f"EMP{year}"
+            ).order_by('-matricule').first()
+            if last:
+                try:
+                    num = int(last.matricule[-4:]) + 1
+                except ValueError:
+                    num = 1
+            else:
+                num = 1
+            self.matricule = f"EMP{year}{num:04d}"
+        super().save(*args, **kwargs)
+
+
+class EmployeeDocument(models.Model):
+    """Documents des employés"""
+    
+    TYPE_CHOICES = [
+        ('CONTRAT', 'Contrat de travail'),
+        ('CIN', 'Copie CIN'),
+        ('DIPLOME', 'Diplôme'),
+        ('CERTIFICAT', 'Certificat'),
+        ('ATTESTATION', 'Attestation'),
+        ('CV', 'CV'),
+        ('PHOTO', 'Photo'),
+        ('AUTRE', 'Autre'),
+    ]
+    
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='documents', verbose_name="Employé"
+    )
+    type_document = models.CharField("Type", max_length=20, choices=TYPE_CHOICES)
+    nom = models.CharField("Nom du document", max_length=200)
+    fichier = models.FileField("Fichier", upload_to='employees/documents/')
+    date_upload = models.DateTimeField("Date upload", auto_now_add=True)
+    date_expiration = models.DateField("Date d'expiration", null=True, blank=True)
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "Document employé"
+        verbose_name_plural = "Documents employés"
+        ordering = ['-date_upload']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} - {self.nom}"
+    
+    @property
+    def est_expire(self):
+        if self.date_expiration:
+            return timezone.now().date() > self.date_expiration
+        return False
+
+
+# ===========================================================================
+# --- COMPÉTENCES ET AUTORISATIONS ---
+# ===========================================================================
+
+class Skill(models.Model):
+    """Compétences disponibles"""
+    
+    CATEGORY_CHOICES = [
+        ('MACHINE', 'Conduite machine'),
+        ('TECHNIQUE', 'Technique'),
+        ('QUALITE', 'Qualité'),
+        ('SECURITE', 'Sécurité'),
+        ('SOFT', 'Soft skills'),
+    ]
+    
+    name = models.CharField("Nom de la compétence", max_length=100)
+    code = models.CharField("Code", max_length=20, unique=True)
+    category = models.CharField("Catégorie", max_length=20, choices=CATEGORY_CHOICES, default='MACHINE')
+    description = models.TextField("Description", blank=True)
+    machine_associee = models.ForeignKey(
+        'Machine', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='competences_requises',
+        verbose_name="Machine associée"
+    )
+    is_active = models.BooleanField("Active", default=True)
+    
+    class Meta:
+        verbose_name = "Compétence"
+        verbose_name_plural = "Compétences"
+        ordering = ['category', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+
+
+class EmployeeSkill(models.Model):
+    """Compétences d'un employé"""
+    
+    LEVEL_CHOICES = [
+        (1, '⭐ Débutant'),
+        (2, '⭐⭐ Intermédiaire'),
+        (3, '⭐⭐⭐ Confirmé'),
+        (4, '⭐⭐⭐⭐ Expert'),
+        (5, '⭐⭐⭐⭐⭐ Formateur'),
+    ]
+    
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='competences', verbose_name="Employé"
+    )
+    skill = models.ForeignKey(
+        Skill, on_delete=models.CASCADE,
+        related_name='employees', verbose_name="Compétence"
+    )
+    level = models.IntegerField("Niveau", choices=LEVEL_CHOICES, default=1)
+    date_acquisition = models.DateField("Date d'acquisition", default=timezone.now)
+    date_validation = models.DateField("Date de validation", null=True, blank=True)
+    validateur = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='competences_validees',
+        verbose_name="Validé par"
+    )
+    certificat = models.FileField("Certificat", upload_to='employees/certificats/', blank=True, null=True)
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "Compétence employé"
+        verbose_name_plural = "Compétences employés"
+        unique_together = ['employee', 'skill']
+        ordering = ['employee', '-level']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} - {self.skill.name} (Niv.{self.level})"
+
+
+class MachineAuthorization(models.Model):
+    """Autorisations machine pour les employés"""
+    
+    STATUT_CHOICES = [
+        ('EN_ATTENTE', 'En attente'),
+        ('VALIDE', 'Validé ✓'),
+        ('REFUSE', 'Refusé ✗'),
+        ('EXPIRE', 'Expiré'),
+        ('SUSPENDU', 'Suspendu'),
+    ]
+    
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='autorisations_machine', verbose_name="Employé"
+    )
+    machine = models.ForeignKey(
+        'Machine', on_delete=models.CASCADE,
+        related_name='operateurs_autorises', verbose_name="Machine"
+    )
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='EN_ATTENTE')
+    date_demande = models.DateField("Date de demande", default=timezone.now)
+    date_validation = models.DateField("Date de validation", null=True, blank=True)
+    date_expiration = models.DateField("Date d'expiration", null=True, blank=True)
+    validateur = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='autorisations_validees',
+        verbose_name="Validé par"
+    )
+    niveau_autorisation = models.CharField(
+        "Niveau", max_length=20,
+        choices=[('OPERATEUR', 'Opérateur'), ('REGLEUR', 'Régleur'), ('FORMATEUR', 'Formateur')],
+        default='OPERATEUR'
+    )
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "Autorisation machine"
+        verbose_name_plural = "Autorisations machines"
+        unique_together = ['employee', 'machine']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} → {self.machine.name}"
+    
+    @property
+    def est_valide(self):
+        if self.statut != 'VALIDE':
+            return False
+        if self.date_expiration and timezone.now().date() > self.date_expiration:
+            return False
+        return True
+
+
+# ===========================================================================
+# --- POINTAGE ET PRÉSENCES ---
+# ===========================================================================
+
+class Shift(models.Model):
+    """Équipes de travail (shifts)"""
+    
+    name = models.CharField("Nom de l'équipe", max_length=50)
+    code = models.CharField("Code", max_length=10, unique=True)
+    heure_debut = models.TimeField("Heure début")
+    heure_fin = models.TimeField("Heure fin")
+    pause_debut = models.TimeField("Début pause", null=True, blank=True)
+    pause_fin = models.TimeField("Fin pause", null=True, blank=True)
+    heures_travail = models.FloatField("Heures de travail", default=8)
+    couleur = models.CharField("Couleur", max_length=7, default='#3b82f6')
+    is_active = models.BooleanField("Actif", default=True)
+    
+    class Meta:
+        verbose_name = "Équipe (Shift)"
+        verbose_name_plural = "Équipes (Shifts)"
+        ordering = ['heure_debut']
+    
+    def __str__(self):
+        return f"{self.name} ({self.heure_debut.strftime('%H:%M')} - {self.heure_fin.strftime('%H:%M')})"
+
+
+class Attendance(models.Model):
+    """Pointage journalier"""
+    
+    STATUT_CHOICES = [
+        ('PRESENT', 'Présent ✓'),
+        ('ABSENT', 'Absent'),
+        ('RETARD', 'Retard'),
+        ('CONGE', 'En congé'),
+        ('MALADIE', 'Maladie'),
+        ('MISSION', 'Mission'),
+        ('FERIE', 'Jour férié'),
+        ('REPOS', 'Jour de repos'),
+    ]
+    
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='pointages', verbose_name="Employé"
+    )
+    date = models.DateField("Date")
+    shift = models.ForeignKey(
+        Shift, on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="Équipe"
+    )
+    
+    # Pointage
+    heure_arrivee = models.TimeField("Heure d'arrivée", null=True, blank=True)
+    heure_depart = models.TimeField("Heure de départ", null=True, blank=True)
+    
+    # Calculs
+    heures_normales = models.FloatField("Heures normales", default=0)
+    heures_supplementaires = models.FloatField("Heures supplémentaires", default=0)
+    heures_nuit = models.FloatField("Heures de nuit", default=0)
+    minutes_retard = models.IntegerField("Minutes de retard", default=0)
+    
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='PRESENT')
+    
+    # Machine/atelier
+    machine = models.ForeignKey(
+        'Machine', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="Machine"
+    )
+    atelier = models.CharField("Atelier", max_length=50, blank=True)
+    
+    # Validation
+    valide = models.BooleanField("Validé", default=False)
+    valide_par = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='pointages_valides',
+        verbose_name="Validé par"
+    )
+    
+    notes = models.TextField("Notes / Remarques", blank=True)
+    
+    class Meta:
+        verbose_name = "Pointage"
+        verbose_name_plural = "Pointages"
+        unique_together = ['employee', 'date']
+        ordering = ['-date', 'employee']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} - {self.date} - {self.get_statut_display()}"
+    
+    @property
+    def heures_totales(self):
+        return self.heures_normales + self.heures_supplementaires
+    
+    def calculer_heures(self):
+        """Calcule les heures travaillées"""
+        if self.heure_arrivee and self.heure_depart:
+            from datetime import datetime, timedelta
+            
+            debut = datetime.combine(self.date, self.heure_arrivee)
+            fin = datetime.combine(self.date, self.heure_depart)
+            
+            # Si départ après minuit
+            if fin < debut:
+                fin += timedelta(days=1)
+            
+            diff = fin - debut
+            heures_totales = diff.total_seconds() / 3600
+            
+            # Heures normales vs supplémentaires (base 8h)
+            if heures_totales <= 8:
+                self.heures_normales = heures_totales
+                self.heures_supplementaires = 0
+            else:
+                self.heures_normales = 8
+                self.heures_supplementaires = heures_totales - 8
+            
+            # Calcul retard
+            if self.shift and self.heure_arrivee > self.shift.heure_debut:
+                retard = datetime.combine(self.date, self.heure_arrivee) - datetime.combine(self.date, self.shift.heure_debut)
+                self.minutes_retard = int(retard.total_seconds() / 60)
+            
+            self.save()
+
+
+# ===========================================================================
+# --- CONGÉS ET ABSENCES ---
+# ===========================================================================
+
+class LeaveType(models.Model):
+    """Types de congés"""
+    
+    name = models.CharField("Type de congé", max_length=100)
+    code = models.CharField("Code", max_length=20, unique=True)
+    jours_par_an = models.IntegerField("Jours par an", default=0)
+    paye = models.BooleanField("Congé payé", default=True)
+    justificatif_requis = models.BooleanField("Justificatif requis", default=False)
+    couleur = models.CharField("Couleur", max_length=7, default='#6b7280')
+    is_active = models.BooleanField("Actif", default=True)
+    
+    class Meta:
+        verbose_name = "Type de congé"
+        verbose_name_plural = "Types de congés"
+    
+    def __str__(self):
+        return self.name
+
+
+class LeaveRequest(models.Model):
+    """Demandes de congé"""
+    
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('SOUMISE', 'Soumise'),
+        ('VALIDEE_N1', 'Validée N+1'),
+        ('VALIDEE_RH', 'Validée RH ✓'),
+        ('REFUSEE', 'Refusée ✗'),
+        ('ANNULEE', 'Annulée'),
+    ]
+    
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='demandes_conge', verbose_name="Employé"
+    )
+    type_conge = models.ForeignKey(
+        LeaveType, on_delete=models.CASCADE,
+        verbose_name="Type de congé"
+    )
+    
+    date_debut = models.DateField("Date début")
+    date_fin = models.DateField("Date fin")
+    nb_jours = models.FloatField("Nombre de jours", default=1)
+    
+    motif = models.TextField("Motif", blank=True)
+    justificatif = models.FileField("Justificatif", upload_to='leaves/justificatifs/', blank=True, null=True)
+    
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    
+    # Workflow validation
+    date_demande = models.DateTimeField("Date de demande", auto_now_add=True)
+    validateur_n1 = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='conges_valides_n1',
+        verbose_name="Validateur N+1"
+    )
+    date_validation_n1 = models.DateTimeField("Date validation N+1", null=True, blank=True)
+    validateur_rh = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='conges_valides_rh',
+        verbose_name="Validateur RH"
+    )
+    date_validation_rh = models.DateTimeField("Date validation RH", null=True, blank=True)
+    
+    motif_refus = models.TextField("Motif de refus", blank=True)
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "Demande de congé"
+        verbose_name_plural = "Demandes de congés"
+        ordering = ['-date_demande']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} - {self.type_conge.name} ({self.date_debut} → {self.date_fin})"
+    
+    def save(self, *args, **kwargs):
+        # Calculer automatiquement le nombre de jours
+        if self.date_debut and self.date_fin:
+            delta = self.date_fin - self.date_debut
+            self.nb_jours = delta.days + 1
+        super().save(*args, **kwargs)
+    
+    def valider_n1(self, validateur):
+        """Validation par le supérieur hiérarchique"""
+        self.statut = 'VALIDEE_N1'
+        self.validateur_n1 = validateur
+        self.date_validation_n1 = timezone.now()
+        self.save()
+    
+    def valider_rh(self, validateur):
+        """Validation par les RH - Déduit du solde"""
+        self.statut = 'VALIDEE_RH'
+        self.validateur_rh = validateur
+        self.date_validation_rh = timezone.now()
+        self.save()
+        
+        # Déduire du solde de congé si congé payé
+        if self.type_conge.paye:
+            self.employee.solde_conge -= self.nb_jours
+            self.employee.save()
+    
+    def refuser(self, validateur, motif):
+        """Refuser la demande"""
+        self.statut = 'REFUSEE'
+        self.motif_refus = motif
+        self.save()
+
+
+# ===========================================================================
+# --- PAIE (SYSTÈME ALGÉRIEN) ---
+# ===========================================================================
+
+class SalaryGrid(models.Model):
+    """Grille salariale"""
+    
+    name = models.CharField("Nom de la grille", max_length=100)
+    position = models.ForeignKey(
+        Position, on_delete=models.CASCADE,
+        related_name='grilles_salariales', verbose_name="Poste"
+    )
+    echelon = models.IntegerField("Échelon", default=1)
+    salaire_base = models.DecimalField("Salaire de base", max_digits=12, decimal_places=2)
+    date_effet = models.DateField("Date d'effet")
+    is_active = models.BooleanField("Active", default=True)
+    
+    class Meta:
+        verbose_name = "Grille salariale"
+        verbose_name_plural = "Grilles salariales"
+        ordering = ['position', 'echelon']
+    
+    def __str__(self):
+        return f"{self.position.name} - Échelon {self.echelon} : {self.salaire_base} DA"
+
+
+class Payslip(models.Model):
+    """Bulletin de paie"""
+    
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('CALCULE', 'Calculé'),
+        ('VALIDE', 'Validé ✓'),
+        ('PAYE', 'Payé'),
+    ]
+    
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='bulletins_paie', verbose_name="Employé"
+    )
+    
+    # Période
+    mois = models.IntegerField("Mois")
+    annee = models.IntegerField("Année")
+    reference = models.CharField("Référence", max_length=50, unique=True)
+    
+    # Jours travaillés
+    jours_travailles = models.FloatField("Jours travaillés", default=26)
+    jours_absence = models.FloatField("Jours d'absence", default=0)
+    jours_conge = models.FloatField("Jours de congé", default=0)
+    
+    # Heures
+    heures_normales = models.FloatField("Heures normales", default=0)
+    heures_supplementaires_25 = models.FloatField("HS 25%", default=0)
+    heures_supplementaires_50 = models.FloatField("HS 50%", default=0)
+    heures_supplementaires_100 = models.FloatField("HS 100%", default=0)
+    heures_nuit = models.FloatField("Heures de nuit", default=0)
+    
+    # === GAINS ===
+    salaire_base = models.DecimalField("Salaire de base", max_digits=12, decimal_places=2, default=0)
+    prime_rendement = models.DecimalField("Prime de rendement", max_digits=12, decimal_places=2, default=0)
+    prime_presence = models.DecimalField("Prime de présence", max_digits=12, decimal_places=2, default=0)
+    prime_nuit = models.DecimalField("Prime de nuit", max_digits=12, decimal_places=2, default=0)
+    prime_anciennete = models.DecimalField("Prime d'ancienneté", max_digits=12, decimal_places=2, default=0)
+    prime_transport = models.DecimalField("Indemnité transport", max_digits=12, decimal_places=2, default=0)
+    prime_panier = models.DecimalField("Indemnité panier", max_digits=12, decimal_places=2, default=0)
+    heures_sup_montant = models.DecimalField("Montant HS", max_digits=12, decimal_places=2, default=0)
+    autres_primes = models.DecimalField("Autres primes", max_digits=12, decimal_places=2, default=0)
+    
+    # Total brut
+    salaire_brut = models.DecimalField("Salaire brut", max_digits=12, decimal_places=2, default=0)
+    
+    # === COTISATIONS SALARIALES ===
+    cotisation_cnas = models.DecimalField("CNAS (9%)", max_digits=12, decimal_places=2, default=0)
+    cotisation_cnr = models.DecimalField("CNR Retraite (6.75%)", max_digits=12, decimal_places=2, default=0)
+    cotisation_cnac = models.DecimalField("CNAC Chômage (0.5%)", max_digits=12, decimal_places=2, default=0)
+    total_cotisations = models.DecimalField("Total cotisations", max_digits=12, decimal_places=2, default=0)
+    
+    # Salaire imposable
+    salaire_imposable = models.DecimalField("Salaire imposable", max_digits=12, decimal_places=2, default=0)
+    
+    # IRG
+    irg = models.DecimalField("IRG", max_digits=12, decimal_places=2, default=0)
+    
+    # === DÉDUCTIONS ===
+    retenue_absence = models.DecimalField("Retenue absence", max_digits=12, decimal_places=2, default=0)
+    avance_salaire = models.DecimalField("Avance sur salaire", max_digits=12, decimal_places=2, default=0)
+    pret = models.DecimalField("Remboursement prêt", max_digits=12, decimal_places=2, default=0)
+    autres_retenues = models.DecimalField("Autres retenues", max_digits=12, decimal_places=2, default=0)
+    total_retenues = models.DecimalField("Total retenues", max_digits=12, decimal_places=2, default=0)
+    
+    # === SALAIRE NET ===
+    salaire_net = models.DecimalField("Salaire net", max_digits=12, decimal_places=2, default=0)
+    
+    # === CHARGES PATRONALES (pour info) ===
+    charge_cnas_patronale = models.DecimalField("CNAS patronale (26%)", max_digits=12, decimal_places=2, default=0)
+    charge_cnr_patronale = models.DecimalField("CNR patronale (17.25%)", max_digits=12, decimal_places=2, default=0)
+    charge_cnac_patronale = models.DecimalField("CNAC patronale (1%)", max_digits=12, decimal_places=2, default=0)
+    total_charges_patronales = models.DecimalField("Total charges patronales", max_digits=12, decimal_places=2, default=0)
+    
+    # Coût total employeur
+    cout_total_employeur = models.DecimalField("Coût total employeur", max_digits=12, decimal_places=2, default=0)
+    
+    # Statut
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    date_creation = models.DateTimeField("Date création", auto_now_add=True)
+    date_validation = models.DateTimeField("Date validation", null=True, blank=True)
+    valide_par = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='bulletins_valides',
+        verbose_name="Validé par"
+    )
+    date_paiement = models.DateField("Date de paiement", null=True, blank=True)
+    mode_paiement = models.CharField(
+        "Mode de paiement", max_length=20,
+        choices=[('VIREMENT', 'Virement'), ('CHEQUE', 'Chèque'), ('ESPECES', 'Espèces')],
+        default='VIREMENT'
+    )
+    
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "Bulletin de paie"
+        verbose_name_plural = "Bulletins de paie"
+        unique_together = ['employee', 'mois', 'annee']
+        ordering = ['-annee', '-mois', 'employee']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} - {self.mois:02d}/{self.annee}"
+    
+    def save(self, *args, **kwargs):
+        # Générer référence
+        if not self.reference:
+            self.reference = f"BP-{self.annee}{self.mois:02d}-{self.employee.matricule}"
+        super().save(*args, **kwargs)
+    
+    def calculer_irg(self, salaire_imposable):
+        """Calcul de l'IRG selon le barème algérien 2024"""
+        irg = 0
+        reste = float(salaire_imposable)
+        
+        # Barème IRG mensuel
+        tranches = [
+            (20000, 0.00),      # 0 - 20 000 : 0%
+            (20000, 0.23),      # 20 001 - 40 000 : 23%
+            (40000, 0.27),      # 40 001 - 80 000 : 27%
+            (80000, 0.30),      # 80 001 - 160 000 : 30%
+            (160000, 0.33),     # 160 001 - 320 000 : 33%
+            (float('inf'), 0.35),  # > 320 000 : 35%
+        ]
+        
+        cumul = 0
+        for plafond, taux in tranches:
+            if reste <= 0:
+                break
+            
+            montant_tranche = min(reste, plafond)
+            irg += montant_tranche * taux
+            reste -= montant_tranche
+            cumul += plafond
+        
+        return round(irg, 2)
+    
+    def calculer(self):
+        """Calcul complet du bulletin de paie"""
+        from decimal import Decimal
+        
+        # === SALAIRE BRUT ===
+        self.salaire_base = self.employee.salaire_base
+        
+        # Calcul heures supplémentaires
+        taux_horaire = float(self.salaire_base) / 173.33  # 173.33h par mois
+        self.heures_sup_montant = Decimal(str(round(
+            (self.heures_supplementaires_25 * taux_horaire * 1.25) +
+            (self.heures_supplementaires_50 * taux_horaire * 1.50) +
+            (self.heures_supplementaires_100 * taux_horaire * 2.00),
+            2
+        )))
+        
+        # Prime de nuit (25% du taux horaire)
+        self.prime_nuit = Decimal(str(round(self.heures_nuit * taux_horaire * 0.25, 2)))
+        
+        # Prime d'ancienneté (1% par an, max 15%)
+        taux_anciennete = min(self.employee.anciennete_annees, 15) / 100
+        self.prime_anciennete = Decimal(str(round(float(self.salaire_base) * taux_anciennete, 2)))
+        
+        # Salaire brut
+        self.salaire_brut = (
+            self.salaire_base +
+            self.prime_rendement +
+            self.prime_presence +
+            self.prime_nuit +
+            self.prime_anciennete +
+            self.prime_transport +
+            self.prime_panier +
+            self.heures_sup_montant +
+            self.autres_primes
+        )
+        
+        # === COTISATIONS SALARIALES (16.25%) ===
+        brut = float(self.salaire_brut)
+        self.cotisation_cnas = Decimal(str(round(brut * 0.09, 2)))      # 9%
+        self.cotisation_cnr = Decimal(str(round(brut * 0.0675, 2)))    # 6.75%
+        self.cotisation_cnac = Decimal(str(round(brut * 0.005, 2)))    # 0.5%
+        self.total_cotisations = self.cotisation_cnas + self.cotisation_cnr + self.cotisation_cnac
+        
+        # Salaire imposable
+        self.salaire_imposable = self.salaire_brut - self.total_cotisations
+        
+        # === IRG ===
+        self.irg = Decimal(str(self.calculer_irg(self.salaire_imposable)))
+        
+        # === RETENUES ===
+        # Retenue pour absence
+        if self.jours_absence > 0:
+            salaire_journalier = float(self.salaire_base) / 26
+            self.retenue_absence = Decimal(str(round(self.jours_absence * salaire_journalier, 2)))
+        
+        self.total_retenues = (
+            self.retenue_absence +
+            self.avance_salaire +
+            self.pret +
+            self.autres_retenues
+        )
+        
+        # === SALAIRE NET ===
+        self.salaire_net = (
+            self.salaire_brut -
+            self.total_cotisations -
+            self.irg -
+            self.total_retenues
+        )
+        
+        # === CHARGES PATRONALES (34.5%) ===
+        self.charge_cnas_patronale = Decimal(str(round(brut * 0.26, 2)))     # 26%
+        self.charge_cnr_patronale = Decimal(str(round(brut * 0.1725, 2)))   # 17.25%
+        self.charge_cnac_patronale = Decimal(str(round(brut * 0.01, 2)))    # 1%
+        self.total_charges_patronales = (
+            self.charge_cnas_patronale +
+            self.charge_cnr_patronale +
+            self.charge_cnac_patronale
+        )
+        
+        # Coût total employeur
+        self.cout_total_employeur = self.salaire_brut + self.total_charges_patronales
+        
+        self.statut = 'CALCULE'
+        self.save()
+
+
+# ===========================================================================
+# --- PLANNING ET AFFECTATIONS ---
+# ===========================================================================
+
+class WorkSchedule(models.Model):
+    """Planning de travail"""
+    
+    name = models.CharField("Nom du planning", max_length=100)
+    date_debut = models.DateField("Date début")
+    date_fin = models.DateField("Date fin")
+    department = models.ForeignKey(
+        Department, on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="Département"
+    )
+    machine = models.ForeignKey(
+        'Machine', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="Machine"
+    )
+    notes = models.TextField("Notes", blank=True)
+    is_active = models.BooleanField("Actif", default=True)
+    cree_par = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="Créé par"
+    )
+    date_creation = models.DateTimeField("Date création", auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Planning de travail"
+        verbose_name_plural = "Plannings de travail"
+        ordering = ['-date_debut']
+    
+    def __str__(self):
+        return f"{self.name} ({self.date_debut} → {self.date_fin})"
+
+
+class ShiftAssignment(models.Model):
+    """Affectation employé à un shift"""
+    
+    schedule = models.ForeignKey(
+        WorkSchedule, on_delete=models.CASCADE,
+        related_name='affectations', verbose_name="Planning"
+    )
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='affectations_shift', verbose_name="Employé"
+    )
+    shift = models.ForeignKey(
+        Shift, on_delete=models.CASCADE,
+        verbose_name="Équipe"
+    )
+    date = models.DateField("Date")
+    machine = models.ForeignKey(
+        'Machine', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="Machine"
+    )
+    poste = models.CharField("Poste", max_length=50, blank=True)
+    est_remplacement = models.BooleanField("Remplacement", default=False)
+    remplace = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='remplacements',
+        verbose_name="Remplace"
+    )
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "Affectation shift"
+        verbose_name_plural = "Affectations shifts"
+        unique_together = ['employee', 'date']
+        ordering = ['date', 'shift']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} - {self.date} - {self.shift.name}"
+
+
+# ===========================================================================
+# --- SANTÉ, SÉCURITÉ & INCIDENTS ---
+# ===========================================================================
+
+class MedicalVisit(models.Model):
+    """Visites médicales"""
+    
+    TYPE_CHOICES = [
+        ('EMBAUCHE', 'Visite d\'embauche'),
+        ('PERIODIQUE', 'Visite périodique'),
+        ('REPRISE', 'Visite de reprise'),
+        ('SPONTANEE', 'Visite spontanée'),
+    ]
+    
+    RESULTAT_CHOICES = [
+        ('APTE', 'Apte'),
+        ('APTE_RESTRICTION', 'Apte avec restrictions'),
+        ('INAPTE_TEMPORAIRE', 'Inapte temporaire'),
+        ('INAPTE', 'Inapte'),
+    ]
+    
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='visites_medicales', verbose_name="Employé"
+    )
+    type_visite = models.CharField("Type de visite", max_length=20, choices=TYPE_CHOICES)
+    date_visite = models.DateField("Date de visite")
+    medecin = models.CharField("Médecin", max_length=100, blank=True)
+    resultat = models.CharField("Résultat", max_length=20, choices=RESULTAT_CHOICES, default='APTE')
+    restrictions = models.TextField("Restrictions", blank=True)
+    date_prochaine_visite = models.DateField("Prochaine visite", null=True, blank=True)
+    certificat = models.FileField("Certificat médical", upload_to='medical/', blank=True, null=True)
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "Visite médicale"
+        verbose_name_plural = "Visites médicales"
+        ordering = ['-date_visite']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} - {self.get_type_visite_display()} - {self.date_visite}"
+
+
+class WorkIncident(models.Model):
+    """Incidents de travail et accidents"""
+    
+    TYPE_CHOICES = [
+        ('ACCIDENT', 'Accident de travail'),
+        ('INCIDENT', 'Incident sans blessure'),
+        ('PRESQUACCIDENT', 'Presqu\'accident'),
+        ('MALADIE_PRO', 'Maladie professionnelle'),
+    ]
+    
+    GRAVITE_CHOICES = [
+        ('MINEURE', 'Mineure'),
+        ('MODEREE', 'Modérée'),
+        ('GRAVE', 'Grave'),
+        ('TRES_GRAVE', 'Très grave'),
+        ('MORTELLE', 'Mortelle'),
+    ]
+    
+    reference = models.CharField("Référence", max_length=50, unique=True)
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='incidents', verbose_name="Employé concerné"
+    )
+    type_incident = models.CharField("Type", max_length=20, choices=TYPE_CHOICES)
+    gravite = models.CharField("Gravité", max_length=20, choices=GRAVITE_CHOICES, default='MINEURE')
+    
+    date_incident = models.DateTimeField("Date et heure de l'incident")
+    lieu = models.CharField("Lieu", max_length=200)
+    machine = models.ForeignKey(
+        'Machine', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name="Machine impliquée"
+    )
+    
+    description = models.TextField("Description de l'incident")
+    cause = models.TextField("Cause(s) identifiée(s)", blank=True)
+    temoins = models.TextField("Témoins", blank=True)
+    
+    # Conséquences
+    jours_arret = models.IntegerField("Jours d'arrêt", default=0)
+    blessure = models.TextField("Nature de la blessure", blank=True)
+    soins_prodigues = models.TextField("Soins prodigués", blank=True)
+    
+    # Actions
+    actions_immediates = models.TextField("Actions immédiates", blank=True)
+    actions_correctives = models.TextField("Actions correctives", blank=True)
+    
+    # Déclaration
+    declare_cnas = models.BooleanField("Déclaré CNAS", default=False)
+    date_declaration_cnas = models.DateField("Date déclaration CNAS", null=True, blank=True)
+    num_declaration = models.CharField("N° déclaration", max_length=50, blank=True)
+    
+    # Documents
+    rapport = models.FileField("Rapport d'accident", upload_to='incidents/', blank=True, null=True)
+    photos = models.FileField("Photos", upload_to='incidents/photos/', blank=True, null=True)
+    
+    # Suivi
+    cloture = models.BooleanField("Clôturé", default=False)
+    date_cloture = models.DateField("Date de clôture", null=True, blank=True)
+    
+    date_creation = models.DateTimeField("Date création", auto_now_add=True)
+    cree_par = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='incidents_declares',
+        verbose_name="Déclaré par"
+    )
+    
+    class Meta:
+        verbose_name = "Incident de travail"
+        verbose_name_plural = "Incidents de travail"
+        ordering = ['-date_incident']
+    
+    def __str__(self):
+        return f"{self.reference} - {self.employee.nom_complet} - {self.get_type_incident_display()}"
+    
+    def save(self, *args, **kwargs):
+        if not self.reference:
+            year = timezone.now().strftime('%Y')
+            last = WorkIncident.objects.filter(
+                reference__startswith=f"INC{year}"
+            ).order_by('-reference').first()
+            if last:
+                try:
+                    num = int(last.reference[-4:]) + 1
+                except ValueError:
+                    num = 1
+            else:
+                num = 1
+            self.reference = f"INC{year}{num:04d}"
+        super().save(*args, **kwargs)
+
+
+class ProtectiveEquipment(models.Model):
+    """Équipements de protection individuelle (EPI)"""
+    
+    TYPE_CHOICES = [
+        ('CASQUE', 'Casque'),
+        ('LUNETTES', 'Lunettes de protection'),
+        ('GANTS', 'Gants'),
+        ('CHAUSSURES', 'Chaussures de sécurité'),
+        ('GILET', 'Gilet de sécurité'),
+        ('MASQUE', 'Masque'),
+        ('BOUCHONS', 'Bouchons d\'oreilles'),
+        ('COMBINAISON', 'Combinaison'),
+        ('AUTRE', 'Autre'),
+    ]
+    
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name='equipements_protection', verbose_name="Employé"
+    )
+    type_equipement = models.CharField("Type", max_length=20, choices=TYPE_CHOICES)
+    designation = models.CharField("Désignation", max_length=200)
+    date_attribution = models.DateField("Date d'attribution", default=timezone.now)
+    date_expiration = models.DateField("Date d'expiration", null=True, blank=True)
+    quantite = models.IntegerField("Quantité", default=1)
+    taille = models.CharField("Taille", max_length=20, blank=True)
+    notes = models.TextField("Notes", blank=True)
+    
+    class Meta:
+        verbose_name = "EPI"
+        verbose_name_plural = "EPI"
+        ordering = ['-date_attribution']
+    
+    def __str__(self):
+        return f"{self.employee.nom_complet} - {self.designation}"
+    
+    @property
+    def est_expire(self):
+        if self.date_expiration:
+            return timezone.now().date() > self.date_expiration
+        return False
     
     # ===========================================================================
 # --- CHAT EN TEMPS RÉEL ---

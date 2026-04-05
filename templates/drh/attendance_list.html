@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white">⏱️ Pointage du Personnel</h1>
+            <p class="text-gray-400 text-sm mt-1">Suivi des présences, absences et retards</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'attendance_bulk' %}" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+                📋 Pointage Équipe
+            </a>
+            <a href="{% url 'attendance_create' %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+                ➕ Nouveau Pointage
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- STATS DU JOUR -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-white">{{ stats.total }}</div>
+        <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">Total</div>
+    </div>
+    <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-emerald-400">{{ stats.presents }}</div>
+        <div class="text-xs text-emerald-400 uppercase tracking-wider mt-1">Présents</div>
+    </div>
+    <div class="bg-red-900/30 border border-red-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-red-400">{{ stats.absents }}</div>
+        <div class="text-xs text-red-400 uppercase tracking-wider mt-1">Absents</div>
+    </div>
+    <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-yellow-400">{{ stats.retards }}</div>
+        <div class="text-xs text-yellow-400 uppercase tracking-wider mt-1">Retards</div>
+    </div>
+    <div class="bg-blue-900/30 border border-blue-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-blue-400">{{ stats.conges }}</div>
+        <div class="text-xs text-blue-400 uppercase tracking-wider mt-1">En Congé</div>
+    </div>
+</div>
+
+<!-- FILTRES -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">📅 Date</label>
+            <input type="date" name="date" value="{{ date_filter }}"
+                class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Département</label>
+            <select name="department" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                {% for d in departments %}
+                <option value="{{ d.id }}" {% if selected_department == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Équipe (Shift)</label>
+            <select name="shift" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Toutes</option>
+                {% for s in shifts %}
+                <option value="{{ s.id }}" {% if selected_shift == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Statut</label>
+            <select name="statut" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <option value="">Tous</option>
+                {% for code, label in statut_choices %}
+                <option value="{{ code }}" {% if selected_statut == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-2 px-4 rounded transition">
+                🔍 Filtrer
+            </button>
+            <a href="{% url 'attendance_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-3 rounded transition">↺</a>
+        </div>
+    </form>
+</div>
+
+<!-- TABLEAU POINTAGES -->
+<div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-300 text-xs uppercase tracking-wider">
+                    <th class="p-4 border-b border-slate-700">Employé</th>
+                    <th class="p-4 border-b border-slate-700">Date</th>
+                    <th class="p-4 border-b border-slate-700">Équipe</th>
+                    <th class="p-4 border-b border-slate-700">Arrivée</th>
+                    <th class="p-4 border-b border-slate-700">Départ</th>
+                    <th class="p-4 border-b border-slate-700">H. Normales</th>
+                    <th class="p-4 border-b border-slate-700">H. Sup</th>
+                    <th class="p-4 border-b border-slate-700">Retard</th>
+                    <th class="p-4 border-b border-slate-700">Machine</th>
+                    <th class="p-4 border-b border-slate-700">Statut</th>
+                </tr>
+            </thead>
+            <tbody class="text-gray-200">
+                {% for att in attendances %}
+                <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/40">
+                    <td class="p-4">
+                        <a href="{% url 'employee_detail' att.employee.id %}" class="font-bold text-cyan-400 hover:underline">
+                            {{ att.employee.nom }} {{ att.employee.prenom }}
+                        </a>
+                        <div class="text-xs text-gray-500">{{ att.employee.department.name|default:"—" }}</div>
+                    </td>
+                    <td class="p-4 text-gray-300 font-mono">{{ att.date|date:"d/m/Y" }}</td>
+                    <td class="p-4 text-gray-400">{{ att.shift.name|default:"—" }}</td>
+                    <td class="p-4 text-emerald-400 font-mono font-bold">
+                        {{ att.heure_arrivee|time:"H:i"|default:"—" }}
+                    </td>
+                    <td class="p-4 text-blue-400 font-mono">
+                        {{ att.heure_depart|time:"H:i"|default:"—" }}
+                    </td>
+                    <td class="p-4 text-white">
+                        {% if att.heures_normales %}{{ att.heures_normales|floatformat:1 }}h{% else %}—{% endif %}
+                    </td>
+                    <td class="p-4">
+                        {% if att.heures_supplementaires and att.heures_supplementaires > 0 %}
+                        <span class="text-yellow-400 font-bold">+{{ att.heures_supplementaires|floatformat:1 }}h</span>
+                        {% else %}
+                        <span class="text-gray-600">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4">
+                        {% if att.minutes_retard and att.minutes_retard > 0 %}
+                        <span class="text-red-400 font-bold">{{ att.minutes_retard }} min</span>
+                        {% else %}
+                        <span class="text-gray-600">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4 text-gray-400 text-xs">
+                        {{ att.machine.name|default:"—" }}
+                    </td>
+                    <td class="p-4">
+                        {% if att.statut == 'PRESENT' %}
+                        <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Présent</span>
+                        {% elif att.statut == 'ABSENT' %}
+                        <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Absent</span>
+                        {% elif att.statut == 'RETARD' %}
+                        <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded border border-yellow-500/30">⏰ Retard</span>
+                        {% elif att.statut == 'CONGE' %}
+                        <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">🏖️ Congé</span>
+                        {% elif att.statut == 'MALADIE' %}
+                        <span class="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">🏥 Maladie</span>
+                        {% else %}
+                        <span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ att.get_statut_display }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="p-8 text-center text-gray-500 italic">
+                        Aucun pointage pour cette date.
+                        <a href="{% url 'attendance_bulk' %}" class="text-cyan-400 hover:underline ml-2">Faire le pointage de l'équipe →</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

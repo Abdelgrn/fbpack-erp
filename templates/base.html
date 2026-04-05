@@ -16,6 +16,8 @@
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
         .nav-link:hover { color: #f3b83a; background: rgba(255,255,255,0.05); }
         .nav-link.active { color: #f3b83a; background: rgba(243, 184, 58, 0.1); border-right: 3px solid #f3b83a; }
+        .nav-link-drh:hover { color: #34d399; background: rgba(16, 185, 129, 0.08); }
+        .nav-link-drh.active { color: #34d399; background: rgba(16, 185, 129, 0.12); border-right: 3px solid #34d399; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -33,49 +35,67 @@
 
         <!-- MENU NAVIGATION -->
         <nav class="flex-1 py-4 overflow-y-auto space-y-1">
-            <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group">
+            <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                 <span class="mr-3 text-lg">📊</span> Dashboard
             </a>
-            <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group">
+            <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}">
                 <span class="mr-3 text-lg">📅</span> Planning Gantt
             </a>
-            <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group">
+            <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}">
                 <span class="mr-3 text-lg">📈</span> Reporting
             </a>
             
+            <!-- ══════════════════════════════════════ -->
+            <!-- GESTION OPÉRATIONNELLE                -->
+            <!-- ══════════════════════════════════════ -->
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                 Gestion Opérationnelle
             </div>
             
-            <a href="{% url 'crm_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+            <a href="{% url 'crm_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'crm' in request.path %}active{% endif %}">
                 <span class="mr-3">🤝</span> CRM & Devis
             </a>
-            <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+            <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'prepress' in request.path %}active{% endif %}">
                 <span class="mr-3">🎨</span> Prépresse & Outils
             </a>
-            
-            <!-- ✅ NOUVEAU MODULE OF MULTI-PROCESSUS -->
-            <a href="{% url 'of_list' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+            <a href="{% url 'of_list' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/of/' in request.path %}active{% endif %}">
                 <span class="mr-3">🏭</span> Ordres Fabrication
             </a>
-            
-            <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+            <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/prod/' in request.path and '/encre/' not in request.path %}active{% endif %}">
                 <span class="mr-3">⚙️</span> Production Spécial
             </a>
-            <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+            <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/stock/' in request.path %}active{% endif %}">
                 <span class="mr-3">📦</span> Stocks & Achats
             </a>
-            <a href="{% url 'machine_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
+            <a href="{% url 'machine_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'machines' in request.path %}active{% endif %}">
                 <span class="mr-3">🔧</span> Parc Machine
             </a>
-            
+
+            <!-- ══════════════════════════════════════ -->
+            <!-- MODULE DRH — RESSOURCES HUMAINES      -->
+            <!-- ══════════════════════════════════════ -->
+            <!-- MODULE DRH -->
+<div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-emerald-500/60 uppercase tracking-widest">
+    Ressources Humaines
+</div>
+
+<a href="{% url 'drh_dashboard' %}" 
+   class="nav-link-drh flex items-center px-6 py-2 transition text-sm text-gray-300 
+   {% if 'drh' in request.path %}active{% endif %}">
+    <span class="mr-3">👥</span>
+    <span>DRH</span>
+</a>
+            <!-- ══════════════════════════════════════ -->
+            <!-- OUTILS                                -->
+            <!-- ══════════════════════════════════════ -->
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                 Outils
             </div>
-            <a href="{% url 'chat_home' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300">
-    <span class="mr-3">💬</span> Chat d'Équipe
-</a>
-            <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300">
+            
+            <a href="{% url 'chat_home' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}">
+                <span class="mr-3">💬</span> Chat d'Équipe
+            </a>
+            <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300 {% if 'import' in request.path %}active{% endif %}">
                 <span class="mr-3">📥</span> Importer Excel
             </a>
         </nav>
@@ -121,11 +141,43 @@
 
     <!-- MAIN CONTENT -->
     <main class="flex-1 overflow-auto bg-darkbg relative w-full h-full">
+        
+        <!-- MESSAGES DJANGO -->
+        {% if messages %}
+        <div class="px-8 pt-4">
+            {% for message in messages %}
+            <div class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
+                {% if message.tags == 'success' %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
+                {% elif message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400
+                {% elif message.tags == 'warning' %}bg-yellow-500/10 border border-yellow-500/30 text-yellow-400
+                {% else %}bg-blue-500/10 border border-blue-500/30 text-blue-400{% endif %}">
+                {% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+                {{ message }}
+                <button onclick="this.parentElement.remove()" class="ml-auto text-gray-500 hover:text-white">✕</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
         <div class="p-8">
             {% block content %}
             {% endblock %}
         </div>
     </main>
+
+    <!-- AUTO-HIDE MESSAGES -->
+    <script>
+        // Masquer les messages après 5 secondes
+        setTimeout(function() {
+            document.querySelectorAll('[class*="bg-emerald-500/10"], [class*="bg-red-500/10"], [class*="bg-yellow-500/10"], [class*="bg-blue-500/10"]').forEach(function(el) {
+                if (el.parentElement.classList.contains('px-8')) {
+                    el.style.transition = 'opacity 0.5s';
+                    el.style.opacity = '0';
+                    setTimeout(function() { el.remove(); }, 500);
+                }
+            });
+        }, 5000);
+    </script>
 
 </body>
 </html>

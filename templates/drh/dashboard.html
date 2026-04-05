@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white tracking-wider">
+                👥 Module DRH
+                <span class="text-xs text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-2 py-1 rounded ml-2">Ressources Humaines</span>
+            </h1>
+            <p class="text-gray-400 text-sm mt-1">Gestion du personnel, pointage, paie, congés et sécurité</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'employee_create' %}" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+                ➕ Nouvel Employé
+            </a>
+            <a href="{% url 'attendance_bulk' %}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+                📋 Pointage Équipe
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- KPI CARDS -->
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+    <!-- Effectif total -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-white">{{ total_employes }}</div>
+        <div class="text-xs text-gray-400 uppercase tracking-wider mt-1">Employés Actifs</div>
+    </div>
+    
+    <!-- Présents aujourd'hui -->
+    <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-emerald-400">{{ presents }}</div>
+        <div class="text-xs text-emerald-400 uppercase tracking-wider mt-1">Présents</div>
+        <div class="text-[10px] text-gray-500 mt-1">{{ taux_presence }}%</div>
+    </div>
+    
+    <!-- Absents -->
+    <div class="bg-red-900/30 border border-red-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-red-400">{{ absents }}</div>
+        <div class="text-xs text-red-400 uppercase tracking-wider mt-1">Absents</div>
+    </div>
+    
+    <!-- En congé -->
+    <div class="bg-blue-900/30 border border-blue-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-blue-400">{{ employes_en_conge }}</div>
+        <div class="text-xs text-blue-400 uppercase tracking-wider mt-1">En Congé</div>
+    </div>
+    
+    <!-- Congés en attente -->
+    <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-4 text-center">
+        <div class="text-3xl font-black text-yellow-400">{{ conges_en_attente }}</div>
+        <div class="text-xs text-yellow-400 uppercase tracking-wider mt-1">Congés à valider</div>
+    </div>
+    
+    <!-- Masse salariale -->
+    <div class="bg-purple-900/30 border border-purple-500/40 rounded-xl p-4 text-center">
+        <div class="text-2xl font-black text-purple-400">{{ masse_salariale|floatformat:0 }}</div>
+        <div class="text-xs text-purple-400 uppercase tracking-wider mt-1">Masse Salariale (DA)</div>
+    </div>
+</div>
+
+<!-- ALERTES -->
+{% if contrats_expirants > 0 or incidents_mois > 0 or visites_a_planifier > 0 %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    {% if contrats_expirants > 0 %}
+    <div class="bg-orange-900/30 border border-orange-500/40 rounded-xl p-4 flex items-center gap-4">
+        <div class="text-3xl">⚠️</div>
+        <div>
+            <div class="text-orange-400 font-bold">{{ contrats_expirants }} contrat(s) expirant(s)</div>
+            <div class="text-xs text-gray-400">Dans les 30 prochains jours</div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if incidents_mois > 0 %}
+    <div class="bg-red-900/30 border border-red-500/40 rounded-xl p-4 flex items-center gap-4">
+        <div class="text-3xl">🚨</div>
+        <div>
+            <div class="text-red-400 font-bold">{{ incidents_mois }} incident(s) ce mois</div>
+            <div class="text-xs text-gray-400">À analyser et clôturer</div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if visites_a_planifier > 0 %}
+    <div class="bg-blue-900/30 border border-blue-500/40 rounded-xl p-4 flex items-center gap-4">
+        <div class="text-3xl">🏥</div>
+        <div>
+            <div class="text-blue-400 font-bold">{{ visites_a_planifier }} visite(s) médicale(s)</div>
+            <div class="text-xs text-gray-400">À planifier sous 30 jours</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- GRAPHIQUES -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Répartition par département -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <h3 class="text-white font-bold mb-4">📊 Répartition par Département</h3>
+        <div style="height: 280px;">
+            <canvas id="chartDepartement"></canvas>
+        </div>
+    </div>
+    
+    <!-- Évolution effectifs -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <h3 class="text-white font-bold mb-4">📈 Évolution des Effectifs</h3>
+        <div style="height: 280px;">
+            <canvas id="chartEvolution"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ACCÈS RAPIDES -->
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+    <a href="{% url 'employee_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-4 text-center transition group">
+        <div class="text-3xl mb-2">👥</div>
+        <div class="text-white font-bold text-sm group-hover:text-cyan-400">Employés</div>
+        <div class="text-xs text-gray-500">{{ total_employes }}</div>
+    </a>
+    
+    <a href="{% url 'attendance_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-4 text-center transition group">
+        <div class="text-3xl mb-2">⏱️</div>
+        <div class="text-white font-bold text-sm group-hover:text-cyan-400">Pointage</div>
+        <div class="text-xs text-gray-500">Aujourd'hui</div>
+    </a>
+    
+    <a href="{% url 'leave_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-4 text-center transition group">
+        <div class="text-3xl mb-2">🏖️</div>
+        <div class="text-white font-bold text-sm group-hover:text-cyan-400">Congés</div>
+        <div class="text-xs text-gray-500">{{ conges_en_attente }} en attente</div>
+    </a>
+    
+    <a href="{% url 'payslip_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-4 text-center transition group">
+        <div class="text-3xl mb-2">💰</div>
+        <div class="text-white font-bold text-sm group-hover:text-cyan-400">Paie</div>
+        <div class="text-xs text-gray-500">{{ bulletins_mois }} bulletins</div>
+    </a>
+    
+    <a href="{% url 'incident_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-4 text-center transition group">
+        <div class="text-3xl mb-2">🚨</div>
+        <div class="text-white font-bold text-sm group-hover:text-cyan-400">Incidents</div>
+        <div class="text-xs text-gray-500">{{ incidents_mois }} ce mois</div>
+    </a>
+    
+    <a href="{% url 'schedule_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl p-4 text-center transition group">
+        <div class="text-3xl mb-2">📅</div>
+        <div class="text-white font-bold text-sm group-hover:text-cyan-400">Planning</div>
+        <div class="text-xs text-gray-500">Équipes</div>
+    </a>
+</div>
+
+<!-- TABLEAUX RÉCENTS -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Employés récents -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="text-white font-bold">🆕 Nouveaux Employés</h3>
+            <a href="{% url 'employee_list' %}" class="text-xs text-cyan-400 hover:underline">Voir tout →</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-900/50 text-gray-400 text-xs uppercase">
+                    <tr>
+                        <th class="p-3 text-left">Employé</th>
+                        <th class="p-3 text-left">Poste</th>
+                        <th class="p-3 text-left">Embauche</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-300">
+                    {% for emp in employes_recents %}
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-700/30">
+                        <td class="p-3">
+                            <a href="{% url 'employee_detail' emp.id %}" class="text-cyan-400 hover:underline font-bold">
+                                {{ emp.nom }} {{ emp.prenom }}
+                            </a>
+                            <div class="text-xs text-gray-500">{{ emp.matricule }}</div>
+                        </td>
+                        <td class="p-3 text-gray-400">{{ emp.position.name|default:"—" }}</td>
+                        <td class="p-3 text-gray-400">{{ emp.date_embauche|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="p-4 text-center text-gray-500 italic">Aucun employé récent</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Demandes de congé -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="text-white font-bold">🏖️ Demandes de Congé Récentes</h3>
+            <a href="{% url 'leave_list' %}" class="text-xs text-cyan-400 hover:underline">Voir tout →</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-900/50 text-gray-400 text-xs uppercase">
+                    <tr>
+                        <th class="p-3 text-left">Employé</th>
+                        <th class="p-3 text-left">Type</th>
+                        <th class="p-3 text-left">Période</th>
+                        <th class="p-3 text-left">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-300">
+                    {% for conge in conges_recents %}
+                    <tr class="border-b border-slate-700/50 hover:bg-slate-700/30">
+                        <td class="p-3 font-bold text-white">{{ conge.employee.nom_complet }}</td>
+                        <td class="p-3 text-gray-400">{{ conge.type_conge.name }}</td>
+                        <td class="p-3 text-gray-400">
+                            {{ conge.date_debut|date:"d/m" }} → {{ conge.date_fin|date:"d/m" }}
+                            <span class="text-xs text-gray-500">({{ conge.nb_jours }}j)</span>
+                        </td>
+                        <td class="p-3">
+                            {% if conge.statut == 'SOUMISE' %}
+                            <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded border border-yellow-500/30">En attente</span>
+                            {% elif conge.statut == 'VALIDEE_N1' %}
+                            <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">Validé N+1</span>
+                            {% elif conge.statut == 'VALIDEE_RH' %}
+                            <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">✓ Validé</span>
+                            {% elif conge.statut == 'REFUSEE' %}
+                            <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Refusé</span>
+                            {% else %}
+                            <span class="text-xs bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ conge.get_statut_display }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="p-4 text-center text-gray-500 italic">Aucune demande récente</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- CONFIGURATION RAPIDE -->
+<div class="mt-6 bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+    <h3 class="text-sm font-bold text-gray-300 mb-3">⚙️ Configuration</h3>
+    <div class="flex flex-wrap gap-2">
+        <a href="{% url 'department_list' %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-gray-300 px-3 py-1.5 rounded transition">🏢 Départements</a>
+        <a href="{% url 'position_list' %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-gray-300 px-3 py-1.5 rounded transition">💼 Postes</a>
+        <a href="{% url 'shift_list' %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-gray-300 px-3 py-1.5 rounded transition">⏰ Équipes (Shifts)</a>
+        <a href="{% url 'skill_list' %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-gray-300 px-3 py-1.5 rounded transition">🎯 Compétences</a>
+        <a href="{% url 'medical_list' %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-gray-300 px-3 py-1.5 rounded transition">🏥 Visites Médicales</a>
+        <a href="{% url 'epi_list' %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-gray-300 px-3 py-1.5 rounded transition">🦺 EPI</a>
+        <a href="{% url 'export_employees' %}" class="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded transition">📊 Export Employés</a>
+    </div>
+</div>
+
+<!-- SCRIPTS GRAPHIQUES -->
+<script>
+// Répartition par département
+const ctxDept = document.getElementById('chartDepartement');
+if (ctxDept) {
+    new Chart(ctxDept.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: {{ repartition_dept_labels|safe }},
+            datasets: [{
+                data: {{ repartition_dept_data|safe }},
+                backgroundColor: [
+                    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+                    '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+                ],
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { color: '#94a3b8', font: { size: 11 }, padding: 15 }
+                }
+            }
+        }
+    });
+}
+
+// Évolution effectifs
+const ctxEvol = document.getElementById('chartEvolution');
+if (ctxEvol) {
+    new Chart(ctxEvol.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: {{ evolution_mois|safe }},
+            datasets: [{
+                label: 'Effectif',
+                data: {{ evolution_data|safe }},
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: { 
+                    grid: { color: 'rgba(148,163,184,0.1)' },
+                    ticks: { color: '#94a3b8' }
+                },
+                y: { 
+                    grid: { color: 'rgba(148,163,184,0.1)' },
+                    ticks: { color: '#94a3b8' },
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}
