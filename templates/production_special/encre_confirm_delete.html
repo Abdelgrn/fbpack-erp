@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-md mx-auto mt-20">
+    <div class="glass rounded-2xl p-8 border-2 border-red-500/30 text-center">
+        <p class="text-6xl mb-4">⚠️</p>
+        <h2 class="text-xl font-bold text-white mb-2">Confirmer la suppression</h2>
+        <p class="text-gray-400 mb-1">Voulez-vous vraiment supprimer :</p>
+        <p class="text-white font-bold mb-1">{{ conso.job_name }}</p>
+        <p class="text-gray-400 mb-6">{{ conso.date|date:"d/m/Y" }} · {{ conso.process_type }}</p>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="flex gap-3 justify-center">
+                <a href="{% url 'encre_dashboard' %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold px-6 py-3 rounded-xl transition">← Annuler</a>
+                <button type="submit" class="bg-red-500 hover:bg-red-400 text-white font-bold px-6 py-3 rounded-xl transition shadow-lg shadow-red-500/20">🗑️ Supprimer</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

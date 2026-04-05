@@ -16,6 +16,9 @@ from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.contrib.admin.models import LogEntry
+from django.db import models as django_models
+from django.utils.html import format_html
+import re
 
 from .models import (
     Client, ClientContact, InteractionLog, Opportunite,
@@ -1117,165 +1120,377 @@ def conso_list_view(request):
 
 
 # ===========================================================================
-# --- STOCK AVANCÉ ---
+# --- STOCK AVANCÉ AVEC RECHERCHE INTELLIGENTE ---
 # ===========================================================================
+
+def highlight_search(text, query):
+    """Surligne les termes recherchés dans le HTML"""
+    if not query:
+        return text
+    pattern = re.compile(f'({re.escape(query)})', re.IGNORECASE)
+    return pattern.sub(r'<mark class="bg-yellow-400 text-black px-1 rounded">\1</mark>', text)
+
 
 @login_required
 def stock_advanced_view(request):
-    materials = Material.objects.all()
-    suppliers = Supplier.objects.all()
-    consos = ConsommationEncre.objects.all().order_by('-date')
-    locations = StockLocation.objects.filter(is_active=True)
-    lots = StockLot.objects.select_related(
-        'material', 'fournisseur', 'emplacement'
-    ).order_by('-date_reception')[:50]
-    mouvements = StockMovement.objects.select_related(
-        'material', 'lot', 'utilisateur', 'machine'
-    ).order_by('-date')[:100]
-    demandes = DemandeAchat.objects.select_related(
-        'material', 'demandeur'
-    ).order_by('-date_creation')[:20]
-    bons_commande = BonCommande.objects.select_related(
-        'fournisseur'
-    ).order_by('-date_commande')[:20]
-
-    total_matieres = materials.count()
+    """Vue principale du module stock avancé avec RECHERCHE INTELLIGENTE"""
     
+    # ══════════════════════════════════════════════════════════════
+    # RÉCUPÉRATION DES FILTRES DE RECHERCHE
+    # ══════════════════════════════════════════════════════════════
+    search_query = request.GET.get('q', '').strip()
+    category_filter = request.GET.get('category', '')
+    low_stock_only = request.GET.get('low_stock', '') == 'on'
+    supplier_filter = request.GET.get('supplier', '')
+    
+    # ══════════════════════════════════════════════════════════════
+    # MATIÈRES PREMIÈRES AVEC FILTRES
+    # ══════════════════════════════════════════════════════════════
+    materials = Material.objects.select_related('supplier').all()
+    
+    # Appliquer les filtres de recherche
+    if search_query:
+        materials = materials.filter(
+            Q(name__icontains=search_query) |
+            Q(supplier__name__icontains=search_query)
+        )
+    
+    if category_filter:
+        materials = materials.filter(category=category_filter)
+    
+    if supplier_filter:
+        materials = materials.filter(supplier_id=supplier_filter)
+    
+    materials = materials.order_by('name')
+    
+    # Filtrer par stock faible (après le queryset principal)
+    if low_stock_only:
+        materials = [m for m in materials if m.is_low_stock()]
+    
+    # ══════════════════════════════════════════════════════════════
+    # CALCUL DES ALERTES STOCK
+    # ══════════════════════════════════════════════════════════════
+    all_materials = Material.objects.select_related('supplier').all()
     alertes_stock = []
-    for m in materials:
+    nb_ruptures = 0
+    nb_critiques = 0
+    nb_alertes_simples = 0
+    
+    # Compteurs par catégorie
+    cat_stats = {
+        'FILM': {'rupture': 0, 'critique': 0, 'alerte': 0},
+        'INK': {'rupture': 0, 'critique': 0, 'alerte': 0},
+        'GLUE': {'rupture': 0, 'critique': 0, 'alerte': 0},
+        'SOLV': {'rupture': 0, 'critique': 0, 'alerte': 0},
+    }
+    
+    for m in all_materials:
         if m.is_low_stock():
+            # Calcul du pourcentage et niveau de criticité
             if m.min_threshold > 0:
                 pct = round((m.quantity / m.min_threshold) * 100, 1)
             else:
                 pct = 0
             
-            if m.quantity == 0:
+            if m.quantity <= 0:
                 niveau = 'RUPTURE'
-                couleur = 'danger'
                 icone = '🔴'
+                nb_ruptures += 1
+                if m.category in cat_stats:
+                    cat_stats[m.category]['rupture'] += 1
             elif pct < 50:
                 niveau = 'CRITIQUE'
-                couleur = 'warning'
                 icone = '🟠'
+                nb_critiques += 1
+                if m.category in cat_stats:
+                    cat_stats[m.category]['critique'] += 1
             else:
                 niveau = 'ALERTE'
-                couleur = 'info'
                 icone = '🟡'
-            
-            cat_labels = {
-                'FILM': 'Film/Papier',
-                'INK': 'Encre',
-                'GLUE': 'Colle',
-                'SOLV': 'Solvant'
-            }
+                nb_alertes_simples += 1
+                if m.category in cat_stats:
+                    cat_stats[m.category]['alerte'] += 1
             
             alertes_stock.append({
                 'id': m.id,
                 'name': m.name,
-                'quantity': m.quantity,
-                'min_threshold': m.min_threshold,
-                'unit': m.unit,
-                'pct': pct,
-                'niveau': niveau,
-                'couleur': couleur,
-                'icone': icone,
                 'category': m.category,
-                'cat_label': cat_labels.get(m.category, m.category),
-                'supplier': m.supplier.name if m.supplier else 'N/A',
+                'cat_label': m.get_category_display(),
+                'quantity': m.quantity,
+                'unit': m.unit,
+                'min_threshold': m.min_threshold,
+                'supplier': m.supplier.name if m.supplier else '—',
+                'pct': min(pct, 100),
+                'niveau': niveau,
+                'icone': icone,
             })
     
-    niveau_ordre = {'RUPTURE': 0, 'CRITIQUE': 1, 'ALERTE': 2}
-    alertes_stock.sort(key=lambda x: (niveau_ordre[x['niveau']], x['pct']))
+    # Trier les alertes : ruptures en premier, puis critiques, puis alertes simples
+    ordre_priorite = {'RUPTURE': 0, 'CRITIQUE': 1, 'ALERTE': 2}
+    alertes_stock.sort(key=lambda x: (ordre_priorite.get(x['niveau'], 3), -x['pct']))
     
-    nb_ruptures = sum(1 for a in alertes_stock if a['niveau'] == 'RUPTURE')
-    nb_critiques = sum(1 for a in alertes_stock if a['niveau'] == 'CRITIQUE')
-    nb_alertes_simples = sum(1 for a in alertes_stock if a['niveau'] == 'ALERTE')
+    # ══════════════════════════════════════════════════════════════
+    # DONNÉES POUR LES GRAPHIQUES
+    # ══════════════════════════════════════════════════════════════
+    # Top 10 pour le graphique barres
+    top_alertes = alertes_stock[:10]
+    top_alertes_noms = [a['name'][:25] + '...' if len(a['name']) > 25 else a['name'] for a in top_alertes]
+    top_alertes_stock = [a['quantity'] for a in top_alertes]
+    top_alertes_seuil = [a['min_threshold'] for a in top_alertes]
+    top_alertes_couleurs = []
+    for a in top_alertes:
+        if a['niveau'] == 'RUPTURE':
+            top_alertes_couleurs.append('#dc2626')
+        elif a['niveau'] == 'CRITIQUE':
+            top_alertes_couleurs.append('#ea580c')
+        else:
+            top_alertes_couleurs.append('#ca8a04')
     
-    from collections import defaultdict
-    cat_stats = defaultdict(lambda: {'rupture': 0, 'critique': 0, 'alerte': 0, 'total': 0})
-    for a in alertes_stock:
-        cat_stats[a['cat_label']][a['niveau'].lower()] += 1
-        cat_stats[a['cat_label']]['total'] += 1
+    # Données par catégorie pour le graphe empilé
+    cat_labels = ['Film/Papier', 'Encre', 'Colle', 'Solvant']
+    cat_rupture = [cat_stats['FILM']['rupture'], cat_stats['INK']['rupture'], cat_stats['GLUE']['rupture'], cat_stats['SOLV']['rupture']]
+    cat_critique = [cat_stats['FILM']['critique'], cat_stats['INK']['critique'], cat_stats['GLUE']['critique'], cat_stats['SOLV']['critique']]
+    cat_alerte = [cat_stats['FILM']['alerte'], cat_stats['INK']['alerte'], cat_stats['GLUE']['alerte'], cat_stats['SOLV']['alerte']]
     
-    cat_labels_list = list(cat_stats.keys())
-    cat_rupture_data = [cat_stats[c]['rupture'] for c in cat_labels_list]
-    cat_critique_data = [cat_stats[c]['critique'] for c in cat_labels_list]
-    cat_alerte_data = [cat_stats[c]['alerte'] for c in cat_labels_list]
+    # ══════════════════════════════════════════════════════════════
+    # PRÉVISIONS DE RUPTURE (seuils intelligents)
+    # ══════════════════════════════════════════════════════════════
+    previsions = []
+    for m in all_materials:
+        try:
+            seuil = m.seuil_intelligent
+            if seuil and seuil.consommation_journaliere_moy > 0:
+                jours = seuil.jours_de_stock
+                if jours <= 15:
+                    previsions.append({
+                        'material': m.name,
+                        'stock_actuel': m.quantity,
+                        'conso_jour': seuil.consommation_journaliere_moy,
+                        'jours_restants': jours,
+                        'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if seuil.date_rupture_prevue else '—',
+                        'critique': jours <= 7,
+                    })
+        except:
+            pass
+    previsions.sort(key=lambda x: x['jours_restants'])
     
-    top_alertes_chart = alertes_stock[:10]
-    
+    # ══════════════════════════════════════════════════════════════
+    # AUTRES DONNÉES
+    # ══════════════════════════════════════════════════════════════
+    lots = StockLot.objects.select_related('material', 'fournisseur', 'emplacement').order_by('-date_reception')[:100]
     lots_bloques = StockLot.objects.filter(statut='BLOQUE').count()
     lots_attente = StockLot.objects.filter(statut='EN_ATTENTE').count()
-    da_en_attente = DemandeAchat.objects.filter(statut__in=['SOUMISE', 'VALIDEE']).count()
-    bc_en_cours = BonCommande.objects.filter(
-        statut__in=['ENVOYE', 'CONFIRME', 'RECU_PARTIEL']
-    ).count()
+    
+    mouvements = StockMovement.objects.select_related(
+        'material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur', 'machine', 'of'
+    ).order_by('-date')[:100]
+    
+    locations = StockLocation.objects.filter(is_active=True).order_by('type', 'name')
+    suppliers = Supplier.objects.all().order_by('name')
+    
+    demandes = DemandeAchat.objects.select_related('material', 'demandeur', 'valideur').order_by('-date_creation')[:50]
+    da_en_attente = DemandeAchat.objects.filter(statut='SOUMISE').count()
+    
+    bons_commande = BonCommande.objects.select_related('fournisseur', 'cree_par').order_by('-date_commande')[:50]
+    
+    consos = ConsommationEncre.objects.all().order_by('-date')[:50]
+    
+    # Valeur totale du stock
     valeur_stock_total = sum(
-        float(lot.quantite_restante) * float(lot.prix_unitaire)
-        for lot in StockLot.objects.filter(statut='CONFORME')
+        float(m.quantity) * float(m.price_per_unit) 
+        for m in all_materials 
+        if m.price_per_unit
     )
-
-    from datetime import date
-    date_7j = date.today() - timedelta(days=7)
-    top_consos = ConsommationEncre.objects.filter(date__gte=date_7j).values(
-        'support'
-    ).annotate(
-        total=Sum('encre_noir') + Sum('encre_magenta') +
-              Sum('encre_jaune') + Sum('encre_cyan')
-    ).order_by('-total')[:5]
-
-    previsions = []
-    for seuil in StockSeuil.objects.select_related('material').all():
-        if seuil.consommation_journaliere_moy > 0:
-            jours = seuil.jours_de_stock
-            if jours < 30:
-                previsions.append({
-                    'material': seuil.material.name,
-                    'stock_actuel': seuil.material.quantity,
-                    'jours_restants': jours,
-                    'date_rupture': seuil.date_rupture_prevue,
-                    'conso_jour': seuil.consommation_journaliere_moy,
-                    'critique': jours < 7,
-                })
-    previsions.sort(key=lambda x: x['jours_restants'])
-
+    
+    # ══════════════════════════════════════════════════════════════
+    # CONTEXTE TEMPLATE
+    # ══════════════════════════════════════════════════════════════
     context = {
+        # Recherche
+        'search_query': search_query,
+        'category_filter': category_filter,
+        'low_stock_only': low_stock_only,
+        'supplier_filter': supplier_filter,
+        'categories': Material.CAT_CHOICES,
+        
+        # Matières
         'materials': materials,
+        'total_matieres': Material.objects.count(),
         'suppliers': suppliers,
-        'consos': consos,
-        'locations': locations,
-        'lots': lots,
-        'mouvements': mouvements,
-        'demandes': demandes,
-        'bons_commande': bons_commande,
-        'total_matieres': total_matieres,
+        
+        # Alertes
         'alertes_stock': alertes_stock,
         'nb_alertes': len(alertes_stock),
         'nb_ruptures': nb_ruptures,
         'nb_critiques': nb_critiques,
         'nb_alertes_simples': nb_alertes_simples,
-        'cat_labels_json': json.dumps(cat_labels_list),
-        'cat_rupture_json': json.dumps(cat_rupture_data),
-        'cat_critique_json': json.dumps(cat_critique_data),
-        'cat_alerte_json': json.dumps(cat_alerte_data),
-        'top_alertes_noms': json.dumps([a['name'][:25] for a in top_alertes_chart]),
-        'top_alertes_stock': json.dumps([a['quantity'] for a in top_alertes_chart]),
-        'top_alertes_seuil': json.dumps([a['min_threshold'] for a in top_alertes_chart]),
-        'top_alertes_couleurs': json.dumps([
-            '#dc3545' if a['niveau'] == 'RUPTURE' else
-            '#fd7e14' if a['niveau'] == 'CRITIQUE' else '#ffc107'
-            for a in top_alertes_chart
-        ]),
+        
+        # Graphiques (JSON)
+        'top_alertes_noms': json.dumps(top_alertes_noms),
+        'top_alertes_stock': json.dumps(top_alertes_stock),
+        'top_alertes_seuil': json.dumps(top_alertes_seuil),
+        'top_alertes_couleurs': json.dumps(top_alertes_couleurs),
+        'cat_labels_json': json.dumps(cat_labels),
+        'cat_rupture_json': json.dumps(cat_rupture),
+        'cat_critique_json': json.dumps(cat_critique),
+        'cat_alerte_json': json.dumps(cat_alerte),
+        
+        # Prévisions
+        'previsions': previsions[:6],
+        
+        # Lots
+        'lots': lots,
         'lots_bloques': lots_bloques,
         'lots_attente': lots_attente,
+        
+        # Mouvements
+        'mouvements': mouvements,
+        
+        # Emplacements
+        'locations': locations,
+        
+        # Achats
+        'demandes': demandes,
         'da_en_attente': da_en_attente,
-        'bc_en_cours': bc_en_cours,
-        'valeur_stock_total': round(valeur_stock_total, 2),
-        'previsions': previsions,
-        'top_consos': list(top_consos),
+        'bons_commande': bons_commande,
+        
+        # Consos
+        'consos': consos,
+        
+        # Stats
+        'valeur_stock_total': valeur_stock_total,
     }
+    
     return render(request, 'stock/stock_advanced.html', context)
 
+
+@login_required
+def material_search_api(request):
+    """API autocomplete pour recherche dynamique AJAX"""
+    query = request.GET.get('q', '').strip()
+    
+    if len(query) < 1:
+        return JsonResponse([], safe=False)
+    
+    # Recherche insensible à la casse sur le nom
+    materials = Material.objects.filter(
+        Q(name__icontains=query) |
+        Q(category__icontains=query) |
+        Q(supplier__name__icontains=query)
+    ).select_related('supplier').order_by('name')[:30]
+    
+    results = []
+    for m in materials:
+        results.append({
+            'id': m.id,
+            'name': m.name,
+            'name_html': highlight_search(m.name, query),
+            'category': m.get_category_display(),
+            'quantity': m.quantity,
+            'unit': m.unit,
+            'min_threshold': m.min_threshold,
+            'supplier': m.supplier.name if m.supplier else '—',
+            'is_low_stock': m.is_low_stock(),
+            'price': float(m.price_per_unit) if m.price_per_unit else 0,
+        })
+    
+    return JsonResponse({
+        'query': query,
+        'count': len(results),
+        'results': results
+    })
+
+
+@login_required
+def export_search_results(request):
+    """Export Excel des résultats de recherche"""
+    query = request.GET.get('q', '').strip()
+    category = request.GET.get('category', '')
+    
+    # Filtrer les matières
+    materials = Material.objects.select_related('supplier').all()
+    
+    if query:
+        materials = materials.filter(
+            Q(name__icontains=query) |
+            Q(supplier__name__icontains=query)
+        )
+    
+    if category:
+        materials = materials.filter(category=category)
+    
+    materials = materials.order_by('name')
+    
+    # Créer le fichier Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Stock Matières"
+    
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
+    alert_fill = PatternFill(start_color="fee2e2", end_color="fee2e2", fill_type="solid")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # En-têtes
+    headers = ['Désignation', 'Catégorie', 'Stock Actuel', 'Unité', 'Seuil Min', 'Fournisseur', 'Prix/Unité', 'Valeur Stock', 'État']
+    ws.append(headers)
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = thin_border
+    
+    # Données
+    for row_num, m in enumerate(materials, 2):
+        valeur = float(m.quantity) * float(m.price_per_unit) if m.price_per_unit else 0
+        etat = "⚠️ ALERTE" if m.is_low_stock() else "✓ OK"
+        
+        row_data = [
+            m.name,
+            m.get_category_display(),
+            m.quantity,
+            m.unit,
+            m.min_threshold,
+            m.supplier.name if m.supplier else '',
+            float(m.price_per_unit) if m.price_per_unit else 0,
+            round(valeur, 2),
+            etat
+        ]
+        ws.append(row_data)
+        
+        # Appliquer le style alerte si stock faible
+        for col_num in range(1, len(row_data) + 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.border = thin_border
+            if m.is_low_stock():
+                cell.fill = alert_fill
+    
+    # Ajuster la largeur des colonnes
+    column_widths = [40, 15, 15, 10, 12, 25, 12, 15, 12]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
+    
+    # Préparer la réponse
+    filename = f"stock_matieres_{query if query else 'all'}.xlsx"
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+# ===========================================================================
+# --- STOCK AVANCÉ (SUITE) ---
+# ===========================================================================
 
 @login_required
 def location_list(request):
@@ -1600,11 +1815,13 @@ def add_machine(request):
 
 def _get_filtered_entries(request):
     entries = ProductionEntry.objects.all().order_by('-date', '-heure_debut')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
+    date_from  = request.GET.get('date_from', '')
+    date_to    = request.GET.get('date_to', '')
     machine_id = request.GET.get('machine', '')
-    support = request.GET.get('support', '')
-    equipe = request.GET.get('equipe', '')
+    support    = request.GET.get('support', '')
+    equipe     = request.GET.get('equipe', '')
+    produit    = request.GET.get('produit', '')
+
     if date_from:
         entries = entries.filter(date__gte=date_from)
     if date_to:
@@ -1615,20 +1832,28 @@ def _get_filtered_entries(request):
         entries = entries.filter(support=support)
     if equipe:
         entries = entries.filter(equipe=equipe)
+    if produit:
+        entries = entries.filter(produit=produit)
     return entries
 
 
 def _get_filter_context(request):
+    all_produits = ProductionEntry.objects.values_list(
+        'produit', flat=True
+    ).distinct().order_by('produit')
+
     return {
-        'all_machines': Machine.objects.all().order_by('name'),
-        'all_supports': ProductionEntry.objects.values_list(
-            'support', flat=True
-        ).distinct().order_by('support'),
+        'all_machines':       Machine.objects.all().order_by('name'),
+        'all_supports':       ProductionEntry.objects.values_list(
+                                  'support', flat=True
+                              ).distinct().order_by('support'),
+        'all_produits':       all_produits,
         'selected_date_from': request.GET.get('date_from', ''),
-        'selected_date_to': request.GET.get('date_to', ''),
-        'selected_machine': request.GET.get('machine', ''),
-        'selected_support': request.GET.get('support', ''),
-        'selected_equipe': request.GET.get('equipe', ''),
+        'selected_date_to':   request.GET.get('date_to', ''),
+        'selected_machine':   request.GET.get('machine', ''),
+        'selected_support':   request.GET.get('support', ''),
+        'selected_equipe':    request.GET.get('equipe', ''),
+        'selected_produit':   request.GET.get('produit', ''),
     }
 
 
@@ -1847,6 +2072,411 @@ def prod_synthese_temps(request):
     }
     context.update(_get_filter_context(request))
     return render(request, 'production_special/synthese_temps.html', context)
+
+
+# ===========================================================================
+# --- MODULE PRODUCTION SPÉCIAL — CONSOMMATION ENCRE & DÉCHETS IMPRESSION ---
+# ===========================================================================
+
+def _get_filtered_encre(request):
+    """Filtre les enregistrements ConsommationEncre selon les paramètres GET"""
+    consos = ConsommationEncre.objects.all().order_by('-date')
+    date_from = request.GET.get('date_from', '')
+    date_to   = request.GET.get('date_to', '')
+    process   = request.GET.get('process_type', '')
+    support   = request.GET.get('support', '')
+    job       = request.GET.get('job', '')
+
+    if date_from:
+        consos = consos.filter(date__gte=date_from)
+    if date_to:
+        consos = consos.filter(date__lte=date_to)
+    if process:
+        consos = consos.filter(process_type=process)
+    if support:
+        consos = consos.filter(support__icontains=support)
+    if job:
+        consos = consos.filter(job_name=job)
+    return consos
+
+
+def _get_encre_filter_context(request):
+    """Contexte commun pour les filtres encre"""
+    all_supports = ConsommationEncre.objects.values_list(
+        'support', flat=True
+    ).distinct().order_by('support')
+    
+    all_jobs = ConsommationEncre.objects.values_list(
+        'job_name', flat=True
+    ).distinct().order_by('job_name')
+    
+    return {
+        'all_supports_encre': all_supports,
+        'all_jobs_encre':     list(all_jobs),
+        'process_choices':    ConsommationEncre.PROCESS_CHOICES,
+        'sel_date_from':      request.GET.get('date_from', ''),
+        'sel_date_to':        request.GET.get('date_to', ''),
+        'sel_process':        request.GET.get('process_type', ''),
+        'sel_support':        request.GET.get('support', ''),
+        'sel_job':            request.GET.get('job', ''),
+    }
+
+
+@login_required
+def encre_dashboard(request):
+    """Tableau de bord principal — Consommation Encre & Déchets Impression"""
+    from collections import defaultdict
+
+    consos = _get_filtered_encre(request)
+    count  = consos.count()
+
+    total_encre   = sum(c.total_encre   for c in consos)
+    total_solvant = sum(c.total_solvant for c in consos)
+    total_injecte = total_encre + total_solvant
+
+    total_gain_masse    = sum(c.gain_de_masse_kg    for c in consos)
+    total_evaporee      = sum(c.matiere_evaporee_kg for c in consos)
+
+    taux_gain_global = round(
+        (total_gain_masse / total_injecte * 100), 2
+    ) if total_injecte else 0
+    taux_evap_global = round(
+        (total_evaporee / total_injecte * 100), 2
+    ) if total_injecte else 0
+
+    total_metrage = sum(c.metrage for c in consos)
+
+    grammages = [c.grammage for c in consos if c.grammage > 0]
+    grammage_moyen = round(sum(grammages) / len(grammages), 2) if grammages else 0
+
+    couleurs_noms = [
+        'Noir', 'Magenta', 'Jaune', 'Cyan',
+        'Doré', 'Silver', 'Orange', 'Blanc', 'Vernis'
+    ]
+    couleurs_vals = [
+        round(consos.aggregate(t=Sum('encre_noir'))['t']    or 0, 2),
+        round(consos.aggregate(t=Sum('encre_magenta'))['t'] or 0, 2),
+        round(consos.aggregate(t=Sum('encre_jaune'))['t']   or 0, 2),
+        round(consos.aggregate(t=Sum('encre_cyan'))['t']    or 0, 2),
+        round(consos.aggregate(t=Sum('encre_dore'))['t']    or 0, 2),
+        round(consos.aggregate(t=Sum('encre_silver'))['t']  or 0, 2),
+        round(consos.aggregate(t=Sum('encre_orange'))['t']  or 0, 2),
+        round(consos.aggregate(t=Sum('encre_blanc'))['t']   or 0, 2),
+        round(consos.aggregate(t=Sum('encre_vernis'))['t']  or 0, 2),
+    ]
+    couleurs_colors = [
+        '#1a1a1a', '#e91e8c', '#ffd600', '#00b8d9',
+        '#ffc107', '#9e9e9e', '#ff6d00', '#f5f5f5', '#4caf50'
+    ]
+
+    data_dates = defaultdict(lambda: {
+        'encre': 0, 'solvant': 0, 'gain': 0,
+        'evap': 0, 'metrage': 0
+    })
+    for c in consos:
+        d = str(c.date)
+        data_dates[d]['encre']   += c.total_encre
+        data_dates[d]['solvant'] += c.total_solvant
+        data_dates[d]['gain']    += c.gain_de_masse_kg
+        data_dates[d]['evap']    += c.matiere_evaporee_kg
+        data_dates[d]['metrage'] += c.metrage
+
+    dates_sorted = sorted(data_dates.keys())
+
+    pie_labels = ['Encres', 'Solvants']
+    pie_vals   = [round(total_encre, 2), round(total_solvant, 2)]
+    pie_colors = ['#f3b83a', '#38bdf8']
+
+    pie2_labels = ['Gain de masse', 'Matière évaporée']
+    pie2_vals   = [round(total_gain_masse, 2), round(total_evaporee, 2)]
+    pie2_colors = ['#22c55e', '#ef4444']
+
+    job_data = defaultdict(float)
+    for c in consos:
+        job_data[c.job_name[:30]] += c.total_encre + c.total_solvant
+    top_jobs = sorted(job_data.items(), key=lambda x: x[1], reverse=True)[:8]
+
+    flexo_count = consos.filter(process_type='FLEXO').count()
+    helio_count = consos.filter(process_type='HELIO').count()
+
+    couleurs_table = [
+        {'nom': n, 'val': v, 'color': c}
+        for n, v, c in zip(couleurs_noms, couleurs_vals, couleurs_colors)
+        if v > 0
+    ]
+
+    context = {
+        'count':            count,
+        'total_encre':      round(total_encre, 2),
+        'total_solvant':    round(total_solvant, 2),
+        'total_injecte':    round(total_injecte, 2),
+        'total_gain_masse': round(total_gain_masse, 2),
+        'total_evaporee':   round(total_evaporee, 2),
+        'taux_gain_global': taux_gain_global,
+        'taux_evap_global': taux_evap_global,
+        'total_metrage':    round(total_metrage, 2),
+        'grammage_moyen':   grammage_moyen,
+        'flexo_count':      flexo_count,
+        'helio_count':      helio_count,
+        'couleurs_table':   couleurs_table,
+        'consos_recentes':  consos[:15],
+
+        'chart_couleurs_labels': json.dumps(couleurs_noms),
+        'chart_couleurs_vals':   json.dumps(couleurs_vals),
+        'chart_couleurs_colors': json.dumps(couleurs_colors),
+
+        'chart_dates':       json.dumps(dates_sorted),
+        'chart_encre_vals':  json.dumps(
+            [round(data_dates[d]['encre'], 2) for d in dates_sorted]
+        ),
+        'chart_solvant_vals': json.dumps(
+            [round(data_dates[d]['solvant'], 2) for d in dates_sorted]
+        ),
+        'chart_gain_vals':    json.dumps(
+            [round(data_dates[d]['gain'], 2) for d in dates_sorted]
+        ),
+        'chart_evap_vals':    json.dumps(
+            [round(data_dates[d]['evap'], 2) for d in dates_sorted]
+        ),
+        'chart_metrage_vals': json.dumps(
+            [round(data_dates[d]['metrage'], 1) for d in dates_sorted]
+        ),
+
+        'pie_labels':  json.dumps(pie_labels),
+        'pie_vals':    json.dumps(pie_vals),
+        'pie_colors':  json.dumps(pie_colors),
+
+        'pie2_labels': json.dumps(pie2_labels),
+        'pie2_vals':   json.dumps(pie2_vals),
+        'pie2_colors': json.dumps(pie2_colors),
+
+        'chart_jobs_labels': json.dumps([j[0] for j in top_jobs]),
+        'chart_jobs_vals':   json.dumps([round(j[1], 2) for j in top_jobs]),
+
+        'chart_process_labels': json.dumps(['Flexo', 'Hélio']),
+        'chart_process_vals':   json.dumps([flexo_count, helio_count]),
+    }
+    context.update(_get_encre_filter_context(request))
+    return render(request, 'production_special/encre_dashboard.html', context)
+
+
+@login_required
+def encre_saisie(request):
+    """Formulaire de saisie consommation encre"""
+    if request.method == 'POST':
+        form = ConsommationEncreForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "✅ Consommation encre enregistrée avec succès.")
+            return redirect('encre_dashboard')
+        else:
+            messages.error(request, "❌ Erreur dans le formulaire. Vérifiez les champs.")
+    else:
+        form = ConsommationEncreForm()
+
+    recent = ConsommationEncre.objects.all().order_by('-date')[:10]
+    context = {
+        'form':      form,
+        'titre':     'Nouvelle Saisie — Encre & Solvants',
+        'recent':    recent,
+        'edit_mode': False,
+    }
+    return render(request, 'production_special/encre_saisie.html', context)
+
+
+@login_required
+def encre_edit(request, id):
+    """Modifier une saisie consommation encre"""
+    conso = get_object_or_404(ConsommationEncre, id=id)
+    if request.method == 'POST':
+        form = ConsommationEncreForm(request.POST, instance=conso)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "✅ Saisie mise à jour.")
+            return redirect('encre_dashboard')
+        else:
+            messages.error(request, "❌ Erreur dans le formulaire.")
+    else:
+        form = ConsommationEncreForm(instance=conso)
+
+    recent = ConsommationEncre.objects.all().order_by('-date')[:10]
+    context = {
+        'form':      form,
+        'titre':     f'Modifier — {conso.job_name} ({conso.date})',
+        'recent':    recent,
+        'edit_mode': True,
+        'conso':     conso,
+    }
+    return render(request, 'production_special/encre_saisie.html', context)
+
+
+@login_required
+def encre_delete(request, id):
+    """Supprimer une saisie consommation encre"""
+    conso = get_object_or_404(ConsommationEncre, id=id)
+    if request.method == 'POST':
+        conso.delete()
+        messages.success(request, "🗑️ Saisie supprimée.")
+        return redirect('encre_dashboard')
+    return render(
+        request,
+        'production_special/encre_confirm_delete.html',
+        {'conso': conso}
+    )
+
+
+@login_required
+def encre_detail(request, id):
+    """Détail d'une saisie avec calculs complets"""
+    conso = get_object_or_404(ConsommationEncre, id=id)
+
+    couleurs_detail = [
+        {'nom': 'Noir',    'val': conso.encre_noir,    'color': '#1a1a1a', 'bg': 'bg-gray-800'},
+        {'nom': 'Magenta', 'val': conso.encre_magenta, 'color': '#e91e8c', 'bg': 'bg-pink-900'},
+        {'nom': 'Jaune',   'val': conso.encre_jaune,   'color': '#ffd600', 'bg': 'bg-yellow-800'},
+        {'nom': 'Cyan',    'val': conso.encre_cyan,    'color': '#00b8d9', 'bg': 'bg-cyan-900'},
+        {'nom': 'Doré',    'val': conso.encre_dore,    'color': '#ffc107', 'bg': 'bg-amber-800'},
+        {'nom': 'Silver',  'val': conso.encre_silver,  'color': '#9e9e9e', 'bg': 'bg-slate-600'},
+        {'nom': 'Orange',  'val': conso.encre_orange,  'color': '#ff6d00', 'bg': 'bg-orange-900'},
+        {'nom': 'Blanc',   'val': conso.encre_blanc,   'color': '#f5f5f5', 'bg': 'bg-slate-500'},
+        {'nom': 'Vernis',  'val': conso.encre_vernis,  'color': '#4caf50', 'bg': 'bg-green-900'},
+    ]
+    couleurs_detail = [c for c in couleurs_detail if c['val'] > 0]
+
+    pie_noms   = [c['nom']   for c in couleurs_detail]
+    pie_vals_d = [c['val']   for c in couleurs_detail]
+    pie_cols_d = [c['color'] for c in couleurs_detail]
+
+    context = {
+        'conso':          conso,
+        'couleurs_detail': couleurs_detail,
+        'pie_noms_json':  json.dumps(pie_noms),
+        'pie_vals_json':  json.dumps(pie_vals_d),
+        'pie_cols_json':  json.dumps(pie_cols_d),
+    }
+    return render(request, 'production_special/encre_detail.html', context)
+
+
+@login_required
+def encre_analyse(request):
+    """Analyse avancée — Déchets impression, grammage, comparaison Flexo/Hélio"""
+    from collections import defaultdict
+
+    consos  = _get_filtered_encre(request)
+    count   = consos.count()
+
+    dechet_dates   = defaultdict(float)
+    dechet_flexo   = defaultdict(float)
+    dechet_helio   = defaultdict(float)
+    grammage_dates = defaultdict(list)
+
+    for c in consos:
+        d = str(c.date)
+        dechet_dates[d]   += c.matiere_evaporee_kg
+        grammage_dates[d].append(c.grammage)
+        if c.process_type == 'FLEXO':
+            dechet_flexo[d] += c.matiere_evaporee_kg
+        else:
+            dechet_helio[d] += c.matiere_evaporee_kg
+
+    dates_sorted = sorted(dechet_dates.keys())
+
+    flexo_qs = consos.filter(process_type='FLEXO')
+    helio_qs = consos.filter(process_type='HELIO')
+
+    def _stats(qs):
+        total_inj = sum(c.total_encre + c.total_solvant for c in qs)
+        total_evp = sum(c.matiere_evaporee_kg for c in qs)
+        total_gai = sum(c.gain_de_masse_kg for c in qs)
+        gram_list = [c.grammage for c in qs if c.grammage > 0]
+        return {
+            'count':       qs.count(),
+            'total_inj':   round(total_inj, 2),
+            'total_evp':   round(total_evp, 2),
+            'total_gai':   round(total_gai, 2),
+            'taux_evp':    round(total_evp / total_inj * 100, 2) if total_inj else 0,
+            'gram_moy':    round(sum(gram_list) / len(gram_list), 2) if gram_list else 0,
+        }
+
+    stats_flexo = _stats(flexo_qs)
+    stats_helio = _stats(helio_qs)
+
+    radar_labels = [
+        'Total Injecté', 'Total Évaporé',
+        'Gain Masse', 'Taux Évap %', 'Grammage moy.'
+    ]
+    radar_flexo = [
+        stats_flexo['total_inj'],  stats_flexo['total_evp'],
+        stats_flexo['total_gai'],  stats_flexo['taux_evp'],
+        stats_flexo['gram_moy'],
+    ]
+    radar_helio = [
+        stats_helio['total_inj'],  stats_helio['total_evp'],
+        stats_helio['total_gai'],  stats_helio['taux_evp'],
+        stats_helio['gram_moy'],
+    ]
+
+    support_data = defaultdict(float)
+    for c in consos:
+        support_data[c.support[:25]] += c.total_encre
+
+    top_support = sorted(support_data.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    job_evap = []
+    job_seen = {}
+    for c in consos:
+        key = c.job_name[:30]
+        if key not in job_seen:
+            job_seen[key] = {'evap': 0, 'inj': 0}
+        job_seen[key]['evap'] += c.matiere_evaporee_kg
+        job_seen[key]['inj']  += c.total_encre + c.total_solvant
+
+    for job, vals in sorted(
+        job_seen.items(),
+        key=lambda x: x[1]['evap'],
+        reverse=True
+    )[:8]:
+        taux = round(vals['evap'] / vals['inj'] * 100, 1) if vals['inj'] else 0
+        job_evap.append({'job': job, 'evap': round(vals['evap'], 2), 'taux': taux})
+
+    context = {
+        'count':        count,
+        'stats_flexo':  stats_flexo,
+        'stats_helio':  stats_helio,
+        'job_evap':     job_evap,
+
+        'chart_dec_dates':  json.dumps(dates_sorted),
+        'chart_dec_total':  json.dumps(
+            [round(dechet_dates[d], 2) for d in dates_sorted]
+        ),
+        'chart_dec_flexo':  json.dumps(
+            [round(dechet_flexo.get(d, 0), 2) for d in dates_sorted]
+        ),
+        'chart_dec_helio':  json.dumps(
+            [round(dechet_helio.get(d, 0), 2) for d in dates_sorted]
+        ),
+
+        'chart_gram_dates': json.dumps(dates_sorted),
+        'chart_gram_vals':  json.dumps([
+            round(
+                sum(grammage_dates[d]) / len(grammage_dates[d]), 2
+            ) if grammage_dates[d] else 0
+            for d in dates_sorted
+        ]),
+
+        'radar_labels':     json.dumps(radar_labels),
+        'radar_flexo':      json.dumps(radar_flexo),
+        'radar_helio':      json.dumps(radar_helio),
+
+        'chart_sup_labels': json.dumps([s[0] for s in top_support]),
+        'chart_sup_vals':   json.dumps([round(s[1], 2) for s in top_support]),
+
+        'chart_job_labels': json.dumps([j['job']  for j in job_evap]),
+        'chart_job_evap':   json.dumps([j['evap'] for j in job_evap]),
+        'chart_job_taux':   json.dumps([j['taux'] for j in job_evap]),
+    }
+    context.update(_get_encre_filter_context(request))
+    return render(request, 'production_special/encre_analyse.html', context)
 
 
 # ===========================================================================
@@ -2313,6 +2943,8 @@ def admin_toggle_user(request, user_id):
         etat = "activé" if u.is_active else "désactivé"
         messages.success(request, f"✅ Utilisateur '{u.username}' {etat}.")
     return redirect('admin_view')
+
+
 # ===========================================================================
 # --- CHAT EN TEMPS RÉEL ---
 # ===========================================================================
@@ -2322,7 +2954,6 @@ def chat_home(request):
     """Page principale du chat avec liste des salons"""
     rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
     
-    # Créer les salons par défaut s'ils n'existent pas
     default_rooms = [
         {'name': 'Général', 'slug': 'general', 'type': 'GENERAL', 'icone': '💬'},
         {'name': 'Production', 'slug': 'production', 'type': 'PRODUCTION', 'icone': '🏭'},
@@ -2338,8 +2969,6 @@ def chat_home(request):
         )
     
     rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
-    
-    # Utilisateurs en ligne
     online_users = UserPresence.objects.filter(is_online=True).select_related('user')
     
     context = {
@@ -2353,18 +2982,12 @@ def chat_home(request):
 def chat_room(request, room_slug):
     """Page d'un salon de chat"""
     room = get_object_or_404(ChatRoom, slug=room_slug, est_actif=True)
-    
-    # Ajouter l'utilisateur aux membres du salon
     room.membres.add(request.user)
     
-    # Récupérer les derniers messages
     messages = room.messages.select_related('auteur').order_by('-date_envoi')[:50]
-    messages = list(messages)[::-1]  # Inverser pour avoir les plus récents en bas
+    messages = list(messages)[::-1]
     
-    # Tous les salons pour la sidebar
     rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
-    
-    # Utilisateurs en ligne dans ce salon
     online_users = UserPresence.objects.filter(
         is_online=True, current_room=room
     ).select_related('user')

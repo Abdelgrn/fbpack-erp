@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h1 class="text-3xl font-black text-white mb-2">🎨 Détail — {{ conso.job_name }}</h1>
+<p class="text-gray-400 mb-6">
+    {{ conso.date|date:"d/m/Y" }} ·
+    <span class="{% if conso.process_type == 'FLEXO' %}text-yellow-400{% else %}text-cyan-400{% endif %} font-bold">
+        {{ conso.process_type }}
+    </span>
+    · {{ conso.support }}
+</p>
+
+{% include 'production_special/_nav.html' %}
+
+<div class="flex gap-3 mb-6">
+    <a href="{% url 'encre_edit' conso.id %}" class="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-4 py-2 rounded-xl transition">✏️ Modifier</a>
+    <a href="{% url 'encre_delete' conso.id %}" class="bg-red-600 hover:bg-red-500 text-white font-bold px-4 py-2 rounded-xl transition">🗑️ Supprimer</a>
+    <a href="{% url 'encre_dashboard' %}" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl transition">← Retour</a>
+</div>
+
+<!-- BILAN -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="glass rounded-2xl p-5 border-l-4 border-blue-500 text-center">
+        <p class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">Total Encres</p>
+        <p class="text-4xl font-black text-blue-400">{{ conso.total_encre|floatformat:3 }}</p>
+        <p class="text-xs text-gray-500 mt-1">kg</p>
+    </div>
+    <div class="glass rounded-2xl p-5 border-l-4 border-purple-500 text-center">
+        <p class="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2">Total Solvants</p>
+        <p class="text-4xl font-black text-purple-400">{{ conso.total_solvant|floatformat:3 }}</p>
+        <p class="text-xs text-gray-500 mt-1">kg</p>
+    </div>
+    <div class="glass rounded-2xl p-5 border-l-4 border-green-500 text-center">
+        <p class="text-xs font-bold text-green-400 uppercase tracking-widest mb-2">Gain de Masse</p>
+        <p class="text-4xl font-black {% if conso.gain_de_masse_kg >= 0 %}text-green-400{% else %}text-red-400{% endif %}">{{ conso.gain_de_masse_kg }}</p>
+        <p class="text-xs text-gray-500 mt-1">kg · {{ conso.gain_de_masse_percent }}%</p>
+    </div>
+    <div class="glass rounded-2xl p-5 border-l-4 border-red-500 text-center">
+        <p class="text-xs font-bold text-red-400 uppercase tracking-widest mb-2">Évaporé (Déchet)</p>
+        <p class="text-4xl font-black text-red-400">{{ conso.matiere_evaporee_kg }}</p>
+        <p class="text-xs text-gray-500 mt-1">kg · {{ conso.matiere_evaporee_percent }}%</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+    <!-- Paramètres -->
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-base font-bold text-white mb-4">📋 Paramètres</h3>
+        <div class="space-y-2">
+            <div class="flex justify-between py-2 border-b border-slate-700"><span class="text-gray-400 text-sm">Laize</span><span class="text-white font-semibold">{{ conso.laize }} mm</span></div>
+            <div class="flex justify-between py-2 border-b border-slate-700"><span class="text-gray-400 text-sm">Métrage</span><span class="text-white font-semibold">{{ conso.metrage }} m</span></div>
+            <div class="flex justify-between py-2 border-b border-slate-700"><span class="text-gray-400 text-sm">Bobine IN</span><span class="text-white font-semibold">{{ conso.bobine_in }} kg</span></div>
+            <div class="flex justify-between py-2 border-b border-slate-700"><span class="text-gray-400 text-sm">Bobine OUT</span><span class="text-white font-semibold">{{ conso.bobine_out }} kg</span></div>
+            <div class="flex justify-between py-2 border-b border-slate-700"><span class="text-gray-400 text-sm">Metoxyn</span><span class="text-purple-400 font-semibold">{{ conso.solvant_metoxyn }} kg</span></div>
+            <div class="flex justify-between py-2 border-b border-slate-700"><span class="text-gray-400 text-sm">20/80</span><span class="text-purple-400 font-semibold">{{ conso.solvant_2080 }} kg</span></div>
+            <div class="flex justify-between py-2"><span class="text-gray-400 text-sm">Grammage</span><span class="text-yellow-400 font-black text-lg">{{ conso.grammage }} g/m²</span></div>
+        </div>
+    </div>
+
+    <!-- Camembert -->
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-base font-bold text-white mb-4">🎨 Répartition des Encres</h3>
+        <canvas id="chartDetail" height="250"></canvas>
+    </div>
+</div>
+
+<!-- Barres encres -->
+{% if couleurs_detail %}
+<div class="glass rounded-2xl p-6 mb-6">
+    <h3 class="text-base font-bold text-white mb-4">🎨 Détail par Couleur</h3>
+    <div class="space-y-3">
+        {% for c in couleurs_detail %}
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 w-20 shrink-0">
+                <span class="w-3 h-3 rounded-full border border-slate-500" style="background:{{ c.color }}"></span>
+                <span class="text-sm text-gray-300">{{ c.nom }}</span>
+            </div>
+            <div class="flex-1 bg-slate-700 rounded-full h-3 overflow-hidden">
+                <div class="h-3 rounded-full transition-all"
+                     style="background:{{ c.color }};
+                            width:{% if conso.total_encre > 0 %}{% widthratio c.val conso.total_encre 100 %}%{% else %}0%{% endif %}">
+                </div>
+            </div>
+            <span class="text-sm font-bold text-white w-24 text-right">{{ c.val|floatformat:3 }} kg</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+new Chart(document.getElementById('chartDetail'), {
+    type: 'doughnut',
+    data: {
+        labels:   {{ pie_noms_json|safe }},
+        datasets: [{
+            data:            {{ pie_vals_json|safe }},
+            backgroundColor: {{ pie_cols_json|safe }},
+            borderColor:     '#1e293b',
+            borderWidth:     3,
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '55%',
+        plugins: {
+            legend: { position: 'right', labels: { color: '#d1d5db', font: { size: 10 } } },
+            tooltip: { backgroundColor: '#1e293b', borderColor: '#475569', borderWidth: 1 }
+        }
+    }
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h1 class="text-3xl font-black text-white mb-2">🔬 Analyse — Déchets Impression</h1>
+<p class="text-gray-400 mb-6">Matière évaporée, grammage, comparaison Flexo / Hélio</p>
+
+{% include 'production_special/_nav.html' %}
+
+<!-- FILTRES -->
+<form method="GET" class="glass rounded-2xl p-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Date Début</label>
+            <input type="date" name="date_from" value="{{ sel_date_from }}"
+                   class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Date Fin</label>
+            <input type="date" name="date_to" value="{{ sel_date_to }}"
+                   class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">⚙️ Process</label>
+            <select name="process_type" class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                <option value="">-- Tous --</option>
+                {% for code, label in process_choices %}
+                <option value="{{ code }}" {% if sel_process == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">🗂️ Support</label>
+            <select name="support" class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                <option value="">-- Tous --</option>
+                {% for s in all_supports_encre %}
+                <option value="{{ s }}" {% if sel_support == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">🏷️ Job</label>
+            <select name="job" class="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm focus:outline-none focus:border-yellow-500">
+                <option value="">-- Tous --</option>
+                {% for j in all_jobs_encre %}
+                <option value="{{ j }}" {% if sel_job == j %}selected{% endif %}>{{ j|truncatechars:25 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold px-4 py-2 rounded text-sm transition">🔍 Filtrer</button>
+            <a href="{% url 'encre_analyse' %}" class="bg-slate-600 hover:bg-slate-500 text-white px-3 py-2 rounded text-sm transition">✕</a>
+        </div>
+    </div>
+</form>
+
+<!-- COMPARAISON FLEXO / HÉLIO -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <!-- Flexo -->
+    <div class="glass rounded-2xl p-6 border-2 border-yellow-500/30">
+        <h3 class="text-lg font-bold text-yellow-400 mb-4">🖨️ Flexo — {{ stats_flexo.count }} sessions</h3>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400">Total Injecté</p>
+                <p class="text-xl font-black text-white">{{ stats_flexo.total_inj }} kg</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400">Total Évaporé</p>
+                <p class="text-xl font-black text-red-400">{{ stats_flexo.total_evp }} kg</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400">Gain de Masse</p>
+                <p class="text-xl font-black text-green-400">{{ stats_flexo.total_gai }} kg</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400">Taux Évaporation</p>
+                <p class="text-xl font-black text-orange-400">{{ stats_flexo.taux_evp }} %</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center col-span-2">
+                <p class="text-xs text-gray-400">Grammage Moyen</p>
+                <p class="text-xl font-black text-blue-400">{{ stats_flexo.gram_moy }} g/m²</p>
+            </div>
+        </div>
+    </div>
+    <!-- Hélio -->
+    <div class="glass rounded-2xl p-6 border-2 border-cyan-500/30">
+        <h3 class="text-lg font-bold text-cyan-400 mb-4">🖨️ Hélio — {{ stats_helio.count }} sessions</h3>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400">Total Injecté</p>
+                <p class="text-xl font-black text-white">{{ stats_helio.total_inj }} kg</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400">Total Évaporé</p>
+                <p class="text-xl font-black text-red-400">{{ stats_helio.total_evp }} kg</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400">Gain de Masse</p>
+                <p class="text-xl font-black text-green-400">{{ stats_helio.total_gai }} kg</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400">Taux Évaporation</p>
+                <p class="text-xl font-black text-orange-400">{{ stats_helio.taux_evp }} %</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-xl p-3 text-center col-span-2">
+                <p class="text-xs text-gray-400">Grammage Moyen</p>
+                <p class="text-xl font-black text-blue-400">{{ stats_helio.gram_moy }} g/m²</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GRAPHES -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-gray-300 mb-4">💨 Matière Évaporée par Date (kg)</h3>
+        <canvas id="chartDecDates" height="200"></canvas>
+    </div>
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-gray-300 mb-4">🔬 Grammage Moyen par Date (g/m²)</h3>
+        <canvas id="chartGrammage" height="200"></canvas>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-gray-300 mb-4">🗂️ Top Supports — Encre (kg)</h3>
+        <canvas id="chartSupports" height="200"></canvas>
+    </div>
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-gray-300 mb-4">💨 Taux Évaporation par Job (%)</h3>
+        <canvas id="chartJobTaux" height="200"></canvas>
+    </div>
+</div>
+
+<!-- TABLEAU ÉVAPORATION PAR JOB -->
+{% if job_evap %}
+<div class="glass rounded-2xl p-4 overflow-x-auto mb-6">
+    <h3 class="text-base font-bold text-white mb-4">📋 Détail Évaporation par Job</h3>
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="text-yellow-400 border-b-2 border-yellow-500/30">
+                <th class="py-3 px-4 text-left">Job</th>
+                <th class="py-3 px-4 text-right">Évaporé (kg)</th>
+                <th class="py-3 px-4 text-right">Taux (%)</th>
+                <th class="py-3 px-4 text-left">Indicateur</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for j in job_evap %}
+            <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
+                <td class="py-3 px-4 text-white font-medium">{{ j.job }}</td>
+                <td class="py-3 px-4 text-right text-red-400 font-mono font-bold">{{ j.evap }}</td>
+                <td class="py-3 px-4 text-right font-mono font-bold
+                    {% if j.taux > 50 %}text-red-400{% elif j.taux > 30 %}text-orange-400{% else %}text-green-400{% endif %}">
+                    {{ j.taux }}%
+                </td>
+                <td class="py-3 px-4">
+                    <div class="w-full bg-slate-700 rounded-full h-2 max-w-xs">
+                        <div class="h-2 rounded-full {% if j.taux > 50 %}bg-red-500{% elif j.taux > 30 %}bg-orange-400{% else %}bg-green-500{% endif %}"
+                             style="width:{{ j.taux|floatformat:0 }}%"></div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+const opt = {
+    responsive: true,
+    plugins: {
+        legend: { labels: { color: '#d1d5db' } },
+        tooltip: { backgroundColor: '#1e293b', borderColor: '#475569', borderWidth: 1 }
+    }
+};
+
+new Chart(document.getElementById('chartDecDates'), {
+    type: 'bar',
+    data: {
+        labels: {{ chart_dec_dates|safe }},
+        datasets: [
+            { label: 'Flexo évaporé', data: {{ chart_dec_flexo|safe }}, backgroundColor: 'rgba(243,184,58,0.8)', borderRadius: 4 },
+            { label: 'Hélio évaporé', data: {{ chart_dec_helio|safe }}, backgroundColor: 'rgba(56,189,248,0.8)', borderRadius: 4 }
+        ]
+    },
+    options: { ...opt, scales: {
+        x: { stacked: true, ticks:{color:'#9ca3af', maxRotation:45, font:{size:8}}, grid:{color:'rgba(255,255,255,0.05)'} },
+        y: { stacked: true, ticks:{color:'#9ca3af'}, grid:{color:'rgba(255,255,255,0.05)'} }
+    }}
+});
+
+new Chart(document.getElementById('chartGrammage'), {
+    type: 'line',
+    data: {
+        labels: {{ chart_gram_dates|safe }},
+        datasets: [{
+            label: 'Grammage (g/m²)',
+            data: {{ chart_gram_vals|safe }},
+            borderColor: '#f3b83a', backgroundColor: 'rgba(243,184,58,0.1)',
+            fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#f3b83a'
+        }]
+    },
+    options: { ...opt,
+        plugins: { ...opt.plugins, legend: { display: false } },
+        scales: {
+            x: { ticks:{color:'#9ca3af', maxRotation:45, font:{size:8}}, grid:{color:'rgba(255,255,255,0.05)'} },
+            y: { ticks:{color:'#9ca3af'}, grid:{color:'rgba(255,255,255,0.05)'} }
+        }
+    }
+});
+
+new Chart(document.getElementById('chartSupports'), {
+    type: 'bar',
+    data: {
+        labels: {{ chart_sup_labels|safe }},
+        datasets: [{ label: 'Encre (kg)', data: {{ chart_sup_vals|safe }}, backgroundColor: 'rgba(167,139,250,0.8)', borderRadius: 5 }]
+    },
+    options: { ...opt, indexAxis: 'y',
+        plugins: { ...opt.plugins, legend: { display: false } },
+        scales: {
+            x: { ticks:{color:'#9ca3af'}, grid:{color:'rgba(255,255,255,0.05)'} },
+            y: { ticks:{color:'#d1d5db'}, grid:{color:'rgba(255,255,255,0.05)'} }
+        }
+    }
+});
+
+const tauxData = {{ chart_job_taux|safe }};
+new Chart(document.getElementById('chartJobTaux'), {
+    type: 'bar',
+    data: {
+        labels: {{ chart_job_labels|safe }},
+        datasets: [{
+            label: 'Taux évap. (%)',
+            data: tauxData,
+            backgroundColor: tauxData.map(v => v > 50 ? 'rgba(239,68,68,0.8)' : v > 30 ? 'rgba(249,115,22,0.8)' : 'rgba(34,197,94,0.8)'),
+            borderRadius: 5,
+        }]
+    },
+    options: { ...opt,
+        plugins: { ...opt.plugins, legend: { display: false } },
+        scales: {
+            x: { ticks:{color:'#9ca3af', maxRotation:45, font:{size:8}}, grid:{color:'rgba(255,255,255,0.05)'} },
+            y: { max: 100, ticks:{color:'#9ca3af', callback: v => v+'%'}, grid:{color:'rgba(255,255,255,0.05)'} }
+        }
+    }
+});
+</script>
+
+{% endblock %}
