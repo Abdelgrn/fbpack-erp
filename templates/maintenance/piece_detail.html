@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'piece_list' %}" class="text-gray-400 hover:text-white">← Retour</a>
+        <h1 class="text-2xl font-bold text-white">{{ piece.designation }}</h1>
+        <span class="font-mono text-yellow-400 text-sm bg-yellow-500/10 px-2 py-1 rounded">{{ piece.reference }}</span>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'piece_edit' piece.id %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded-lg transition text-sm">✏️ Modifier</a>
+        <a href="{% url 'piece_mouvement' piece.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition text-sm">📦 Mouvement</a>
+    </div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-{% if piece.est_rupture %}red{% elif piece.est_stock_bas %}yellow{% else %}emerald{% endif %}-500/10 border border-{% if piece.est_rupture %}red{% elif piece.est_stock_bas %}yellow{% else %}emerald{% endif %}-500/30 rounded-xl p-6 text-center">
+        <div class="text-3xl font-bold {% if piece.est_rupture %}text-red-400{% elif piece.est_stock_bas %}text-yellow-400{% else %}text-emerald-400{% endif %}">{{ piece.quantite_stock }} {{ piece.unite }}</div>
+        <div class="text-gray-400 text-xs uppercase mt-1">Stock Actuel</div>
+        {% if piece.est_rupture %}<div class="text-red-400 text-xs font-bold mt-1">🔴 RUPTURE</div>{% elif piece.est_stock_bas %}<div class="text-yellow-400 text-xs font-bold mt-1">⚠️ STOCK BAS</div>{% endif %}
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center">
+        <div class="text-2xl font-bold text-white">{{ piece.valeur_stock|floatformat:0 }} DA</div>
+        <div class="text-gray-400 text-xs uppercase mt-1">Valeur Stock</div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center">
+        <div class="text-2xl font-bold text-blue-400">{{ piece.nb_utilisations_total|floatformat:0 }}</div>
+        <div class="text-gray-400 text-xs uppercase mt-1">Utilisations Total</div>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📋 Informations</h2>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-gray-400">Catégorie</span><span class="text-white">{{ piece.categorie|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Marque</span><span class="text-white">{{ piece.marque_piece|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Réf. fournisseur</span><span class="text-white font-mono text-xs">{{ piece.reference_fournisseur|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Fournisseur</span><span class="text-white">{{ piece.fournisseur|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Délai livraison</span><span class="text-white">{{ piece.delai_livraison_jours }} jours</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Stock min / max</span><span class="text-white">{{ piece.stock_minimum }} / {{ piece.stock_maximum }} {{ piece.unite }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Prix unitaire</span><span class="text-white">{{ piece.prix_unitaire|floatformat:2 }} DA</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Emplacement</span><span class="text-white">{{ piece.emplacement_stock|default:"—" }}</span></div>
+        </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">🔧 Machines Compatibles</h2>
+        <div class="space-y-2">
+            {% for machine in machines %}<div class="flex items-center justify-between bg-slate-700/50 rounded-lg px-3 py-2">
+                <a href="{% url 'maintenance_machine_detail' machine.id %}" class="text-yellow-400 hover:text-yellow-300 text-sm">{{ machine.name }}</a>
+                <span class="text-gray-500 text-xs">{{ machine.get_type_display }}</span>
+            </div>{% empty %}<p class="text-gray-600 italic text-sm">Aucune machine associée</p>{% endfor %}
+        </div>
+    </div>
+</div>
+<div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+        <h2 class="text-white font-bold">📦 Mouvements de Stock</h2>
+        <a href="{% url 'piece_mouvement' piece.id %}" class="bg-slate-600 hover:bg-slate-500 text-white text-sm font-bold py-1 px-3 rounded-lg transition">+ Mouvement</a>
+    </div>
+    <table class="w-full text-left text-sm">
+        <thead><tr class="bg-slate-900/80 text-gray-400 text-[10px] uppercase tracking-wider">
+            <th class="p-3">Type</th><th class="p-3">Quantité</th><th class="p-3">OM Lié</th><th class="p-3">Motif</th><th class="p-3">Date</th>
+        </tr></thead>
+        <tbody>
+            {% for mvt in mouvements %}
+            <tr class="border-t border-slate-700/50 hover:bg-slate-700/30">
+                <td class="p-3"><span class="text-xs font-bold {% if mvt.type_mouvement == 'ENTREE' or mvt.type_mouvement == 'RETOUR' %}text-emerald-400{% else %}text-red-400{% endif %}">{{ mvt.get_type_mouvement_display }}</span></td>
+                <td class="p-3 font-bold {% if mvt.type_mouvement == 'ENTREE' or mvt.type_mouvement == 'RETOUR' %}text-emerald-400{% else %}text-red-400{% endif %}">{% if mvt.type_mouvement == 'ENTREE' or mvt.type_mouvement == 'RETOUR' %}+{% else %}-{% endif %}{{ mvt.quantite }}</td>
+                <td class="p-3">{% if mvt.ordre_maintenance %}<a href="{% url 'om_detail' mvt.ordre_maintenance.id %}" class="text-yellow-400 hover:text-yellow-300 text-xs">OM-{{ mvt.ordre_maintenance.numero_om }}</a>{% else %}<span class="text-gray-600">—</span>{% endif %}</td>
+                <td class="p-3 text-gray-400 text-xs">{{ mvt.motif|truncatewords:5|default:"—" }}</td>
+                <td class="p-3 text-gray-500 text-xs">{{ mvt.date_mouvement|date:"d/m/Y H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="p-6 text-center text-gray-600 italic">Aucun mouvement</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

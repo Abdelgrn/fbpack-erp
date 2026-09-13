@@ -1,20 +1,19 @@
 {% extends 'base.html' %}
-
 {% block content %}
 <div class="max-w-7xl mx-auto">
     
     <!-- EN-TÊTE PRINCIPALE -->
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-white">Module Prépresse</h1>
+        <h1 class="text-3xl font-black text-white">🎨 Module Prépresse</h1>
         <p class="text-gray-400 mt-1">Gérez vos fiches techniques et votre parc d'outillage.</p>
     </div>
 
     <!-- BARRE D'ONGLETS (NAVIGATION) -->
-    <div class="flex border-b border-slate-700 mb-6">
-        <button onclick="openTab('tab-products', this)" id="btn-default" class="tab-btn px-6 py-3 text-sm font-bold text-white border-b-2 border-neon focus:outline-none transition-colors">
+    <div class="flex border-b border-slate-700 mb-6 bg-slate-800/50 p-1 rounded-t-xl overflow-hidden gap-1">
+        <button onclick="openTab('tab-products', this)" id="btn-default" class="tab-btn flex-1 py-3 text-sm font-bold text-white bg-slate-700 rounded-lg shadow focus:outline-none transition-all duration-300">
             📦 Produits Techniques
         </button>
-        <button onclick="openTab('tab-tools', this)" class="tab-btn px-6 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none transition-colors">
+        <button onclick="openTab('tab-tools', this)" class="tab-btn flex-1 py-3 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg focus:outline-none transition-all duration-300">
             ⚙️ Parc Outillage (Clichés/Cylindres)
         </button>
     </div>
@@ -23,15 +22,15 @@
     <div id="tab-products" class="tab-content block animate-fade-in">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-white">Liste des Produits</h2>
-            <a href="{% url 'add_product' %}" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold py-2 px-4 rounded shadow-lg shadow-yellow-500/20 transition flex items-center gap-2">
-                <span>+</span> Nouveau Produit
+            <a href="{% url 'add_product' %}" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-2 px-5 rounded-lg shadow-lg shadow-cyan-500/20 transition flex items-center gap-2">
+                <span>➕</span> Nouveau Produit
             </a>
         </div>
 
-        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="glass rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm text-gray-400">
-                    <thead class="bg-slate-900 text-gray-200 uppercase font-bold">
+                    <thead class="bg-slate-800/80 text-[10px] text-gray-300 uppercase font-extrabold tracking-wider border-b border-slate-600">
                         <tr>
                             <th class="px-6 py-4">Réf. Interne</th>
                             <th class="px-6 py-4">Désignation</th>
@@ -41,24 +40,24 @@
                             <th class="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-700">
+                    <tbody class="divide-y divide-slate-700/50">
                         {% for p in products %}
-                        <tr class="hover:bg-slate-700/50 transition">
-                            <td class="px-6 py-4 font-mono text-neon font-bold">{{ p.ref_internal }}</td>
+                        <tr class="hover:bg-slate-700/30 transition">
+                            <td class="px-6 py-4 font-mono text-cyan-400 font-bold">{{ p.ref_internal }}</td>
                             <td class="px-6 py-4 text-white font-medium">{{ p.name }}</td>
                             <td class="px-6 py-4">{{ p.client.name }}</td>
-                            <td class="px-6 py-4">{{ p.structure_type }} ({{ p.num_colors }} Coul.)</td>
+                            <td class="px-6 py-4"><span class="bg-slate-700 px-2 py-1 rounded text-xs">{{ p.structure_type }}</span> <span class="text-xs text-gray-500 ml-1">({{ p.num_colors }} Coul.)</span></td>
                             <td class="px-6 py-4 text-center">
                                 {% if p.artwork_file %}
-                                    <a href="{{ p.artwork_file.url }}" target="_blank" class="text-blue-400 hover:text-blue-300 underline">PDF</a>
-                                {% else %} - {% endif %}
+                                    <a href="{{ p.artwork_file.url }}" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-medium text-xs bg-blue-500/10 px-2 py-1 rounded">📄 PDF</a>
+                                {% else %} <span class="text-gray-600">-</span> {% endif %}
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <a href="{% url 'edit_product' p.id %}" class="text-blue-400 hover:text-blue-300 font-medium border border-blue-500/30 px-3 py-1 rounded hover:bg-blue-500/10 transition">Éditer</a>
+                                <a href="{% url 'edit_product' p.id %}" class="text-white hover:text-white font-medium bg-slate-700 px-4 py-1.5 rounded hover:bg-slate-600 transition shadow">Éditer</a>
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">Aucun produit.</td></tr>
+                        <tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">Aucun produit technique enregistré.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -70,15 +69,15 @@
     <div id="tab-tools" class="tab-content hidden animate-fade-in">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-white">Suivi des Clichés & Cylindres</h2>
-            <a href="{% url 'add_tool' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
-                <span>+</span> Ajouter Outillage
+            <a href="{% url 'add_tool' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-5 rounded-lg shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
+                <span>➕</span> Ajouter Outillage
             </a>
         </div>
 
-        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="glass rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm text-gray-400">
-                    <thead class="bg-slate-900 text-gray-200 uppercase font-bold">
+                    <thead class="bg-slate-800/80 text-[10px] text-gray-300 uppercase font-extrabold tracking-wider border-b border-slate-600">
                         <tr>
                             <th class="px-6 py-4">N° Série</th>
                             <th class="px-6 py-4">Type</th>
@@ -87,33 +86,33 @@
                             <th class="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-700">
+                    <tbody class="divide-y divide-slate-700/50">
                         {% for t in tools %}
-                        <tr class="hover:bg-slate-700/50 transition">
+                        <tr class="hover:bg-slate-700/30 transition">
                             <td class="px-6 py-4 font-mono text-white font-bold">{{ t.serial_number }}</td>
                             <td class="px-6 py-4">
                                 {% if t.tool_type == 'CYL' %}
-                                    <span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs border border-purple-500/30">Cylindre</span>
+                                    <span class="bg-purple-500/20 text-purple-400 px-2.5 py-1 rounded text-xs border border-purple-500/30 font-bold uppercase tracking-wider">Cylindre</span>
                                 {% else %}
-                                    <span class="bg-orange-500/20 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500/30">Cliché</span>
+                                    <span class="bg-orange-500/20 text-orange-400 px-2.5 py-1 rounded text-xs border border-orange-500/30 font-bold uppercase tracking-wider">Cliché</span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 text-gray-300">{{ t.product.name }}</td>
                             <td class="px-6 py-4">
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span>{{ t.current_impressions }} / {{ t.max_impressions }}</span>
-                                    <span class="font-bold">{{ t.wear_percent }}%</span>
+                                <div class="flex justify-between text-[11px] mb-1.5 uppercase font-bold tracking-wider">
+                                    <span class="text-gray-400">{{ t.current_impressions }} / {{ t.max_impressions }}</span>
+                                    <span class="{% if t.wear_percent > 90 %}text-red-400{% elif t.wear_percent > 70 %}text-yellow-400{% else %}text-emerald-400{% endif %}">{{ t.wear_percent }}%</span>
                                 </div>
-                                <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
-                                    <div class="h-2.5 rounded-full {% if t.wear_percent > 90 %}bg-red-500{% elif t.wear_percent > 70 %}bg-yellow-500{% else %}bg-green-500{% endif %}" style="width: {{ t.wear_percent }}%"></div>
+                                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+                                    <div class="h-2 rounded-full transition-all duration-500 {% if t.wear_percent > 90 %}bg-red-500{% elif t.wear_percent > 70 %}bg-yellow-500{% else %}bg-emerald-500{% endif %}" style="width: {{ t.wear_percent }}%"></div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <a href="{% url 'edit_tool' t.id %}" class="text-blue-400 hover:text-blue-300 font-medium border border-blue-500/30 px-3 py-1 rounded hover:bg-blue-500/10 transition">Éditer</a>
+                                <a href="{% url 'edit_tool' t.id %}" class="text-white hover:text-white font-medium bg-slate-700 px-4 py-1.5 rounded hover:bg-slate-600 transition shadow">Éditer</a>
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="5" class="px-6 py-10 text-center text-gray-500">Aucun outillage enregistré.</td></tr>
+                        <tr><td colspan="5" class="px-6 py-12 text-center text-gray-500">Aucun outillage enregistré.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -136,8 +135,8 @@
         // 2. Désactiver le style de tous les boutons
         var buttons = document.getElementsByClassName("tab-btn");
         for (var i = 0; i < buttons.length; i++) {
-            buttons[i].classList.remove("text-white", "border-neon");
-            buttons[i].classList.add("text-gray-400", "border-transparent");
+            buttons[i].classList.remove("text-white", "bg-slate-700", "shadow");
+            buttons[i].classList.add("text-gray-400", "hover:bg-slate-700/50");
         }
 
         // 3. Afficher le contenu demandé
@@ -145,8 +144,8 @@
         document.getElementById(tabName).classList.add("block");
 
         // 4. Activer le bouton cliqué
-        btnElement.classList.remove("text-gray-400", "border-transparent");
-        btnElement.classList.add("text-white", "border-neon");
+        btnElement.classList.remove("text-gray-400", "hover:bg-slate-700/50");
+        btnElement.classList.add("text-white", "bg-slate-700", "shadow");
     }
 </script>
 {% endblock %}

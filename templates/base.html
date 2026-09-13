@@ -18,9 +18,47 @@
         .nav-link.active { color: #f3b83a; background: rgba(243, 184, 58, 0.1); border-right: 3px solid #f3b83a; }
         .nav-link-drh:hover { color: #34d399; background: rgba(16, 185, 129, 0.08); }
         .nav-link-drh.active { color: #34d399; background: rgba(16, 185, 129, 0.12); border-right: 3px solid #34d399; }
+        .nav-link-maint:hover { color: #f97316; background: rgba(249, 115, 22, 0.08); }
+        .nav-link-maint.active { color: #f97316; background: rgba(249, 115, 22, 0.12); border-right: 3px solid #f97316; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        
+        /* STYLE GLOBAL POUR TOUS LES FORMULAIRES DJANGO DE L'ERP */
+        .django-form-container input, 
+        .django-form-container select, 
+        .django-form-container textarea,
+        .form-control, .form-select {
+            width: 100%;
+            background-color: #0f172a;
+            color: #f8fafc;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .django-form-container input:focus, 
+        .django-form-container select:focus, 
+        .django-form-container textarea:focus,
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: #f3b83a;
+            background-color: #1e293b;
+            box-shadow: 0 0 0 3px rgba(243, 184, 58, 0.15);
+        }
+
+        .django-form-container input[type="checkbox"] {
+            width: auto;
+            accent-color: #f3b83a;
+        }
+
+        ::-webkit-calendar-picker-indicator {
+            filter: invert(0.8) sepia(1) saturate(3) hue-rotate(175deg);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="bg-darkbg text-gray-200 font-sans h-screen flex overflow-hidden">
@@ -35,6 +73,8 @@
 
         <!-- MENU NAVIGATION -->
         <nav class="flex-1 py-4 overflow-y-auto space-y-1">
+
+            <!-- TABLEAU DE BORD -->
             <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                 <span class="mr-3 text-lg">📊</span> Dashboard
             </a>
@@ -45,9 +85,7 @@
                 <span class="mr-3 text-lg">📈</span> Reporting
             </a>
             
-            <!-- ══════════════════════════════════════ -->
-            <!-- GESTION OPÉRATIONNELLE                -->
-            <!-- ══════════════════════════════════════ -->
+            <!-- GESTION OPÉRATIONNELLE -->
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                 Gestion Opérationnelle
             </div>
@@ -67,27 +105,34 @@
             <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/stock/' in request.path %}active{% endif %}">
                 <span class="mr-3">📦</span> Stocks & Achats
             </a>
-            <a href="{% url 'machine_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'machines' in request.path %}active{% endif %}">
-                <span class="mr-3">🔧</span> Parc Machine
+
+            <!-- MODULE MAINTENANCE -->
+            <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-orange-500/60 uppercase tracking-widest">
+                Maintenance
+            </div>
+
+            <!-- UN SEUL BOUTON POUR TOUTE LA MAINTENANCE -->
+            <a href="{% url 'maintenance_dashboard' %}" class="nav-link-maint flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/maintenance/' in request.path %}active{% endif %}">
+                <span class="mr-3">🔧</span>
+                <span>Maintenance</span>
+                {% if alertes_maintenance_count > 0 %}
+                <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {{ alertes_maintenance_count }}
+                </span>
+                {% endif %}
             </a>
 
-            <!-- ══════════════════════════════════════ -->
-            <!-- MODULE DRH — RESSOURCES HUMAINES      -->
-            <!-- ══════════════════════════════════════ -->
             <!-- MODULE DRH -->
-<div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-emerald-500/60 uppercase tracking-widest">
-    Ressources Humaines
-</div>
+            <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-emerald-500/60 uppercase tracking-widest">
+                Ressources Humaines
+            </div>
 
-<a href="{% url 'drh_dashboard' %}" 
-   class="nav-link-drh flex items-center px-6 py-2 transition text-sm text-gray-300 
-   {% if 'drh' in request.path %}active{% endif %}">
-    <span class="mr-3">👥</span>
-    <span>DRH</span>
-</a>
-            <!-- ══════════════════════════════════════ -->
-            <!-- OUTILS                                -->
-            <!-- ══════════════════════════════════════ -->
+            <a href="{% url 'drh_dashboard' %}" class="nav-link-drh flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/drh/' in request.path %}active{% endif %}">
+                <span class="mr-3">👥</span>
+                <span>DRH</span>
+            </a>
+
+            <!-- OUTILS -->
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                 Outils
             </div>
@@ -98,6 +143,7 @@
             <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300 {% if 'import' in request.path %}active{% endif %}">
                 <span class="mr-3">📥</span> Importer Excel
             </a>
+
         </nav>
 
         <!-- ZONE UTILISATEUR -->
@@ -119,19 +165,13 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2">
-                <a href="{% url 'admin_view' %}" 
-                   class="flex items-center justify-center gap-1 text-xs font-medium 
-                          bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg 
-                          border border-slate-600 transition duration-200">
+                <a href="{% url 'admin_view' %}" class="flex items-center justify-center gap-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg border border-slate-600 transition duration-200">
                     ⚙️ Admin
                 </a>
 
                 <form action="{% url 'logout' %}" method="post" class="w-full">
                     {% csrf_token %}
-                    <button type="submit" 
-                            class="w-full flex items-center justify-center gap-1 text-xs font-bold 
-                                   bg-red-500/10 hover:bg-red-500/20 text-red-400 border 
-                                   border-red-500/30 py-2 rounded-lg transition duration-200">
+                    <button type="submit" class="w-full flex items-center justify-center gap-1 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2 rounded-lg transition duration-200">
                         🚪 Sortir
                     </button>
                 </form>
@@ -167,7 +207,6 @@
 
     <!-- AUTO-HIDE MESSAGES -->
     <script>
-        // Masquer les messages après 5 secondes
         setTimeout(function() {
             document.querySelectorAll('[class*="bg-emerald-500/10"], [class*="bg-red-500/10"], [class*="bg-yellow-500/10"], [class*="bg-blue-500/10"]').forEach(function(el) {
                 if (el.parentElement.classList.contains('px-8')) {

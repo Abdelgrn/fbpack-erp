@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- EN-TÊTE -->
+<div class="mb-4 flex justify-between items-center flex-wrap gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-white tracking-wider">🔧 Module Maintenance</h1>
+        <p class="text-gray-400 text-sm mt-1">Gestion des ateliers de fabrication et production</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'maintenance_machine_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition text-sm">
+            ← Retour au Parc Machine
+        </a>
+    </div>
+</div>
+
+<!-- BARRE DE NAVIGATION (ONGLETS DU MODULE MAINTENANCE) -->
+<div class="flex border-b border-slate-700 mb-8 bg-slate-800/50 p-1 rounded-t-xl overflow-x-auto gap-1 hide-scrollbar">
+    <a href="{% url 'maintenance_dashboard' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📊 Tableau de Bord
+    </a>
+    <a href="{% url 'maintenance_machine_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-white bg-slate-700 rounded-lg shadow transition-all whitespace-nowrap">
+        ⚙️ Parc Machine
+    </a>
+    <a href="{% url 'om_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📋 Ordres Maintenance
+    </a>
+    <a href="{% url 'plan_preventif_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📅 Plans Préventifs
+    </a>
+    <a href="{% url 'piece_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        🔩 Pièces Rechange
+    </a>
+    <a href="{% url 'maintenance_calendrier' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📆 Calendrier
+    </a>
+</div>
+
+<!-- FORMULAIRE ET GRILLE -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- LISTE DES ATELIERS -->
+    <div class="lg:col-span-2 space-y-4">
+        <h2 class="text-xl font-bold text-white mb-2">🏭 Ateliers existants</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for atelier in ateliers %}
+            <div class="glass rounded-xl p-5 border border-slate-700 flex items-center justify-between shadow hover:bg-slate-800/40 transition">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl p-2 bg-slate-900 rounded-xl">{{ atelier.icone|default:"🏭" }}</span>
+                    <div>
+                        <div class="text-white font-bold">{{ atelier.nom }}</div>
+                        <div class="text-gray-400 text-xs">{{ atelier.get_type_atelier_display }} — <strong class="text-yellow-400">{{ atelier.nb_machines }} machine(s)</strong></div>
+                    </div>
+                </div>
+                <a href="{% url 'maintenance_machine_list' %}?atelier={{ atelier.id }}" class="bg-blue-500/10 hover:bg-blue-500/30 text-blue-400 font-bold px-3 py-1.5 rounded-lg text-xs transition">
+                    Voir les machines
+                </a>
+            </div>
+            {% empty %}
+            <div class="glass border border-slate-700 rounded-xl p-8 text-center text-gray-500 italic col-span-2">
+                Aucun atelier créé. Utilisez le formulaire de droite pour en ajouter un.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- AJOUT ATELIER -->
+    <div class="glass border border-slate-700 rounded-xl p-6 h-fit shadow-xl">
+        <h2 class="text-white font-bold mb-4 flex items-center gap-2">
+            <span>➕</span> Nouvel Atelier
+        </h2>
+        <form method="post" class="space-y-4 django-form-container">
+            {% csrf_token %}
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Nom de l'atelier *</label>
+                <input type="text" name="nom" required placeholder="ex: Atelier Carton">
+            </div>
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Code unique *</label>
+                <input type="text" name="code" required placeholder="ex: ATL_CART">
+            </div>
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Type d'activité</label>
+                <select name="type_atelier">
+                    {% for value, label in form.fields.type_atelier.choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Icône (emoji) *</label>
+                <input type="text" name="icone" value="🏭" required placeholder="Insérer un émoji">
+            </div>
+            <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 rounded-lg transition text-sm">
+                💾 Créer l'Atelier
+            </button>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

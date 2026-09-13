@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'maintenance_machine_list' %}" class="text-gray-400 hover:text-white transition">← Retour</a>
+        <h1 class="text-2xl font-bold text-white">{{ machine.name }}</h1>
+        <span class="font-mono text-yellow-400 text-sm bg-yellow-500/10 px-2 py-1 rounded">{{ machine.code_machine }}</span>
+        <span class="px-3 py-1 rounded-full text-xs font-bold
+            {% if machine.status == 'RUN' %}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30
+            {% elif machine.status == 'PANNE' %}bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse
+            {% elif machine.status == 'MAINT' %}bg-orange-500/20 text-orange-400 border border-orange-500/30
+            {% else %}bg-slate-600 text-gray-400{% endif %}">
+            {{ machine.get_status_display }}
+        </span>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+        <a href="{% url 'maintenance_machine_edit' machine.id %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded-lg transition text-sm">✏️ Modifier</a>
+        <a href="{% url 'maintenance_machine_delete' machine.id %}" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 font-bold py-2 px-4 rounded-lg border border-red-500/30 transition text-sm">🗑️ Supprimer</a>
+        <a href="{% url 'om_create_panne' machine.id %}" class="bg-red-500 hover:bg-red-400 text-white font-bold py-2 px-4 rounded-lg transition text-sm">🚨 Déclarer Panne</a>
+        <a href="{% url 'om_create' %}?machine={{ machine.id }}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded-lg transition text-sm">+ Créer OM</a>
+        <a href="{% url 'machine_compteur_add' machine.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition text-sm">📊 Relever Compteur</a>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-gray-400 text-xs uppercase font-bold mb-1">MTBF</div>
+        <div class="text-2xl font-bold text-cyan-400">{{ mtbf|default:"—" }}{% if mtbf %}h{% endif %}</div>
+        <div class="text-gray-500 text-xs">Tps moyen entre pannes</div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-gray-400 text-xs uppercase font-bold mb-1">MTTR</div>
+        <div class="text-2xl font-bold text-orange-400">{{ mttr|default:"—" }}{% if mttr %}h{% endif %}</div>
+        <div class="text-gray-500 text-xs">Tps moyen réparation</div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-gray-400 text-xs uppercase font-bold mb-1">Disponibilité</div>
+        <div class="text-2xl font-bold {% if taux_disponibilite >= 90 %}text-emerald-400{% elif taux_disponibilite >= 75 %}text-yellow-400{% else %}text-red-400{% endif %}">{{ taux_disponibilite }}%</div>
+        <div class="text-gray-500 text-xs">Taux de disponibilité</div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+        <div class="text-gray-400 text-xs uppercase font-bold mb-1">Pannes Total</div>
+        <div class="text-2xl font-bold text-red-400">{{ nb_pannes_total }}</div>
+        <div class="text-gray-500 text-xs">{{ temps_arret_total }}h d'arrêt total</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+    <!-- INFOS MACHINE -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📋 Informations</h2>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span class="text-gray-400">Type</span><span class="text-white">{{ machine.get_type_display }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Atelier</span><span class="text-white">{{ machine.atelier.nom|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Marque</span><span class="text-white">{{ machine.marque|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Modèle</span><span class="text-white">{{ machine.modele|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">N° Série</span><span class="text-white font-mono text-xs">{{ machine.numero_serie|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Année</span><span class="text-white">{{ machine.annee_fabrication|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Mise en service</span><span class="text-white">{{ machine.date_mise_en_service|date:"d/m/Y"|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Âge</span><span class="text-white">{{ machine.age_annees|default:"—" }}{% if machine.age_annees %} ans{% endif %}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Criticité</span>
+                <span class="px-2 py-0.5 rounded text-xs font-bold {% if machine.criticite == 'A' %}bg-red-500/20 text-red-400{% elif machine.criticite == 'B' %}bg-yellow-500/20 text-yellow-400{% else %}bg-blue-500/20 text-blue-400{% endif %}">
+                    {{ machine.get_criticite_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- COMPTEURS -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📊 Compteurs</h2>
+        <div class="space-y-4">
+            <div class="bg-slate-700/50 rounded-lg p-3">
+                <div class="text-gray-400 text-xs uppercase font-bold mb-1">Heures Machine</div>
+                <div class="text-2xl font-bold text-cyan-400">{{ machine.compteur_heures|floatformat:1 }} h</div>
+            </div>
+            <div class="bg-slate-700/50 rounded-lg p-3">
+                <div class="text-gray-400 text-xs uppercase font-bold mb-1">Mètres Produits</div>
+                <div class="text-2xl font-bold text-blue-400">{{ machine.compteur_metres|floatformat:0 }} m</div>
+            </div>
+            <div class="bg-slate-700/50 rounded-lg p-3">
+                <div class="text-gray-400 text-xs uppercase font-bold mb-1">Tours / Cycles</div>
+                <div class="text-2xl font-bold text-purple-400">{{ machine.compteur_tours|floatformat:0 }}</div>
+            </div>
+            {% if machine.date_dernier_releve %}
+            <div class="text-gray-500 text-xs text-center">Dernier relevé : {{ machine.date_dernier_releve|date:"d/m/Y H:i" }}</div>
+            {% endif %}
+            <a href="{% url 'machine_compteur_add' machine.id %}" class="block text-center bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition text-sm mt-2">+ Nouveau Relevé</a>
+        </div>
+    </div>
+
+    <!-- PLANS PRÉVENTIFS -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📅 Plans Préventifs</h2>
+        <div class="space-y-2">
+            {% for plan in plans %}
+            <div class="bg-slate-700/50 rounded-lg p-3 flex justify-between items-center">
+                <div>
+                    <div class="text-white text-sm font-medium">{{ plan.titre|truncatewords:5 }}</div>
+                    <div class="text-gray-500 text-xs">{{ plan.get_type_frequence_display }}</div>
+                    {% if plan.jours_restants == 0 %}
+                        <span class="text-red-400 text-xs font-bold">⚠️ EN RETARD</span>
+                    {% else %}
+                        <span class="text-gray-400 text-xs">{{ plan.jours_restants }}j restants</span>
+                    {% endif %}
+                </div>
+                {% if plan.est_a_faire %}
+                <form method="post" action="{% url 'plan_preventif_generer_om' plan.id %}">{% csrf_token %}
+                    <button type="submit" class="bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 px-2 py-1 rounded text-xs transition">Générer OM</button>
+                </form>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="text-gray-600 italic text-sm">Aucun plan préventif</p>
+            {% endfor %}
+            <a href="{% url 'plan_preventif_create' %}" class="block text-center bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg transition text-sm mt-2">+ Ajouter Plan</a>
+        </div>
+    </div>
+</div>
+
+<!-- GRAPHIQUE PANNES -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📈 Historique Pannes par Mois</h2>
+        <canvas id="chartPannes" height="200"></canvas>
+    </div>
+
+    <!-- PIÈCES COMPATIBLES -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">🔩 Pièces Compatibles ({{ pieces.count }})</h2>
+        <div class="space-y-2 max-h-64 overflow-y-auto">
+            {% for piece in pieces %}
+            <div class="flex justify-between items-center bg-slate-700/50 rounded-lg px-3 py-2">
+                <div>
+                    <span class="text-white text-sm">{{ piece.designation|truncatewords:5 }}</span>
+                    <span class="text-gray-500 text-xs ml-2">{{ piece.reference }}</span>
+                </div>
+                <span class="text-xs {% if piece.est_rupture %}text-red-400{% elif piece.est_stock_bas %}text-yellow-400{% else %}text-emerald-400{% endif %}">
+                    {{ piece.quantite_stock }} {{ piece.unite }}
+                </span>
+            </div>
+            {% empty %}
+            <p class="text-gray-600 italic text-sm">Aucune pièce associée</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ORDRES DE MAINTENANCE -->
+<div class="mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-white">📋 Ordres de Maintenance</h2>
+        <a href="{% url 'om_create' %}?machine={{ machine.id }}" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded-lg transition text-sm">+ Créer OM</a>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <table class="w-full text-left text-sm">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-400 text-[10px] uppercase tracking-wider">
+                    <th class="p-3">N° OM</th>
+                    <th class="p-3">Type</th>
+                    <th class="p-3">Titre</th>
+                    <th class="p-3">Priorité</th>
+                    <th class="p-3">Statut</th>
+                    <th class="p-3">Durée</th>
+                    <th class="p-3">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for om in oms %}
+                <tr class="border-t border-slate-700/50 hover:bg-slate-700/30 transition">
+                    <td class="p-3"><a href="{% url 'om_detail' om.id %}" class="text-yellow-400 hover:text-yellow-300 font-bold">OM-{{ om.numero_om }}</a></td>
+                    <td class="p-3">
+                        <span class="text-xs {% if om.type_maintenance == 'CORRECTIVE' %}text-red-400{% elif om.type_maintenance == 'PREVENTIVE' %}text-blue-400{% else %}text-purple-400{% endif %}">
+                            {{ om.get_type_maintenance_display }}
+                        </span>
+                    </td>
+                    <td class="p-3 text-gray-300">{{ om.titre|truncatewords:6 }}</td>
+                    <td class="p-3">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold
+                            {% if om.priorite == 'URGENTE' %}bg-red-500/20 text-red-400
+                            {% elif om.priorite == 'HAUTE' %}bg-yellow-500/20 text-yellow-400
+                            {% else %}bg-blue-500/20 text-blue-400{% endif %}">
+                            {{ om.get_priorite_display }}
+                        </span>
+                    </td>
+                    <td class="p-3">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold
+                            {% if om.statut == 'TERMINE' %}bg-green-500/20 text-green-400
+                            {% elif om.statut == 'EN_COURS' %}bg-yellow-500/20 text-yellow-400
+                            {% elif om.statut == 'OUVERT' %}bg-blue-500/20 text-blue-400
+                            {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                            {{ om.get_statut_display }}
+                        </span>
+                    </td>
+                    <td class="p-3 text-gray-400 text-xs">{{ om.temps_arret_minutes }} min</td>
+                    <td class="p-3 text-gray-500 text-xs">{{ om.date_creation|date:"d/m/Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="p-6 text-center text-gray-600 italic">Aucun ordre de maintenance</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+new Chart(document.getElementById('chartPannes'), {
+    type: 'bar',
+    data: {
+        labels: {{ pannes_mois_labels|safe }},
+        datasets: [{
+            label: 'Pannes',
+            data: {{ pannes_mois_data|safe }},
+            backgroundColor: '#ef4444',
+            borderRadius: 6,
+        }]
+    },
+    options: {
+        scales: {
+            x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#334155' } },
+            y: { ticks: { color: '#9ca3af' }, grid: { color: '#334155' } },
+        },
+        plugins: { legend: { display: false } },
+    }
+});
+</script>
+{% endblock %}

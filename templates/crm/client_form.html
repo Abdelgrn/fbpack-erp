@@ -1,99 +1,100 @@
-<!-- ============================================================
-     FICHIER: templates/crm/client_form.html
-     ============================================================ -->
 {% extends 'base.html' %}
 {% block content %}
 <div class="max-w-3xl mx-auto mt-8">
-    <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl p-8">
-        <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4">{{ titre }}</h2>
-        <form method="post">
+    <div class="glass rounded-2xl border border-slate-700 shadow-2xl p-8">
+        <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-3">
+            <span>🤝</span> {{ titre }}
+        </h2>
+        <form method="post" class="django-form-container">
             {% csrf_token %}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
                 <!-- COLONNE 1 -->
                 <div class="space-y-4 md:col-span-2">
-                    <h3 class="text-yellow-400 font-bold text-sm uppercase tracking-wider">Identité</h3>
+                    <h3 class="text-neon font-bold text-xs uppercase tracking-widest bg-slate-900/50 py-2 px-3 rounded-lg border-l-4 border-neon">Identité</h3>
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.name.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.name.label }}</label>
                     {{ form.name }}
                     {% if form.name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.name.errors }}</p>{% endif %}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.code_client.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.code_client.label }}</label>
                     {{ form.code_client }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.status.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.status.label }}</label>
                     {{ form.status }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.commercial.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.commercial.label }}</label>
                     {{ form.commercial }}
                 </div>
 
                 <!-- SEGMENTATION -->
                 <div class="md:col-span-2 mt-4">
-                    <h3 class="text-yellow-400 font-bold text-sm uppercase tracking-wider border-t border-slate-700 pt-4">Segmentation</h3>
+                    <h3 class="text-neon font-bold text-xs uppercase tracking-widest bg-slate-900/50 py-2 px-3 rounded-lg border-l-4 border-neon">Segmentation</h3>
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.segment.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.segment.label }}</label>
                     {{ form.segment }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.size.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.size.label }}</label>
                     {{ form.size }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.region.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.region.label }}</label>
                     {{ form.region }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.ca_estime.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.ca_estime.label }}</label>
                     {{ form.ca_estime }}
                 </div>
-                <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.sector.label }}</label>
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.sector.label }}</label>
                     {{ form.sector }}
                 </div>
 
                 <!-- COORDONNÉES -->
                 <div class="md:col-span-2 mt-4">
-                    <h3 class="text-yellow-400 font-bold text-sm uppercase tracking-wider border-t border-slate-700 pt-4">Coordonnées</h3>
+                    <h3 class="text-neon font-bold text-xs uppercase tracking-widest bg-slate-900/50 py-2 px-3 rounded-lg border-l-4 border-neon">Coordonnées</h3>
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.city.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.city.label }}</label>
                     {{ form.city }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.phone.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.phone.label }}</label>
                     {{ form.phone }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.email.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.email.label }}</label>
                     {{ form.email }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.website.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.website.label }}</label>
                     {{ form.website }}
                 </div>
                 <div class="md:col-span-2">
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.address.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.address.label }}</label>
                     {{ form.address }}
                 </div>
                 <div class="md:col-span-2">
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.notes.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.notes.label }}</label>
                     {{ form.notes }}
                 </div>
             </div>
 
-            <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-slate-700">
+            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
                 {% if client %}
-                <a href="{% url 'client_detail' client.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition">Annuler</a>
+                <a href="{% url 'client_detail' client.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
                 {% else %}
-                <a href="{% url 'crm_view' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition">Annuler</a>
+                <a href="{% url 'crm_view' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
                 {% endif %}
-                <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-6 rounded shadow-lg transition">💾 Enregistrer</button>
+                <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-yellow-500/20 transition uppercase tracking-wider text-sm">
+                    💾 Enregistrer
+                </button>
             </div>
         </form>
     </div>

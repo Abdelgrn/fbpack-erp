@@ -1,6 +1,38 @@
 {% extends 'base.html' %}
 {% block content %}
 
+<style>
+    /* Style adapté pour le module Encre (Bordures et focus violets/roses au lieu de cyan) */
+    .django-form-container input, 
+    .django-form-container select, 
+    .django-form-container textarea,
+    .form-control, .form-select {
+        width: 100%;
+        background-color: #0f172a;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        border-radius: 0.5rem;
+        padding: 0.6rem 0.75rem;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+    }
+    
+    .django-form-container input:focus, 
+    .django-form-container select:focus, 
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #a855f7; /* Bordure violette au focus */
+        background-color: #1e293b;
+        box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15); /* Halo lumineux violet */
+    }
+
+    ::-webkit-calendar-picker-indicator {
+        filter: invert(0.8) sepia(1) saturate(3) hue-rotate(175deg);
+        cursor: pointer;
+    }
+</style>
+
 <h1 class="text-3xl font-black text-white mb-2">🎨 Encre & Impression</h1>
 <p class="text-gray-400 mb-6">{{ titre }}</p>
 
@@ -20,7 +52,7 @@
 
     <!-- FORMULAIRE -->
     <div class="lg:col-span-2">
-        <form method="POST">
+        <form method="POST" class="django-form-container">
             {% csrf_token %}
 
             <!-- Infos générales -->

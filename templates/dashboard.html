@@ -2,6 +2,70 @@
 {% block content %}
 <h2 class="text-3xl font-bold text-white mb-6">Vue d'ensemble</h2>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- ALERTES MAINTENANCE (machines en panne / OM urgents)      -->
+<!-- ══════════════════════════════════════════════════════════ -->
+{% if nb_pannes_actives > 0 or alertes_critiques_maint > 0 %}
+<div class="mb-6 space-y-3">
+
+    {% if nb_pannes_actives > 0 %}
+    <div class="bg-red-500/10 border border-red-500/40 rounded-xl p-4 flex items-start gap-4 animate-pulse">
+        <span class="text-3xl mt-0.5">🚨</span>
+        <div class="flex-1">
+            <p class="text-red-400 font-bold text-lg">{{ nb_pannes_actives }} machine(s) EN PANNE !</p>
+            <div class="flex flex-wrap gap-2 mt-2">
+                {% for m in machines_en_panne %}
+                <a href="{% url 'maintenance_machine_detail' m.id %}"
+                   class="bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold px-3 py-1 rounded-full border border-red-500/40 transition">
+                    🔴 {{ m.name }}
+                </a>
+                {% endfor %}
+            </div>
+            <a href="{% url 'om_list' %}?statut=OUVERT" class="text-red-400 hover:text-red-300 text-sm underline mt-2 inline-block">
+                Voir les ordres de maintenance →
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if machines_en_maintenance %}
+    <div class="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 flex items-start gap-4">
+        <span class="text-2xl mt-0.5">🔧</span>
+        <div class="flex-1">
+            <p class="text-orange-400 font-bold">{{ machines_en_maintenance.count }} machine(s) en maintenance</p>
+            <div class="flex flex-wrap gap-2 mt-2">
+                {% for m in machines_en_maintenance %}
+                <a href="{% url 'maintenance_machine_detail' m.id %}"
+                   class="bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 text-xs font-bold px-3 py-1 rounded-full border border-orange-500/40 transition">
+                    🔧 {{ m.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if om_urgents %}
+    <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+        <p class="text-yellow-400 font-bold mb-2">⚡ OM Urgents / Haute priorité</p>
+        <div class="space-y-1">
+            {% for om in om_urgents %}
+            <div class="flex items-center gap-3 text-sm">
+                <span class="{% if om.priorite == 'URGENTE' %}text-red-400{% else %}text-yellow-400{% endif %} font-bold text-xs">
+                    {{ om.get_priorite_display }}
+                </span>
+                <a href="{% url 'om_detail' om.id %}" class="text-white hover:text-yellow-400 transition font-bold">OM-{{ om.numero_om }}</a>
+                <span class="text-gray-400">{{ om.machine.name }}</span>
+                <span class="text-gray-500 text-xs">— {{ om.titre|truncatewords:5 }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endif %}
+
 <!-- KPIS -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     <div class="glass p-4 rounded-xl border-t-4 border-neon">
@@ -19,6 +83,9 @@
     <div class="glass p-4 rounded-xl border-t-4 border-yellow-500">
         <p class="text-gray-400 text-xs uppercase">Machines Actives</p>
         <p class="text-3xl font-bold text-white">{{ machines.count }}</p>
+        {% if nb_pannes_actives > 0 %}
+        <p class="text-red-400 text-xs mt-1 font-bold">⚠️ {{ nb_pannes_actives }} en panne</p>
+        {% endif %}
     </div>
 </div>
 
@@ -26,10 +93,14 @@
 <h3 class="text-xl font-bold text-white mb-4">État du Parc Machine (Temps Réel)</h3>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
     {% for m in machines %}
-    <div class="glass p-4 rounded-lg flex items-center justify-between">
+    <a href="{% url 'maintenance_machine_detail' m.id %}" 
+       class="glass p-4 rounded-lg flex items-center justify-between hover:bg-slate-700/50 transition group">
         <div>
-            <h4 class="font-bold text-white">{{ m.name }}</h4>
+            <h4 class="font-bold text-white group-hover:text-yellow-400 transition">{{ m.name }}</h4>
             <span class="text-xs text-gray-400">{{ m.get_type_display }}</span>
+            {% if m.om_actif %}
+            <p class="text-xs text-orange-400 mt-0.5">OM-{{ m.om_actif.numero_om }} en cours</p>
+            {% endif %}
         </div>
         <span class="px-3 py-1 rounded text-xs font-bold
             {% if m.status == 'RUN' %}bg-green-900 text-green-300 shadow-[0_0_10px_rgba(34,197,94,0.5)]
@@ -38,7 +109,52 @@
             {% else %}bg-slate-700 text-gray-400{% endif %}">
             {{ m.get_status_display }}
         </span>
-    </div>
+    </a>
     {% endfor %}
 </div>
+
+<!-- OF RÉCENTS -->
+{% if of_recents %}
+<h3 class="text-xl font-bold text-white mb-4">Ordres de Fabrication récents</h3>
+<div class="glass rounded-xl overflow-hidden mb-8">
+    <table class="w-full text-left text-sm">
+        <thead>
+            <tr class="bg-slate-900/80 text-gray-400 text-[10px] uppercase tracking-wider">
+                <th class="p-3">N° OF</th>
+                <th class="p-3">Client</th>
+                <th class="p-3">Produit</th>
+                <th class="p-3">Statut</th>
+                <th class="p-3">Progression</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for of in of_recents %}
+            <tr class="border-t border-slate-700/50 hover:bg-slate-700/30 transition">
+                <td class="p-3"><a href="{% url 'of_detail' of.id %}" class="text-yellow-400 hover:text-yellow-300 font-bold">OF-{{ of.numero_of }}</a></td>
+                <td class="p-3 text-gray-300">{{ of.client.name }}</td>
+                <td class="p-3 text-gray-400 text-xs">{{ of.produit.name|truncatewords:4 }}</td>
+                <td class="p-3">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold
+                        {% if of.statut == 'EN_COURS' %}bg-blue-500/20 text-blue-400
+                        {% elif of.statut == 'TERMINE' %}bg-green-500/20 text-green-400
+                        {% elif of.statut == 'LANCE' %}bg-yellow-500/20 text-yellow-400
+                        {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                        {{ of.get_statut_display }}
+                    </span>
+                </td>
+                <td class="p-3">
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 bg-slate-700 rounded-full h-1.5 w-20">
+                            <div class="bg-yellow-400 h-1.5 rounded-full" style="width:{{ of.progression }}%"></div>
+                        </div>
+                        <span class="text-gray-400 text-xs">{{ of.progression }}%</span>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
 {% endblock %}

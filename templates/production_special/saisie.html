@@ -1,91 +1,158 @@
 {% extends 'base.html' %}
 {% block content %}
+
+<style>
+    .django-form-container input, 
+    .django-form-container select, 
+    .django-form-container textarea,
+    .form-control, .form-select {
+        width: 100%;
+        background-color: #0f172a;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        border-radius: 0.5rem;
+        padding: 0.6rem 0.75rem;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+    }
+    
+    .django-form-container input:focus, 
+    .django-form-container select:focus, 
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #06b6d4;
+        background-color: #1e293b;
+        box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+    }
+
+    ::-webkit-calendar-picker-indicator {
+        filter: invert(0.8) sepia(1) saturate(3) hue-rotate(175deg);
+        cursor: pointer;
+    }
+</style>
+
 <h1 class="text-3xl font-black text-white mb-2">🏭 Module Production</h1>
 <p class="text-gray-400 mb-6">Saisie de données de production</p>
 
 {% include 'production_special/_nav.html' %}
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- FORMULAIRE DE SAISIE -->
+    
     <div class="lg:col-span-1">
-        <div class="glass rounded-2xl p-6 border-2 border-cyan-500/20">
-            <h2 class="text-lg font-bold text-cyan-400 mb-4">
-                {% if edit_mode %}✏️ Modifier la saisie{% else %}📝 Nouvelle Saisie{% endif %}
-            </h2>
-            <form method="POST">
+        <div class="glass rounded-2xl p-5 border-t-4 border-t-cyan-500 shadow-xl shadow-cyan-900/10">
+            
+            <div class="flex items-center gap-3 mb-5">
+                <div class="h-10 w-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-lg">
+                    {% if edit_mode %}✏️{% else %}📝{% endif %}
+                </div>
+                <h2 class="text-xl font-bold text-white">
+                    {% if edit_mode %}Modifier la saisie{% else %}Nouvelle Saisie{% endif %}
+                </h2>
+            </div>
+            
+            <form method="POST" class="django-form-container">
                 {% csrf_token %}
                 
-                {% for field in form %}
-                <div class="mb-3">
-                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.errors %}
-                    <p class="text-red-400 text-xs mt-1">{{ field.errors.0 }}</p>
-                    {% endif %}
-                </div>
-                {% endfor %}
-                
-                <!-- Champs calculés (aperçu) -->
-                <div class="mt-4 p-3 bg-slate-800 rounded-xl border border-slate-600">
-                    <p class="text-xs text-gray-500 mb-1">Déchet KG = Dém + Lis + Jon + Tra</p>
-                    <p class="text-xs text-gray-500">Taux Déchets = Déchet KG / Prod KG × 100</p>
+                <div class="grid grid-cols-2 gap-x-3 gap-y-4">
+                    {% for field in form %}
+                    <div class="{% if field.name in 'produit,client,machine,support' %}col-span-2{% else %}col-span-1{% endif %}">
+                        <label class="block text-[10px] font-extrabold text-cyan-400 mb-1.5 uppercase tracking-widest">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <p class="text-red-400 text-[10px] mt-1 font-medium bg-red-400/10 p-1 rounded">{{ field.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                 </div>
                 
-                <button type="submit" class="w-full mt-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-cyan-500/20 text-lg">
-                    {% if edit_mode %}💾 Mettre à jour{% else %}✅ Enregistrer{% endif %}
+                <div class="mt-5 p-4 bg-slate-900/80 rounded-xl border border-slate-700">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-cyan-500">ℹ️</span>
+                        <span class="text-xs font-bold text-gray-300 uppercase tracking-wider">Formules de calcul</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mb-1"><strong class="text-gray-200">Déchet KG</strong> = Dém. + Lisière + Jonc. + Transp.</p>
+                    <p class="text-[11px] text-gray-400"><strong class="text-gray-200">Taux Déchets</strong> = (Déchet KG / Prod KG) × 100</p>
+                </div>
+                
+                <button type="submit" class="w-full mt-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/30 text-sm tracking-wide uppercase">
+                    {% if edit_mode %}💾 Mettre à jour la saisie{% else %}✅ Enregistrer la production{% endif %}
                 </button>
                 
                 {% if edit_mode %}
-                <a href="{% url 'prod_base' %}" class="block text-center mt-2 text-gray-400 hover:text-white text-sm">← Retour à la base</a>
+                <a href="{% url 'prod_base' %}" class="block text-center mt-4 text-gray-400 hover:text-white text-xs transition">← Annuler et Retourner</a>
                 {% endif %}
             </form>
         </div>
     </div>
     
-    <!-- APERÇU DES DERNIÈRES SAISIES -->
     <div class="lg:col-span-2">
-        <div class="glass rounded-2xl p-6">
-            <h2 class="text-lg font-bold text-gray-300 mb-4">📋 Dernières saisies</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-xs">
-                    <thead>
-                        <tr class="text-gray-400 border-b border-slate-600">
-                            <th class="py-2 text-left">Date</th>
-                            <th class="py-2 text-left">Produit</th>
-                            <th class="py-2 text-left">Support</th>
-                            <th class="py-2 text-center">Éq.</th>
-                            <th class="py-2 text-right">Prod ML</th>
-                            <th class="py-2 text-right">Prod KG</th>
-                            <th class="py-2 text-right">Déchet KG</th>
-                            <th class="py-2 text-right">Taux %</th>
+        <div class="glass rounded-2xl p-6 border-t-4 border-t-slate-500 h-full">
+            
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span>📋</span> Dernières saisies
+                </h2>
+                <span class="text-[10px] font-bold bg-slate-800 text-emerald-400 px-3 py-1 rounded-full border border-slate-700 uppercase tracking-widest flex items-center gap-2">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    Temps réel
+                </span>
+            </div>
+            
+            <div class="overflow-x-auto rounded-xl border border-slate-700">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-slate-800/80 text-[10px] uppercase font-extrabold text-gray-400 tracking-wider">
+                        <tr>
+                            <th class="px-4 py-3">Date</th>
+                            <th class="px-4 py-3">Produit & Support</th>
+                            <th class="px-4 py-3 text-center">Éq.</th>
+                            <th class="px-4 py-3 text-right">Prod ML</th>
+                            <th class="px-4 py-3 text-right">Prod KG</th>
+                            <th class="px-4 py-3 text-right">Déchet</th>
+                            <th class="px-4 py-3 text-right">Taux</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-slate-700/50 text-xs">
                         {% for e in recent %}
-                        <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 transition">
-                            <td class="py-2 text-gray-300">{{ e.date|date:"d/m/Y" }}</td>
-                            <td class="py-2 text-white font-medium">{{ e.produit|truncatechars:25 }}</td>
-                            <td class="py-2 text-gray-300">{{ e.support }}</td>
-                            <td class="py-2 text-center">
-                                <span class="px-2 py-0.5 rounded text-xs font-bold
-                                    {% if e.equipe == 'A' %}bg-blue-500/20 text-blue-400
-                                    {% elif e.equipe == 'B' %}bg-green-500/20 text-green-400
-                                    {% else %}bg-purple-500/20 text-purple-400{% endif %}">
+                        <tr class="hover:bg-slate-700/30 transition-colors duration-200">
+                            <td class="px-4 py-3 text-gray-300 font-medium whitespace-nowrap">{{ e.date|date:"d/m/Y" }}</td>
+                            <td class="px-4 py-3">
+                                <div class="text-white font-bold mb-0.5">{{ e.produit|truncatechars:25 }}</div>
+                                <div class="text-[10px] text-gray-500">{{ e.support|default:"-" }}</div>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider
+                                    {% if e.equipe == 'A' %}bg-blue-500/20 text-blue-400 border border-blue-500/20
+                                    {% elif e.equipe == 'B' %}bg-green-500/20 text-green-400 border border-green-500/20
+                                    {% else %}bg-purple-500/20 text-purple-400 border border-purple-500/20{% endif %}">
                                     {{ e.equipe }}
                                 </span>
                             </td>
-                            <td class="py-2 text-right text-gray-300">{{ e.prod_ml|floatformat:1 }}</td>
-                            <td class="py-2 text-right text-gray-300">{{ e.prod_kg|floatformat:2 }}</td>
-                            <td class="py-2 text-right text-red-400 font-medium">{{ e.total_dechets_kg }}</td>
-                            <td class="py-2 text-right font-bold
-                                {% if e.taux_dechets > 5 %}text-red-400
-                                {% elif e.taux_dechets > 3 %}text-yellow-400
-                                {% else %}text-green-400{% endif %}">
-                                {{ e.taux_dechets }}%
+                            <td class="px-4 py-3 text-right text-emerald-400 font-medium">{{ e.prod_ml|floatformat:1 }}</td>
+                            <td class="px-4 py-3 text-right text-emerald-400 font-medium">{{ e.prod_kg|floatformat:2 }}</td>
+                            <td class="px-4 py-3 text-right text-red-400 font-medium">{{ e.total_dechets_kg }}</td>
+                            <td class="px-4 py-3 text-right">
+                                <span class="px-2 py-1 rounded font-bold text-[11px]
+                                    {% if e.taux_dechets > 5 %}bg-red-500/10 text-red-400
+                                    {% elif e.taux_dechets > 3 %}bg-yellow-500/10 text-yellow-400
+                                    {% else %}bg-emerald-500/10 text-emerald-400{% endif %}">
+                                    {{ e.taux_dechets }}%
+                                </span>
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="8" class="py-8 text-center text-gray-500">Aucune saisie pour le moment</td></tr>
+                        <tr>
+                            <td colspan="7" class="px-4 py-12 text-center">
+                                <div class="text-4xl mb-3 opacity-50">📭</div>
+                                <div class="text-gray-300 font-bold text-sm">Aucune saisie pour le moment</div>
+                                <div class="text-xs text-gray-500 mt-1">Les données apparaîtront ici après le premier enregistrement.</div>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
