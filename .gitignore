@@ -1,0 +1,20 @@
+# Cache Python
+__pycache__/
+*.pyc
+
+# Base de données locale (ne doit PAS aller sur GitHub/Render)
+db.sqlite3
+db - Copie.sqlite3
+
+# Environnement virtuel
+.venv/
+venv/
+
+# Fichiers statiques et médias
+staticfiles/
+media/
+
+# Raccourcis Windows
+*.bat
+*.msix
+*.txt
