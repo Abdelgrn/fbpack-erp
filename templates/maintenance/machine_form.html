@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="mb-6 flex items-center gap-4">
+    <a href="{% url 'maintenance_machine_list' %}" class="text-gray-400 hover:text-white transition">← Retour</a>
+    <h1 class="text-2xl font-bold text-white">{{ titre }}</h1>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="max-w-4xl">
+    {% csrf_token %}
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- IDENTIFICATION -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h2 class="text-white font-bold mb-4 text-lg">🏷️ Identification</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Nom Machine *</label>
+                    <input type="text" name="name" value="{{ form.name.value|default:'' }}"
+                        class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none"
+                        required>
+                    {% if form.name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Code Machine</label>
+                    <input type="text" name="code_machine" value="{{ form.code_machine.value|default:'' }}"
+                        placeholder="Généré automatiquement si vide"
+                        class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Type *</label>
+                    <select name="type" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none" required>
+                        {% for value, label in form.fields.type.choices %}
+                        <option value="{{ value }}" {% if form.type.value == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Atelier</label>
+                    <select name="atelier" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                        <option value="">-- Aucun --</option>
+                        {% for atelier in form.fields.atelier.queryset %}
+                        <option value="{{ atelier.id }}" {% if form.atelier.value|stringformat:"s" == atelier.id|stringformat:"s" %}selected{% endif %}>{{ atelier }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Criticité</label>
+                    <select name="criticite" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                        {% for value, label in form.fields.criticite.choices %}
+                        <option value="{{ value }}" {% if form.criticite.value == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Statut</label>
+                    <select name="status" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                        {% for value, label in form.fields.status.choices %}
+                        <option value="{{ value }}" {% if form.status.value == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- INFOS TECHNIQUES -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h2 class="text-white font-bold mb-4 text-lg">⚙️ Informations Techniques</h2>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold">Marque</label>
+                        <input type="text" name="marque" value="{{ form.marque.value|default:'' }}"
+                            class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold">Modèle</label>
+                        <input type="text" name="modele" value="{{ form.modele.value|default:'' }}"
+                            class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">N° Série</label>
+                    <input type="text" name="numero_serie" value="{{ form.numero_serie.value|default:'' }}"
+                        class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold">Année fabrication</label>
+                        <input type="number" name="annee_fabrication" value="{{ form.annee_fabrication.value|default:'' }}"
+                            class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold">Mise en service</label>
+                        <input type="date" name="date_mise_en_service" value="{{ form.date_mise_en_service.value|default:'' }}"
+                            class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold">Puissance (kW)</label>
+                        <input type="number" step="0.1" name="puissance_kw" value="{{ form.puissance_kw.value|default:'' }}"
+                            class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold">Vitesse max (m/min)</label>
+                        <input type="number" step="0.1" name="vitesse_max" value="{{ form.vitesse_max.value|default:'' }}"
+                            class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold">Laize max (mm)</label>
+                        <input type="number" step="0.1" name="laize_max" value="{{ form.laize_max.value|default:'' }}"
+                            class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold">Nb couleurs</label>
+                        <input type="number" name="nb_couleurs" value="{{ form.nb_couleurs.value|default:'' }}"
+                            class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COÛTS -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h2 class="text-white font-bold mb-4 text-lg">💰 Coûts</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Coût d'acquisition (DA)</label>
+                    <input type="number" step="0.01" name="cout_acquisition" value="{{ form.cout_acquisition.value|default:'0' }}"
+                        class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Coût horaire (DA/h)</label>
+                    <input type="number" step="0.01" name="cout_horaire" value="{{ form.cout_horaire.value|default:'0' }}"
+                        class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Fournisseur machine</label>
+                    <select name="fournisseur_machine" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                        <option value="">-- Aucun --</option>
+                        {% for f in form.fields.fournisseur_machine.queryset %}
+                        <option value="{{ f.id }}" {% if form.fournisseur_machine.value|stringformat:"s" == f.id|stringformat:"s" %}selected{% endif %}>{{ f }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTES & PHOTO -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h2 class="text-white font-bold mb-4 text-lg">📝 Notes & Documents</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Notes</label>
+                    <textarea name="notes" rows="4"
+                        class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">{{ form.notes.value|default:'' }}</textarea>
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Photo</label>
+                    <input type="file" name="photo" accept="image/*"
+                        class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold">Documentation technique</label>
+                    <input type="file" name="documentation"
+                        class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+                </div>
+                <div class="flex items-center gap-2 mt-2">
+                    <input type="checkbox" name="est_active" id="est_active" {% if form.est_active.value %}checked{% endif %} class="rounded">
+                    <label for="est_active" class="text-gray-300 text-sm">Machine active</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOUTONS -->
+    <div class="flex gap-3 mt-6">
+        <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 px-8 rounded-lg transition">
+            💾 Enregistrer
+        </button>
+        <a href="{% url 'maintenance_machine_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-lg transition">
+            Annuler
+        </a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- EN-TÊTE -->
+<div class="mb-4 flex justify-between items-center flex-wrap gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-white tracking-wider">🔧 Module Maintenance</h1>
+        <p class="text-gray-400 text-sm mt-1">Plans de maintenance préventive et génération automatique</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+        <a href="{% url 'plan_preventif_create' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded-lg transition text-sm flex items-center gap-2">
+            <span>➕</span> Nouveau Plan
+        </a>
+        <form method="post" action="{% url 'generer_om_preventifs_auto' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" onclick="return confirm('Générer les OM préventifs dus ?')" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition text-sm flex items-center gap-2">
+                <span>⚙️</span> Générer Tous les OM Dus
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- BARRE DE NAVIGATION (ONGLETS DU MODULE MAINTENANCE) -->
+<div class="flex border-b border-slate-700 mb-8 bg-slate-800/50 p-1 rounded-t-xl overflow-x-auto gap-1 hide-scrollbar">
+    <a href="{% url 'maintenance_dashboard' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📊 Tableau de Bord
+    </a>
+    <a href="{% url 'maintenance_machine_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        ⚙️ Parc Machine
+    </a>
+    <a href="{% url 'om_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📋 Ordres Maintenance
+    </a>
+    <a href="{% url 'plan_preventif_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-white bg-slate-700 rounded-lg shadow transition-all whitespace-nowrap">
+        📅 Plans Préventifs
+    </a>
+    <a href="{% url 'piece_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        🔩 Pièces Rechange
+    </a>
+    <a href="{% url 'maintenance_calendrier' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📆 Calendrier
+    </a>
+</div>
+
+<!-- PLANS EN RETARD -->
+{% if plans_en_retard %}
+<div class="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
+    <span class="text-2xl">⚠️</span>
+    <p class="text-red-400 font-bold">{{ plans_en_retard|length }} plan(s) de maintenance préventive en retard de génération !</p>
+</div>
+{% endif %}
+
+<!-- FILTRES -->
+<form method="get" class="glass rounded-xl p-4 mb-8 flex flex-wrap gap-4 items-end">
+    <div class="flex-1 min-w-[200px]">
+        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Machine concernée</label>
+        <select name="machine" class="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-yellow-500 focus:outline-none w-full">
+            <option value="">Toutes les machines</option>
+            {% for m in machines %}
+            <option value="{{ m.id }}" {% if selected_machine == m.id|stringformat:"s" %}selected{% endif %}>{{ m.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="w-64">
+        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Statut du Plan</label>
+        <select name="statut" class="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-yellow-500 focus:outline-none w-full">
+            <option value="ACTIF" {% if selected_statut == 'ACTIF' %}selected{% endif %}>Actifs uniquement</option>
+            <option value="" {% if not selected_statut %}selected{% endif %}>Tous les plans</option>
+            <option value="SUSPENDU" {% if selected_statut == 'SUSPENDU' %}selected{% endif %}>Suspendus</option>
+        </select>
+    </div>
+    <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-6 rounded-lg transition text-sm flex items-center gap-1.5">
+        <span>🔍</span> Filtrer
+    </button>
+</form>
+
+<!-- LISTE DES PLANS -->
+<div class="glass rounded-xl overflow-hidden shadow-xl">
+    <table class="w-full text-left text-sm">
+        <thead>
+            <tr class="bg-slate-900/80 text-gray-400 text-[10px] uppercase tracking-wider">
+                <th class="p-4">Machine</th>
+                <th class="p-4">Titre du Plan</th>
+                <th class="p-4">Fréquence</th>
+                <th class="p-4">Dernière Exécution</th>
+                <th class="p-4">Prochaine intervention</th>
+                <th class="p-4">Statut Plan</th>
+                <th class="p-4">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plan in plans %}
+            <tr class="border-t border-slate-700/50 hover:bg-slate-700/30 transition {% if plan.est_en_retard %}bg-red-500/5{% endif %}">
+                <td class="p-4 text-white font-bold">{{ plan.machine.name }}</td>
+                <td class="p-4">
+                    <a href="{% url 'plan_preventif_detail' plan.id %}" class="text-yellow-400 hover:text-yellow-300 font-semibold">{{ plan.titre }}</a>
+                </td>
+                <td class="p-4 text-gray-300 text-xs font-medium">
+                    {{ plan.get_type_frequence_display }}
+                    {% if plan.type_frequence == 'TEMPS' %}/ {{ plan.frequence_jours }}j{% endif %}
+                </td>
+                <td class="p-4 text-gray-400 text-xs">{{ plan.derniere_execution|date:"d/m/Y"|default:"Aucune" }}</td>
+                <td class="p-4 text-xs font-bold">
+                    {% if plan.est_en_retard %}
+                        <span class="text-red-400 animate-pulse bg-red-500/10 px-2 py-1 rounded">⚠️ EN RETARD</span>
+                    {% elif plan.jours_restants <= 7 %}
+                        <span class="text-yellow-400 bg-yellow-500/10 px-2 py-1 rounded">{{ plan.jours_restants }} j restants</span>
+                    {% else %}
+                        <span class="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">{{ plan.jours_restants }} j restants</span>
+                    {% endif %}
+                </td>
+                <td class="p-4">
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold {% if plan.statut == 'ACTIF' %}bg-green-500/20 text-green-400{% elif plan.statut == 'SUSPENDU' %}bg-yellow-500/20 text-yellow-400{% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                        {{ plan.get_statut_display }}
+                    </span>
+                </td>
+                <td class="p-4">
+                    <div class="flex gap-2">
+                        <a href="{% url 'plan_preventif_detail' plan.id %}" class="bg-blue-500/10 hover:bg-blue-500/30 text-blue-400 px-2.5 py-1.5 rounded-lg text-xs font-bold transition">👁 Voir</a>
+                        {% if plan.est_a_faire %}
+                        <form method="post" action="{% url 'plan_preventif_generer_om' plan.id %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="bg-yellow-500/10 hover:bg-yellow-500/30 text-yellow-400 px-2.5 py-1.5 rounded-lg text-xs font-bold transition">⚙️ Générer OM</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="p-8 text-center text-gray-500 italic">Aucun plan de maintenance préventive configuré.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

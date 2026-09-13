@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+    <div>
+        <h1 class="text-2xl font-bold text-white">📊 KPIs Maintenance</h1>
+        <p class="text-gray-400 text-sm">Disponibilité moyenne: <span class="text-yellow-400 font-bold">{{ dispo_moyenne }}%</span> — Total pannes: <span class="text-red-400 font-bold">{{ total_pannes }}</span></p>
+    </div>
+    <a href="{% url 'maintenance_dashboard' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition text-sm">← Dashboard</a>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📈 Disponibilité par Machine</h2>
+        <canvas id="chartDispo" height="300"></canvas>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">🔴 Pannes par Machine</h2>
+        <canvas id="chartPannes" height="300"></canvas>
+    </div>
+</div>
+<div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <table class="w-full text-left text-sm">
+        <thead><tr class="bg-slate-900/80 text-gray-400 text-[10px] uppercase tracking-wider">
+            <th class="p-3">Machine</th><th class="p-3">Atelier</th><th class="p-3">Disponibilité</th><th class="p-3">MTBF</th><th class="p-3">MTTR</th><th class="p-3">Pannes Total</th><th class="p-3">Pannes Mois</th><th class="p-3">Tps Arrêt</th>
+        </tr></thead>
+        <tbody>
+            {% for kpi in kpis %}
+            <tr class="border-t border-slate-700/50 hover:bg-slate-700/30">
+                <td class="p-3"><a href="{% url 'maintenance_machine_detail' kpi.machine.id %}" class="text-yellow-400 hover:text-yellow-300 font-bold">{{ kpi.machine.name }}</a></td>
+                <td class="p-3 text-gray-400 text-xs">{{ kpi.machine.atelier.nom|default:"—" }}</td>
+                <td class="p-3">
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 bg-slate-700 rounded-full h-2 w-20">
+                            <div class="{% if kpi.disponibilite >= 90 %}bg-emerald-400{% elif kpi.disponibilite >= 75 %}bg-yellow-400{% else %}bg-red-400{% endif %} h-2 rounded-full" style="width:{{ kpi.disponibilite }}%"></div>
+                        </div>
+                        <span class="font-bold {% if kpi.disponibilite >= 90 %}text-emerald-400{% elif kpi.disponibilite >= 75 %}text-yellow-400{% else %}text-red-400{% endif %}">{{ kpi.disponibilite }}%</span>
+                    </div>
+                </td>
+                <td class="p-3 text-cyan-400">{{ kpi.mtbf|default:"—" }}{% if kpi.mtbf %}h{% endif %}</td>
+                <td class="p-3 text-orange-400">{{ kpi.mttr|default:"—" }}{% if kpi.mttr %}h{% endif %}</td>
+                <td class="p-3 text-red-400 font-bold">{{ kpi.pannes_total }}</td>
+                <td class="p-3 text-red-300">{{ kpi.pannes_mois }}</td>
+                <td class="p-3 text-gray-400">{{ kpi.temps_arret }}h</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="p-8 text-center text-gray-600 italic">Aucune machine</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+new Chart(document.getElementById('chartDispo'), {
+    type: 'bar',
+    data: {
+        labels: {{ machines_labels|safe }},
+        datasets: [{ label: 'Disponibilité %', data: {{ machines_dispo|safe }},
+            backgroundColor: {{ machines_dispo|safe }}.map(v => v >= 90 ? '#22c55e' : v >= 75 ? '#eab308' : '#ef4444'), borderRadius: 6 }]
+    },
+    options: { indexAxis: 'y', scales: { x: { max: 100, ticks: { color: '#9ca3af' }, grid: { color: '#334155' } }, y: { ticks: { color: '#e5e7eb', font: { size: 10 } }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+});
+new Chart(document.getElementById('chartPannes'), {
+    type: 'bar',
+    data: {
+        labels: {{ machines_labels|safe }},
+        datasets: [{ label: 'Pannes', data: {{ machines_pannes|safe }}, backgroundColor: '#ef4444', borderRadius: 6 }]
+    },
+    options: { indexAxis: 'y', scales: { x: { ticks: { color: '#9ca3af' }, grid: { color: '#334155' } }, y: { ticks: { color: '#e5e7eb', font: { size: 10 } }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+});
+</script>
+{% endblock %}

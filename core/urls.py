@@ -28,12 +28,12 @@ urlpatterns = [
     path('crm/contact/<int:id>/delete/', views.delete_contact, name='delete_contact'),
 
     # ==========================================
-    # CRM — INTERACTIONS / JOURNAL
+    # CRM — INTERACTIONS
     # ==========================================
     path('crm/client/<int:client_id>/interaction/add/', views.add_interaction, name='add_interaction'),
 
     # ==========================================
-    # CRM — OPPORTUNITÉS & PIPELINE
+    # CRM — OPPORTUNITÉS
     # ==========================================
     path('crm/opportunites/', views.opportunites_view, name='opportunites_view'),
     path('crm/opportunite/add/', views.add_opportunite, name='add_opportunite'),
@@ -65,7 +65,7 @@ urlpatterns = [
     path('production/edit/<int:id>/', views.edit_production, name='edit_production'),
 
     # ==========================================
-    # OF MULTI-PROCESSUS (NOUVEAU)
+    # OF MULTI-PROCESSUS
     # ==========================================
     path('of/', views.of_list_view, name='of_list'),
     path('of/create/', views.of_create_view, name='of_create'),
@@ -96,54 +96,21 @@ urlpatterns = [
     path('of/process-type/<int:pt_id>/delete/', views.process_type_delete, name='process_type_delete'),
 
     # ==========================================
-    # STOCKS, ACHATS & CONSO
+    # STOCKS & ACHATS
     # ==========================================
     path('stock/list/', views.stock_view, name='stock_view'),
     path('stock/material/add/', views.add_material, name='add_material'),
     path('stock/supplier/add/', views.add_supplier, name='add_supplier'),
     path('stock/consommation/add/', views.add_consommation, name='add_consommation'),
     path('stock/consommation/list/', views.conso_list_view, name='conso_list'),
-    path('stock/material/<int:id>/edit/',
-     views.edit_material, name='edit_material'),
-    path('stock/material/<int:id>/delete/',
-     views.delete_material, name='delete_material'),
-    path('stock/supplier/<int:id>/edit/',
-     views.edit_supplier, name='edit_supplier'),
-    
-    # RECHERCHE INTELLIGENTE (CORRIGÉ)
+    path('stock/material/<int:id>/edit/', views.edit_material, name='edit_material'),
+    path('stock/material/<int:id>/delete/', views.delete_material, name='delete_material'),
+    path('stock/supplier/<int:id>/edit/', views.edit_supplier, name='edit_supplier'),
     path('stock/search/api/', views.material_search_api, name='material_search_api'),
     path('stock/export/', views.export_search_results, name='export_search_results'),
 
     # ==========================================
-    # PARC MACHINE
-    # ==========================================
-    path('machines/', views.machine_view, name='machine_view'),
-    path('machines/add/', views.add_machine, name='add_machine'),
-
-    # ==========================================
-    # MODULE PRODUCTION SPÉCIAL
-    # ==========================================
-    path('prod/', views.prod_dashboard, name='prod_dashboard'),
-    path('prod/saisie/', views.prod_saisie, name='prod_saisie'),
-    path('prod/saisie/edit/<int:id>/', views.prod_edit_entry, name='prod_edit_entry'),
-    path('prod/saisie/delete/<int:id>/', views.prod_delete_entry, name='prod_delete_entry'),
-    path('prod/base/', views.prod_base, name='prod_base'),
-    path('prod/qualite/', views.prod_detail_qualite, name='prod_detail_qualite'),
-    path('prod/synthese/', views.prod_synthese_temps, name='prod_synthese_temps'),
-    path('import/template-special-prod/', views.download_template_special_prod, name='download_template_special_prod'),
-    
-    # ==========================================
-    # MODULE PRODUCTION SPÉCIAL — ENCRE
-    # ==========================================
-    path('prod/encre/', views.encre_dashboard, name='encre_dashboard'),
-    path('prod/encre/saisie/', views.encre_saisie, name='encre_saisie'),
-    path('prod/encre/<int:id>/edit/', views.encre_edit, name='encre_edit'),
-    path('prod/encre/<int:id>/delete/', views.encre_delete, name='encre_delete'),
-    path('prod/encre/<int:id>/detail/', views.encre_detail, name='encre_detail'),
-    path('prod/encre/analyse/', views.encre_analyse, name='encre_analyse'),
-    
-    # ==========================================
-    # MODULE STOCK AVANCÉ
+    # STOCK AVANCÉ
     # ==========================================
     path('stock/', views.stock_advanced_view, name='stock_advanced'),
     path('stock/location/add/', views.location_add, name='location_add'),
@@ -163,6 +130,34 @@ urlpatterns = [
     path('stock/api/dashboard/', views.stock_dashboard_data, name='stock_dashboard_data'),
 
     # ==========================================
+    # PARC MACHINE (ANCIEN — garde pour compat)
+    # ==========================================
+    path('machines/', views.machine_view, name='machine_view'),
+    path('machines/add/', views.add_machine, name='add_machine'),
+
+    # ==========================================
+    # MODULE PRODUCTION SPÉCIAL
+    # ==========================================
+    path('prod/', views.prod_dashboard, name='prod_dashboard'),
+    path('prod/saisie/', views.prod_saisie, name='prod_saisie'),
+    path('prod/saisie/edit/<int:id>/', views.prod_edit_entry, name='prod_edit_entry'),
+    path('prod/saisie/delete/<int:id>/', views.prod_delete_entry, name='prod_delete_entry'),
+    path('prod/base/', views.prod_base, name='prod_base'),
+    path('prod/qualite/', views.prod_detail_qualite, name='prod_detail_qualite'),
+    path('prod/synthese/', views.prod_synthese_temps, name='prod_synthese_temps'),
+    path('import/template-special-prod/', views.download_template_special_prod, name='download_template_special_prod'),
+
+    # ==========================================
+    # MODULE ENCRE
+    # ==========================================
+    path('prod/encre/', views.encre_dashboard, name='encre_dashboard'),
+    path('prod/encre/saisie/', views.encre_saisie, name='encre_saisie'),
+    path('prod/encre/<int:id>/edit/', views.encre_edit, name='encre_edit'),
+    path('prod/encre/<int:id>/delete/', views.encre_delete, name='encre_delete'),
+    path('prod/encre/<int:id>/detail/', views.encre_detail, name='encre_detail'),
+    path('prod/encre/analyse/', views.encre_analyse, name='encre_analyse'),
+
+    # ==========================================
     # ADMINISTRATION
     # ==========================================
     path('administration/', views.admin_view, name='admin_view'),
@@ -173,50 +168,34 @@ urlpatterns = [
     # ==========================================
     # MODULE DRH
     # ==========================================
-    
-    # Dashboard DRH
     path('drh/', views.drh_dashboard, name='drh_dashboard'),
-    
-    # Employés
     path('drh/employees/', views.employee_list, name='employee_list'),
     path('drh/employee/create/', views.employee_create, name='employee_create'),
     path('drh/employee/<int:emp_id>/', views.employee_detail, name='employee_detail'),
     path('drh/employee/<int:emp_id>/edit/', views.employee_edit, name='employee_edit'),
     path('drh/employee/<int:emp_id>/document/add/', views.employee_document_add, name='employee_document_add'),
-    
-    # Compétences
     path('drh/skills/', views.skill_list, name='skill_list'),
     path('drh/employee/<int:emp_id>/skill/add/', views.employee_skill_add, name='employee_skill_add'),
     path('drh/employee/<int:emp_id>/authorization/add/', views.machine_authorization_add, name='machine_authorization_add'),
     path('drh/authorization/<int:auth_id>/validate/', views.machine_authorization_validate, name='machine_authorization_validate'),
-    
-    # Pointage
     path('drh/attendance/', views.attendance_list, name='attendance_list'),
     path('drh/attendance/create/', views.attendance_create, name='attendance_create'),
     path('drh/attendance/bulk/', views.attendance_bulk, name='attendance_bulk'),
-    
-    # Congés
     path('drh/leaves/', views.leave_list, name='leave_list'),
     path('drh/leave/create/', views.leave_create, name='leave_create'),
     path('drh/leave/create/<int:emp_id>/', views.leave_create, name='leave_create_emp'),
     path('drh/leave/<int:leave_id>/validate-n1/', views.leave_validate_n1, name='leave_validate_n1'),
     path('drh/leave/<int:leave_id>/validate-rh/', views.leave_validate_rh, name='leave_validate_rh'),
     path('drh/leave/<int:leave_id>/reject/', views.leave_reject, name='leave_reject'),
-    
-    # Paie
     path('drh/payslips/', views.payslip_list, name='payslip_list'),
     path('drh/payslip/create/', views.payslip_create, name='payslip_create'),
     path('drh/payslip/<int:slip_id>/', views.payslip_detail, name='payslip_detail'),
     path('drh/payslip/<int:slip_id>/calculate/', views.payslip_calculate, name='payslip_calculate'),
     path('drh/payslip/<int:slip_id>/validate/', views.payslip_validate, name='payslip_validate'),
     path('drh/payslips/generate/', views.payslip_bulk_generate, name='payslip_bulk_generate'),
-    
-    # Planning
     path('drh/schedules/', views.schedule_list, name='schedule_list'),
     path('drh/schedule/<int:schedule_id>/', views.schedule_detail, name='schedule_detail'),
     path('drh/schedule/<int:schedule_id>/assign/', views.shift_assignment_add, name='shift_assignment_add'),
-    
-    # Santé & Sécurité
     path('drh/incidents/', views.incident_list, name='incident_list'),
     path('drh/incident/create/', views.incident_create, name='incident_create'),
     path('drh/incident/<int:incident_id>/', views.incident_detail, name='incident_detail'),
@@ -224,24 +203,75 @@ urlpatterns = [
     path('drh/medical/create/', views.medical_visit_create, name='medical_create'),
     path('drh/epi/', views.epi_list, name='epi_list'),
     path('drh/epi/create/', views.epi_create, name='epi_create'),
-    
-    # Configuration
     path('drh/departments/', views.department_list, name='department_list'),
     path('drh/positions/', views.position_list, name='position_list'),
     path('drh/shifts/', views.shift_list, name='shift_list'),
-    
-    # Exports
     path('drh/export/employees/', views.export_employees_excel, name='export_employees'),
     path('drh/export/payslips/', views.export_payslips_excel, name='export_payslips'),
-    
-    # ==========================================python manage.py runserver
-    # CHAT EN TEMPS RÉEL
+
+    # ==========================================
+    # CHAT
     # ==========================================
     path('chat/', views.chat_home, name='chat_home'),
     path('chat/<slug:room_slug>/', views.chat_room, name='chat_room'),
     path('chat/api/send/', views.chat_send_message, name='chat_send_message'),
     path('chat/api/messages/<slug:room_slug>/', views.chat_get_messages, name='chat_get_messages'),
     path('chat/api/notify/', views.send_system_notification, name='send_system_notification'),
+
+    # ==========================================
+    # ✅ MODULE MAINTENANCE AVANCÉ — COMPLET
+    # ==========================================
+
+    # Dashboard
+    path('maintenance/', views.maintenance_dashboard, name='maintenance_dashboard'),
+
+    # Ateliers
+    path('maintenance/ateliers/', views.atelier_list, name='atelier_list'),
+    path('maintenance/atelier/create/', views.atelier_create, name='atelier_create'),
+
+    # Machines améliorées
+    path('maintenance/machines/', views.maintenance_machine_list, name='maintenance_machine_list'),
+    path('maintenance/machine/create/', views.maintenance_machine_create, name='maintenance_machine_create'),
+    path('maintenance/machine/<int:machine_id>/', views.maintenance_machine_detail, name='maintenance_machine_detail'),
+    path('maintenance/machine/<int:machine_id>/edit/', views.maintenance_machine_edit, name='maintenance_machine_edit'),
+    path('maintenance/machine/<int:machine_id>/compteur/', views.machine_compteur_add, name='machine_compteur_add'),
+
+    # Ordres de Maintenance
+    path('maintenance/om/', views.om_list, name='om_list'),
+    path('maintenance/om/create/', views.om_create, name='om_create'),
+    path('maintenance/om/create/panne/<int:machine_id>/', views.om_create_panne, name='om_create_panne'),
+    path('maintenance/om/<int:om_id>/', views.om_detail, name='om_detail'),
+    path('maintenance/om/<int:om_id>/demarrer/', views.om_demarrer, name='om_demarrer'),
+    path('maintenance/om/<int:om_id>/cloturer/', views.om_cloturer, name='om_cloturer'),
+    path('maintenance/om/<int:om_id>/piece/add/', views.om_ajouter_piece, name='om_ajouter_piece'),
+
+    # Plans Préventifs
+    path('maintenance/preventif/', views.plan_preventif_list, name='plan_preventif_list'),
+    path('maintenance/preventif/create/', views.plan_preventif_create, name='plan_preventif_create'),
+    path('maintenance/preventif/<int:plan_id>/', views.plan_preventif_detail, name='plan_preventif_detail'),
+    path('maintenance/preventif/<int:plan_id>/generer/', views.plan_preventif_generer_om, name='plan_preventif_generer_om'),
+    path('maintenance/preventif/generer-auto/', views.generer_om_preventifs_auto, name='generer_om_preventifs_auto'),
+
+    # Pièces de Rechange
+    path('maintenance/pieces/', views.piece_list, name='piece_list'),
+    path('maintenance/piece/create/', views.piece_create, name='piece_create'),
+    path('maintenance/piece/<int:piece_id>/', views.piece_detail, name='piece_detail'),
+    path('maintenance/piece/<int:piece_id>/edit/', views.piece_edit, name='piece_edit'),
+    path('maintenance/piece/<int:piece_id>/mouvement/', views.piece_mouvement, name='piece_mouvement'),
+    path('maintenance/categories-pieces/', views.categorie_piece_list, name='categorie_piece_list'),
+
+    # Alertes
+    path('maintenance/alertes/', views.alerte_list, name='alerte_list'),
+    path('maintenance/alerte/<int:alerte_id>/traiter/', views.alerte_traiter, name='alerte_traiter'),
+    path('maintenance/generer-alertes/', views.generer_alertes, name='generer_alertes'),
+
+    # KPIs
+    path('maintenance/kpi/', views.maintenance_kpi, name='maintenance_kpi'),
+    path('maintenance/api/stats/', views.maintenance_stats_api, name='maintenance_stats_api'),
+    path('maintenance/machine/<int:machine_id>/delete/', 
+     views.maintenance_machine_delete, 
+     name='maintenance_machine_delete'),
+    path('maintenance/calendrier/', views.maintenance_calendrier, name='maintenance_calendrier'),
 ]
 
 if settings.DEBUG:

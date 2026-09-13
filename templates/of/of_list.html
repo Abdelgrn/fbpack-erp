@@ -46,7 +46,7 @@
     <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-6">
         <form method="get" class="grid grid-cols-2 md:grid-cols-6 gap-4">
             <div>
-                <label class="block text-gray-400 text-xs mb-1">Statut</label>
+                <label class="block text-gray-400 text-xs mb-1 uppercase font-bold">Statut</label>
                 <select name="statut" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
                     <option value="">Tous</option>
                     {% for code, label in statut_choices %}
@@ -55,7 +55,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-gray-400 text-xs mb-1">Priorité</label>
+                <label class="block text-gray-400 text-xs mb-1 uppercase font-bold">Priorité</label>
                 <select name="priorite" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
                     <option value="">Toutes</option>
                     {% for code, label in priorite_choices %}
@@ -64,7 +64,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-gray-400 text-xs mb-1">Client</label>
+                <label class="block text-gray-400 text-xs mb-1 uppercase font-bold">Client</label>
                 <select name="client" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
                     <option value="">Tous</option>
                     {% for c in clients %}
@@ -73,11 +73,11 @@
                 </select>
             </div>
             <div>
-                <label class="block text-gray-400 text-xs mb-1">Du</label>
+                <label class="block text-gray-400 text-xs mb-1 uppercase font-bold">Du</label>
                 <input type="date" name="date_from" value="{{ selected_date_from }}" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
             </div>
             <div>
-                <label class="block text-gray-400 text-xs mb-1">Au</label>
+                <label class="block text-gray-400 text-xs mb-1 uppercase font-bold">Au</label>
                 <input type="date" name="date_to" value="{{ selected_date_to }}" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
             </div>
             <div class="flex items-end">
@@ -90,11 +90,11 @@
 
     <!-- Liens rapides -->
     <div class="flex gap-3 mb-6">
-        <a href="{% url 'semi_produit_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-gray-300 px-4 py-2 rounded transition flex items-center gap-2">
-            📦 Semi-produits
+        <a href="{% url 'semi_produit_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-gray-300 px-4 py-2 rounded transition flex items-center gap-2 text-sm font-bold">
+            <span>📦</span> Semi-produits
         </a>
-        <a href="{% url 'process_type_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-gray-300 px-4 py-2 rounded transition flex items-center gap-2">
-            ⚙️ Types de processus
+        <a href="{% url 'process_type_list' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-gray-300 px-4 py-2 rounded transition flex items-center gap-2 text-sm font-bold">
+            <span>⚙️</span> Types de processus
         </a>
     </div>
 
@@ -102,9 +102,10 @@
     <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm text-gray-400">
-                <thead class="bg-slate-900 text-gray-200 uppercase font-bold">
+                <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-[10px] tracking-wider">
                     <tr>
                         <th class="px-4 py-4">N° OF</th>
+                        <th class="px-4 py-4">N° LOT</th>
                         <th class="px-4 py-4">Client / Produit</th>
                         <th class="px-4 py-4">Quantité</th>
                         <th class="px-4 py-4">Progression</th>
@@ -117,13 +118,19 @@
                 </thead>
                 <tbody class="divide-y divide-slate-700">
                     {% for of in ofs %}
-                    <tr class="hover:bg-slate-700/50 transition {% if of.est_en_retard %}bg-red-900/20{% endif %}">
+                    <tr class="hover:bg-slate-700/50 transition {% if of.est_en_retard %}bg-red-900/10{% endif %}">
                         <td class="px-4 py-4">
-                            <a href="{% url 'of_detail' of.id %}" class="font-mono text-neon font-bold hover:underline">
+                            <a href="{% url 'of_detail' of.id %}" class="font-mono text-neon font-bold hover:underline text-sm">
                                 {{ of.numero_of }}
                             </a>
+                        </td>
+                        <td class="px-4 py-4">
                             {% if of.numero_lot %}
-                            <div class="text-xs text-gray-500">Lot: {{ of.numero_lot }}</div>
+                            <span class="bg-slate-700/50 text-yellow-400 border border-slate-600 px-2.5 py-1 rounded text-xs font-bold font-mono">
+                                {{ of.numero_lot }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-600 text-xs italic">—</span>
                             {% endif %}
                         </td>
                         <td class="px-4 py-4">
@@ -132,7 +139,7 @@
                         </td>
                         <td class="px-4 py-4">
                             <div class="text-white font-bold">{{ of.quantite_prevue|floatformat:0 }} kg</div>
-                            <div class="text-xs text-green-400">Produit: {{ of.quantite_produite|floatformat:0 }} kg</div>
+                            <div class="text-[10px] text-green-400 font-bold uppercase tracking-wider mt-0.5">Produit: {{ of.quantite_produite|floatformat:0 }} kg</div>
                         </td>
                         <td class="px-4 py-4" style="min-width: 120px;">
                             <div class="flex items-center gap-2">
@@ -143,48 +150,48 @@
                             </div>
                         </td>
                         <td class="px-4 py-4">
-                            <span class="bg-slate-700 text-gray-300 px-2 py-1 rounded text-xs">
+                            <span class="bg-slate-700 text-gray-300 px-2 py-1 rounded font-bold text-xs">
                                 {{ of.etapes_terminees }}/{{ of.nb_etapes }}
                             </span>
                         </td>
                         <td class="px-4 py-4">
-                            <div class="text-xs">Lancement: {{ of.date_lancement|date:"d/m/Y"|default:"-" }}</div>
-                            <div class="text-xs {% if of.est_en_retard %}text-red-400{% endif %}">
-                                Fin: {{ of.date_prevue_fin|date:"d/m/Y"|default:"-" }}
+                            <div class="text-xs">Lancement: <span class="text-gray-300">{{ of.date_lancement|date:"d/m/Y"|default:"-" }}</span></div>
+                            <div class="text-xs mt-0.5 {% if of.est_en_retard %}text-red-400 font-bold{% else %}text-gray-400{% endif %}">
+                                Fin: <span class="{% if not of.est_en_retard %}text-gray-300{% endif %}">{{ of.date_prevue_fin|date:"d/m/Y"|default:"-" }}</span>
                                 {% if of.est_en_retard %}⚠️{% endif %}
                             </div>
                         </td>
                         <td class="px-4 py-4">
                             {% if of.priorite == 'URGENTE' %}
-                                <span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs border border-red-500/30">🔴 Urgente</span>
+                                <span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-red-500/30">🔴 Urgente</span>
                             {% elif of.priorite == 'HAUTE' %}
-                                <span class="bg-orange-500/20 text-orange-400 px-2 py-1 rounded text-xs border border-orange-500/30">🟠 Haute</span>
+                                <span class="bg-orange-500/20 text-orange-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-orange-500/30">🟠 Haute</span>
                             {% elif of.priorite == 'NORMALE' %}
-                                <span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/30">🔵 Normale</span>
+                                <span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-500/30">🔵 Normale</span>
                             {% else %}
-                                <span class="bg-gray-500/20 text-gray-400 px-2 py-1 rounded text-xs border border-gray-500/30">⚪ Basse</span>
+                                <span class="bg-gray-500/20 text-gray-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-gray-500/30">⚪ Basse</span>
                             {% endif %}
                         </td>
                         <td class="px-4 py-4">
                             {% if of.statut == 'BROUILLON' %}
-                                <span class="bg-gray-500/20 text-gray-400 px-2 py-1 rounded text-xs border border-gray-500/30">Brouillon</span>
+                                <span class="bg-gray-500/20 text-gray-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-gray-500/30">Brouillon</span>
                             {% elif of.statut == 'LANCE' %}
-                                <span class="bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded text-xs border border-cyan-500/30">Lancé</span>
+                                <span class="bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-cyan-500/30">Lancé</span>
                             {% elif of.statut == 'EN_COURS' %}
-                                <span class="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded text-xs border border-yellow-500/30 animate-pulse">En cours</span>
+                                <span class="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-yellow-500/30 animate-pulse">En cours</span>
                             {% elif of.statut == 'TERMINE' %}
-                                <span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs border border-green-500/30">✓ Terminé</span>
+                                <span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-green-500/30">✓ Terminé</span>
                             {% else %}
-                                <span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs border border-red-500/30">Annulé</span>
+                                <span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-red-500/30">Annulé</span>
                             {% endif %}
                         </td>
                         <td class="px-4 py-4 text-right">
                             <div class="flex justify-end gap-2">
-                                <a href="{% url 'of_detail' of.id %}" class="text-blue-400 hover:text-blue-300 border border-blue-500/30 px-2 py-1 rounded hover:bg-blue-500/10 transition text-xs">
+                                <a href="{% url 'of_detail' of.id %}" class="text-blue-400 hover:text-blue-300 border border-blue-500/30 px-2 py-1 rounded hover:bg-blue-500/10 transition text-xs font-bold">
                                     👁 Détail
                                 </a>
                                 {% if of.statut == 'BROUILLON' %}
-                                <a href="{% url 'of_changer_statut' of.id 'LANCE' %}" class="text-green-400 hover:text-green-300 border border-green-500/30 px-2 py-1 rounded hover:bg-green-500/10 transition text-xs">
+                                <a href="{% url 'of_changer_statut' of.id 'LANCE' %}" class="text-green-400 hover:text-green-300 border border-green-500/30 px-2 py-1 rounded hover:bg-green-500/10 transition text-xs font-bold">
                                     ▶ Lancer
                                 </a>
                                 {% endif %}
@@ -196,7 +203,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="px-6 py-16 text-center">
+                        <td colspan="10" class="px-6 py-16 text-center">
                             <div class="text-gray-500 text-lg mb-4">📋 Aucun ordre de fabrication trouvé</div>
                             <a href="{% url 'of_create' %}" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold py-2 px-4 rounded transition">
                                 Créer le premier OF

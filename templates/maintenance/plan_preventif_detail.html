@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'plan_preventif_list' %}" class="text-gray-400 hover:text-white">← Retour</a>
+        <h1 class="text-2xl font-bold text-white">{{ plan.titre }}</h1>
+        <span class="px-3 py-1 rounded text-xs font-bold {% if plan.statut == 'ACTIF' %}bg-green-500/20 text-green-400{% else %}bg-gray-500/20 text-gray-400{% endif %}">{{ plan.get_statut_display }}</span>
+    </div>
+    {% if plan.est_a_faire %}
+    <form method="post" action="{% url 'plan_preventif_generer_om' plan.id %}">{% csrf_token %}
+        <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded-lg transition text-sm">⚙️ Générer OM</button>
+    </form>
+    {% endif %}
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📋 Informations</h2>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span class="text-gray-400">Machine</span><a href="{% url 'maintenance_machine_detail' plan.machine.id %}" class="text-yellow-400">{{ plan.machine.name }}</a></div>
+            <div class="flex justify-between"><span class="text-gray-400">Fréquence</span><span class="text-white">{{ plan.get_type_frequence_display }}</span></div>
+            {% if plan.frequence_jours %}<div class="flex justify-between"><span class="text-gray-400">Tous les</span><span class="text-white">{{ plan.frequence_jours }} jours</span></div>{% endif %}
+            <div class="flex justify-between"><span class="text-gray-400">Durée estimée</span><span class="text-white">{{ plan.duree_estimee_minutes }} min</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Technicien</span><span class="text-white">{{ plan.technicien_defaut.nom_complet|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Dernière exécution</span><span class="text-white">{{ plan.derniere_execution|date:"d/m/Y"|default:"Jamais" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Prochaine exécution</span>
+                <span class="{% if plan.est_en_retard %}text-red-400 font-bold{% else %}text-white{% endif %}">
+                    {{ plan.prochaine_execution|date:"d/m/Y"|default:"—" }}
+                    {% if plan.est_en_retard %}⚠️ EN RETARD{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📝 Description</h2>
+        <p class="text-gray-300 text-sm">{{ plan.description|default:"Aucune description" }}</p>
+        {% if plan.instructions %}
+        <h3 class="text-white font-bold mt-4 mb-2">📖 Instructions</h3>
+        <p class="text-gray-300 text-sm bg-slate-700/50 rounded-lg p-3">{{ plan.instructions }}</p>
+        {% endif %}
+    </div>
+</div>
+<div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="p-4 border-b border-slate-700"><h2 class="text-white font-bold">📋 OM Générés ({{ ordres.count }})</h2></div>
+    <table class="w-full text-left text-sm">
+        <thead><tr class="bg-slate-900/80 text-gray-400 text-[10px] uppercase tracking-wider">
+            <th class="p-3">N° OM</th><th class="p-3">Statut</th><th class="p-3">Technicien</th><th class="p-3">Date</th>
+        </tr></thead>
+        <tbody>
+            {% for om in ordres %}
+            <tr class="border-t border-slate-700/50 hover:bg-slate-700/30">
+                <td class="p-3"><a href="{% url 'om_detail' om.id %}" class="text-yellow-400 hover:text-yellow-300 font-bold">OM-{{ om.numero_om }}</a></td>
+                <td class="p-3"><span class="text-xs {% if om.statut == 'TERMINE' %}text-green-400{% elif om.statut == 'EN_COURS' %}text-yellow-400{% else %}text-blue-400{% endif %}">{{ om.get_statut_display }}</span></td>
+                <td class="p-3 text-gray-400 text-xs">{{ om.technicien_principal.nom_complet|default:"—" }}</td>
+                <td class="p-3 text-gray-500 text-xs">{{ om.date_creation|date:"d/m/Y" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="p-6 text-center text-gray-600 italic">Aucun OM généré</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

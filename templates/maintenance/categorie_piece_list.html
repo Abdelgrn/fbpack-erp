@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- EN-TÊTE -->
+<div class="mb-4 flex justify-between items-center flex-wrap gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-white tracking-wider">🔧 Module Maintenance</h1>
+        <p class="text-gray-400 text-sm mt-1">Gestion des catégories de pièces de rechange</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'piece_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition text-sm">
+            ← Retour à l'Inventaire
+        </a>
+    </div>
+</div>
+
+<!-- BARRE DE NAVIGATION (ONGLETS DU MODULE MAINTENANCE) -->
+<div class="flex border-b border-slate-700 mb-8 bg-slate-800/50 p-1 rounded-t-xl overflow-x-auto gap-1 hide-scrollbar">
+    <a href="{% url 'maintenance_dashboard' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📊 Tableau de Bord
+    </a>
+    <a href="{% url 'maintenance_machine_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        ⚙️ Parc Machine
+    </a>
+    <a href="{% url 'om_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📋 Ordres Maintenance
+    </a>
+    <a href="{% url 'plan_preventif_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📅 Plans Préventifs
+    </a>
+    <a href="{% url 'piece_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-white bg-slate-700 rounded-lg shadow transition-all whitespace-nowrap">
+        🔩 Pièces Rechange
+    </a>
+    <a href="{% url 'maintenance_calendrier' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📆 Calendrier
+    </a>
+</div>
+
+<!-- FORMULAIRE ET GRILLE -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- LISTE DES CATÉGORIES -->
+    <div class="lg:col-span-2 space-y-4">
+        <h2 class="text-xl font-bold text-white mb-2">🏷️ Catégories enregistrées</h2>
+        <div class="glass rounded-xl overflow-hidden shadow-xl border border-slate-700">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-400 text-[10px] uppercase tracking-wider">
+                        <th class="p-4 w-20 text-center">Icône</th>
+                        <th class="p-4">Nom de la catégorie</th>
+                        <th class="p-4">Code unique</th>
+                        <th class="p-4">Nombre de pièces référencées</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat in categories %}
+                    <tr class="border-t border-slate-700/50 hover:bg-slate-700/30 transition">
+                        <td class="p-4 text-center text-2xl font-bold">{{ cat.icone }}</td>
+                        <td class="p-4 text-white font-bold">{{ cat.nom }}</td>
+                        <td class="p-4 text-yellow-400 font-mono text-xs font-bold">{{ cat.code }}</td>
+                        <td class="p-4 text-gray-400">
+                            <span class="bg-slate-900 px-3 py-1 rounded-full text-xs font-bold text-gray-300">
+                                {{ cat.pieces.count }} pièces
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="p-8 text-center text-gray-500 italic">Aucune catégorie de pièces créée.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- AJOUT CATÉGORIE -->
+    <div class="glass border border-slate-700 rounded-xl p-6 h-fit shadow-xl">
+        <h2 class="text-white font-bold mb-4 flex items-center gap-2">
+            <span>➕</span> Nouvelle Catégorie
+        </h2>
+        <form method="post" class="space-y-4 django-form-container">
+            {% csrf_token %}
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Nom de la catégorie *</label>
+                <input type="text" name="nom" required placeholder="ex: Moteurs & Réducteurs">
+            </div>
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Code unique *</label>
+                <input type="text" name="code" required placeholder="ex: CAT_MOT">
+            </div>
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Icône (emoji) *</label>
+                <input type="text" name="icone" value="🔩" required placeholder="Insérer un émoji">
+            </div>
+            <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 rounded-lg transition text-sm">
+                💾 Créer la Catégorie
+            </button>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

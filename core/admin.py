@@ -4,7 +4,9 @@ from .models import (
     Client, ClientContact, InteractionLog, Opportunite,
     TechnicalProduct, Tooling,
     Material, Supplier,
-    Machine, MaintenanceSchedule, IncidentLog,
+    Machine, Atelier, CompteurMachine, CategoriePiece,
+    PieceRechange, MouvementPiece, OrdreMaintenance,
+    ConsommationPiece, PlanMaintenancePreventive, AlerteMaintenance,
     ProductionOrder, ConsumptionLog, PurchaseOrder,
     Quote, ConsommationEncre, ProductionEntry
 )
@@ -193,20 +195,65 @@ class ToolingAdmin(admin.ModelAdmin):
 # --- MACHINES ---
 # ===========================================================================
 
-class MaintenanceInline(admin.TabularInline):
-    model = MaintenanceSchedule
-    extra = 1
-
-
-class IncidentInline(admin.TabularInline):
-    model = IncidentLog
-    extra = 0
+@admin.register(Atelier)
+class AtelierAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'code', 'type_atelier', 'ordre_affichage', 'est_actif']
+    list_filter = ['type_atelier', 'est_actif']
 
 
 @admin.register(Machine)
 class MachineAdmin(admin.ModelAdmin):
-    list_display = ('name', 'type', 'status')
-    inlines = [MaintenanceInline, IncidentInline]
+    list_display = ['code_machine', 'name', 'type', 'atelier', 'marque', 'status', 'criticite', 'compteur_heures']
+    list_filter = ['type', 'status', 'criticite', 'atelier']
+    search_fields = ['name', 'code_machine', 'marque', 'modele']
+
+
+@admin.register(CompteurMachine)
+class CompteurMachineAdmin(admin.ModelAdmin):
+    list_display = ['machine', 'type_compteur', 'valeur', 'date_releve']
+    list_filter = ['type_compteur']
+
+
+@admin.register(CategoriePiece)
+class CategoriePieceAdmin(admin.ModelAdmin):
+    list_display = ['nom', 'code', 'icone']
+
+
+@admin.register(PieceRechange)
+class PieceRechangeAdmin(admin.ModelAdmin):
+    list_display = ['reference', 'designation', 'categorie', 'quantite_stock', 'stock_minimum', 'prix_unitaire']
+    list_filter = ['categorie', 'est_active']
+    search_fields = ['reference', 'designation']
+
+
+@admin.register(MouvementPiece)
+class MouvementPieceAdmin(admin.ModelAdmin):
+    list_display = ['piece', 'type_mouvement', 'quantite', 'date_mouvement', 'utilisateur']
+    list_filter = ['type_mouvement']
+
+
+@admin.register(OrdreMaintenance)
+class OrdreMaintenanceAdmin(admin.ModelAdmin):
+    list_display = ['numero_om', 'type_maintenance', 'machine', 'titre', 'priorite', 'statut', 'date_creation']
+    list_filter = ['type_maintenance', 'statut', 'priorite']
+    search_fields = ['numero_om', 'titre', 'machine__name']
+
+
+@admin.register(ConsommationPiece)
+class ConsommationPieceAdmin(admin.ModelAdmin):
+    list_display = ['ordre_maintenance', 'piece', 'quantite', 'date_consommation']
+
+
+@admin.register(PlanMaintenancePreventive)
+class PlanMaintenancePreventiveAdmin(admin.ModelAdmin):
+    list_display = ['titre', 'machine', 'type_frequence', 'statut', 'derniere_execution']
+    list_filter = ['statut', 'type_frequence']
+
+
+@admin.register(AlerteMaintenance)
+class AlerteMaintenanceAdmin(admin.ModelAdmin):
+    list_display = ['titre', 'type_alerte', 'niveau', 'machine', 'est_traitee', 'date_creation']
+    list_filter = ['type_alerte', 'niveau', 'est_traitee']
 
 
 # ===========================================================================

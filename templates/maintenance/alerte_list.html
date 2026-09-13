@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- EN-TÊTE -->
+<div class="mb-4 flex justify-between items-center flex-wrap gap-4">
+    <div>
+        <h1 class="text-3xl font-black text-white tracking-wider">🔧 Module Maintenance</h1>
+        <p class="text-gray-400 text-sm mt-1">Centre d'alertes, rappels de révision et anomalies de production</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+        <form method="post" action="{% url 'generer_alertes' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded-lg transition text-sm flex items-center gap-2">
+                <span>🔄</span> Régénérer les Alertes
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- BARRE DE NAVIGATION (ONGLETS DU MODULE MAINTENANCE) -->
+<div class="flex border-b border-slate-700 mb-8 bg-slate-800/50 p-1 rounded-t-xl overflow-x-auto gap-1 hide-scrollbar">
+    <a href="{% url 'maintenance_dashboard' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📊 Tableau de Bord
+    </a>
+    <a href="{% url 'maintenance_machine_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        ⚙️ Parc Machine
+    </a>
+    <a href="{% url 'om_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📋 Ordres Maintenance
+    </a>
+    <a href="{% url 'plan_preventif_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📅 Plans Préventifs
+    </a>
+    <a href="{% url 'piece_list' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        🔩 Pièces Rechange
+    </a>
+    <a href="{% url 'maintenance_calendrier' %}" class="flex-1 text-center py-3 px-4 text-sm font-bold text-gray-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all whitespace-nowrap">
+        📆 Calendrier
+    </a>
+</div>
+
+<!-- COMPTEURS D'ALERTES -->
+<div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="glass border-t-4 border-t-red-500 bg-red-500/5 rounded-xl p-4 flex justify-between items-center shadow">
+        <div>
+            <h4 class="text-red-400 font-bold">Alertes non traitées</h4>
+            <p class="text-gray-400 text-xs">Ces anomalies requièrent votre attention immédiate.</p>
+        </div>
+        <span class="text-3xl font-black font-mono text-red-400">{{ non_traitees }}</span>
+    </div>
+    <div class="glass border-t-4 border-t-yellow-500 bg-yellow-500/5 rounded-xl p-4 flex justify-between items-center shadow">
+        <div>
+            <h4 class="text-yellow-400 font-bold">Criticité Haute & Critique</h4>
+            <p class="text-gray-400 text-xs">Comprend les pannes graves et retards préventifs.</p>
+        </div>
+        <span class="text-3xl font-black font-mono text-yellow-400">{{ critiques }}</span>
+    </div>
+</div>
+
+<!-- FILTRES -->
+<form method="get" class="glass rounded-xl p-4 mb-8 flex flex-wrap gap-4 items-end">
+    <div class="w-48">
+        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Niveau d'urgence</label>
+        <select name="niveau" class="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-yellow-500 focus:outline-none w-full">
+            <option value="">Tous les niveaux</option>
+            {% for value, label in niveau_choices %}
+            <option value="{{ value }}" {% if selected_niveau == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="w-48">
+        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Type d'anomalie</label>
+        <select name="type" class="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-yellow-500 focus:outline-none w-full">
+            <option value="">Tous les types</option>
+            {% for value, label in type_choices %}
+            <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="w-48">
+        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Statut</label>
+        <select name="traitee" class="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-yellow-500 focus:outline-none w-full">
+            <option value="">Toutes</option>
+            <option value="0" {% if selected_traitee == '0' %}selected{% endif %}>Non résolues / Actives</option>
+            <option value="1" {% if selected_traitee == '1' %}selected{% endif %}>Résolues / Archivées</option>
+        </select>
+    </div>
+    <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-6 rounded-lg transition text-sm flex items-center gap-1.5">
+        <span>🔍</span> Filtrer
+    </button>
+    <a href="{% url 'alerte_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition text-sm">✕ Reset</a>
+</form>
+
+<!-- LISTE DES ALERTES -->
+<div class="space-y-3">
+    {% for alerte in alertes %}
+    <div class="flex items-center gap-4 bg-slate-800 border {% if alerte.niveau == 'CRITICAL' %}border-red-500/30 bg-red-500/5{% elif alerte.niveau == 'WARNING' %}border-yellow-500/30 bg-yellow-500/5{% else %}border-blue-500/30 bg-blue-500/5{% endif %} rounded-xl px-5 py-4 {% if alerte.est_traitee %}opacity-50{% endif %} shadow">
+        <span class="text-3xl flex-shrink-0">{{ alerte.get_niveau_icon }}</span>
+        <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-lg {% if alerte.niveau == 'CRITICAL' %}text-red-400{% elif alerte.niveau == 'WARNING' %}text-yellow-400{% else %}text-blue-400{% endif %}">{{ alerte.titre }}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase {% if alerte.niveau == 'CRITICAL' %}bg-red-500/20 text-red-400{% elif alerte.niveau == 'WARNING' %}bg-yellow-500/20 text-yellow-400{% else %}bg-blue-500/20 text-blue-400{% endif %}">{{ alerte.get_niveau_display }}</span>
+                {% if alerte.est_traitee %}
+                <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold">✓ Traitée</span>
+                {% endif %}
+            </div>
+            <p class="text-gray-300 text-sm mt-1.5">{{ alerte.message }}</p>
+            <p class="text-gray-500 text-xs mt-2 font-medium">{{ alerte.date_creation|timesince }} — Catégorie : {{ alerte.get_type_alerte_display }}</p>
+        </div>
+        {% if not alerte.est_traitee %}
+        <form method="post" action="{% url 'alerte_traiter' alerte.id %}" class="flex-shrink-0">
+            {% csrf_token %}
+            <button type="submit" class="bg-green-500/20 hover:bg-green-500/40 text-emerald-400 font-bold px-4 py-2 rounded-lg text-sm transition">✓ Traiter</button>
+        </form>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="glass border border-slate-700 rounded-xl p-12 text-center shadow-xl">
+        <span class="text-5xl block mb-3">✅</span>
+        <p class="text-gray-400 font-bold">Tout est en ordre ! Aucune alerte active.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

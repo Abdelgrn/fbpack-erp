@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'om_list' %}" class="text-gray-400 hover:text-white transition">← Retour</a>
+        <h1 class="text-2xl font-bold text-white">OM-{{ om.numero_om }}</h1>
+        <span class="px-3 py-1 rounded-full text-xs font-bold
+            {% if om.statut == 'OUVERT' %}bg-blue-500/20 text-blue-400 border border-blue-500/30
+            {% elif om.statut == 'EN_COURS' %}bg-yellow-500/20 text-yellow-400 border border-yellow-500/30
+            {% elif om.statut == 'TERMINE' %}bg-green-500/20 text-green-400 border border-green-500/30
+            {% elif om.statut == 'EN_ATTENTE_PIECE' %}bg-orange-500/20 text-orange-400 border border-orange-500/30
+            {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+            {{ om.get_statut_display }}
+        </span>
+        <span class="px-3 py-1 rounded-full text-xs font-bold
+            {% if om.priorite == 'URGENTE' %}bg-red-500/20 text-red-400 border border-red-500/30
+            {% elif om.priorite == 'HAUTE' %}bg-yellow-500/20 text-yellow-400 border border-yellow-500/30
+            {% else %}bg-blue-500/20 text-blue-400 border border-blue-500/30{% endif %}">
+            {{ om.get_priorite_display }}
+        </span>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+        {% if om.statut == 'OUVERT' %}
+        <form method="post" action="{% url 'om_demarrer' om.id %}">{% csrf_token %}
+            <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded-lg transition text-sm">▶ Démarrer</button>
+        </form>
+        {% endif %}
+        {% if om.statut == 'EN_COURS' %}
+        <a href="{% url 'om_cloturer' om.id %}" class="bg-green-500 hover:bg-green-400 text-white font-bold py-2 px-4 rounded-lg transition text-sm">✓ Clôturer</a>
+        {% endif %}
+        <a href="{% url 'om_ajouter_piece' om.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition text-sm">+ Ajouter Pièce</a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+    <!-- INFOS OM -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">📋 Informations</h2>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span class="text-gray-400">Type</span>
+                <span class="{% if om.type_maintenance == 'CORRECTIVE' %}text-red-400{% elif om.type_maintenance == 'PREVENTIVE' %}text-blue-400{% else %}text-purple-400{% endif %} font-bold">
+                    {{ om.get_type_maintenance_display }}
+                </span>
+            </div>
+            <div class="flex justify-between"><span class="text-gray-400">Machine</span>
+                <a href="{% url 'maintenance_machine_detail' om.machine.id %}" class="text-yellow-400 hover:text-yellow-300 font-bold">{{ om.machine.name }}</a>
+            </div>
+            <div class="flex justify-between"><span class="text-gray-400">Technicien</span><span class="text-white">{{ om.technicien_principal.nom_complet|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Demandeur</span><span class="text-white">{{ om.demandeur.username|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Date création</span><span class="text-white">{{ om.date_creation|date:"d/m/Y H:i" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Date planifiée</span><span class="text-white {% if om.est_en_retard %}text-red-400{% endif %}">{{ om.date_planifiee|date:"d/m/Y H:i"|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Début intervention</span><span class="text-white">{{ om.date_debut_intervention|date:"d/m/Y H:i"|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Fin intervention</span><span class="text-white">{{ om.date_fin_intervention|date:"d/m/Y H:i"|default:"—" }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Temps arrêt machine</span><span class="text-orange-400 font-bold">{{ om.temps_arret_minutes }} min</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Durée intervention</span><span class="text-white">{{ om.duree_intervention_heures }} h</span></div>
+        </div>
+    </div>
+
+    <!-- COÛTS -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 class="text-white font-bold mb-4">💰 Coûts</h2>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span class="text-gray-400">Coût pièces</span><span class="text-white">{{ om.cout_pieces|floatformat:0 }} DA</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Main d'œuvre</span><span class="text-white">{{ om.cout_main_oeuvre|floatformat:0 }} DA</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Intervention externe</span><span class="text-white">{{ om.cout_externe|floatformat:0 }} DA</span></div>
+            <div class="border-t border-slate-700 pt-3 flex justify-between">
+                <span class="text-white font-bold">TOTAL</span>
+                <span class="text-yellow-400 font-bold text-lg">{{ om.cout_total|floatformat:0 }} DA</span>
+            </div>
+        </div>
+
+        <h2 class="text-white font-bold mb-3 mt-6">📝 Description</h2>
+        <div class="space-y-3 text-sm">
+            <div>
+                <div class="text-gray-400 text-xs uppercase font-bold mb-1">Titre</div>
+                <p class="text-white">{{ om.titre }}</p>
+            </div>
+            {% if om.description_probleme %}
+            <div>
+                <div class="text-gray-400 text-xs uppercase font-bold mb-1">Problème</div>
+                <p class="text-gray-300 bg-slate-700/50 rounded-lg p-3">{{ om.description_probleme }}</p>
+            </div>
+            {% endif %}
+            {% if om.actions_realisees %}
+            <div>
+                <div class="text-gray-400 text-xs uppercase font-bold mb-1">Actions réalisées</div>
+                <p class="text-gray-300 bg-slate-700/50 rounded-lg p-3">{{ om.actions_realisees }}</p>
+            </div>
+            {% endif %}
+            {% if om.cause_racine %}
+            <div>
+                <div class="text-gray-400 text-xs uppercase font-bold mb-1">Cause racine</div>
+                <p class="text-gray-300 bg-slate-700/50 rounded-lg p-3">{{ om.cause_racine }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- PIÈCES CONSOMMÉES -->
+<div class="mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-white">🔩 Pièces Consommées</h2>
+        <a href="{% url 'om_ajouter_piece' om.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition text-sm">+ Ajouter</a>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <table class="w-full text-left text-sm">
+            <thead>
+                <tr class="bg-slate-900/80 text-gray-400 text-[10px] uppercase tracking-wider">
+                    <th class="p-3">Pièce</th>
+                    <th class="p-3">Référence</th>
+                    <th class="p-3">Quantité</th>
+                    <th class="p-3">Prix Unit.</th>
+                    <th class="p-3">Total</th>
+                    <th class="p-3">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for conso in consommations %}
+                <tr class="border-t border-slate-700/50">
+                    <td class="p-3 text-white">{{ conso.piece.designation }}</td>
+                    <td class="p-3 text-gray-400 font-mono text-xs">{{ conso.piece.reference }}</td>
+                    <td class="p-3 text-white">{{ conso.quantite }} {{ conso.piece.unite }}</td>
+                    <td class="p-3 text-gray-400">{{ conso.piece.prix_unitaire|floatformat:2 }} DA</td>
+                    <td class="p-3 text-yellow-400 font-bold">{{ conso.quantite|floatformat:2 }} DA</td>
+                    <td class="p-3 text-gray-500 text-xs">{{ conso.date_consommation|date:"d/m/Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="p-6 text-center text-gray-600 italic">Aucune pièce consommée</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

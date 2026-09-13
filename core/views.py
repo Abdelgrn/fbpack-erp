@@ -1,4 +1,4 @@
-import os
+﻿import os
 import datetime
 import json
 import pandas as pd
@@ -8,15 +8,13 @@ from datetime import timedelta
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from django.db.models import Count, Sum, Q, Avg, F
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Sum, Count, Q, Avg
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.contrib.admin.models import LogEntry
-from django.db import models as django_models
 from django.utils.html import format_html
 import re
 
@@ -44,11 +42,28 @@ from .forms import (
 
 
 # ===========================================================================
-# --- DASHBOARD ---
+# --- DASHBOARD --- (PATCHÉ : alertes maintenance + machines en panne)
 # ===========================================================================
 
 @login_required
 def dashboard(request):
+    from .models import OrdreMaintenance, AlerteMaintenance
+
+    machines_en_panne = Machine.objects.filter(status='PANNE', est_active=True)
+    machines_en_maintenance = Machine.objects.filter(status='MAINT', est_active=True)
+
+    # OM ouverts urgents
+    om_urgents = OrdreMaintenance.objects.filter(
+        statut__in=['OUVERT', 'EN_COURS'],
+        priorite__in=['URGENTE', 'HAUTE']
+    ).select_related('machine').order_by('-date_creation')[:5]
+
+    # Alertes maintenance non traitées
+    alertes_critiques_maint = AlerteMaintenance.objects.filter(
+        est_traitee=False,
+        niveau='CRITICAL'
+    ).count()
+
     context = {
         'count_clients': Client.objects.count(),
         'count_of_running': ProductionOrder.objects.filter(status='IN_PROGRESS').count(),
@@ -58,20 +73,19 @@ def dashboard(request):
         'count_opportunites': Opportunite.objects.filter(status__in=['PROSPECT', 'QUALIFICATION', 'PROPOSITION', 'NEGOCIATION']).count(),
         'count_devis_envoyes': Quote.objects.filter(status='SENT').count(),
         'pipeline_total': Opportunite.objects.exclude(status__in=['GAGNE', 'PERDU']).aggregate(total=Sum('valeur_estimee'))['total'] or 0,
-        # Nouvelles stats OF
+        # OF
         'of_total': OrdreFabrication.objects.count(),
         'of_en_cours': OrdreFabrication.objects.filter(statut='EN_COURS').count(),
-        'of_en_retard': sum(1 for of in OrdreFabrication.objects.filter(
-            statut__in=['LANCE', 'EN_COURS']
-        ) if of.est_en_retard),
-        'of_termine_mois': OrdreFabrication.objects.filter(
-            statut='TERMINE',
-            date_fin_reelle__month=timezone.now().month
-        ).count(),
+        'of_en_retard': sum(1 for of in OrdreFabrication.objects.filter(statut__in=['LANCE', 'EN_COURS']) if of.est_en_retard),
+        'of_termine_mois': OrdreFabrication.objects.filter(statut='TERMINE', date_fin_reelle__month=timezone.now().month).count(),
         'semi_produits_dispo': SemiProduit.objects.filter(statut='DISPONIBLE').count(),
-        'of_recents': OrdreFabrication.objects.select_related(
-            'client', 'produit'
-        ).order_by('-date_creation')[:5],
+        'of_recents': OrdreFabrication.objects.select_related('client', 'produit').order_by('-date_creation')[:5],
+        # ── NOUVELLES ALERTES MAINTENANCE ──
+        'machines_en_panne': machines_en_panne,
+        'machines_en_maintenance': machines_en_maintenance,
+        'om_urgents': om_urgents,
+        'alertes_critiques_maint': alertes_critiques_maint,
+        'nb_pannes_actives': machines_en_panne.count(),
     }
     return render(request, 'dashboard.html', context)
 
@@ -503,18 +517,18 @@ def edit_production(request, id):
 @login_required
 def of_list_view(request):
     """Liste des Ordres de Fabrication avec filtres"""
-    
+
     statut = request.GET.get('statut', '')
     priorite = request.GET.get('priorite', '')
     client_id = request.GET.get('client', '')
     search = request.GET.get('q', '')
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
-    
+
     ofs = OrdreFabrication.objects.select_related(
         'client', 'produit', 'cree_par'
     ).prefetch_related('etapes').order_by('-date_creation')
-    
+
     if statut:
         ofs = ofs.filter(statut=statut)
     if priorite:
@@ -532,7 +546,7 @@ def of_list_view(request):
         ofs = ofs.filter(date_lancement__gte=date_from)
     if date_to:
         ofs = ofs.filter(date_lancement__lte=date_to)
-    
+
     stats = {
         'total': ofs.count(),
         'brouillon': ofs.filter(statut='BROUILLON').count(),
@@ -540,7 +554,7 @@ def of_list_view(request):
         'termine': ofs.filter(statut='TERMINE').count(),
         'en_retard': sum(1 for of in ofs if of.est_en_retard),
     }
-    
+
     context = {
         'ofs': ofs[:100],
         'stats': stats,
@@ -557,41 +571,100 @@ def of_list_view(request):
     return render(request, 'of/of_list.html', context)
 
 
+# ─────────────────────────────────────────────────────────────
+# OF CREATE — PATCHÉ : vérification statut machine avant création
+# ─────────────────────────────────────────────────────────────
+
 @login_required
 def of_create_view(request):
-    """Créer un nouvel OF avec ses étapes"""
-    
+    """Créer un nouvel OF avec ses étapes + vérification statut machine"""
+
+    machine_warning = None
+    machine_blocked = None
+    machine_id = request.GET.get('machine')
+
+    # Vérification préalable si machine passée en paramètre
+    if machine_id:
+        try:
+            machine_check = Machine.objects.get(id=machine_id)
+            peut_creer, msg = machine_check.peut_creer_of
+            if not peut_creer:
+                machine_blocked = msg
+            elif msg:
+                machine_warning = msg
+        except Machine.DoesNotExist:
+            pass
+
     if request.method == 'POST':
         form = OrdreFabricationForm(request.POST, request.FILES)
         formset = EtapeProductionFormSet(request.POST, prefix='etapes')
-        
+
+        # Vérifier chaque machine des étapes
+        blocked_messages = []
+        warning_messages = []
+
         if form.is_valid():
-            of = form.save(commit=False)
-            of.cree_par = request.user
-            of.save()
-            
-            if formset.is_valid():
-                etapes = formset.save(commit=False)
-                for etape in etapes:
-                    etape.of = of
-                    etape.save()
-                for obj in formset.deleted_objects:
-                    obj.delete()
-            
-            messages.success(request, f"OF {of.numero_of} créé avec succès !")
-            return redirect('of_detail', of_id=of.id)
+            # Vérifier les machines dans le formset
+            for etape_form in formset.forms:
+                machine_val = etape_form.data.get(f"{etape_form.prefix}-machine")
+                if machine_val:
+                    try:
+                        m = Machine.objects.get(id=machine_val)
+                        peut, msg = m.peut_creer_of
+                        if not peut:
+                            blocked_messages.append(f"Étape {etape_form.data.get(f'{etape_form.prefix}-numero_etape', '?')} — {m.name}: {msg}")
+                        elif msg:
+                            warning_messages.append(f"{m.name}: {msg}")
+                    except Machine.DoesNotExist:
+                        pass
+
+            if blocked_messages:
+                for msg in blocked_messages:
+                    messages.error(request, msg)
+                # Ne pas créer l'OF
+            else:
+                of = form.save(commit=False)
+                of.cree_par = request.user
+                of.save()
+
+                if formset.is_valid():
+                    etapes = formset.save(commit=False)
+                    for etape in etapes:
+                        etape.of = of
+                        etape.save()
+                    for obj in formset.deleted_objects:
+                        obj.delete()
+
+                # Afficher les warnings mais continuer
+                for msg in warning_messages:
+                    messages.warning(request, msg)
+
+                messages.success(request, f"OF {of.numero_of} créé avec succès !")
+                return redirect('of_detail', of_id=of.id)
         else:
             messages.error(request, "Erreur dans le formulaire. Vérifiez les champs.")
     else:
         form = OrdreFabricationForm()
         formset = EtapeProductionFormSet(prefix='etapes', queryset=EtapeProduction.objects.none())
-    
+
     context = {
         'form': form,
         'formset': formset,
         'process_types': ProcessType.objects.filter(est_actif=True),
-        'machines': Machine.objects.all(),
+        'machines': Machine.objects.filter(est_active=True).order_by('name'),
         'titre': 'Nouvel Ordre de Fabrication',
+        'machine_warning': machine_warning,
+        'machine_blocked': machine_blocked,
+        # Données machines pour JS
+        'machines_statuts': {
+            str(m.id): {
+                'status': m.status,
+                'peut_creer': m.peut_creer_of[0],
+                'message': m.peut_creer_of[1],
+                'om_actif': str(m.om_actif) if m.om_actif else None,
+            }
+            for m in Machine.objects.filter(est_active=True)
+        },
     }
     return render(request, 'of/of_form.html', context)
 
@@ -599,22 +672,22 @@ def of_create_view(request):
 @login_required
 def of_detail_view(request, of_id):
     """Détail d'un OF avec toutes ses étapes et suivi"""
-    
+
     of = get_object_or_404(
         OrdreFabrication.objects.select_related('client', 'produit', 'cree_par'),
         id=of_id
     )
-    
+
     etapes = of.etapes.select_related(
         'process_type', 'machine', 'operateur'
     ).prefetch_related('suivis', 'consommations').order_by('numero_etape')
-    
+
     semi_produits = SemiProduit.objects.filter(of_origine=of).order_by('-date_creation')
-    
+
     suivis = SuiviProduction.objects.filter(
         etape__of=of
     ).select_related('etape', 'operateur').order_by('-date_heure')[:50]
-    
+
     etapes_data = []
     for etape in etapes:
         etapes_data.append({
@@ -623,7 +696,7 @@ def of_detail_view(request, of_id):
             'statut': etape.statut,
             'couleur': etape.get_statut_color(),
         })
-    
+
     context = {
         'of': of,
         'etapes': etapes,
@@ -637,13 +710,13 @@ def of_detail_view(request, of_id):
 @login_required
 def of_edit_view(request, of_id):
     """Modifier un OF existant"""
-    
+
     of = get_object_or_404(OrdreFabrication, id=of_id)
-    
+
     if request.method == 'POST':
         form = OrdreFabricationForm(request.POST, request.FILES, instance=of)
         formset = EtapeProductionFormSet(request.POST, instance=of, prefix='etapes')
-        
+
         if form.is_valid() and formset.is_valid():
             form.save()
             formset.save()
@@ -654,7 +727,7 @@ def of_edit_view(request, of_id):
     else:
         form = OrdreFabricationForm(instance=of)
         formset = EtapeProductionFormSet(instance=of, prefix='etapes')
-    
+
     context = {
         'form': form,
         'formset': formset,
@@ -669,51 +742,51 @@ def of_edit_view(request, of_id):
 @login_required
 def of_delete_view(request, of_id):
     """Supprimer un OF"""
-    
+
     of = get_object_or_404(OrdreFabrication, id=of_id)
-    
+
     if request.method == 'POST':
         numero = of.numero_of
         of.delete()
         messages.success(request, f"OF {numero} supprimé.")
         return redirect('of_list')
-    
+
     return render(request, 'of/of_confirm_delete.html', {'of': of})
 
 
 @login_required
 def of_changer_statut(request, of_id, nouveau_statut):
     """Changer le statut d'un OF"""
-    
+
     of = get_object_or_404(OrdreFabrication, id=of_id)
     ancien_statut = of.statut
-    
+
     if nouveau_statut in dict(OrdreFabrication.STATUT_CHOICES):
         of.statut = nouveau_statut
-        
+
         if nouveau_statut == 'LANCE' and not of.date_lancement:
             of.date_lancement = timezone.now().date()
         elif nouveau_statut == 'TERMINE':
             of.date_fin_reelle = timezone.now().date()
-        
+
         of.save()
         messages.success(
-            request, 
+            request,
             f"OF {of.numero_of} : {ancien_statut} → {nouveau_statut}"
         )
     else:
         messages.error(request, "Statut invalide.")
-    
+
     return redirect('of_detail', of_id=of_id)
 
 
 @login_required
 def of_lancement_rapide(request):
     """Formulaire de lancement rapide d'OF avec étapes prédéfinies"""
-    
+
     if request.method == 'POST':
         form = OFLancementRapideForm(request.POST)
-        
+
         if form.is_valid():
             of = OrdreFabrication.objects.create(
                 client=form.cleaned_data['client'],
@@ -724,49 +797,43 @@ def of_lancement_rapide(request):
                 statut='LANCE',
                 cree_par=request.user,
             )
-            
+
             numero = 1
-            
+
             if form.cleaned_data.get('etape_extrusion'):
                 process = ProcessType.objects.filter(code='EXTRUSION').first()
                 EtapeProduction.objects.create(
-                    of=of,
-                    numero_etape=numero,
-                    process_type=process,
+                    of=of, numero_etape=numero, process_type=process,
                     machine=form.cleaned_data.get('machine_extrusion'),
                     quantite_entree=form.cleaned_data.get('qte_extrusion') or form.cleaned_data['quantite'],
                     statut='PRET',
                 )
                 numero += 1
-            
+
             if form.cleaned_data.get('etape_impression'):
                 process = ProcessType.objects.filter(code='IMPRESSION').first()
                 EtapeProduction.objects.create(
-                    of=of,
-                    numero_etape=numero,
-                    process_type=process,
+                    of=of, numero_etape=numero, process_type=process,
                     machine=form.cleaned_data.get('machine_impression'),
                     quantite_entree=form.cleaned_data.get('qte_impression') or form.cleaned_data['quantite'],
                     statut='EN_ATTENTE',
                 )
                 numero += 1
-            
+
             if form.cleaned_data.get('etape_decoupe'):
                 process = ProcessType.objects.filter(code='DECOUPE').first()
                 EtapeProduction.objects.create(
-                    of=of,
-                    numero_etape=numero,
-                    process_type=process,
+                    of=of, numero_etape=numero, process_type=process,
                     machine=form.cleaned_data.get('machine_decoupe'),
                     quantite_entree=form.cleaned_data.get('qte_decoupe') or form.cleaned_data['quantite'],
                     statut='EN_ATTENTE',
                 )
-            
+
             messages.success(request, f"OF {of.numero_of} lancé avec {of.nb_etapes} étapes !")
             return redirect('of_detail', of_id=of.id)
     else:
         form = OFLancementRapideForm()
-    
+
     context = {
         'form': form,
         'titre': 'Lancement Rapide OF',
@@ -781,16 +848,16 @@ def of_lancement_rapide(request):
 @login_required
 def etape_detail_view(request, etape_id):
     """Détail d'une étape avec son suivi"""
-    
+
     etape = get_object_or_404(
         EtapeProduction.objects.select_related('of', 'process_type', 'machine', 'operateur'),
         id=etape_id
     )
-    
+
     suivis = etape.suivis.select_related('operateur').order_by('-date_heure')
     consommations = etape.consommations.select_related('material', 'lot')
     semi_produits = SemiProduit.objects.filter(etape_origine=etape)
-    
+
     if request.method == 'POST':
         form = SuiviProductionForm(request.POST)
         if form.is_valid():
@@ -798,10 +865,10 @@ def etape_detail_view(request, etape_id):
             suivi.etape = etape
             suivi.operateur = request.user
             suivi.save()
-            
+
             etape.quantite_sortie += suivi.quantite_produite
             etape.quantite_rebut += suivi.quantite_rebut
-            
+
             if suivi.type_evenement == 'DEMARRAGE':
                 etape.statut = 'EN_COURS'
                 if not etape.date_debut_reel:
@@ -811,19 +878,19 @@ def etape_detail_view(request, etape_id):
                 etape.date_fin_reel = timezone.now()
             elif suivi.type_evenement == 'ARRET':
                 etape.statut = 'PAUSE'
-            
+
             etape.save()
-            
+
             of = etape.of
             of.quantite_produite = sum(e.quantite_sortie for e in of.etapes.filter(statut='TERMINE'))
             of.quantite_rebut = sum(e.quantite_rebut for e in of.etapes.all())
             of.save()
-            
+
             messages.success(request, "Suivi enregistré !")
             return redirect('etape_detail', etape_id=etape_id)
     else:
         form = SuiviProductionForm()
-    
+
     context = {
         'etape': etape,
         'of': etape.of,
@@ -838,47 +905,45 @@ def etape_detail_view(request, etape_id):
 @login_required
 def etape_demarrer(request, etape_id):
     """Démarrer une étape"""
-    
+
     etape = get_object_or_404(EtapeProduction, id=etape_id)
-    
+
     if etape.statut in ['EN_ATTENTE', 'PRET', 'PAUSE']:
         etape.statut = 'EN_COURS'
         if not etape.date_debut_reel:
             etape.date_debut_reel = timezone.now()
         etape.save()
-        
+
         SuiviProduction.objects.create(
-            etape=etape,
-            operateur=request.user,
-            type_evenement='DEMARRAGE',
-            commentaire="Étape démarrée"
+            etape=etape, operateur=request.user,
+            type_evenement='DEMARRAGE', commentaire="Étape démarrée"
         )
-        
+
         if etape.of.statut == 'LANCE':
             etape.of.statut = 'EN_COURS'
             etape.of.save()
-        
+
         messages.success(request, f"Étape {etape.numero_etape} démarrée !")
-    
+
     return redirect('etape_detail', etape_id=etape_id)
 
 
 @login_required
 def etape_terminer(request, etape_id):
     """Terminer une étape et créer le semi-produit"""
-    
+
     etape = get_object_or_404(EtapeProduction, id=etape_id)
-    
+
     if request.method == 'POST':
         quantite_sortie = float(request.POST.get('quantite_sortie', 0))
         quantite_rebut = float(request.POST.get('quantite_rebut', 0))
-        
+
         etape.quantite_sortie = quantite_sortie
         etape.quantite_rebut = quantite_rebut
         etape.statut = 'TERMINE'
         etape.date_fin_reel = timezone.now()
         etape.save()
-        
+
         if etape.genere_semi_produit and quantite_sortie > 0:
             type_sp = 'FILM_EXTRUDE'
             if etape.process_type:
@@ -886,48 +951,41 @@ def etape_terminer(request, etape_id):
                     type_sp = 'FILM_IMPRIME'
                 elif 'COMP' in etape.process_type.code.upper():
                     type_sp = 'FILM_COMPLEXE'
-            
+
             SemiProduit.objects.create(
                 designation=f"SP - {etape.of.produit.name} - Étape {etape.numero_etape}",
                 type_semi_produit=type_sp,
-                of_origine=etape.of,
-                etape_origine=etape,
-                quantite=quantite_sortie,
-                laize=etape.of.laize,
-                conforme=True,
+                of_origine=etape.of, etape_origine=etape,
+                quantite=quantite_sortie, laize=etape.of.laize, conforme=True,
             )
-        
+
         SuiviProduction.objects.create(
-            etape=etape,
-            operateur=request.user,
-            type_evenement='FIN',
-            quantite_produite=quantite_sortie,
-            quantite_rebut=quantite_rebut,
+            etape=etape, operateur=request.user, type_evenement='FIN',
+            quantite_produite=quantite_sortie, quantite_rebut=quantite_rebut,
             commentaire="Étape terminée"
         )
-        
+
         of = etape.of
         if all(e.statut == 'TERMINE' for e in of.etapes.all()):
             of.statut = 'TERMINE'
             of.date_fin_reelle = timezone.now().date()
             of.quantite_produite = quantite_sortie
-        
+
         of.quantite_rebut = sum(e.quantite_rebut for e in of.etapes.all())
         of.save()
-        
+
         etape_suivante = EtapeProduction.objects.filter(
-            of=of,
-            numero_etape=etape.numero_etape + 1
+            of=of, numero_etape=etape.numero_etape + 1
         ).first()
-        
+
         if etape_suivante:
             etape_suivante.statut = 'PRET'
             etape_suivante.quantite_entree = quantite_sortie
             etape_suivante.save()
-        
+
         messages.success(request, f"Étape {etape.numero_etape} terminée !")
         return redirect('of_detail', of_id=etape.of.id)
-    
+
     return render(request, 'of/etape_terminer.html', {'etape': etape})
 
 
@@ -938,28 +996,26 @@ def etape_terminer(request, etape_id):
 @login_required
 def semi_produit_list(request):
     """Liste des semi-produits"""
-    
+
     statut = request.GET.get('statut', '')
     type_sp = request.GET.get('type', '')
-    
+
     semi_produits = SemiProduit.objects.select_related(
         'of_origine', 'etape_origine', 'emplacement'
     ).order_by('-date_creation')
-    
+
     if statut:
         semi_produits = semi_produits.filter(statut=statut)
     if type_sp:
         semi_produits = semi_produits.filter(type_semi_produit=type_sp)
-    
+
     stats = {
         'total': semi_produits.count(),
         'disponible': semi_produits.filter(statut='DISPONIBLE').count(),
         'reserve': semi_produits.filter(statut='RESERVE').count(),
-        'total_kg': semi_produits.filter(statut='DISPONIBLE').aggregate(
-            t=Sum('quantite')
-        )['t'] or 0,
+        'total_kg': semi_produits.filter(statut='DISPONIBLE').aggregate(t=Sum('quantite'))['t'] or 0,
     }
-    
+
     context = {
         'semi_produits': semi_produits[:100],
         'stats': stats,
@@ -974,14 +1030,14 @@ def semi_produit_list(request):
 @login_required
 def semi_produit_detail(request, sp_id):
     """Détail d'un semi-produit"""
-    
+
     sp = get_object_or_404(
         SemiProduit.objects.select_related(
             'of_origine', 'etape_origine', 'etape_destination', 'emplacement'
         ),
         id=sp_id
     )
-    
+
     context = {'semi_produit': sp}
     return render(request, 'of/semi_produit_detail.html', context)
 
@@ -993,9 +1049,9 @@ def semi_produit_detail(request, sp_id):
 @login_required
 def process_type_list(request):
     """Liste et gestion des types de processus"""
-    
+
     process_types = ProcessType.objects.all().order_by('ordre_defaut')
-    
+
     if request.method == 'POST':
         form = ProcessTypeForm(request.POST)
         if form.is_valid():
@@ -1004,7 +1060,7 @@ def process_type_list(request):
             return redirect('process_type_list')
     else:
         form = ProcessTypeForm()
-    
+
     context = {
         'process_types': process_types,
         'form': form,
@@ -1015,7 +1071,7 @@ def process_type_list(request):
 @login_required
 def process_type_delete(request, pt_id):
     """Supprimer un type de processus"""
-    
+
     pt = get_object_or_404(ProcessType, id=pt_id)
     if request.method == 'POST':
         pt.delete()
@@ -1030,34 +1086,34 @@ def process_type_delete(request, pt_id):
 @login_required
 def of_stats_api(request):
     """API JSON pour statistiques OF"""
-    
+
     from collections import defaultdict
-    
+
     statuts = {}
     for code, label in OrdreFabrication.STATUT_CHOICES:
         statuts[code] = OrdreFabrication.objects.filter(statut=code).count()
-    
+
     date_30j = timezone.now().date() - timedelta(days=30)
     ofs_recents = OrdreFabrication.objects.filter(
         date_lancement__gte=date_30j
     ).values('date_lancement').annotate(
         qte=Sum('quantite_produite')
     ).order_by('date_lancement')
-    
+
     prod_par_jour = {str(of['date_lancement']): of['qte'] or 0 for of in ofs_recents}
-    
+
     top_clients = OrdreFabrication.objects.values(
         'client__name'
     ).annotate(
         total=Sum('quantite_prevue')
     ).order_by('-total')[:5]
-    
+
     data = {
         'statuts': statuts,
         'production_par_jour': prod_par_jour,
         'top_clients': list(top_clients),
     }
-    
+
     return JsonResponse(data)
 
 
@@ -1096,10 +1152,8 @@ def add_material(request):
 
     suppliers = Supplier.objects.all()
     return render(request, 'stock/material_form.html', {
-        'form': form,
-        'suppliers': suppliers,
-        'title': 'Nouvelle Matière Première',
-        'btn_label': 'Ajouter la Matière',
+        'form': form, 'suppliers': suppliers,
+        'title': 'Nouvelle Matière Première', 'btn_label': 'Ajouter la Matière',
     })
 
 
@@ -1110,8 +1164,7 @@ def edit_material(request, id):
         form = MaterialForm(request.POST, instance=material)
         if form.is_valid():
             form.save()
-            messages.success(request,
-                f'✅ Matière "{material.name}" modifiée !')
+            messages.success(request, f'✅ Matière "{material.name}" modifiée !')
             return redirect('stock_advanced')
         else:
             messages.error(request, '❌ Erreur dans le formulaire.')
@@ -1120,11 +1173,8 @@ def edit_material(request, id):
 
     suppliers = Supplier.objects.all()
     return render(request, 'stock/material_form.html', {
-        'form': form,
-        'material': material,
-        'suppliers': suppliers,
-        'title': f'Modifier : {material.name}',
-        'btn_label': 'Enregistrer les modifications',
+        'form': form, 'material': material, 'suppliers': suppliers,
+        'title': f'Modifier : {material.name}', 'btn_label': 'Enregistrer les modifications',
     })
 
 
@@ -1152,9 +1202,7 @@ def add_supplier(request):
         form = SupplierForm()
 
     return render(request, 'stock/supplier_form.html', {
-        'form': form,
-        'title': 'Nouveau Fournisseur',
-        'btn_label': 'Ajouter le Fournisseur',
+        'form': form, 'title': 'Nouveau Fournisseur', 'btn_label': 'Ajouter le Fournisseur',
     })
 
 
@@ -1165,8 +1213,7 @@ def edit_supplier(request, id):
         form = SupplierForm(request.POST, instance=supplier)
         if form.is_valid():
             form.save()
-            messages.success(request,
-                f'✅ Fournisseur "{supplier.name}" modifié !')
+            messages.success(request, f'✅ Fournisseur "{supplier.name}" modifié !')
             return redirect('stock_advanced')
         else:
             messages.error(request, '❌ Erreur dans le formulaire.')
@@ -1174,10 +1221,8 @@ def edit_supplier(request, id):
         form = SupplierForm(instance=supplier)
 
     return render(request, 'stock/supplier_form.html', {
-        'form': form,
-        'supplier': supplier,
-        'title': f'Modifier : {supplier.name}',
-        'btn_label': 'Enregistrer les modifications',
+        'form': form, 'supplier': supplier,
+        'title': f'Modifier : {supplier.name}', 'btn_label': 'Enregistrer les modifications',
     })
 
 
@@ -1189,6 +1234,7 @@ def delete_supplier(request, id):
         supplier.delete()
         messages.success(request, f'🗑️ Fournisseur "{nom}" supprimé.')
     return redirect('stock_advanced')
+
 
 @login_required
 def add_consommation(request):
@@ -1223,64 +1269,51 @@ def highlight_search(text, query):
 @login_required
 def stock_advanced_view(request):
     """Vue principale du module stock avancé avec RECHERCHE INTELLIGENTE"""
-    
-    # ══════════════════════════════════════════════════════════════
-    # RÉCUPÉRATION DES FILTRES DE RECHERCHE
-    # ══════════════════════════════════════════════════════════════
+
     search_query = request.GET.get('q', '').strip()
     category_filter = request.GET.get('category', '')
     low_stock_only = request.GET.get('low_stock', '') == 'on'
     supplier_filter = request.GET.get('supplier', '')
-    
-    # ══════════════════════════════════════════════════════════════
-    # MATIÈRES PREMIÈRES AVEC FILTRES
-    # ══════════════════════════════════════════════════════════════
+
     materials = Material.objects.select_related('supplier').all()
-    
-    # Appliquer les filtres de recherche
+
     if search_query:
         materials = materials.filter(
             Q(name__icontains=search_query) |
             Q(supplier__name__icontains=search_query)
         )
-    
+
     if category_filter:
         materials = materials.filter(category=category_filter)
-    
+
     if supplier_filter:
         materials = materials.filter(supplier_id=supplier_filter)
-    
+
     materials = materials.order_by('name')
-    
-    # Filtrer par stock faible (après le queryset principal)
+
     if low_stock_only:
         materials = [m for m in materials if m.is_low_stock()]
-    
-    # ══════════════════════════════════════════════════════════════
-    # CALCUL DES ALERTES STOCK
-    # ══════════════════════════════════════════════════════════════
+
     all_materials = Material.objects.select_related('supplier').all()
     alertes_stock = []
     nb_ruptures = 0
     nb_critiques = 0
     nb_alertes_simples = 0
-    
-    # Compteurs par catégorie
+
     cat_stats = {
         'FILM': {'rupture': 0, 'critique': 0, 'alerte': 0},
         'INK': {'rupture': 0, 'critique': 0, 'alerte': 0},
         'GLUE': {'rupture': 0, 'critique': 0, 'alerte': 0},
         'SOLV': {'rupture': 0, 'critique': 0, 'alerte': 0},
     }
-    
+
     for m in all_materials:
         if m.is_low_stock():
-            # Calcul du pourcentage et niveau de criticité
             if m.min_threshold > 0:
                 pct = round((m.quantity / m.min_threshold) * 100, 1)
             else:
                 pct = 0
-            
+
             if m.quantity <= 0:
                 niveau = 'RUPTURE'
                 icone = '🔴'
@@ -1299,29 +1332,18 @@ def stock_advanced_view(request):
                 nb_alertes_simples += 1
                 if m.category in cat_stats:
                     cat_stats[m.category]['alerte'] += 1
-            
+
             alertes_stock.append({
-                'id': m.id,
-                'name': m.name,
-                'category': m.category,
-                'cat_label': m.get_category_display(),
-                'quantity': m.quantity,
-                'unit': m.unit,
-                'min_threshold': m.min_threshold,
+                'id': m.id, 'name': m.name, 'category': m.category,
+                'cat_label': m.get_category_display(), 'quantity': m.quantity,
+                'unit': m.unit, 'min_threshold': m.min_threshold,
                 'supplier': m.supplier.name if m.supplier else '—',
-                'pct': min(pct, 100),
-                'niveau': niveau,
-                'icone': icone,
+                'pct': min(pct, 100), 'niveau': niveau, 'icone': icone,
             })
-    
-    # Trier les alertes : ruptures en premier, puis critiques, puis alertes simples
+
     ordre_priorite = {'RUPTURE': 0, 'CRITIQUE': 1, 'ALERTE': 2}
     alertes_stock.sort(key=lambda x: (ordre_priorite.get(x['niveau'], 3), -x['pct']))
-    
-    # ══════════════════════════════════════════════════════════════
-    # DONNÉES POUR LES GRAPHIQUES
-    # ══════════════════════════════════════════════════════════════
-    # Top 10 pour le graphique barres
+
     top_alertes = alertes_stock[:10]
     top_alertes_noms = [a['name'][:25] + '...' if len(a['name']) > 25 else a['name'] for a in top_alertes]
     top_alertes_stock = [a['quantity'] for a in top_alertes]
@@ -1334,16 +1356,12 @@ def stock_advanced_view(request):
             top_alertes_couleurs.append('#ea580c')
         else:
             top_alertes_couleurs.append('#ca8a04')
-    
-    # Données par catégorie pour le graphe empilé
+
     cat_labels = ['Film/Papier', 'Encre', 'Colle', 'Solvant']
     cat_rupture = [cat_stats['FILM']['rupture'], cat_stats['INK']['rupture'], cat_stats['GLUE']['rupture'], cat_stats['SOLV']['rupture']]
     cat_critique = [cat_stats['FILM']['critique'], cat_stats['INK']['critique'], cat_stats['GLUE']['critique'], cat_stats['SOLV']['critique']]
     cat_alerte = [cat_stats['FILM']['alerte'], cat_stats['INK']['alerte'], cat_stats['GLUE']['alerte'], cat_stats['SOLV']['alerte']]
-    
-    # ══════════════════════════════════════════════════════════════
-    # PRÉVISIONS DE RUPTURE (seuils intelligents)
-    # ══════════════════════════════════════════════════════════════
+
     previsions = []
     for m in all_materials:
         try:
@@ -1362,59 +1380,40 @@ def stock_advanced_view(request):
         except:
             pass
     previsions.sort(key=lambda x: x['jours_restants'])
-    
-    # ══════════════════════════════════════════════════════════════
-    # AUTRES DONNÉES
-    # ══════════════════════════════════════════════════════════════
+
     lots = StockLot.objects.select_related('material', 'fournisseur', 'emplacement').order_by('-date_reception')[:100]
     lots_bloques = StockLot.objects.filter(statut='BLOQUE').count()
     lots_attente = StockLot.objects.filter(statut='EN_ATTENTE').count()
-    
+
     mouvements = StockMovement.objects.select_related(
         'material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur', 'machine', 'of'
     ).order_by('-date')[:100]
-    
+
     locations = StockLocation.objects.filter(is_active=True).order_by('type', 'name')
     suppliers = Supplier.objects.all().order_by('name')
-    
+
     demandes = DemandeAchat.objects.select_related('material', 'demandeur', 'valideur').order_by('-date_creation')[:50]
     da_en_attente = DemandeAchat.objects.filter(statut='SOUMISE').count()
-    
+
     bons_commande = BonCommande.objects.select_related('fournisseur', 'cree_par').order_by('-date_commande')[:50]
-    
+
     consos = ConsommationEncre.objects.all().order_by('-date')[:50]
-    
-    # Valeur totale du stock
+
     valeur_stock_total = sum(
-        float(m.quantity) * float(m.price_per_unit) 
-        for m in all_materials 
+        float(m.quantity) * float(m.price_per_unit)
+        for m in all_materials
         if m.price_per_unit
     )
-    
-    # ══════════════════════════════════════════════════════════════
-    # CONTEXTE TEMPLATE
-    # ══════════════════════════════════════════════════════════════
+
     context = {
-        # Recherche
-        'search_query': search_query,
-        'category_filter': category_filter,
-        'low_stock_only': low_stock_only,
-        'supplier_filter': supplier_filter,
+        'search_query': search_query, 'category_filter': category_filter,
+        'low_stock_only': low_stock_only, 'supplier_filter': supplier_filter,
         'categories': Material.CAT_CHOICES,
-        
-        # Matières
-        'materials': materials,
-        'total_matieres': Material.objects.count(),
+        'materials': materials, 'total_matieres': Material.objects.count(),
         'suppliers': suppliers,
-        
-        # Alertes
-        'alertes_stock': alertes_stock,
-        'nb_alertes': len(alertes_stock),
-        'nb_ruptures': nb_ruptures,
-        'nb_critiques': nb_critiques,
+        'alertes_stock': alertes_stock, 'nb_alertes': len(alertes_stock),
+        'nb_ruptures': nb_ruptures, 'nb_critiques': nb_critiques,
         'nb_alertes_simples': nb_alertes_simples,
-        
-        # Graphiques (JSON)
         'top_alertes_noms': json.dumps(top_alertes_noms),
         'top_alertes_stock': json.dumps(top_alertes_stock),
         'top_alertes_seuil': json.dumps(top_alertes_seuil),
@@ -1423,33 +1422,14 @@ def stock_advanced_view(request):
         'cat_rupture_json': json.dumps(cat_rupture),
         'cat_critique_json': json.dumps(cat_critique),
         'cat_alerte_json': json.dumps(cat_alerte),
-        
-        # Prévisions
         'previsions': previsions[:6],
-        
-        # Lots
-        'lots': lots,
-        'lots_bloques': lots_bloques,
-        'lots_attente': lots_attente,
-        
-        # Mouvements
-        'mouvements': mouvements,
-        
-        # Emplacements
-        'locations': locations,
-        
-        # Achats
-        'demandes': demandes,
-        'da_en_attente': da_en_attente,
-        'bons_commande': bons_commande,
-        
-        # Consos
-        'consos': consos,
-        
-        # Stats
+        'lots': lots, 'lots_bloques': lots_bloques, 'lots_attente': lots_attente,
+        'mouvements': mouvements, 'locations': locations,
+        'demandes': demandes, 'da_en_attente': da_en_attente,
+        'bons_commande': bons_commande, 'consos': consos,
         'valeur_stock_total': valeur_stock_total,
     }
-    
+
     return render(request, 'stock/stock_advanced.html', context)
 
 
@@ -1457,36 +1437,31 @@ def stock_advanced_view(request):
 def material_search_api(request):
     """API autocomplete pour recherche dynamique AJAX"""
     query = request.GET.get('q', '').strip()
-    
+
     if len(query) < 1:
         return JsonResponse([], safe=False)
-    
-    # Recherche insensible à la casse sur le nom
+
     materials = Material.objects.filter(
         Q(name__icontains=query) |
         Q(category__icontains=query) |
         Q(supplier__name__icontains=query)
     ).select_related('supplier').order_by('name')[:30]
-    
+
     results = []
     for m in materials:
         results.append({
-            'id': m.id,
-            'name': m.name,
+            'id': m.id, 'name': m.name,
             'name_html': highlight_search(m.name, query),
             'category': m.get_category_display(),
-            'quantity': m.quantity,
-            'unit': m.unit,
+            'quantity': m.quantity, 'unit': m.unit,
             'min_threshold': m.min_threshold,
             'supplier': m.supplier.name if m.supplier else '—',
             'is_low_stock': m.is_low_stock(),
             'price': float(m.price_per_unit) if m.price_per_unit else 0,
         })
-    
+
     return JsonResponse({
-        'query': query,
-        'count': len(results),
-        'results': results
+        'query': query, 'count': len(results), 'results': results
     })
 
 
@@ -1495,79 +1470,63 @@ def export_search_results(request):
     """Export Excel des résultats de recherche"""
     query = request.GET.get('q', '').strip()
     category = request.GET.get('category', '')
-    
-    # Filtrer les matières
+
     materials = Material.objects.select_related('supplier').all()
-    
+
     if query:
         materials = materials.filter(
-            Q(name__icontains=query) |
-            Q(supplier__name__icontains=query)
+            Q(name__icontains=query) | Q(supplier__name__icontains=query)
         )
-    
+
     if category:
         materials = materials.filter(category=category)
-    
+
     materials = materials.order_by('name')
-    
-    # Créer le fichier Excel
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Stock Matières"
-    
-    # Styles
+
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
     alert_fill = PatternFill(start_color="fee2e2", end_color="fee2e2", fill_type="solid")
     thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
     )
-    
-    # En-têtes
+
     headers = ['Désignation', 'Catégorie', 'Stock Actuel', 'Unité', 'Seuil Min', 'Fournisseur', 'Prix/Unité', 'Valeur Stock', 'État']
     ws.append(headers)
-    
+
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col_num)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center')
         cell.border = thin_border
-    
-    # Données
+
     for row_num, m in enumerate(materials, 2):
         valeur = float(m.quantity) * float(m.price_per_unit) if m.price_per_unit else 0
         etat = "⚠️ ALERTE" if m.is_low_stock() else "✓ OK"
-        
+
         row_data = [
-            m.name,
-            m.get_category_display(),
-            m.quantity,
-            m.unit,
-            m.min_threshold,
-            m.supplier.name if m.supplier else '',
+            m.name, m.get_category_display(), m.quantity, m.unit,
+            m.min_threshold, m.supplier.name if m.supplier else '',
             float(m.price_per_unit) if m.price_per_unit else 0,
-            round(valeur, 2),
-            etat
+            round(valeur, 2), etat
         ]
         ws.append(row_data)
-        
-        # Appliquer le style alerte si stock faible
+
         for col_num in range(1, len(row_data) + 1):
             cell = ws.cell(row=row_num, column=col_num)
             cell.border = thin_border
             if m.is_low_stock():
                 cell.fill = alert_fill
-    
-    # Ajuster la largeur des colonnes
+
     column_widths = [40, 15, 15, 10, 12, 25, 12, 15, 12]
     for i, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
-    
-    # Préparer la réponse
+
     filename = f"stock_matieres_{query if query else 'all'}.xlsx"
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -1693,8 +1652,7 @@ def lot_detail(request, id):
         'utilisateur', 'machine', 'of'
     ).order_by('-date')
     return render(request, 'stock/lot_detail.html', {
-        'lot': lot,
-        'mouvements': mouvements
+        'lot': lot, 'mouvements': mouvements
     })
 
 
@@ -1788,9 +1746,7 @@ def bc_add(request):
             idx = 1
             total = 0
             while request.POST.get(f'material_{idx}'):
-                mat = Material.objects.filter(
-                    id=request.POST.get(f'material_{idx}')
-                ).first()
+                mat = Material.objects.filter(id=request.POST.get(f'material_{idx}')).first()
                 if mat:
                     qte = float(request.POST.get(f'quantite_{idx}', 0))
                     prix = float(request.POST.get(f'prix_{idx}', 0))
@@ -1850,10 +1806,7 @@ def seuil_update(request, material_id):
     if request.method == 'POST':
         seuil, _ = StockSeuil.objects.get_or_create(
             material=material,
-            defaults={
-                'consommation_journaliere_moy': 0,
-                'delai_fournisseur_jours': 7
-            }
+            defaults={'consommation_journaliere_moy': 0, 'delai_fournisseur_jours': 7}
         )
         seuil.consommation_journaliere_moy = float(request.POST.get('conso_jour', 0))
         seuil.delai_fournisseur_jours = int(request.POST.get('delai_jours', 7))
@@ -1868,11 +1821,7 @@ def stock_dashboard_data(request):
     critiques = []
     for m in Material.objects.all():
         if m.is_low_stock():
-            critiques.append({
-                'name': m.name,
-                'stock': m.quantity,
-                'seuil': m.min_threshold
-            })
+            critiques.append({'name': m.name, 'stock': m.quantity, 'seuil': m.min_threshold})
     return JsonResponse({'critiques': critiques})
 
 
@@ -1904,12 +1853,12 @@ def add_machine(request):
 
 def _get_filtered_entries(request):
     entries = ProductionEntry.objects.all().order_by('-date', '-heure_debut')
-    date_from  = request.GET.get('date_from', '')
-    date_to    = request.GET.get('date_to', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
     machine_id = request.GET.get('machine', '')
-    support    = request.GET.get('support', '')
-    equipe     = request.GET.get('equipe', '')
-    produit    = request.GET.get('produit', '')
+    support = request.GET.get('support', '')
+    equipe = request.GET.get('equipe', '')
+    produit = request.GET.get('produit', '')
 
     if date_from:
         entries = entries.filter(date__gte=date_from)
@@ -1932,17 +1881,15 @@ def _get_filter_context(request):
     ).distinct().order_by('produit')
 
     return {
-        'all_machines':       Machine.objects.all().order_by('name'),
-        'all_supports':       ProductionEntry.objects.values_list(
-                                  'support', flat=True
-                              ).distinct().order_by('support'),
-        'all_produits':       all_produits,
+        'all_machines': Machine.objects.all().order_by('name'),
+        'all_supports': ProductionEntry.objects.values_list('support', flat=True).distinct().order_by('support'),
+        'all_produits': all_produits,
         'selected_date_from': request.GET.get('date_from', ''),
-        'selected_date_to':   request.GET.get('date_to', ''),
-        'selected_machine':   request.GET.get('machine', ''),
-        'selected_support':   request.GET.get('support', ''),
-        'selected_equipe':    request.GET.get('equipe', ''),
-        'selected_produit':   request.GET.get('produit', ''),
+        'selected_date_to': request.GET.get('date_to', ''),
+        'selected_machine': request.GET.get('machine', ''),
+        'selected_support': request.GET.get('support', ''),
+        'selected_equipe': request.GET.get('equipe', ''),
+        'selected_produit': request.GET.get('produit', ''),
     }
 
 
@@ -2020,10 +1967,8 @@ def prod_saisie(request):
         form = ProductionEntryForm()
     recent = ProductionEntry.objects.all().order_by('-date', '-heure_debut')[:10]
     context = {
-        'form': form,
-        'titre': 'Nouvelle Saisie Production',
-        'recent': recent,
-        'edit_mode': False,
+        'form': form, 'titre': 'Nouvelle Saisie Production',
+        'recent': recent, 'edit_mode': False,
     }
     return render(request, 'production_special/saisie.html', context)
 
@@ -2043,11 +1988,8 @@ def prod_edit_entry(request, id):
         form = ProductionEntryForm(instance=entry)
     recent = ProductionEntry.objects.all().order_by('-date', '-heure_debut')[:10]
     context = {
-        'form': form,
-        'titre': f'Modifier — {entry.produit} ({entry.date})',
-        'recent': recent,
-        'edit_mode': True,
-        'entry': entry,
+        'form': form, 'titre': f'Modifier — {entry.produit} ({entry.date})',
+        'recent': recent, 'edit_mode': True, 'entry': entry,
     }
     return render(request, 'production_special/saisie.html', context)
 
@@ -2168,13 +2110,12 @@ def prod_synthese_temps(request):
 # ===========================================================================
 
 def _get_filtered_encre(request):
-    """Filtre les enregistrements ConsommationEncre selon les paramètres GET"""
     consos = ConsommationEncre.objects.all().order_by('-date')
     date_from = request.GET.get('date_from', '')
-    date_to   = request.GET.get('date_to', '')
-    process   = request.GET.get('process_type', '')
-    support   = request.GET.get('support', '')
-    job       = request.GET.get('job', '')
+    date_to = request.GET.get('date_to', '')
+    process = request.GET.get('process_type', '')
+    support = request.GET.get('support', '')
+    job = request.GET.get('job', '')
 
     if date_from:
         consos = consos.filter(date__gte=date_from)
@@ -2190,41 +2131,39 @@ def _get_filtered_encre(request):
 
 
 def _get_encre_filter_context(request):
-    """Contexte commun pour les filtres encre"""
     all_supports = ConsommationEncre.objects.values_list(
         'support', flat=True
     ).distinct().order_by('support')
-    
+
     all_jobs = ConsommationEncre.objects.values_list(
         'job_name', flat=True
     ).distinct().order_by('job_name')
-    
+
     return {
         'all_supports_encre': all_supports,
-        'all_jobs_encre':     list(all_jobs),
-        'process_choices':    ConsommationEncre.PROCESS_CHOICES,
-        'sel_date_from':      request.GET.get('date_from', ''),
-        'sel_date_to':        request.GET.get('date_to', ''),
-        'sel_process':        request.GET.get('process_type', ''),
-        'sel_support':        request.GET.get('support', ''),
-        'sel_job':            request.GET.get('job', ''),
+        'all_jobs_encre': list(all_jobs),
+        'process_choices': ConsommationEncre.PROCESS_CHOICES,
+        'sel_date_from': request.GET.get('date_from', ''),
+        'sel_date_to': request.GET.get('date_to', ''),
+        'sel_process': request.GET.get('process_type', ''),
+        'sel_support': request.GET.get('support', ''),
+        'sel_job': request.GET.get('job', ''),
     }
 
 
 @login_required
 def encre_dashboard(request):
-    """Tableau de bord principal — Consommation Encre & Déchets Impression"""
     from collections import defaultdict
 
     consos = _get_filtered_encre(request)
-    count  = consos.count()
+    count = consos.count()
 
-    total_encre   = sum(c.total_encre   for c in consos)
+    total_encre = sum(c.total_encre for c in consos)
     total_solvant = sum(c.total_solvant for c in consos)
     total_injecte = total_encre + total_solvant
 
-    total_gain_masse    = sum(c.gain_de_masse_kg    for c in consos)
-    total_evaporee      = sum(c.matiere_evaporee_kg for c in consos)
+    total_gain_masse = sum(c.gain_de_masse_kg for c in consos)
+    total_evaporee = sum(c.matiere_evaporee_kg for c in consos)
 
     taux_gain_global = round(
         (total_gain_masse / total_injecte * 100), 2
@@ -2238,20 +2177,17 @@ def encre_dashboard(request):
     grammages = [c.grammage for c in consos if c.grammage > 0]
     grammage_moyen = round(sum(grammages) / len(grammages), 2) if grammages else 0
 
-    couleurs_noms = [
-        'Noir', 'Magenta', 'Jaune', 'Cyan',
-        'Doré', 'Silver', 'Orange', 'Blanc', 'Vernis'
-    ]
+    couleurs_noms = ['Noir', 'Magenta', 'Jaune', 'Cyan', 'Doré', 'Silver', 'Orange', 'Blanc', 'Vernis']
     couleurs_vals = [
-        round(consos.aggregate(t=Sum('encre_noir'))['t']    or 0, 2),
+        round(consos.aggregate(t=Sum('encre_noir'))['t'] or 0, 2),
         round(consos.aggregate(t=Sum('encre_magenta'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_jaune'))['t']   or 0, 2),
-        round(consos.aggregate(t=Sum('encre_cyan'))['t']    or 0, 2),
-        round(consos.aggregate(t=Sum('encre_dore'))['t']    or 0, 2),
-        round(consos.aggregate(t=Sum('encre_silver'))['t']  or 0, 2),
-        round(consos.aggregate(t=Sum('encre_orange'))['t']  or 0, 2),
-        round(consos.aggregate(t=Sum('encre_blanc'))['t']   or 0, 2),
-        round(consos.aggregate(t=Sum('encre_vernis'))['t']  or 0, 2),
+        round(consos.aggregate(t=Sum('encre_jaune'))['t'] or 0, 2),
+        round(consos.aggregate(t=Sum('encre_cyan'))['t'] or 0, 2),
+        round(consos.aggregate(t=Sum('encre_dore'))['t'] or 0, 2),
+        round(consos.aggregate(t=Sum('encre_silver'))['t'] or 0, 2),
+        round(consos.aggregate(t=Sum('encre_orange'))['t'] or 0, 2),
+        round(consos.aggregate(t=Sum('encre_blanc'))['t'] or 0, 2),
+        round(consos.aggregate(t=Sum('encre_vernis'))['t'] or 0, 2),
     ]
     couleurs_colors = [
         '#1a1a1a', '#e91e8c', '#ffd600', '#00b8d9',
@@ -2259,25 +2195,24 @@ def encre_dashboard(request):
     ]
 
     data_dates = defaultdict(lambda: {
-        'encre': 0, 'solvant': 0, 'gain': 0,
-        'evap': 0, 'metrage': 0
+        'encre': 0, 'solvant': 0, 'gain': 0, 'evap': 0, 'metrage': 0
     })
     for c in consos:
         d = str(c.date)
-        data_dates[d]['encre']   += c.total_encre
+        data_dates[d]['encre'] += c.total_encre
         data_dates[d]['solvant'] += c.total_solvant
-        data_dates[d]['gain']    += c.gain_de_masse_kg
-        data_dates[d]['evap']    += c.matiere_evaporee_kg
+        data_dates[d]['gain'] += c.gain_de_masse_kg
+        data_dates[d]['evap'] += c.matiere_evaporee_kg
         data_dates[d]['metrage'] += c.metrage
 
     dates_sorted = sorted(data_dates.keys())
 
     pie_labels = ['Encres', 'Solvants']
-    pie_vals   = [round(total_encre, 2), round(total_solvant, 2)]
+    pie_vals = [round(total_encre, 2), round(total_solvant, 2)]
     pie_colors = ['#f3b83a', '#38bdf8']
 
     pie2_labels = ['Gain de masse', 'Matière évaporée']
-    pie2_vals   = [round(total_gain_masse, 2), round(total_evaporee, 2)]
+    pie2_vals = [round(total_gain_masse, 2), round(total_evaporee, 2)]
     pie2_colors = ['#22c55e', '#ef4444']
 
     job_data = defaultdict(float)
@@ -2295,55 +2230,39 @@ def encre_dashboard(request):
     ]
 
     context = {
-        'count':            count,
-        'total_encre':      round(total_encre, 2),
-        'total_solvant':    round(total_solvant, 2),
-        'total_injecte':    round(total_injecte, 2),
+        'count': count,
+        'total_encre': round(total_encre, 2),
+        'total_solvant': round(total_solvant, 2),
+        'total_injecte': round(total_injecte, 2),
         'total_gain_masse': round(total_gain_masse, 2),
-        'total_evaporee':   round(total_evaporee, 2),
+        'total_evaporee': round(total_evaporee, 2),
         'taux_gain_global': taux_gain_global,
         'taux_evap_global': taux_evap_global,
-        'total_metrage':    round(total_metrage, 2),
-        'grammage_moyen':   grammage_moyen,
-        'flexo_count':      flexo_count,
-        'helio_count':      helio_count,
-        'couleurs_table':   couleurs_table,
-        'consos_recentes':  consos[:15],
-
+        'total_metrage': round(total_metrage, 2),
+        'grammage_moyen': grammage_moyen,
+        'flexo_count': flexo_count,
+        'helio_count': helio_count,
+        'couleurs_table': couleurs_table,
+        'consos_recentes': consos[:15],
         'chart_couleurs_labels': json.dumps(couleurs_noms),
-        'chart_couleurs_vals':   json.dumps(couleurs_vals),
+        'chart_couleurs_vals': json.dumps(couleurs_vals),
         'chart_couleurs_colors': json.dumps(couleurs_colors),
-
-        'chart_dates':       json.dumps(dates_sorted),
-        'chart_encre_vals':  json.dumps(
-            [round(data_dates[d]['encre'], 2) for d in dates_sorted]
-        ),
-        'chart_solvant_vals': json.dumps(
-            [round(data_dates[d]['solvant'], 2) for d in dates_sorted]
-        ),
-        'chart_gain_vals':    json.dumps(
-            [round(data_dates[d]['gain'], 2) for d in dates_sorted]
-        ),
-        'chart_evap_vals':    json.dumps(
-            [round(data_dates[d]['evap'], 2) for d in dates_sorted]
-        ),
-        'chart_metrage_vals': json.dumps(
-            [round(data_dates[d]['metrage'], 1) for d in dates_sorted]
-        ),
-
-        'pie_labels':  json.dumps(pie_labels),
-        'pie_vals':    json.dumps(pie_vals),
-        'pie_colors':  json.dumps(pie_colors),
-
+        'chart_dates': json.dumps(dates_sorted),
+        'chart_encre_vals': json.dumps([round(data_dates[d]['encre'], 2) for d in dates_sorted]),
+        'chart_solvant_vals': json.dumps([round(data_dates[d]['solvant'], 2) for d in dates_sorted]),
+        'chart_gain_vals': json.dumps([round(data_dates[d]['gain'], 2) for d in dates_sorted]),
+        'chart_evap_vals': json.dumps([round(data_dates[d]['evap'], 2) for d in dates_sorted]),
+        'chart_metrage_vals': json.dumps([round(data_dates[d]['metrage'], 1) for d in dates_sorted]),
+        'pie_labels': json.dumps(pie_labels),
+        'pie_vals': json.dumps(pie_vals),
+        'pie_colors': json.dumps(pie_colors),
         'pie2_labels': json.dumps(pie2_labels),
-        'pie2_vals':   json.dumps(pie2_vals),
+        'pie2_vals': json.dumps(pie2_vals),
         'pie2_colors': json.dumps(pie2_colors),
-
         'chart_jobs_labels': json.dumps([j[0] for j in top_jobs]),
-        'chart_jobs_vals':   json.dumps([round(j[1], 2) for j in top_jobs]),
-
+        'chart_jobs_vals': json.dumps([round(j[1], 2) for j in top_jobs]),
         'chart_process_labels': json.dumps(['Flexo', 'Hélio']),
-        'chart_process_vals':   json.dumps([flexo_count, helio_count]),
+        'chart_process_vals': json.dumps([flexo_count, helio_count]),
     }
     context.update(_get_encre_filter_context(request))
     return render(request, 'production_special/encre_dashboard.html', context)
@@ -2351,7 +2270,6 @@ def encre_dashboard(request):
 
 @login_required
 def encre_saisie(request):
-    """Formulaire de saisie consommation encre"""
     if request.method == 'POST':
         form = ConsommationEncreForm(request.POST)
         if form.is_valid():
@@ -2365,17 +2283,14 @@ def encre_saisie(request):
 
     recent = ConsommationEncre.objects.all().order_by('-date')[:10]
     context = {
-        'form':      form,
-        'titre':     'Nouvelle Saisie — Encre & Solvants',
-        'recent':    recent,
-        'edit_mode': False,
+        'form': form, 'titre': 'Nouvelle Saisie — Encre & Solvants',
+        'recent': recent, 'edit_mode': False,
     }
     return render(request, 'production_special/encre_saisie.html', context)
 
 
 @login_required
 def encre_edit(request, id):
-    """Modifier une saisie consommation encre"""
     conso = get_object_or_404(ConsommationEncre, id=id)
     if request.method == 'POST':
         form = ConsommationEncreForm(request.POST, instance=conso)
@@ -2390,78 +2305,67 @@ def encre_edit(request, id):
 
     recent = ConsommationEncre.objects.all().order_by('-date')[:10]
     context = {
-        'form':      form,
-        'titre':     f'Modifier — {conso.job_name} ({conso.date})',
-        'recent':    recent,
-        'edit_mode': True,
-        'conso':     conso,
+        'form': form, 'titre': f'Modifier — {conso.job_name} ({conso.date})',
+        'recent': recent, 'edit_mode': True, 'conso': conso,
     }
     return render(request, 'production_special/encre_saisie.html', context)
 
 
 @login_required
 def encre_delete(request, id):
-    """Supprimer une saisie consommation encre"""
     conso = get_object_or_404(ConsommationEncre, id=id)
     if request.method == 'POST':
         conso.delete()
         messages.success(request, "🗑️ Saisie supprimée.")
         return redirect('encre_dashboard')
-    return render(
-        request,
-        'production_special/encre_confirm_delete.html',
-        {'conso': conso}
-    )
+    return render(request, 'production_special/encre_confirm_delete.html', {'conso': conso})
 
 
 @login_required
 def encre_detail(request, id):
-    """Détail d'une saisie avec calculs complets"""
     conso = get_object_or_404(ConsommationEncre, id=id)
 
     couleurs_detail = [
-        {'nom': 'Noir',    'val': conso.encre_noir,    'color': '#1a1a1a', 'bg': 'bg-gray-800'},
+        {'nom': 'Noir', 'val': conso.encre_noir, 'color': '#1a1a1a', 'bg': 'bg-gray-800'},
         {'nom': 'Magenta', 'val': conso.encre_magenta, 'color': '#e91e8c', 'bg': 'bg-pink-900'},
-        {'nom': 'Jaune',   'val': conso.encre_jaune,   'color': '#ffd600', 'bg': 'bg-yellow-800'},
-        {'nom': 'Cyan',    'val': conso.encre_cyan,    'color': '#00b8d9', 'bg': 'bg-cyan-900'},
-        {'nom': 'Doré',    'val': conso.encre_dore,    'color': '#ffc107', 'bg': 'bg-amber-800'},
-        {'nom': 'Silver',  'val': conso.encre_silver,  'color': '#9e9e9e', 'bg': 'bg-slate-600'},
-        {'nom': 'Orange',  'val': conso.encre_orange,  'color': '#ff6d00', 'bg': 'bg-orange-900'},
-        {'nom': 'Blanc',   'val': conso.encre_blanc,   'color': '#f5f5f5', 'bg': 'bg-slate-500'},
-        {'nom': 'Vernis',  'val': conso.encre_vernis,  'color': '#4caf50', 'bg': 'bg-green-900'},
+        {'nom': 'Jaune', 'val': conso.encre_jaune, 'color': '#ffd600', 'bg': 'bg-yellow-800'},
+        {'nom': 'Cyan', 'val': conso.encre_cyan, 'color': '#00b8d9', 'bg': 'bg-cyan-900'},
+        {'nom': 'Doré', 'val': conso.encre_dore, 'color': '#ffc107', 'bg': 'bg-amber-800'},
+        {'nom': 'Silver', 'val': conso.encre_silver, 'color': '#9e9e9e', 'bg': 'bg-slate-600'},
+        {'nom': 'Orange', 'val': conso.encre_orange, 'color': '#ff6d00', 'bg': 'bg-orange-900'},
+        {'nom': 'Blanc', 'val': conso.encre_blanc, 'color': '#f5f5f5', 'bg': 'bg-slate-500'},
+        {'nom': 'Vernis', 'val': conso.encre_vernis, 'color': '#4caf50', 'bg': 'bg-green-900'},
     ]
     couleurs_detail = [c for c in couleurs_detail if c['val'] > 0]
 
-    pie_noms   = [c['nom']   for c in couleurs_detail]
-    pie_vals_d = [c['val']   for c in couleurs_detail]
+    pie_noms = [c['nom'] for c in couleurs_detail]
+    pie_vals_d = [c['val'] for c in couleurs_detail]
     pie_cols_d = [c['color'] for c in couleurs_detail]
 
     context = {
-        'conso':          conso,
-        'couleurs_detail': couleurs_detail,
-        'pie_noms_json':  json.dumps(pie_noms),
-        'pie_vals_json':  json.dumps(pie_vals_d),
-        'pie_cols_json':  json.dumps(pie_cols_d),
+        'conso': conso, 'couleurs_detail': couleurs_detail,
+        'pie_noms_json': json.dumps(pie_noms),
+        'pie_vals_json': json.dumps(pie_vals_d),
+        'pie_cols_json': json.dumps(pie_cols_d),
     }
     return render(request, 'production_special/encre_detail.html', context)
 
 
 @login_required
 def encre_analyse(request):
-    """Analyse avancée — Déchets impression, grammage, comparaison Flexo/Hélio"""
     from collections import defaultdict
 
-    consos  = _get_filtered_encre(request)
-    count   = consos.count()
+    consos = _get_filtered_encre(request)
+    count = consos.count()
 
-    dechet_dates   = defaultdict(float)
-    dechet_flexo   = defaultdict(float)
-    dechet_helio   = defaultdict(float)
+    dechet_dates = defaultdict(float)
+    dechet_flexo = defaultdict(float)
+    dechet_helio = defaultdict(float)
     grammage_dates = defaultdict(list)
 
     for c in consos:
         d = str(c.date)
-        dechet_dates[d]   += c.matiere_evaporee_kg
+        dechet_dates[d] += c.matiere_evaporee_kg
         grammage_dates[d].append(c.grammage)
         if c.process_type == 'FLEXO':
             dechet_flexo[d] += c.matiere_evaporee_kg
@@ -2479,29 +2383,26 @@ def encre_analyse(request):
         total_gai = sum(c.gain_de_masse_kg for c in qs)
         gram_list = [c.grammage for c in qs if c.grammage > 0]
         return {
-            'count':       qs.count(),
-            'total_inj':   round(total_inj, 2),
-            'total_evp':   round(total_evp, 2),
-            'total_gai':   round(total_gai, 2),
-            'taux_evp':    round(total_evp / total_inj * 100, 2) if total_inj else 0,
-            'gram_moy':    round(sum(gram_list) / len(gram_list), 2) if gram_list else 0,
+            'count': qs.count(),
+            'total_inj': round(total_inj, 2),
+            'total_evp': round(total_evp, 2),
+            'total_gai': round(total_gai, 2),
+            'taux_evp': round(total_evp / total_inj * 100, 2) if total_inj else 0,
+            'gram_moy': round(sum(gram_list) / len(gram_list), 2) if gram_list else 0,
         }
 
     stats_flexo = _stats(flexo_qs)
     stats_helio = _stats(helio_qs)
 
-    radar_labels = [
-        'Total Injecté', 'Total Évaporé',
-        'Gain Masse', 'Taux Évap %', 'Grammage moy.'
-    ]
+    radar_labels = ['Total Injecté', 'Total Évaporé', 'Gain Masse', 'Taux Évap %', 'Grammage moy.']
     radar_flexo = [
-        stats_flexo['total_inj'],  stats_flexo['total_evp'],
-        stats_flexo['total_gai'],  stats_flexo['taux_evp'],
+        stats_flexo['total_inj'], stats_flexo['total_evp'],
+        stats_flexo['total_gai'], stats_flexo['taux_evp'],
         stats_flexo['gram_moy'],
     ]
     radar_helio = [
-        stats_helio['total_inj'],  stats_helio['total_evp'],
-        stats_helio['total_gai'],  stats_helio['taux_evp'],
+        stats_helio['total_inj'], stats_helio['total_evp'],
+        stats_helio['total_gai'], stats_helio['taux_evp'],
         stats_helio['gram_moy'],
     ]
 
@@ -2518,51 +2419,34 @@ def encre_analyse(request):
         if key not in job_seen:
             job_seen[key] = {'evap': 0, 'inj': 0}
         job_seen[key]['evap'] += c.matiere_evaporee_kg
-        job_seen[key]['inj']  += c.total_encre + c.total_solvant
+        job_seen[key]['inj'] += c.total_encre + c.total_solvant
 
-    for job, vals in sorted(
-        job_seen.items(),
-        key=lambda x: x[1]['evap'],
-        reverse=True
-    )[:8]:
+    for job, vals in sorted(job_seen.items(), key=lambda x: x[1]['evap'], reverse=True)[:8]:
         taux = round(vals['evap'] / vals['inj'] * 100, 1) if vals['inj'] else 0
         job_evap.append({'job': job, 'evap': round(vals['evap'], 2), 'taux': taux})
 
     context = {
-        'count':        count,
-        'stats_flexo':  stats_flexo,
-        'stats_helio':  stats_helio,
-        'job_evap':     job_evap,
-
-        'chart_dec_dates':  json.dumps(dates_sorted),
-        'chart_dec_total':  json.dumps(
-            [round(dechet_dates[d], 2) for d in dates_sorted]
-        ),
-        'chart_dec_flexo':  json.dumps(
-            [round(dechet_flexo.get(d, 0), 2) for d in dates_sorted]
-        ),
-        'chart_dec_helio':  json.dumps(
-            [round(dechet_helio.get(d, 0), 2) for d in dates_sorted]
-        ),
-
+        'count': count,
+        'stats_flexo': stats_flexo,
+        'stats_helio': stats_helio,
+        'job_evap': job_evap,
+        'chart_dec_dates': json.dumps(dates_sorted),
+        'chart_dec_total': json.dumps([round(dechet_dates[d], 2) for d in dates_sorted]),
+        'chart_dec_flexo': json.dumps([round(dechet_flexo.get(d, 0), 2) for d in dates_sorted]),
+        'chart_dec_helio': json.dumps([round(dechet_helio.get(d, 0), 2) for d in dates_sorted]),
         'chart_gram_dates': json.dumps(dates_sorted),
-        'chart_gram_vals':  json.dumps([
-            round(
-                sum(grammage_dates[d]) / len(grammage_dates[d]), 2
-            ) if grammage_dates[d] else 0
+        'chart_gram_vals': json.dumps([
+            round(sum(grammage_dates[d]) / len(grammage_dates[d]), 2) if grammage_dates[d] else 0
             for d in dates_sorted
         ]),
-
-        'radar_labels':     json.dumps(radar_labels),
-        'radar_flexo':      json.dumps(radar_flexo),
-        'radar_helio':      json.dumps(radar_helio),
-
+        'radar_labels': json.dumps(radar_labels),
+        'radar_flexo': json.dumps(radar_flexo),
+        'radar_helio': json.dumps(radar_helio),
         'chart_sup_labels': json.dumps([s[0] for s in top_support]),
-        'chart_sup_vals':   json.dumps([round(s[1], 2) for s in top_support]),
-
-        'chart_job_labels': json.dumps([j['job']  for j in job_evap]),
-        'chart_job_evap':   json.dumps([j['evap'] for j in job_evap]),
-        'chart_job_taux':   json.dumps([j['taux'] for j in job_evap]),
+        'chart_sup_vals': json.dumps([round(s[1], 2) for s in top_support]),
+        'chart_job_labels': json.dumps([j['job'] for j in job_evap]),
+        'chart_job_evap': json.dumps([j['evap'] for j in job_evap]),
+        'chart_job_taux': json.dumps([j['taux'] for j in job_evap]),
     }
     context.update(_get_encre_filter_context(request))
     return render(request, 'production_special/encre_analyse.html', context)
@@ -2635,11 +2519,7 @@ def import_stock_view(request):
                     try:
                         nom = row.get('Nom')
                         if nom and nom != 0:
-                            status_map = {
-                                'Active': 'ACTIVE',
-                                'Prospect': 'PROSPECT',
-                                'VIP': 'VIP'
-                            }
+                            status_map = {'Active': 'ACTIVE', 'Prospect': 'PROSPECT', 'VIP': 'VIP'}
                             Client.objects.update_or_create(
                                 name=nom,
                                 defaults={
@@ -2682,9 +2562,7 @@ def import_stock_view(request):
                         machine_obj = None
                         mac_name = str(row.get('Machine', '')).strip()
                         if mac_name and mac_name not in ('0', ''):
-                            machine_obj = Machine.objects.filter(
-                                name__icontains=mac_name
-                            ).first()
+                            machine_obj = Machine.objects.filter(name__icontains=mac_name).first()
                             if not machine_obj:
                                 machine_obj = Machine.objects.create(
                                     name=mac_name, type='IMP', status='STOP'
@@ -2706,17 +2584,14 @@ def import_stock_view(request):
                                 return d
 
                         entry = ProductionEntry.objects.create(
-                            date=d_val,
-                            produit=produit_val,
+                            date=d_val, produit=produit_val,
                             support=str(row.get('Support', '')),
                             quantite_lancee=safe_float(row.get('Qte_Lancee')),
                             lot=str(row.get('Lot', '')),
                             laize=safe_float(row.get('Laize')),
-                            client=client_obj,
-                            equipe=equipe_val,
+                            client=client_obj, equipe=equipe_val,
                             machine=machine_obj,
-                            heure_debut=h_debut,
-                            heure_fin=h_fin,
+                            heure_debut=h_debut, heure_fin=h_fin,
                             prod_ml=safe_float(row.get('Prod_ML')),
                             dechets_demarrage=safe_float(row.get('Dec_Demarrage')),
                             dechets_lisiere=safe_float(row.get('Dec_Lisiere')),
@@ -2726,9 +2601,7 @@ def import_stock_view(request):
                             rebobinage_kg=safe_float(row.get('Rebobinage_KG'))
                         )
                         count += 1
-                        details.append(
-                            f"Ligne {idx+2}: ✅ {produit_val} du {d_val} importé (ID={entry.id})"
-                        )
+                        details.append(f"Ligne {idx+2}: ✅ {produit_val} du {d_val} importé (ID={entry.id})")
                     except Exception as e:
                         errors += 1
                         details.append(f"Ligne {idx+2}: ❌ ERREUR — {str(e)}")
@@ -2780,8 +2653,7 @@ def import_stock_view(request):
                                 ref_internal=prod_ref,
                                 defaults={
                                     'name': f"Produit {prod_ref}",
-                                    'client': cli,
-                                    'structure_type': 'MONO',
+                                    'client': cli, 'structure_type': 'MONO',
                                     'width_mm': 100
                                 }
                             )
@@ -2810,23 +2682,18 @@ def import_stock_view(request):
                         cli_name = row.get('Client')
                         if cli_name and cli_name != 0:
                             client, _ = Client.objects.get_or_create(
-                                name=cli_name,
-                                defaults={'city': '?', 'phone': '?'}
+                                name=cli_name, defaults={'city': '?', 'phone': '?'}
                             )
                             prod_name = row.get('Produit')
                             product, _ = TechnicalProduct.objects.get_or_create(
                                 ref_internal=f"REF-{str(prod_name)[:5]}",
                                 defaults={
-                                    'name': prod_name,
-                                    'client': client,
-                                    'structure_type': 'MONO',
-                                    'width_mm': 500
+                                    'name': prod_name, 'client': client,
+                                    'structure_type': 'MONO', 'width_mm': 500
                                 }
                             )
                             mac_name = row.get('Machine')
-                            machine = Machine.objects.filter(
-                                name__icontains=str(mac_name)
-                            ).first()
+                            machine = Machine.objects.filter(name__icontains=str(mac_name)).first()
                             try:
                                 start_d = pd.to_datetime(row.get('Date_Debut'))
                             except Exception:
@@ -2835,10 +2702,8 @@ def import_stock_view(request):
                             ProductionOrder.objects.update_or_create(
                                 of_number=str(row.get('OF_Numero')),
                                 defaults={
-                                    'client': client,
-                                    'product': product,
-                                    'machine': machine,
-                                    'start_time': start_d,
+                                    'client': client, 'product': product,
+                                    'machine': machine, 'start_time': start_d,
                                     'end_time': end_d,
                                     'quantity_planned': row.get('Qte_Prevue', 0),
                                     'status': 'PLANNED'
@@ -2909,9 +2774,7 @@ def download_template_special_prod(request):
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = (
-        'attachment; filename="Template_Production_Speciale.xlsx"'
-    )
+    response['Content-Disposition'] = 'attachment; filename="Template_Production_Speciale.xlsx"'
     wb.save(response)
     return response
 
@@ -2931,8 +2794,7 @@ def admin_view(request):
 
     stats_modules = [
         {
-            'nom': 'CRM & Clients',
-            'icone': '🤝',
+            'nom': 'CRM & Clients', 'icone': '🤝',
             'items': [
                 {'label': 'Clients', 'count': Client.objects.count(), 'url': 'crm_view'},
                 {'label': 'Opportunités', 'count': Opportunite.objects.count(), 'url': 'opportunites_view'},
@@ -2940,16 +2802,14 @@ def admin_view(request):
             ]
         },
         {
-            'nom': 'Production',
-            'icone': '🏭',
+            'nom': 'Production', 'icone': '🏭',
             'items': [
                 {'label': 'OF Multi-Processus', 'count': OrdreFabrication.objects.count(), 'url': 'of_list'},
                 {'label': 'Saisies Production', 'count': ProductionEntry.objects.count(), 'url': 'prod_dashboard'},
             ]
         },
         {
-            'nom': 'Stock & Machines',
-            'icone': '📦',
+            'nom': 'Stock & Machines', 'icone': '📦',
             'items': [
                 {'label': 'Matières Premières', 'count': Material.objects.count(), 'url': 'stock_advanced'},
                 {'label': 'Machines', 'count': Machine.objects.count(), 'url': 'machine_view'},
@@ -2957,19 +2817,13 @@ def admin_view(request):
         },
     ]
 
-    recent_actions = LogEntry.objects.select_related(
-        'user', 'content_type'
-    ).order_by('-action_time')[:20]
+    recent_actions = LogEntry.objects.select_related('user', 'content_type').order_by('-action_time')[:20]
 
     context = {
-        'users': users,
-        'total_users': total_users,
-        'active_users': active_users,
-        'staff_users': staff_users,
-        'groups': groups,
-        'stats_modules': stats_modules,
-        'recent_actions': recent_actions,
-        'page_title': 'Administration',
+        'users': users, 'total_users': total_users,
+        'active_users': active_users, 'staff_users': staff_users,
+        'groups': groups, 'stats_modules': stats_modules,
+        'recent_actions': recent_actions, 'page_title': 'Administration',
     }
     return render(request, 'admin_custom.html', context)
 
@@ -2985,11 +2839,7 @@ def admin_add_user(request):
         is_active = request.POST.get('is_active') == 'on'
         if username and password:
             if not User.objects.filter(username=username).exists():
-                u = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=password
-                )
+                u = User.objects.create_user(username=username, email=email, password=password)
                 u.is_staff = is_staff
                 u.is_active = is_active
                 u.save()
@@ -3000,6 +2850,10 @@ def admin_add_user(request):
             messages.error(request, "❌ Nom d'utilisateur et mot de passe obligatoires.")
     return redirect('admin_view')
 
+
+# ═══════════════════════════════════════════════════════════════
+# ══════════ PARTIE 2 — COLLER À LA SUITE DE LA PARTIE 1 ══════
+# ═══════════════════════════════════════════════════════════════
 
 @login_required
 @staff_member_required
@@ -3033,6 +2887,7 @@ def admin_toggle_user(request, user_id):
         messages.success(request, f"✅ Utilisateur '{u.username}' {etat}.")
     return redirect('admin_view')
 
+
 # ===========================================================================
 # --- MODULE DRH (RESSOURCES HUMAINES) ---
 # ===========================================================================
@@ -3061,20 +2916,18 @@ from .forms import (
 @login_required
 def drh_dashboard(request):
     """Tableau de bord principal DRH"""
-    
+
     today = timezone.now().date()
     current_month = today.month
     current_year = today.year
-    
-    # Statistiques employés
+
     total_employes = Employee.objects.filter(statut='ACTIF').count()
     employes_en_conge = Employee.objects.filter(statut='CONGE').count()
     nouveaux_embauches = Employee.objects.filter(
         date_embauche__month=current_month,
         date_embauche__year=current_year
     ).count()
-    
-    # Contrats expirant bientôt (30 jours)
+
     date_limite = today + timedelta(days=30)
     contrats_expirants = Employee.objects.filter(
         type_contrat__in=['CDD', 'INTERIM'],
@@ -3082,123 +2935,84 @@ def drh_dashboard(request):
         date_fin_contrat__gte=today,
         statut='ACTIF'
     ).count()
-    
-    # Statistiques pointage aujourd'hui
+
     pointages_jour = Attendance.objects.filter(date=today)
     presents = pointages_jour.filter(statut='PRESENT').count()
     absents = pointages_jour.filter(statut='ABSENT').count()
     retards = pointages_jour.filter(statut='RETARD').count()
-    
-    # Congés en attente
+
     conges_en_attente = LeaveRequest.objects.filter(
         statut__in=['SOUMISE', 'VALIDEE_N1']
     ).count()
-    
-    # Bulletins de paie du mois
-    bulletins_mois = Payslip.objects.filter(
-        mois=current_month,
-        annee=current_year
-    ).count()
+
+    bulletins_mois = Payslip.objects.filter(mois=current_month, annee=current_year).count()
     bulletins_valides = Payslip.objects.filter(
-        mois=current_month,
-        annee=current_year,
-        statut='VALIDE'
+        mois=current_month, annee=current_year, statut='VALIDE'
     ).count()
-    
-    # Masse salariale du mois
+
     masse_salariale = Payslip.objects.filter(
-        mois=current_month,
-        annee=current_year,
+        mois=current_month, annee=current_year,
         statut__in=['VALIDE', 'PAYE']
     ).aggregate(total=Sum('salaire_net'))['total'] or 0
-    
-    # Incidents récents
+
     incidents_mois = WorkIncident.objects.filter(
         date_incident__month=current_month,
         date_incident__year=current_year
     ).count()
-    
-    # Visites médicales à planifier (dans 30 jours)
+
     visites_a_planifier = MedicalVisit.objects.filter(
         date_prochaine_visite__lte=date_limite,
         date_prochaine_visite__gte=today
     ).count()
-    
-    # Répartition par département
+
     repartition_dept = Department.objects.annotate(
         nb_emp=Count('employees', filter=Q(employees__statut='ACTIF'))
     ).filter(nb_emp__gt=0).values('name', 'nb_emp')
-    
-    # Répartition par type de contrat
+
     repartition_contrat = Employee.objects.filter(
         statut='ACTIF'
-    ).values('type_contrat').annotate(
-        count=Count('id')
-    )
-    
-    # Évolution effectifs (6 derniers mois)
+    ).values('type_contrat').annotate(count=Count('id'))
+
     evolution_effectifs = []
     for i in range(5, -1, -1):
         date_ref = today - timedelta(days=30 * i)
         mois_label = date_ref.strftime('%b %Y')
         count = Employee.objects.filter(
-            date_embauche__lte=date_ref,
-            statut='ACTIF'
-        ).exclude(
-            date_depart__lt=date_ref
-        ).count()
+            date_embauche__lte=date_ref, statut='ACTIF'
+        ).exclude(date_depart__lt=date_ref).count()
         evolution_effectifs.append({'mois': mois_label, 'count': count})
-    
-    # Employés récents
-    employes_recents = Employee.objects.filter(
-        statut='ACTIF'
-    ).order_by('-date_embauche')[:5]
-    
-    # Demandes de congé récentes
+
+    employes_recents = Employee.objects.filter(statut='ACTIF').order_by('-date_embauche')[:5]
+
     conges_recents = LeaveRequest.objects.select_related(
         'employee', 'type_conge'
     ).order_by('-date_demande')[:5]
-    
+
     context = {
-        # Stats générales
         'total_employes': total_employes,
         'employes_en_conge': employes_en_conge,
         'nouveaux_embauches': nouveaux_embauches,
         'contrats_expirants': contrats_expirants,
-        
-        # Pointage
         'presents': presents,
         'absents': absents,
         'retards': retards,
         'taux_presence': round(presents / max(total_employes, 1) * 100, 1),
-        
-        # Congés
         'conges_en_attente': conges_en_attente,
-        
-        # Paie
         'bulletins_mois': bulletins_mois,
         'bulletins_valides': bulletins_valides,
         'masse_salariale': masse_salariale,
-        
-        # Sécurité
         'incidents_mois': incidents_mois,
         'visites_a_planifier': visites_a_planifier,
-        
-        # Graphiques
         'repartition_dept_labels': json.dumps([d['name'] for d in repartition_dept]),
         'repartition_dept_data': json.dumps([d['nb_emp'] for d in repartition_dept]),
         'repartition_contrat': list(repartition_contrat),
         'evolution_mois': json.dumps([e['mois'] for e in evolution_effectifs]),
         'evolution_data': json.dumps([e['count'] for e in evolution_effectifs]),
-        
-        # Listes récentes
         'employes_recents': employes_recents,
         'conges_recents': conges_recents,
-        
-        # Date
         'today': today,
     }
-    
+
     return render(request, 'drh/dashboard.html', context)
 
 
@@ -3208,24 +3022,20 @@ def drh_dashboard(request):
 
 @login_required
 def employee_list(request):
-    """Liste des employés avec filtres"""
-    
     search = request.GET.get('q', '')
     department = request.GET.get('department', '')
     position = request.GET.get('position', '')
     statut = request.GET.get('statut', '')
     contrat = request.GET.get('contrat', '')
-    
+
     employees = Employee.objects.select_related(
         'department', 'position', 'machine_affectee'
     ).order_by('nom', 'prenom')
-    
+
     if search:
         employees = employees.filter(
-            Q(nom__icontains=search) |
-            Q(prenom__icontains=search) |
-            Q(matricule__icontains=search) |
-            Q(cin__icontains=search)
+            Q(nom__icontains=search) | Q(prenom__icontains=search) |
+            Q(matricule__icontains=search) | Q(cin__icontains=search)
         )
     if department:
         employees = employees.filter(department_id=department)
@@ -3235,15 +3045,12 @@ def employee_list(request):
         employees = employees.filter(statut=statut)
     if contrat:
         employees = employees.filter(type_contrat=contrat)
-    
-    # Stats
+
     total = employees.count()
     actifs = employees.filter(statut='ACTIF').count()
-    
+
     context = {
-        'employees': employees,
-        'total': total,
-        'actifs': actifs,
+        'employees': employees, 'total': total, 'actifs': actifs,
         'departments': Department.objects.filter(is_active=True),
         'positions': Position.objects.filter(is_active=True),
         'statut_choices': Employee.STATUT_CHOICES,
@@ -3254,87 +3061,53 @@ def employee_list(request):
         'selected_statut': statut,
         'selected_contrat': contrat,
     }
-    
+
     return render(request, 'drh/employee_list.html', context)
 
 
 @login_required
 def employee_detail(request, emp_id):
-    """Fiche détaillée d'un employé"""
-    
     employee = get_object_or_404(
         Employee.objects.select_related(
             'department', 'position', 'superieur', 'machine_affectee', 'user'
-        ),
-        id=emp_id
+        ), id=emp_id
     )
-    
-    # Documents
+
     documents = employee.documents.all().order_by('-date_upload')
-    
-    # Compétences
     competences = employee.competences.select_related('skill').order_by('-level')
-    
-    # Autorisations machine
     autorisations = employee.autorisations_machine.select_related('machine').all()
-    
-    # Pointages récents
     pointages = employee.pointages.order_by('-date')[:30]
-    
-    # Congés
     conges = employee.demandes_conge.select_related('type_conge').order_by('-date_demande')[:10]
     solde_conge = employee.solde_conge
-    
-    # Bulletins de paie
     bulletins = employee.bulletins_paie.order_by('-annee', '-mois')[:12]
-    
-    # Visites médicales
     visites = employee.visites_medicales.order_by('-date_visite')[:5]
-    
-    # Incidents
     incidents = employee.incidents.order_by('-date_incident')[:5]
-    
-    # EPI
     epi = employee.equipements_protection.order_by('-date_attribution')
-    
-    # Subordonnés
     subordonnes = Employee.objects.filter(superieur=employee, statut='ACTIF')
-    
-    # Statistiques pointage du mois
+
     today = timezone.now().date()
     pointages_mois = employee.pointages.filter(
-        date__month=today.month,
-        date__year=today.year
+        date__month=today.month, date__year=today.year
     )
     jours_presents = pointages_mois.filter(statut='PRESENT').count()
     jours_absents = pointages_mois.filter(statut='ABSENT').count()
     total_hs = pointages_mois.aggregate(hs=Sum('heures_supplementaires'))['hs'] or 0
-    
+
     context = {
-        'employee': employee,
-        'documents': documents,
-        'competences': competences,
-        'autorisations': autorisations,
-        'pointages': pointages,
-        'conges': conges,
-        'solde_conge': solde_conge,
-        'bulletins': bulletins,
-        'visites': visites,
-        'incidents': incidents,
-        'epi': epi,
-        'subordonnes': subordonnes,
-        'jours_presents': jours_presents,
-        'jours_absents': jours_absents,
+        'employee': employee, 'documents': documents,
+        'competences': competences, 'autorisations': autorisations,
+        'pointages': pointages, 'conges': conges, 'solde_conge': solde_conge,
+        'bulletins': bulletins, 'visites': visites, 'incidents': incidents,
+        'epi': epi, 'subordonnes': subordonnes,
+        'jours_presents': jours_presents, 'jours_absents': jours_absents,
         'total_hs': total_hs,
     }
-    
+
     return render(request, 'drh/employee_detail.html', context)
 
 
 @login_required
 def employee_create(request):
-    """Créer un nouvel employé"""
-    
     if request.method == 'POST':
         form = EmployeeForm(request.POST, request.FILES)
         if form.is_valid():
@@ -3345,20 +3118,15 @@ def employee_create(request):
             messages.error(request, "Erreur dans le formulaire. Vérifiez les champs.")
     else:
         form = EmployeeForm()
-    
-    context = {
-        'form': form,
-        'titre': 'Nouvel Employé',
-    }
+
+    context = {'form': form, 'titre': 'Nouvel Employé'}
     return render(request, 'drh/employee_form.html', context)
 
 
 @login_required
 def employee_edit(request, emp_id):
-    """Modifier un employé"""
-    
     employee = get_object_or_404(Employee, id=emp_id)
-    
+
     if request.method == 'POST':
         form = EmployeeForm(request.POST, request.FILES, instance=employee)
         if form.is_valid():
@@ -3367,10 +3135,9 @@ def employee_edit(request, emp_id):
             return redirect('employee_detail', emp_id=employee.id)
     else:
         form = EmployeeForm(instance=employee)
-    
+
     context = {
-        'form': form,
-        'employee': employee,
+        'form': form, 'employee': employee,
         'titre': f'Modifier : {employee.nom_complet}',
     }
     return render(request, 'drh/employee_form.html', context)
@@ -3378,10 +3145,8 @@ def employee_edit(request, emp_id):
 
 @login_required
 def employee_document_add(request, emp_id):
-    """Ajouter un document à un employé"""
-    
     employee = get_object_or_404(Employee, id=emp_id)
-    
+
     if request.method == 'POST':
         form = EmployeeDocumentForm(request.POST, request.FILES)
         if form.is_valid():
@@ -3392,12 +3157,8 @@ def employee_document_add(request, emp_id):
             return redirect('employee_detail', emp_id=emp_id)
     else:
         form = EmployeeDocumentForm()
-    
-    context = {
-        'form': form,
-        'employee': employee,
-        'titre': 'Ajouter un document',
-    }
+
+    context = {'form': form, 'employee': employee, 'titre': 'Ajouter un document'}
     return render(request, 'drh/document_form.html', context)
 
 
@@ -3407,10 +3168,8 @@ def employee_document_add(request, emp_id):
 
 @login_required
 def skill_list(request):
-    """Liste des compétences"""
-    
     skills = Skill.objects.select_related('machine_associee').order_by('category', 'name')
-    
+
     if request.method == 'POST':
         form = SkillForm(request.POST)
         if form.is_valid():
@@ -3419,20 +3178,15 @@ def skill_list(request):
             return redirect('skill_list')
     else:
         form = SkillForm()
-    
-    context = {
-        'skills': skills,
-        'form': form,
-    }
+
+    context = {'skills': skills, 'form': form}
     return render(request, 'drh/skill_list.html', context)
 
 
 @login_required
 def employee_skill_add(request, emp_id):
-    """Ajouter une compétence à un employé"""
-    
     employee = get_object_or_404(Employee, id=emp_id)
-    
+
     if request.method == 'POST':
         form = EmployeeSkillForm(request.POST, request.FILES)
         if form.is_valid():
@@ -3443,21 +3197,15 @@ def employee_skill_add(request, emp_id):
             return redirect('employee_detail', emp_id=emp_id)
     else:
         form = EmployeeSkillForm()
-    
-    context = {
-        'form': form,
-        'employee': employee,
-        'titre': 'Ajouter une compétence',
-    }
+
+    context = {'form': form, 'employee': employee, 'titre': 'Ajouter une compétence'}
     return render(request, 'drh/skill_form.html', context)
 
 
 @login_required
 def machine_authorization_add(request, emp_id):
-    """Ajouter une autorisation machine"""
-    
     employee = get_object_or_404(Employee, id=emp_id)
-    
+
     if request.method == 'POST':
         form = MachineAuthorizationForm(request.POST)
         if form.is_valid():
@@ -3468,34 +3216,27 @@ def machine_authorization_add(request, emp_id):
             return redirect('employee_detail', emp_id=emp_id)
     else:
         form = MachineAuthorizationForm()
-    
-    context = {
-        'form': form,
-        'employee': employee,
-        'titre': 'Autorisation machine',
-    }
+
+    context = {'form': form, 'employee': employee, 'titre': 'Autorisation machine'}
     return render(request, 'drh/authorization_form.html', context)
 
 
 @login_required
 def machine_authorization_validate(request, auth_id):
-    """Valider une autorisation machine"""
-    
     auth = get_object_or_404(MachineAuthorization, id=auth_id)
-    
+
     if request.method == 'POST':
-        # Récupérer l'employé validateur
         try:
             validateur = Employee.objects.get(user=request.user)
         except Employee.DoesNotExist:
             validateur = None
-        
+
         auth.statut = 'VALIDE'
         auth.date_validation = timezone.now().date()
         auth.validateur = validateur
         auth.save()
         messages.success(request, f"Autorisation validée pour {auth.employee.nom_complet}")
-    
+
     return redirect('employee_detail', emp_id=auth.employee.id)
 
 
@@ -3505,20 +3246,18 @@ def machine_authorization_validate(request, auth_id):
 
 @login_required
 def attendance_list(request):
-    """Liste des pointages"""
-    
     date_filter = request.GET.get('date', '')
     department = request.GET.get('department', '')
     shift = request.GET.get('shift', '')
     statut = request.GET.get('statut', '')
-    
+
     if not date_filter:
         date_filter = timezone.now().date().isoformat()
-    
+
     attendances = Attendance.objects.select_related(
         'employee', 'employee__department', 'shift', 'machine'
     ).order_by('-date', 'employee__nom')
-    
+
     if date_filter:
         attendances = attendances.filter(date=date_filter)
     if department:
@@ -3527,8 +3266,7 @@ def attendance_list(request):
         attendances = attendances.filter(shift_id=shift)
     if statut:
         attendances = attendances.filter(statut=statut)
-    
-    # Stats du jour
+
     stats = {
         'total': attendances.count(),
         'presents': attendances.filter(statut='PRESENT').count(),
@@ -3536,10 +3274,9 @@ def attendance_list(request):
         'retards': attendances.filter(statut='RETARD').count(),
         'conges': attendances.filter(statut='CONGE').count(),
     }
-    
+
     context = {
-        'attendances': attendances[:200],
-        'stats': stats,
+        'attendances': attendances[:200], 'stats': stats,
         'date_filter': date_filter,
         'departments': Department.objects.filter(is_active=True),
         'shifts': Shift.objects.filter(is_active=True),
@@ -3548,14 +3285,12 @@ def attendance_list(request):
         'selected_shift': shift,
         'selected_statut': statut,
     }
-    
+
     return render(request, 'drh/attendance_list.html', context)
 
 
 @login_required
 def attendance_create(request):
-    """Créer un pointage"""
-    
     if request.method == 'POST':
         form = AttendanceForm(request.POST)
         if form.is_valid():
@@ -3565,61 +3300,47 @@ def attendance_create(request):
             return redirect('attendance_list')
     else:
         form = AttendanceForm(initial={'date': timezone.now().date()})
-    
-    context = {
-        'form': form,
-        'titre': 'Nouveau pointage',
-    }
+
+    context = {'form': form, 'titre': 'Nouveau pointage'}
     return render(request, 'drh/attendance_form.html', context)
 
 
 @login_required
 def attendance_bulk(request):
-    """Pointage en masse pour une équipe"""
-    
     if request.method == 'POST':
         date = request.POST.get('date')
         shift_id = request.POST.get('shift')
         department_id = request.POST.get('department')
-        
+
         employees = Employee.objects.filter(statut='ACTIF')
         if department_id:
             employees = employees.filter(department_id=department_id)
-        
+
         shift = Shift.objects.get(id=shift_id) if shift_id else None
         created = 0
-        
+
         for emp in employees:
-            # Vérifier si pointage existe déjà
             if not Attendance.objects.filter(employee=emp, date=date).exists():
                 statut = request.POST.get(f'statut_{emp.id}', 'PRESENT')
                 heure_arrivee = request.POST.get(f'arrivee_{emp.id}') or None
                 heure_depart = request.POST.get(f'depart_{emp.id}') or None
-                
+
                 attendance = Attendance.objects.create(
-                    employee=emp,
-                    date=date,
-                    shift=shift,
-                    statut=statut,
-                    heure_arrivee=heure_arrivee,
+                    employee=emp, date=date, shift=shift,
+                    statut=statut, heure_arrivee=heure_arrivee,
                     heure_depart=heure_depart,
                     machine=emp.machine_affectee,
                 )
                 attendance.calculer_heures()
                 created += 1
-        
+
         messages.success(request, f"{created} pointages créés !")
         return redirect('attendance_list')
-    
-    # GET - Formulaire
+
     form = AttendanceBulkForm()
     employees = Employee.objects.filter(statut='ACTIF').select_related('department', 'position')
-    
-    context = {
-        'form': form,
-        'employees': employees,
-        'titre': 'Pointage en masse',
-    }
+
+    context = {'form': form, 'employees': employees, 'titre': 'Pointage en masse'}
     return render(request, 'drh/attendance_bulk.html', context)
 
 
@@ -3629,34 +3350,30 @@ def attendance_bulk(request):
 
 @login_required
 def leave_list(request):
-    """Liste des demandes de congé"""
-    
     statut = request.GET.get('statut', '')
     type_conge = request.GET.get('type', '')
     department = request.GET.get('department', '')
-    
+
     leaves = LeaveRequest.objects.select_related(
         'employee', 'employee__department', 'type_conge',
         'validateur_n1', 'validateur_rh'
     ).order_by('-date_demande')
-    
+
     if statut:
         leaves = leaves.filter(statut=statut)
     if type_conge:
         leaves = leaves.filter(type_conge_id=type_conge)
     if department:
         leaves = leaves.filter(employee__department_id=department)
-    
-    # Stats
+
     stats = {
         'en_attente': leaves.filter(statut__in=['SOUMISE', 'VALIDEE_N1']).count(),
         'validees': leaves.filter(statut='VALIDEE_RH').count(),
         'refusees': leaves.filter(statut='REFUSEE').count(),
     }
-    
+
     context = {
-        'leaves': leaves[:100],
-        'stats': stats,
+        'leaves': leaves[:100], 'stats': stats,
         'statut_choices': LeaveRequest.STATUT_CHOICES,
         'types': LeaveType.objects.filter(is_active=True),
         'departments': Department.objects.filter(is_active=True),
@@ -3664,22 +3381,20 @@ def leave_list(request):
         'selected_type': type_conge,
         'selected_department': department,
     }
-    
+
     return render(request, 'drh/leave_list.html', context)
 
 
 @login_required
 def leave_create(request, emp_id=None):
-    """Créer une demande de congé"""
-    
     employee = None
     if emp_id:
         employee = get_object_or_404(Employee, id=emp_id)
-    
+
     if request.method == 'POST':
         form = LeaveRequestForm(request.POST, request.FILES)
         emp_id_form = request.POST.get('employee')
-        
+
         if form.is_valid():
             leave = form.save(commit=False)
             if employee:
@@ -3692,10 +3407,9 @@ def leave_create(request, emp_id=None):
             return redirect('leave_list')
     else:
         form = LeaveRequestForm()
-    
+
     context = {
-        'form': form,
-        'employee': employee,
+        'form': form, 'employee': employee,
         'employees': Employee.objects.filter(statut='ACTIF') if not employee else None,
         'titre': 'Nouvelle demande de congé',
     }
@@ -3704,56 +3418,50 @@ def leave_create(request, emp_id=None):
 
 @login_required
 def leave_validate_n1(request, leave_id):
-    """Validation N+1"""
-    
     leave = get_object_or_404(LeaveRequest, id=leave_id)
-    
+
     if request.method == 'POST':
         try:
             validateur = Employee.objects.get(user=request.user)
         except Employee.DoesNotExist:
             validateur = None
-        
+
         leave.valider_n1(validateur)
         messages.success(request, f"Congé validé (N+1) pour {leave.employee.nom_complet}")
-    
+
     return redirect('leave_list')
 
 
 @login_required
 def leave_validate_rh(request, leave_id):
-    """Validation RH finale"""
-    
     leave = get_object_or_404(LeaveRequest, id=leave_id)
-    
+
     if request.method == 'POST':
         try:
             validateur = Employee.objects.get(user=request.user)
         except Employee.DoesNotExist:
             validateur = None
-        
+
         leave.valider_rh(validateur)
         messages.success(request, f"Congé validé (RH) pour {leave.employee.nom_complet}. Solde déduit : {leave.nb_jours} jours")
-    
+
     return redirect('leave_list')
 
 
 @login_required
 def leave_reject(request, leave_id):
-    """Refuser une demande"""
-    
     leave = get_object_or_404(LeaveRequest, id=leave_id)
-    
+
     if request.method == 'POST':
         motif = request.POST.get('motif_refus', '')
         try:
             validateur = Employee.objects.get(user=request.user)
         except Employee.DoesNotExist:
             validateur = None
-        
+
         leave.refuser(validateur, motif)
         messages.warning(request, f"Congé refusé pour {leave.employee.nom_complet}")
-    
+
     return redirect('leave_list')
 
 
@@ -3763,23 +3471,20 @@ def leave_reject(request, leave_id):
 
 @login_required
 def payslip_list(request):
-    """Liste des bulletins de paie"""
-    
     mois = request.GET.get('mois', timezone.now().month)
     annee = request.GET.get('annee', timezone.now().year)
     department = request.GET.get('department', '')
     statut = request.GET.get('statut', '')
-    
+
     payslips = Payslip.objects.select_related(
         'employee', 'employee__department', 'employee__position'
     ).filter(mois=mois, annee=annee).order_by('employee__nom')
-    
+
     if department:
         payslips = payslips.filter(employee__department_id=department)
     if statut:
         payslips = payslips.filter(statut=statut)
-    
-    # Totaux
+
     totaux = payslips.aggregate(
         total_brut=Sum('salaire_brut'),
         total_net=Sum('salaire_net'),
@@ -3787,12 +3492,10 @@ def payslip_list(request):
         total_irg=Sum('irg'),
         total_charges=Sum('total_charges_patronales'),
     )
-    
+
     context = {
-        'payslips': payslips,
-        'totaux': totaux,
-        'mois': int(mois),
-        'annee': int(annee),
+        'payslips': payslips, 'totaux': totaux,
+        'mois': int(mois), 'annee': int(annee),
         'mois_list': [(i, f"{i:02d}") for i in range(1, 13)],
         'annee_list': range(timezone.now().year - 2, timezone.now().year + 1),
         'departments': Department.objects.filter(is_active=True),
@@ -3800,14 +3503,12 @@ def payslip_list(request):
         'selected_department': department,
         'selected_statut': statut,
     }
-    
+
     return render(request, 'drh/payslip_list.html', context)
 
 
 @login_required
 def payslip_create(request):
-    """Créer un bulletin de paie"""
-    
     if request.method == 'POST':
         form = PayslipForm(request.POST)
         if form.is_valid():
@@ -3821,96 +3522,73 @@ def payslip_create(request):
             'annee': timezone.now().year,
             'jours_travailles': 26,
         })
-    
-    context = {
-        'form': form,
-        'titre': 'Nouveau bulletin de paie',
-    }
+
+    context = {'form': form, 'titre': 'Nouveau bulletin de paie'}
     return render(request, 'drh/payslip_form.html', context)
 
 
 @login_required
 def payslip_detail(request, slip_id):
-    """Détail d'un bulletin de paie"""
-    
     payslip = get_object_or_404(
         Payslip.objects.select_related('employee', 'employee__department', 'employee__position'),
         id=slip_id
     )
-    
-    context = {
-        'payslip': payslip,
-    }
+    context = {'payslip': payslip}
     return render(request, 'drh/payslip_detail.html', context)
 
 
 @login_required
 def payslip_calculate(request, slip_id):
-    """Recalculer un bulletin"""
-    
     payslip = get_object_or_404(Payslip, id=slip_id)
-    
     if request.method == 'POST':
         payslip.calculer()
         messages.success(request, "Bulletin recalculé !")
-    
     return redirect('payslip_detail', slip_id=slip_id)
 
 
 @login_required
 def payslip_validate(request, slip_id):
-    """Valider un bulletin"""
-    
     payslip = get_object_or_404(Payslip, id=slip_id)
-    
+
     if request.method == 'POST':
         try:
             validateur = Employee.objects.get(user=request.user)
         except Employee.DoesNotExist:
             validateur = None
-        
+
         payslip.statut = 'VALIDE'
         payslip.date_validation = timezone.now()
         payslip.valide_par = validateur
         payslip.save()
         messages.success(request, "Bulletin validé !")
-    
+
     return redirect('payslip_detail', slip_id=slip_id)
 
 
 @login_required
 def payslip_bulk_generate(request):
-    """Générer les bulletins pour tous les employés actifs"""
-    
     if request.method == 'POST':
         mois = int(request.POST.get('mois', timezone.now().month))
         annee = int(request.POST.get('annee', timezone.now().year))
         department_id = request.POST.get('department')
-        
+
         employees = Employee.objects.filter(statut='ACTIF')
         if department_id:
             employees = employees.filter(department_id=department_id)
-        
+
         created = 0
         for emp in employees:
-            # Vérifier si bulletin existe déjà
             if not Payslip.objects.filter(employee=emp, mois=mois, annee=annee).exists():
-                # Récupérer pointages du mois
                 pointages = Attendance.objects.filter(
-                    employee=emp,
-                    date__month=mois,
-                    date__year=annee
+                    employee=emp, date__month=mois, date__year=annee
                 )
-                
                 jours_presents = pointages.filter(statut='PRESENT').count()
                 jours_absents = pointages.filter(statut='ABSENT').count()
                 heures_sup = pointages.aggregate(hs=Sum('heures_supplementaires'))['hs'] or 0
                 heures_nuit = pointages.aggregate(hn=Sum('heures_nuit'))['hn'] or 0
-                
+
                 payslip = Payslip.objects.create(
-                    employee=emp,
-                    mois=mois,
-                    annee=annee,
+                    employee=emp, mois=mois, annee=annee,
                     jours_travailles=jours_presents,
                     jours_absence=jours_absents,
                     heures_supplementaires_25=heures_sup,
@@ -3918,10 +3596,10 @@ def payslip_bulk_generate(request):
                 )
                 payslip.calculer()
                 created += 1
-        
+
         messages.success(request, f"{created} bulletins générés pour {mois:02d}/{annee} !")
         return redirect('payslip_list')
-    
+
     context = {
         'mois': timezone.now().month,
         'annee': timezone.now().year,
@@ -3937,35 +3615,26 @@ def payslip_bulk_generate(request):
 
 @login_required
 def schedule_list(request):
-    """Liste des plannings"""
-    
     schedules = WorkSchedule.objects.select_related(
         'department', 'machine', 'cree_par'
     ).order_by('-date_debut')
-    
-    context = {
-        'schedules': schedules,
-    }
+    context = {'schedules': schedules}
     return render(request, 'drh/schedule_list.html', context)
 
 
 @login_required
 def schedule_detail(request, schedule_id):
-    """Détail d'un planning avec les affectations"""
-    
     schedule = get_object_or_404(WorkSchedule, id=schedule_id)
-    
-    # Affectations par date
+
     affectations = schedule.affectations.select_related(
         'employee', 'shift', 'machine'
     ).order_by('date', 'shift__heure_debut')
-    
-    # Grouper par date
+
     from collections import defaultdict
     affectations_par_date = defaultdict(list)
     for aff in affectations:
         affectations_par_date[aff.date].append(aff)
-    
+
     context = {
         'schedule': schedule,
         'affectations_par_date': dict(affectations_par_date),
@@ -3977,10 +3646,8 @@ def schedule_detail(request, schedule_id):
 
 @login_required
 def shift_assignment_add(request, schedule_id):
-    """Ajouter une affectation"""
-    
     schedule = get_object_or_404(WorkSchedule, id=schedule_id)
-    
+
     if request.method == 'POST':
         form = ShiftAssignmentForm(request.POST)
         if form.is_valid():
@@ -3991,12 +3658,8 @@ def shift_assignment_add(request, schedule_id):
             return redirect('schedule_detail', schedule_id=schedule_id)
     else:
         form = ShiftAssignmentForm()
-    
-    context = {
-        'form': form,
-        'schedule': schedule,
-        'titre': 'Nouvelle affectation',
-    }
+
+    context = {'form': form, 'schedule': schedule, 'titre': 'Nouvelle affectation'}
     return render(request, 'drh/assignment_form.html', context)
 
 
@@ -4006,34 +3669,30 @@ def shift_assignment_add(request, schedule_id):
 
 @login_required
 def incident_list(request):
-    """Liste des incidents"""
-    
     type_incident = request.GET.get('type', '')
     gravite = request.GET.get('gravite', '')
     cloture = request.GET.get('cloture', '')
-    
+
     incidents = WorkIncident.objects.select_related(
         'employee', 'machine', 'cree_par'
     ).order_by('-date_incident')
-    
+
     if type_incident:
         incidents = incidents.filter(type_incident=type_incident)
     if gravite:
         incidents = incidents.filter(gravite=gravite)
     if cloture:
         incidents = incidents.filter(cloture=(cloture == '1'))
-    
-    # Stats
+
     stats = {
         'total': incidents.count(),
         'accidents': incidents.filter(type_incident='ACCIDENT').count(),
         'non_clotures': incidents.filter(cloture=False).count(),
         'jours_arret': incidents.aggregate(j=Sum('jours_arret'))['j'] or 0,
     }
-    
+
     context = {
-        'incidents': incidents[:100],
-        'stats': stats,
+        'incidents': incidents[:100], 'stats': stats,
         'type_choices': WorkIncident.TYPE_CHOICES,
         'gravite_choices': WorkIncident.GRAVITE_CHOICES,
         'selected_type': type_incident,
@@ -4045,8 +3704,6 @@ def incident_list(request):
 
 @login_required
 def incident_create(request):
-    """Déclarer un incident"""
-    
     if request.method == 'POST':
         form = WorkIncidentForm(request.POST, request.FILES)
         if form.is_valid():
@@ -4060,54 +3717,38 @@ def incident_create(request):
             return redirect('incident_list')
     else:
         form = WorkIncidentForm()
-    
-    context = {
-        'form': form,
-        'titre': 'Déclarer un incident',
-    }
+
+    context = {'form': form, 'titre': 'Déclarer un incident'}
     return render(request, 'drh/incident_form.html', context)
 
 
 @login_required
 def incident_detail(request, incident_id):
-    """Détail d'un incident"""
-    
     incident = get_object_or_404(
         WorkIncident.objects.select_related('employee', 'machine', 'cree_par'),
         id=incident_id
     )
-    
-    context = {
-        'incident': incident,
-    }
+    context = {'incident': incident}
     return render(request, 'drh/incident_detail.html', context)
 
 
 @login_required
 def medical_visit_list(request):
-    """Liste des visites médicales"""
-    
     visits = MedicalVisit.objects.select_related('employee').order_by('-date_visite')
-    
-    # Visites à planifier
+
     today = timezone.now().date()
     date_limite = today + timedelta(days=30)
     a_planifier = visits.filter(
         date_prochaine_visite__lte=date_limite,
         date_prochaine_visite__gte=today
     )
-    
-    context = {
-        'visits': visits[:100],
-        'a_planifier': a_planifier,
-    }
+
+    context = {'visits': visits[:100], 'a_planifier': a_planifier}
     return render(request, 'drh/medical_list.html', context)
 
 
 @login_required
 def medical_visit_create(request):
-    """Créer une visite médicale"""
-    
     if request.method == 'POST':
         form = MedicalVisitForm(request.POST, request.FILES)
         if form.is_valid():
@@ -4116,35 +3757,22 @@ def medical_visit_create(request):
             return redirect('medical_list')
     else:
         form = MedicalVisitForm()
-    
-    context = {
-        'form': form,
-        'titre': 'Nouvelle visite médicale',
-    }
+
+    context = {'form': form, 'titre': 'Nouvelle visite médicale'}
     return render(request, 'drh/medical_form.html', context)
 
 
 @login_required
 def epi_list(request):
-    """Liste des EPI attribués"""
-    
     epis = ProtectiveEquipment.objects.select_related('employee').order_by('-date_attribution')
-    
-    # EPI expirés
     today = timezone.now().date()
     expires = epis.filter(date_expiration__lte=today)
-    
-    context = {
-        'epis': epis[:100],
-        'expires': expires,
-    }
+    context = {'epis': epis[:100], 'expires': expires}
     return render(request, 'drh/epi_list.html', context)
 
 
 @login_required
 def epi_create(request):
-    """Attribuer un EPI"""
-    
     if request.method == 'POST':
         form = ProtectiveEquipmentForm(request.POST)
         if form.is_valid():
@@ -4153,11 +3781,8 @@ def epi_create(request):
             return redirect('epi_list')
     else:
         form = ProtectiveEquipmentForm()
-    
-    context = {
-        'form': form,
-        'titre': 'Attribuer un EPI',
-    }
+
+    context = {'form': form, 'titre': 'Attribuer un EPI'}
     return render(request, 'drh/epi_form.html', context)
 
 
@@ -4167,12 +3792,10 @@ def epi_create(request):
 
 @login_required
 def department_list(request):
-    """Liste des départements"""
-    
     departments = Department.objects.annotate(
         nb_emp=Count('employees', filter=Q(employees__statut='ACTIF'))
     ).order_by('name')
-    
+
     if request.method == 'POST':
         form = DepartmentForm(request.POST)
         if form.is_valid():
@@ -4181,22 +3804,17 @@ def department_list(request):
             return redirect('department_list')
     else:
         form = DepartmentForm()
-    
-    context = {
-        'departments': departments,
-        'form': form,
-    }
+
+    context = {'departments': departments, 'form': form}
     return render(request, 'drh/department_list.html', context)
 
 
 @login_required
 def position_list(request):
-    """Liste des postes"""
-    
     positions = Position.objects.select_related('department').annotate(
         nb_emp=Count('employees', filter=Q(employees__statut='ACTIF'))
     ).order_by('category', 'name')
-    
+
     if request.method == 'POST':
         form = PositionForm(request.POST)
         if form.is_valid():
@@ -4205,20 +3823,15 @@ def position_list(request):
             return redirect('position_list')
     else:
         form = PositionForm()
-    
-    context = {
-        'positions': positions,
-        'form': form,
-    }
+
+    context = {'positions': positions, 'form': form}
     return render(request, 'drh/position_list.html', context)
 
 
 @login_required
 def shift_list(request):
-    """Liste des équipes (shifts)"""
-    
     shifts = Shift.objects.all().order_by('heure_debut')
-    
+
     if request.method == 'POST':
         form = ShiftForm(request.POST)
         if form.is_valid():
@@ -4227,11 +3840,8 @@ def shift_list(request):
             return redirect('shift_list')
     else:
         form = ShiftForm()
-    
-    context = {
-        'shifts': shifts,
-        'form': form,
-    }
+
+    context = {'shifts': shifts, 'form': form}
     return render(request, 'drh/shift_list.html', context)
 
 
@@ -4241,29 +3851,25 @@ def shift_list(request):
 
 @login_required
 def export_employees_excel(request):
-    """Export Excel des employés"""
-    
     employees = Employee.objects.select_related(
         'department', 'position'
     ).filter(statut='ACTIF').order_by('nom')
-    
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Employés"
-    
-    # En-têtes
-    headers = ['Matricule', 'Nom', 'Prénom', 'CIN', 'Département', 'Poste', 
+
+    headers = ['Matricule', 'Nom', 'Prénom', 'CIN', 'Département', 'Poste',
                'Date embauche', 'Type contrat', 'Salaire base', 'Téléphone', 'Email']
-    
+
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
-    
+
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = header_font
         cell.fill = header_fill
-    
-    # Données
+
     for row, emp in enumerate(employees, 2):
         ws.cell(row=row, column=1, value=emp.matricule)
         ws.cell(row=row, column=2, value=emp.nom)
@@ -4276,12 +3882,11 @@ def export_employees_excel(request):
         ws.cell(row=row, column=9, value=float(emp.salaire_base))
         ws.cell(row=row, column=10, value=emp.telephone)
         ws.cell(row=row, column=11, value=emp.email)
-    
-    # Ajuster largeur colonnes
+
     for col in ws.columns:
         max_length = max(len(str(cell.value or '')) for cell in col)
         ws.column_dimensions[col[0].column_letter].width = max_length + 2
-    
+
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
@@ -4292,35 +3897,33 @@ def export_employees_excel(request):
 
 @login_required
 def export_payslips_excel(request):
-    """Export Excel des bulletins de paie"""
-    
     mois = request.GET.get('mois', timezone.now().month)
     annee = request.GET.get('annee', timezone.now().year)
-    
+
     payslips = Payslip.objects.select_related(
         'employee', 'employee__department'
     ).filter(mois=mois, annee=annee).order_by('employee__nom')
-    
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = f"Paie {mois:02d}-{annee}"
-    
-    headers = ['Matricule', 'Nom Complet', 'Département', 'Salaire Base', 
+
+    headers = ['Matricule', 'Nom Complet', 'Département', 'Salaire Base',
                'Primes', 'Brut', 'Cotisations', 'IRG', 'Retenues', 'Net']
-    
+
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
-    
+
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = header_font
         cell.fill = header_fill
-    
+
     for row, slip in enumerate(payslips, 2):
-        primes = float(slip.prime_rendement + slip.prime_presence + slip.prime_nuit + 
-                       slip.prime_anciennete + slip.prime_transport + slip.prime_panier + 
+        primes = float(slip.prime_rendement + slip.prime_presence + slip.prime_nuit +
+                       slip.prime_anciennete + slip.prime_transport + slip.prime_panier +
                        slip.heures_sup_montant + slip.autres_primes)
-        
+
         ws.cell(row=row, column=1, value=slip.employee.matricule)
         ws.cell(row=row, column=2, value=slip.employee.nom_complet)
         ws.cell(row=row, column=3, value=slip.employee.department.name if slip.employee.department else '')
@@ -4331,15 +3934,14 @@ def export_payslips_excel(request):
         ws.cell(row=row, column=8, value=float(slip.irg))
         ws.cell(row=row, column=9, value=float(slip.total_retenues))
         ws.cell(row=row, column=10, value=float(slip.salaire_net))
-    
-    # Totaux
+
     last_row = len(payslips) + 2
     ws.cell(row=last_row, column=1, value="TOTAUX")
     ws.cell(row=last_row, column=1).font = Font(bold=True)
     for col in range(4, 11):
         ws.cell(row=last_row, column=col, value=f"=SUM({openpyxl.utils.get_column_letter(col)}2:{openpyxl.utils.get_column_letter(col)}{last_row-1})")
         ws.cell(row=last_row, column=col).font = Font(bold=True)
-    
+
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
@@ -4354,9 +3956,8 @@ def export_payslips_excel(request):
 
 @login_required
 def chat_home(request):
-    """Page principale du chat avec liste des salons"""
     rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
-    
+
     default_rooms = [
         {'name': 'Général', 'slug': 'general', 'type': 'GENERAL', 'icone': '💬'},
         {'name': 'Production', 'slug': 'production', 'type': 'PRODUCTION', 'icone': '🏭'},
@@ -4364,41 +3965,36 @@ def chat_home(request):
         {'name': 'Technique', 'slug': 'technique', 'type': 'TECHNIQUE', 'icone': '🔧'},
         {'name': 'Urgences', 'slug': 'urgences', 'type': 'URGENCE', 'icone': '🚨'},
     ]
-    
+
     for room_data in default_rooms:
         ChatRoom.objects.get_or_create(
             slug=room_data['slug'],
             defaults=room_data
         )
-    
+
     rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
     online_users = UserPresence.objects.filter(is_online=True).select_related('user')
-    
-    context = {
-        'rooms': rooms,
-        'online_users': online_users,
-    }
+
+    context = {'rooms': rooms, 'online_users': online_users}
     return render(request, 'chat/chat_home.html', context)
 
 
 @login_required
 def chat_room(request, room_slug):
-    """Page d'un salon de chat"""
     room = get_object_or_404(ChatRoom, slug=room_slug, est_actif=True)
     room.membres.add(request.user)
-    
-    messages = room.messages.select_related('auteur').order_by('-date_envoi')[:50]
-    messages = list(messages)[::-1]
-    
+
+    chat_messages = room.messages.select_related('auteur').order_by('-date_envoi')[:50]
+    chat_messages = list(chat_messages)[::-1]
+
     rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
     online_users = UserPresence.objects.filter(
         is_online=True, current_room=room
     ).select_related('user')
-    
+
     context = {
-        'room': room,
-        'rooms': rooms,
-        'messages': messages,
+        'room': room, 'rooms': rooms,
+        'messages': chat_messages,
         'online_users': online_users,
     }
     return render(request, 'chat/chat_room.html', context)
@@ -4406,36 +4002,32 @@ def chat_room(request, room_slug):
 
 @login_required
 def chat_send_message(request):
-    """API pour envoyer un message (fallback sans WebSocket)"""
     if request.method == 'POST':
         room_slug = request.POST.get('room_slug')
         content = request.POST.get('message', '').strip()
-        
+
         if room_slug and content:
             room = get_object_or_404(ChatRoom, slug=room_slug)
             message = ChatMessage.objects.create(
-                room=room,
-                auteur=request.user,
-                contenu=content,
-                type_message='TEXT'
+                room=room, auteur=request.user,
+                contenu=content, type_message='TEXT'
             )
             return JsonResponse({
                 'success': True,
                 'message_id': message.id,
                 'timestamp': message.get_time_display(),
             })
-    
+
     return JsonResponse({'success': False}, status=400)
 
 
 @login_required
 def chat_get_messages(request, room_slug):
-    """API pour récupérer les nouveaux messages"""
     room = get_object_or_404(ChatRoom, slug=room_slug)
     last_id = request.GET.get('last_id', 0)
-    
-    messages = room.messages.filter(id__gt=last_id).select_related('auteur').order_by('date_envoi')
-    
+
+    chat_messages = room.messages.filter(id__gt=last_id).select_related('auteur').order_by('date_envoi')
+
     data = [{
         'id': msg.id,
         'auteur': msg.auteur.username,
@@ -4443,27 +4035,1112 @@ def chat_get_messages(request, room_slug):
         'contenu': msg.contenu,
         'timestamp': msg.get_time_display(),
         'type': msg.type_message,
-    } for msg in messages]
-    
+    } for msg in chat_messages]
+
     return JsonResponse({'messages': data})
 
 
-@login_required  
+@login_required
 def send_system_notification(request):
-    """Envoyer une notification système à tous les salons"""
     if request.method == 'POST' and request.user.is_staff:
         message = request.POST.get('message', '').strip()
         room_slug = request.POST.get('room_slug', 'general')
-        
+
         if message:
             room = ChatRoom.objects.filter(slug=room_slug).first()
             if room:
                 ChatMessage.objects.create(
-                    room=room,
-                    auteur=request.user,
-                    contenu=message,
-                    type_message='SYSTEM'
+                    room=room, auteur=request.user,
+                    contenu=message, type_message='SYSTEM'
                 )
                 messages.success(request, "Notification envoyée !")
-    
+
     return redirect('chat_home')
+
+
+# ===========================================================================
+# --- MODULE MAINTENANCE AVANCÉ --- (PATCHÉ : om_create + machine_delete)
+# ===========================================================================
+
+from .models import (
+    Atelier, CompteurMachine, CategoriePiece, PieceRechange,
+    MouvementPiece, OrdreMaintenance, ConsommationPiece,
+    PlanMaintenancePreventive, AlerteMaintenance,
+)
+from .forms import (
+    AtelierForm, MachineMaintenanceForm, CompteurMachineForm,
+    CategoriePieceForm, PieceRechangeForm, MouvementPieceForm,
+    OrdreMaintenanceForm, ClotureOrdreMaintenanceForm,
+    ConsommationPieceForm, PlanMaintenancePreventiveForm,
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DASHBOARD MAINTENANCE
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def maintenance_dashboard(request):
+    today = timezone.now().date()
+    debut_mois = today.replace(day=1)
+
+    total_machines = Machine.objects.filter(est_active=True).count()
+    machines_en_panne = Machine.objects.filter(status='PANNE', est_active=True).count()
+    machines_en_maint = Machine.objects.filter(status='MAINT', est_active=True).count()
+    machines_en_prod = Machine.objects.filter(status='RUN', est_active=True).count()
+
+    om_ouverts = OrdreMaintenance.objects.filter(statut__in=['OUVERT', 'EN_COURS', 'EN_ATTENTE_PIECE']).count()
+    om_corrective_mois = OrdreMaintenance.objects.filter(
+        type_maintenance='CORRECTIVE', date_creation__date__gte=debut_mois
+    ).count()
+    om_preventive_mois = OrdreMaintenance.objects.filter(
+        type_maintenance='PREVENTIVE', date_creation__date__gte=debut_mois
+    ).count()
+    om_termines_mois = OrdreMaintenance.objects.filter(
+        statut='TERMINE', date_cloture__date__gte=debut_mois
+    ).count()
+    om_en_retard = OrdreMaintenance.objects.filter(
+        statut__in=['OUVERT', 'EN_COURS'], date_planifiee__lt=timezone.now()
+    ).count()
+
+    temps_arret_mois = OrdreMaintenance.objects.filter(
+        date_creation__date__gte=debut_mois
+    ).aggregate(t=Sum('temps_arret_minutes'))['t'] or 0
+    temps_arret_heures = round(temps_arret_mois / 60, 1)
+
+    oms_mois = OrdreMaintenance.objects.filter(date_creation__date__gte=debut_mois)
+    cout_total_mois = sum(om.cout_total for om in oms_mois)
+
+    plans_actifs = PlanMaintenancePreventive.objects.filter(statut='ACTIF').count()
+    plans_a_faire = sum(
+        1 for p in PlanMaintenancePreventive.objects.filter(statut='ACTIF') if p.est_a_faire
+    )
+    plans_en_retard = sum(
+        1 for p in PlanMaintenancePreventive.objects.filter(statut='ACTIF') if p.est_en_retard
+    )
+
+    pieces_total = PieceRechange.objects.filter(est_active=True).count()
+    pieces_stock_bas = PieceRechange.objects.filter(
+        est_active=True, quantite_stock__lte=F('stock_minimum')
+    ).count()
+    pieces_rupture = PieceRechange.objects.filter(
+        est_active=True, quantite_stock__lte=0
+    ).count()
+    valeur_stock_pieces = sum(
+        p.valeur_stock for p in PieceRechange.objects.filter(est_active=True)
+    )
+
+    alertes_non_lues = AlerteMaintenance.objects.filter(est_lue=False).count()
+    alertes_critiques = AlerteMaintenance.objects.filter(
+        est_traitee=False, niveau='CRITICAL'
+    ).count()
+    alertes_recentes = AlerteMaintenance.objects.filter(
+        est_traitee=False
+    ).order_by('-date_creation')[:10]
+
+    ateliers = Atelier.objects.filter(est_actif=True).prefetch_related('machines_atelier').order_by('ordre_affichage')
+
+    om_recents = OrdreMaintenance.objects.select_related(
+        'machine', 'technicien_principal'
+    ).order_by('-date_creation')[:10]
+
+    repartition_type = []
+    for code, label in OrdreMaintenance.TYPE_CHOICES:
+        count = OrdreMaintenance.objects.filter(
+            type_maintenance=code, date_creation__date__gte=debut_mois
+        ).count()
+        repartition_type.append({'label': label, 'count': count})
+
+    from django.db.models import Count as DjCount
+    top_pannes = Machine.objects.annotate(
+        nb_pannes=DjCount('ordres_maintenance', filter=Q(ordres_maintenance__type_maintenance='CORRECTIVE'))
+    ).filter(nb_pannes__gt=0).order_by('-nb_pannes')[:5]
+
+    evolution_arret = []
+    for i in range(5, -1, -1):
+        mois_ref = today - timedelta(days=30 * i)
+        mois_label = mois_ref.strftime('%b %Y')
+        total = OrdreMaintenance.objects.filter(
+            date_creation__month=mois_ref.month,
+            date_creation__year=mois_ref.year
+        ).aggregate(t=Sum('temps_arret_minutes'))['t'] or 0
+        evolution_arret.append({'mois': mois_label, 'heures': round(total / 60, 1)})
+
+    context = {
+        'total_machines': total_machines,
+        'machines_en_panne': machines_en_panne,
+        'machines_en_maint': machines_en_maint,
+        'machines_en_prod': machines_en_prod,
+        'om_ouverts': om_ouverts,
+        'om_corrective_mois': om_corrective_mois,
+        'om_preventive_mois': om_preventive_mois,
+        'om_termines_mois': om_termines_mois,
+        'om_en_retard': om_en_retard,
+        'temps_arret_heures': temps_arret_heures,
+        'cout_total_mois': cout_total_mois,
+        'plans_actifs': plans_actifs,
+        'plans_a_faire': plans_a_faire,
+        'plans_en_retard': plans_en_retard,
+        'pieces_total': pieces_total,
+        'pieces_stock_bas': pieces_stock_bas,
+        'pieces_rupture': pieces_rupture,
+        'valeur_stock_pieces': valeur_stock_pieces,
+        'alertes_non_lues': alertes_non_lues,
+        'alertes_critiques': alertes_critiques,
+        'alertes_recentes': alertes_recentes,
+        'ateliers': ateliers,
+        'om_recents': om_recents,
+        'repartition_type_labels': json.dumps([r['label'] for r in repartition_type]),
+        'repartition_type_data': json.dumps([r['count'] for r in repartition_type]),
+        'top_pannes_labels': json.dumps([m.name for m in top_pannes]),
+        'top_pannes_data': json.dumps([m.nb_pannes for m in top_pannes]),
+        'evolution_arret_mois': json.dumps([e['mois'] for e in evolution_arret]),
+        'evolution_arret_data': json.dumps([e['heures'] for e in evolution_arret]),
+    }
+
+    return render(request, 'maintenance/dashboard.html', context)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ATELIERS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def atelier_list(request):
+    ateliers = Atelier.objects.prefetch_related('machines_atelier').order_by('ordre_affichage')
+
+    if request.method == 'POST':
+        form = AtelierForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Atelier créé !")
+            return redirect('atelier_list')
+    else:
+        form = AtelierForm()
+
+    context = {'ateliers': ateliers, 'form': form}
+    return render(request, 'maintenance/atelier_list.html', context)
+
+
+@login_required
+def atelier_create(request):
+    if request.method == 'POST':
+        form = AtelierForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Atelier créé !")
+            return redirect('atelier_list')
+    else:
+        form = AtelierForm()
+    return render(request, 'maintenance/atelier_form.html', {'form': form, 'titre': 'Nouvel Atelier'})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MACHINES (AMÉLIORÉES) + PATCHÉ : maintenance_machine_delete
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def maintenance_machine_list(request):
+    atelier_filter = request.GET.get('atelier', '')
+    type_filter = request.GET.get('type', '')
+    status_filter = request.GET.get('status', '')
+    search = request.GET.get('q', '')
+
+    machines = Machine.objects.select_related('atelier').filter(est_active=True)
+
+    if atelier_filter:
+        machines = machines.filter(atelier_id=atelier_filter)
+    if type_filter:
+        machines = machines.filter(type=type_filter)
+    if status_filter:
+        machines = machines.filter(status=status_filter)
+    if search:
+        machines = machines.filter(
+            Q(name__icontains=search) | Q(code_machine__icontains=search) |
+            Q(marque__icontains=search) | Q(modele__icontains=search)
+        )
+
+    machines = machines.order_by('atelier', 'name')
+
+    stats = {
+        'total': machines.count(),
+        'run': machines.filter(status='RUN').count(),
+        'stop': machines.filter(status='STOP').count(),
+        'maint': machines.filter(status='MAINT').count(),
+        'panne': machines.filter(status='PANNE').count(),
+    }
+
+    context = {
+        'machines': machines, 'stats': stats,
+        'ateliers': Atelier.objects.filter(est_actif=True),
+        'type_choices': Machine.TYPE_CHOICES,
+        'status_choices': Machine.STATUS_CHOICES,
+        'selected_atelier': atelier_filter,
+        'selected_type': type_filter,
+        'selected_status': status_filter,
+        'search': search,
+    }
+    return render(request, 'maintenance/machine_list.html', context)
+
+
+@login_required
+def maintenance_machine_create(request):
+    if request.method == 'POST':
+        form = MachineMaintenanceForm(request.POST, request.FILES)
+        if form.is_valid():
+            machine = form.save()
+            messages.success(request, f"Machine {machine.name} créée ! Code: {machine.code_machine}")
+            return redirect('maintenance_machine_detail', machine_id=machine.id)
+    else:
+        form = MachineMaintenanceForm()
+
+    return render(request, 'maintenance/machine_form.html', {
+        'form': form, 'titre': 'Nouvelle Machine'
+    })
+
+
+@login_required
+def maintenance_machine_detail(request, machine_id):
+    machine = get_object_or_404(Machine.objects.select_related('atelier', 'fournisseur_machine'), id=machine_id)
+
+    oms = machine.ordres_maintenance.select_related('technicien_principal').order_by('-date_creation')[:20]
+    plans = machine.plans_preventifs.filter(statut='ACTIF').order_by('titre')
+    pieces = machine.pieces_compatibles.filter(est_active=True)
+    compteurs = machine.releves_compteur.order_by('-date_releve')[:20]
+
+    pannes = machine.ordres_maintenance.filter(type_maintenance='CORRECTIVE').order_by('-date_creation')[:50]
+
+    pannes_par_mois = {}
+    for p in pannes:
+        mois = p.date_creation.strftime('%Y-%m')
+        pannes_par_mois[mois] = pannes_par_mois.get(mois, 0) + 1
+
+    mois_sorted = sorted(pannes_par_mois.keys())
+
+    operateurs = machine.operateurs_autorises.filter(statut='VALIDE').select_related('employee')
+
+    context = {
+        'machine': machine, 'oms': oms, 'plans': plans,
+        'pieces': pieces, 'compteurs': compteurs,
+        'operateurs': operateurs,
+        'mtbf': machine.mtbf,
+        'mttr': machine.mttr,
+        'taux_disponibilite': machine.taux_disponibilite,
+        'nb_pannes_total': machine.nb_pannes_total,
+        'temps_arret_total': machine.temps_arret_total_heures,
+        'pannes_mois_labels': json.dumps(mois_sorted),
+        'pannes_mois_data': json.dumps([pannes_par_mois[m] for m in mois_sorted]),
+    }
+    return render(request, 'maintenance/machine_detail.html', context)
+
+
+@login_required
+def maintenance_machine_edit(request, machine_id):
+    machine = get_object_or_404(Machine, id=machine_id)
+    if request.method == 'POST':
+        form = MachineMaintenanceForm(request.POST, request.FILES, instance=machine)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Machine {machine.name} mise à jour !")
+            return redirect('maintenance_machine_detail', machine_id=machine.id)
+    else:
+        form = MachineMaintenanceForm(instance=machine)
+
+    return render(request, 'maintenance/machine_form.html', {
+        'form': form, 'machine': machine, 'titre': f'Modifier {machine.name}'
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# PATCHÉ : SUPPRIMER UNE MACHINE (NOUVEAU)
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def maintenance_machine_delete(request, machine_id):
+    """Supprimer une machine (avec confirmation)"""
+    machine = get_object_or_404(Machine, id=machine_id)
+
+    if request.method == 'POST':
+        nom = machine.name
+        code = machine.code_machine
+        # Vérifier qu'il n'y a pas d'OM ouverts
+        om_ouverts = machine.ordres_maintenance.filter(
+            statut__in=['OUVERT', 'EN_COURS', 'EN_ATTENTE_PIECE']
+        ).count()
+        if om_ouverts > 0:
+            messages.error(request, f"Impossible de supprimer {nom} : {om_ouverts} ordre(s) de maintenance ouvert(s).")
+            return redirect('maintenance_machine_detail', machine_id=machine_id)
+
+        machine.delete()
+        messages.success(request, f"Machine {nom} ({code}) supprimée.")
+        return redirect('maintenance_machine_list')
+
+    return render(request, 'maintenance/machine_confirm_delete.html', {'machine': machine})
+
+
+@login_required
+def machine_compteur_add(request, machine_id):
+    machine = get_object_or_404(Machine, id=machine_id)
+
+    if request.method == 'POST':
+        form = CompteurMachineForm(request.POST)
+        if form.is_valid():
+            compteur = form.save(commit=False)
+            compteur.machine = machine
+            compteur.releve_par = request.user
+            compteur.save()
+            messages.success(request, "Compteur mis à jour !")
+            return redirect('maintenance_machine_detail', machine_id=machine.id)
+    else:
+        form = CompteurMachineForm(initial={'machine': machine})
+
+    return render(request, 'maintenance/compteur_form.html', {
+        'form': form, 'machine': machine, 'titre': f'Relevé compteur — {machine.name}'
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ORDRES DE MAINTENANCE — PATCHÉ : om_create avec alertes automatiques
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def om_list(request):
+    type_filter = request.GET.get('type', '')
+    statut_filter = request.GET.get('statut', '')
+    machine_filter = request.GET.get('machine', '')
+    priorite_filter = request.GET.get('priorite', '')
+    search = request.GET.get('q', '')
+
+    oms = OrdreMaintenance.objects.select_related(
+        'machine', 'technicien_principal', 'demandeur'
+    ).order_by('-date_creation')
+
+    if type_filter:
+        oms = oms.filter(type_maintenance=type_filter)
+    if statut_filter:
+        oms = oms.filter(statut=statut_filter)
+    if machine_filter:
+        oms = oms.filter(machine_id=machine_filter)
+    if priorite_filter:
+        oms = oms.filter(priorite=priorite_filter)
+    if search:
+        oms = oms.filter(
+            Q(numero_om__icontains=search) |
+            Q(titre__icontains=search) |
+            Q(machine__name__icontains=search)
+        )
+
+    stats = {
+        'total': oms.count(),
+        'ouverts': oms.filter(statut='OUVERT').count(),
+        'en_cours': oms.filter(statut='EN_COURS').count(),
+        'termines': oms.filter(statut='TERMINE').count(),
+        'en_retard': sum(1 for om in oms if om.est_en_retard),
+    }
+
+    context = {
+        'oms': oms[:100], 'stats': stats,
+        'type_choices': OrdreMaintenance.TYPE_CHOICES,
+        'statut_choices': OrdreMaintenance.STATUT_CHOICES,
+        'priorite_choices': OrdreMaintenance.PRIORITE_CHOICES,
+        'machines': Machine.objects.filter(est_active=True),
+        'selected_type': type_filter,
+        'selected_statut': statut_filter,
+        'selected_machine': machine_filter,
+        'selected_priorite': priorite_filter,
+        'search': search,
+    }
+    return render(request, 'maintenance/om_list.html', context)
+
+
+# ─────────────────────────────────────────────────────────────
+# PATCHÉ : OM CREATE — alerte automatique dashboard après création
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def om_create(request):
+    """Créer un ordre de maintenance + alerte automatique"""
+    if request.method == 'POST':
+        form = OrdreMaintenanceForm(request.POST)
+        if form.is_valid():
+            om = form.save(commit=False)
+            om.demandeur = request.user
+            om.save()
+
+            # Mettre la machine en panne si corrective
+            if om.type_maintenance == 'CORRECTIVE':
+                om.machine.status = 'PANNE'
+                om.machine.save(update_fields=['status'])
+
+            elif om.type_maintenance == 'PREVENTIVE':
+                om.machine.status = 'MAINT'
+                om.machine.save(update_fields=['status'])
+
+            # ── Créer alerte automatique dans le dashboard ──
+            niveau = 'CRITICAL' if om.type_maintenance == 'CORRECTIVE' else 'WARNING'
+            type_alerte = 'PANNE' if om.type_maintenance == 'CORRECTIVE' else 'PREVENTIVE_DUE'
+
+            AlerteMaintenance.objects.create(
+                type_alerte=type_alerte,
+                niveau=niveau,
+                titre=f"{'🚨 PANNE' if om.type_maintenance == 'CORRECTIVE' else '🔧 Maintenance'} — {om.machine.name}",
+                message=f"OM-{om.numero_om} créé : {om.titre}\nType: {om.get_type_maintenance_display()} | Priorité: {om.get_priorite_display()}",
+                machine=om.machine,
+            )
+
+            messages.success(request, f"OM-{om.numero_om} créé !")
+            return redirect('om_detail', om_id=om.id)
+    else:
+        initial = {}
+        machine_id = request.GET.get('machine')
+        if machine_id:
+            initial['machine'] = machine_id
+        form = OrdreMaintenanceForm(initial=initial)
+
+    return render(request, 'maintenance/om_form.html', {
+        'form': form, 'titre': 'Nouvel Ordre de Maintenance'
+    })
+
+
+@login_required
+def om_create_panne(request, machine_id):
+    machine = get_object_or_404(Machine, id=machine_id)
+
+    if request.method == 'POST':
+        form = OrdreMaintenanceForm(request.POST)
+        if form.is_valid():
+            om = form.save(commit=False)
+            om.demandeur = request.user
+            om.type_maintenance = 'CORRECTIVE'
+            om.machine = machine
+            om.save()
+
+            machine.status = 'PANNE'
+            machine.save(update_fields=['status'])
+
+            AlerteMaintenance.objects.create(
+                type_alerte='PANNE',
+                niveau='CRITICAL',
+                titre=f"🚨 PANNE — {machine.name}",
+                message=f"Machine {machine.name} en panne. OM-{om.numero_om} créé.\n{om.titre}",
+                machine=machine,
+            )
+
+            messages.success(request, f"🚨 Panne déclarée ! OM-{om.numero_om} créé.")
+            return redirect('om_detail', om_id=om.id)
+    else:
+        form = OrdreMaintenanceForm(initial={
+            'machine': machine,
+            'type_maintenance': 'CORRECTIVE',
+            'priorite': 'URGENTE',
+        })
+
+    return render(request, 'maintenance/om_form.html', {
+        'form': form, 'machine': machine,
+        'titre': f'🚨 Déclarer une Panne — {machine.name}'
+    })
+
+
+@login_required
+def om_detail(request, om_id):
+    om = get_object_or_404(
+        OrdreMaintenance.objects.select_related(
+            'machine', 'machine__atelier', 'technicien_principal',
+            'demandeur', 'plan_preventif'
+        ), id=om_id
+    )
+
+    consommations = om.consommations_pieces.select_related('piece').all()
+
+    context = {'om': om, 'consommations': consommations}
+    return render(request, 'maintenance/om_detail.html', context)
+
+
+@login_required
+def om_demarrer(request, om_id):
+    om = get_object_or_404(OrdreMaintenance, id=om_id)
+
+    if request.method == 'POST':
+        om.statut = 'EN_COURS'
+        om.date_debut_intervention = timezone.now()
+        om.machine.status = 'MAINT'
+        om.machine.save(update_fields=['status'])
+        om.save()
+        messages.success(request, f"Intervention OM-{om.numero_om} démarrée !")
+
+    return redirect('om_detail', om_id=om.id)
+
+
+@login_required
+def om_cloturer(request, om_id):
+    om = get_object_or_404(OrdreMaintenance, id=om_id)
+
+    if request.method == 'POST':
+        form = ClotureOrdreMaintenanceForm(request.POST, request.FILES, instance=om)
+        if form.is_valid():
+            om = form.save(commit=False)
+            om.cloturer()
+
+            if om.plan_preventif:
+                om.plan_preventif.marquer_executee()
+
+            messages.success(request, f"OM-{om.numero_om} clôturé !")
+            return redirect('om_detail', om_id=om.id)
+    else:
+        form = ClotureOrdreMaintenanceForm(instance=om)
+
+    return render(request, 'maintenance/om_cloturer.html', {
+        'form': form, 'om': om, 'titre': f'Clôturer OM-{om.numero_om}'
+    })
+
+
+@login_required
+def om_ajouter_piece(request, om_id):
+    om = get_object_or_404(OrdreMaintenance, id=om_id)
+
+    if request.method == 'POST':
+        form = ConsommationPieceForm(request.POST)
+        if form.is_valid():
+            conso = form.save(commit=False)
+            conso.ordre_maintenance = om
+            conso.save()
+            messages.success(request, f"Pièce ajoutée à OM-{om.numero_om}")
+            return redirect('om_detail', om_id=om.id)
+    else:
+        form = ConsommationPieceForm()
+
+    return render(request, 'maintenance/om_piece_form.html', {
+        'form': form, 'om': om, 'titre': f'Ajouter pièce — OM-{om.numero_om}'
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PLANS PRÉVENTIFS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def plan_preventif_list(request):
+    machine_filter = request.GET.get('machine', '')
+    statut_filter = request.GET.get('statut', 'ACTIF')
+
+    plans = PlanMaintenancePreventive.objects.select_related(
+        'machine', 'technicien_defaut'
+    ).order_by('machine', 'titre')
+
+    if machine_filter:
+        plans = plans.filter(machine_id=machine_filter)
+    if statut_filter:
+        plans = plans.filter(statut=statut_filter)
+
+    plans_a_faire = [p for p in plans if p.est_a_faire]
+    plans_en_retard = [p for p in plans if p.est_en_retard]
+
+    context = {
+        'plans': plans,
+        'plans_a_faire': plans_a_faire,
+        'plans_en_retard': plans_en_retard,
+        'machines': Machine.objects.filter(est_active=True),
+        'selected_machine': machine_filter,
+        'selected_statut': statut_filter,
+    }
+    return render(request, 'maintenance/plan_preventif_list.html', context)
+
+
+@login_required
+def plan_preventif_create(request):
+    if request.method == 'POST':
+        form = PlanMaintenancePreventiveForm(request.POST)
+        if form.is_valid():
+            plan = form.save()
+            if plan.type_frequence == 'TEMPS' and plan.frequence_jours:
+                plan.prochaine_execution = timezone.now() + timedelta(days=plan.frequence_jours)
+                plan.save()
+            messages.success(request, f"Plan préventif créé : {plan.titre}")
+            return redirect('plan_preventif_list')
+    else:
+        form = PlanMaintenancePreventiveForm()
+
+    return render(request, 'maintenance/plan_preventif_form.html', {
+        'form': form, 'titre': 'Nouveau Plan Préventif'
+    })
+
+
+@login_required
+def plan_preventif_detail(request, plan_id):
+    plan = get_object_or_404(
+        PlanMaintenancePreventive.objects.select_related('machine', 'technicien_defaut'),
+        id=plan_id
+    )
+
+    ordres = plan.ordres_generes.order_by('-date_creation')[:10]
+
+    context = {'plan': plan, 'ordres': ordres}
+    return render(request, 'maintenance/plan_preventif_detail.html', context)
+
+
+@login_required
+def plan_preventif_generer_om(request, plan_id):
+    plan = get_object_or_404(PlanMaintenancePreventive, id=plan_id)
+
+    if request.method == 'POST':
+        om = plan.generer_ordre(user=request.user)
+        messages.success(request, f"OM-{om.numero_om} généré depuis le plan : {plan.titre}")
+        return redirect('om_detail', om_id=om.id)
+
+    return redirect('plan_preventif_detail', plan_id=plan.id)
+
+
+@login_required
+def generer_om_preventifs_auto(request):
+    if request.method == 'POST':
+        plans = PlanMaintenancePreventive.objects.filter(statut='ACTIF')
+        generes = 0
+
+        for plan in plans:
+            if plan.est_a_faire:
+                om_ouvert = OrdreMaintenance.objects.filter(
+                    plan_preventif=plan,
+                    statut__in=['OUVERT', 'EN_COURS']
+                ).exists()
+
+                if not om_ouvert:
+                    plan.generer_ordre(user=request.user)
+                    generes += 1
+
+        if generes > 0:
+            messages.success(request, f"✅ {generes} ordres de maintenance préventive générés !")
+        else:
+            messages.info(request, "Aucune maintenance préventive due actuellement.")
+
+    return redirect('plan_preventif_list')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PIÈCES DE RECHANGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def piece_list(request):
+    categorie_filter = request.GET.get('categorie', '')
+    stock_filter = request.GET.get('stock', '')
+    search = request.GET.get('q', '')
+
+    pieces = PieceRechange.objects.select_related(
+        'categorie', 'fournisseur'
+    ).filter(est_active=True)
+
+    if categorie_filter:
+        pieces = pieces.filter(categorie_id=categorie_filter)
+    if stock_filter == 'bas':
+        pieces = pieces.filter(quantite_stock__lte=F('stock_minimum'))
+    elif stock_filter == 'rupture':
+        pieces = pieces.filter(quantite_stock__lte=0)
+    if search:
+        pieces = pieces.filter(
+            Q(reference__icontains=search) |
+            Q(designation__icontains=search) |
+            Q(marque_piece__icontains=search)
+        )
+
+    pieces = pieces.order_by('designation')
+
+    stats = {
+        'total': pieces.count(),
+        'stock_bas': sum(1 for p in pieces if p.est_stock_bas),
+        'rupture': sum(1 for p in pieces if p.est_rupture),
+        'valeur_totale': sum(p.valeur_stock for p in pieces),
+    }
+
+    context = {
+        'pieces': pieces, 'stats': stats,
+        'categories': CategoriePiece.objects.all(),
+        'selected_categorie': categorie_filter,
+        'selected_stock': stock_filter,
+        'search': search,
+    }
+    return render(request, 'maintenance/piece_list.html', context)
+
+
+@login_required
+def piece_create(request):
+    if request.method == 'POST':
+        form = PieceRechangeForm(request.POST, request.FILES)
+        if form.is_valid():
+            piece = form.save()
+            messages.success(request, f"Pièce {piece.reference} créée !")
+            return redirect('piece_list')
+    else:
+        form = PieceRechangeForm()
+
+    return render(request, 'maintenance/piece_form.html', {
+        'form': form, 'titre': 'Nouvelle Pièce de Rechange'
+    })
+
+
+@login_required
+def piece_detail(request, piece_id):
+    piece = get_object_or_404(PieceRechange.objects.select_related('categorie', 'fournisseur'), id=piece_id)
+    mouvements = piece.mouvements_piece.order_by('-date_mouvement')[:30]
+    machines = piece.machines_compatibles.all()
+    consommations = piece.consommations_piece.select_related(
+        'ordre_maintenance', 'ordre_maintenance__machine'
+    ).order_by('-date_consommation')[:20]
+
+    context = {
+        'piece': piece, 'mouvements': mouvements,
+        'machines': machines, 'consommations': consommations,
+    }
+    return render(request, 'maintenance/piece_detail.html', context)
+
+
+@login_required
+def piece_edit(request, piece_id):
+    piece = get_object_or_404(PieceRechange, id=piece_id)
+    if request.method == 'POST':
+        form = PieceRechangeForm(request.POST, request.FILES, instance=piece)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Pièce {piece.reference} mise à jour !")
+            return redirect('piece_detail', piece_id=piece.id)
+    else:
+        form = PieceRechangeForm(instance=piece)
+
+    return render(request, 'maintenance/piece_form.html', {
+        'form': form, 'piece': piece, 'titre': f'Modifier {piece.reference}'
+    })
+
+
+@login_required
+def piece_mouvement(request, piece_id):
+    piece = get_object_or_404(PieceRechange, id=piece_id)
+
+    if request.method == 'POST':
+        form = MouvementPieceForm(request.POST)
+        if form.is_valid():
+            mvt = form.save(commit=False)
+            mvt.piece = piece
+            mvt.utilisateur = request.user
+            mvt.save()
+            messages.success(request, f"Mouvement enregistré pour {piece.designation}")
+            return redirect('piece_detail', piece_id=piece.id)
+    else:
+        form = MouvementPieceForm(initial={'piece': piece})
+
+    return render(request, 'maintenance/mouvement_piece_form.html', {
+        'form': form, 'piece': piece, 'titre': f'Mouvement — {piece.designation}'
+    })
+
+
+@login_required
+def categorie_piece_list(request):
+    categories = CategoriePiece.objects.all()
+
+    if request.method == 'POST':
+        form = CategoriePieceForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Catégorie créée !")
+            return redirect('categorie_piece_list')
+    else:
+        form = CategoriePieceForm()
+
+    context = {'categories': categories, 'form': form}
+    return render(request, 'maintenance/categorie_piece_list.html', context)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ALERTES
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def alerte_list(request):
+    niveau_filter = request.GET.get('niveau', '')
+    type_filter = request.GET.get('type', '')
+    traitee_filter = request.GET.get('traitee', '')
+
+    alertes = AlerteMaintenance.objects.select_related(
+        'machine', 'piece', 'plan_preventif'
+    ).order_by('-date_creation')
+
+    if niveau_filter:
+        alertes = alertes.filter(niveau=niveau_filter)
+    if type_filter:
+        alertes = alertes.filter(type_alerte=type_filter)
+    if traitee_filter == '0':
+        alertes = alertes.filter(est_traitee=False)
+    elif traitee_filter == '1':
+        alertes = alertes.filter(est_traitee=True)
+
+    context = {
+        'alertes': alertes[:100],
+        'non_traitees': alertes.filter(est_traitee=False).count(),
+        'critiques': alertes.filter(niveau='CRITICAL', est_traitee=False).count(),
+        'niveau_choices': AlerteMaintenance.NIVEAU_CHOICES,
+        'type_choices': AlerteMaintenance.TYPE_CHOICES,
+        'selected_niveau': niveau_filter,
+        'selected_type': type_filter,
+        'selected_traitee': traitee_filter,
+    }
+    return render(request, 'maintenance/alerte_list.html', context)
+
+
+@login_required
+def alerte_traiter(request, alerte_id):
+    alerte = get_object_or_404(AlerteMaintenance, id=alerte_id)
+    if request.method == 'POST':
+        alerte.est_traitee = True
+        alerte.est_lue = True
+        alerte.date_traitement = timezone.now()
+        alerte.traite_par = request.user
+        alerte.save()
+        messages.success(request, "Alerte traitée !")
+    return redirect('alerte_list')
+
+
+@login_required
+def generer_alertes(request):
+    if request.method == 'POST':
+        nb = 0
+
+        # 1. Alertes pièces stock bas
+        for piece in PieceRechange.objects.filter(est_active=True):
+            if piece.est_rupture:
+                existe = AlerteMaintenance.objects.filter(
+                    type_alerte='STOCK_PIECE_RUPTURE', piece=piece, est_traitee=False
+                ).exists()
+                if not existe:
+                    AlerteMaintenance.objects.create(
+                        type_alerte='STOCK_PIECE_RUPTURE', niveau='CRITICAL',
+                        titre=f"🔴 Rupture stock — {piece.designation}",
+                        message=f"Pièce {piece.reference} en rupture de stock (Stock: {piece.quantite_stock})",
+                        piece=piece,
+                    )
+                    nb += 1
+            elif piece.est_stock_bas:
+                existe = AlerteMaintenance.objects.filter(
+                    type_alerte='STOCK_PIECE_BAS', piece=piece, est_traitee=False
+                ).exists()
+                if not existe:
+                    AlerteMaintenance.objects.create(
+                        type_alerte='STOCK_PIECE_BAS', niveau='WARNING',
+                        titre=f"⚠️ Stock bas — {piece.designation}",
+                        message=f"Pièce {piece.reference} sous le seuil minimum (Stock: {piece.quantite_stock} / Min: {piece.stock_minimum})",
+                        piece=piece,
+                    )
+                    nb += 1
+
+        # 2. Alertes maintenance préventive dues
+        for plan in PlanMaintenancePreventive.objects.filter(statut='ACTIF'):
+            if plan.est_a_faire:
+                existe = AlerteMaintenance.objects.filter(
+                    type_alerte='PREVENTIVE_DUE', plan_preventif=plan, est_traitee=False
+                ).exists()
+                if not existe:
+                    AlerteMaintenance.objects.create(
+                        type_alerte='PREVENTIVE_DUE',
+                        niveau='WARNING' if not plan.est_en_retard else 'CRITICAL',
+                        titre=f"🔧 Maintenance à faire — {plan.machine.name}",
+                        message=f"Plan : {plan.titre}\nMachine : {plan.machine.name}",
+                        machine=plan.machine, plan_preventif=plan,
+                    )
+                    nb += 1
+
+        # 3. Alertes OM en retard
+        for om in OrdreMaintenance.objects.filter(statut__in=['OUVERT', 'EN_COURS']):
+            if om.est_en_retard:
+                existe = AlerteMaintenance.objects.filter(
+                    type_alerte='OM_EN_RETARD', machine=om.machine, est_traitee=False
+                ).exists()
+                if not existe:
+                    AlerteMaintenance.objects.create(
+                        type_alerte='OM_EN_RETARD', niveau='CRITICAL',
+                        titre=f"⏰ OM en retard — {om.numero_om}",
+                        message=f"OM-{om.numero_om} sur {om.machine.name} est en retard.\n{om.titre}",
+                        machine=om.machine,
+                    )
+                    nb += 1
+
+        messages.success(request, f"✅ {nb} alertes générées !")
+
+    return redirect('alerte_list')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# KPIs & RAPPORTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@login_required
+def maintenance_kpi(request):
+    machines = Machine.objects.filter(est_active=True).select_related('atelier')
+
+    kpis = []
+    for machine in machines:
+        kpis.append({
+            'machine': machine,
+            'mtbf': machine.mtbf,
+            'mttr': machine.mttr,
+            'disponibilite': machine.taux_disponibilite,
+            'pannes_total': machine.nb_pannes_total,
+            'pannes_mois': machine.nb_pannes_mois,
+            'temps_arret': machine.temps_arret_total_heures,
+        })
+
+    kpis.sort(key=lambda x: x['disponibilite'])
+
+    total_pannes = sum(k['pannes_total'] for k in kpis)
+    dispo_moyenne = round(
+        sum(k['disponibilite'] for k in kpis) / max(len(kpis), 1), 1
+    )
+
+    context = {
+        'kpis': kpis,
+        'total_pannes': total_pannes,
+        'dispo_moyenne': dispo_moyenne,
+        'machines_labels': json.dumps([k['machine'].name for k in kpis[:10]]),
+        'machines_dispo': json.dumps([k['disponibilite'] for k in kpis[:10]]),
+        'machines_pannes': json.dumps([k['pannes_total'] for k in kpis[:10]]),
+    }
+    return render(request, 'maintenance/kpi.html', context)
+
+
+@login_required
+def maintenance_stats_api(request):
+    today = timezone.now().date()
+    debut_mois = today.replace(day=1)
+
+    data = {
+        'machines_panne': Machine.objects.filter(status='PANNE', est_active=True).count(),
+        'om_ouverts': OrdreMaintenance.objects.filter(statut__in=['OUVERT', 'EN_COURS']).count(),
+        'alertes_non_lues': AlerteMaintenance.objects.filter(est_traitee=False).count(),
+        'pieces_stock_bas': PieceRechange.objects.filter(
+            est_active=True, quantite_stock__lte=F('stock_minimum')
+        ).count(),
+    }
+
+    return JsonResponse(data)
+# ============================================================
+# maintenance_calendrier
+# ============================================================
+
+@login_required
+def maintenance_calendrier(request):
+    """Calendrier mensuel des interventions maintenance"""
+    from .models import OrdreMaintenance, PlanMaintenancePreventive
+    import json
+
+    # Mois/année en paramètre ou mois courant
+    mois = int(request.GET.get('mois', timezone.now().month))
+    annee = int(request.GET.get('annee', timezone.now().year))
+
+    evenements = []
+
+    # ── 1. Ordres de maintenance (OM réels) ──
+    oms = OrdreMaintenance.objects.select_related(
+        'machine', 'technicien_principal'
+    ).filter(
+        date_creation__month=mois,
+        date_creation__year=annee,
+    ).exclude(statut='ANNULE')
+
+    # Aussi les OM planifiés pour ce mois
+    oms_planifies = OrdreMaintenance.objects.select_related(
+        'machine', 'technicien_principal'
+    ).filter(
+        date_planifiee__month=mois,
+        date_planifiee__year=annee,
+    ).exclude(statut__in=['ANNULE', 'TERMINE'])
+
+    def om_to_event(om, use_planifiee=False):
+        date_ref = om.date_planifiee if use_planifiee and om.date_planifiee else om.date_creation
+        heure = date_ref.strftime('%H:%M') if date_ref else ''
+
+        type_couleur_map = {
+            'CORRECTIVE': 'bg-red-200 text-red-900',
+            'PREVENTIVE': 'bg-blue-200 text-blue-900',
+            'PREDICTIVE': 'bg-purple-200 text-purple-900',
+            'AMELIORATIVE': 'bg-green-200 text-green-900',
+        }
+
+        technicien = ''
+        if om.technicien_principal:
+            parts = om.technicien_principal.nom.split()
+            technicien = parts[0] if parts else ''
+
+        return {
+            'id': om.id,
+            'date': date_ref.strftime('%Y-%m-%d') if date_ref else '',
+            'titre': om.titre[:30],
+            'type': om.type_maintenance,
+            'machine': om.machine.name if om.machine else '—',
+            'machine_id': om.machine.id if om.machine else 0,
+            'technicien': technicien,
+            'priorite': om.priorite,
+            'statut': om.get_statut_display(),
+            'url': f'/maintenance/om/{om.id}/',
+            'heure': heure,
+            'couleur': type_couleur_map.get(om.type_maintenance, 'bg-gray-200 text-gray-900'),
+            'is_plan': False,
+        }
+
+    seen_ids = set()
+    for om in oms:
+        if om.id not in seen_ids:
+            evenements.append(om_to_event(om))
+            seen_ids.add(om.id)
+
+    for om in oms_planifies:
+        if om.id not in seen_ids:
+            evenements.append(om_to_event(om, use_planifiee=True))
+            seen_ids.add(om.id)
+
+    # ── 2. Plans préventifs à faire ce mois ──
+    plans = PlanMaintenancePreventive.objects.select_related(
+        'machine', 'technicien_defaut'
+    ).filter(statut='ACTIF')
+
+    import calendar
+    _, nb_jours = calendar.monthrange(annee, mois)
+
+    for plan in plans:
+        # Calculer si le plan tombe dans ce mois
+        date_prevue = None
+
+        if plan.prochaine_execution:
+            if (plan.prochaine_execution.month == mois and
+                    plan.prochaine_execution.year == annee):
+                date_prevue = plan.prochaine_execution
+        elif plan.derniere_execution and plan.frequence_jours:
+            from datetime import timedelta
+            prochaine = plan.derniere_execution + timedelta(days=plan.frequence_jours)
+            if prochaine.month == mois and prochaine.year == annee:
+                date_prevue = prochaine
+
+        if date_prevue:
+            technicien = ''
+            if plan.technicien_defaut:
+                parts = plan.technicien_defaut.nom.split()
+                technicien = parts[0] if parts else ''
+
+            evenements.append({
+                'id': plan.id,
+                'date': date_prevue.strftime('%Y-%m-%d'),
+                'titre': plan.titre[:30],
+                'type': 'PLAN',
+                'machine': plan.machine.name if plan.machine else '—',
+                'machine_id': plan.machine.id if plan.machine else 0,
+                'technicien': technicien,
+                'priorite': plan.priorite,
+                'statut': 'Planifié',
+                'url': f'/maintenance/preventif/{plan.id}/',
+                'heure': '',
+                'couleur': 'bg-yellow-200 text-yellow-900',
+                'is_plan': True,
+            })
+
+    context = {
+        'evenements': evenements,
+        'jours_semaine': ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
+        'mois_courant': mois,
+        'annee_courante': annee,
+    }
+    return render(request, 'maintenance/calendrier.html', context)

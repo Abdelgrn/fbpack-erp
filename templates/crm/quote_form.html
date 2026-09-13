@@ -1,62 +1,68 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="max-w-2xl mx-auto mt-8">
-    <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl p-8">
+<div class="max-w-3xl mx-auto mt-8">
+    <div class="glass rounded-2xl border border-slate-700 shadow-2xl p-8">
         <div class="mb-4">
-            <a href="{% url 'quotes_view' %}" class="text-gray-500 hover:text-white text-sm">← Retour aux devis</a>
+            <a href="{% url 'quotes_view' %}" class="text-gray-500 hover:text-white text-sm transition flex items-center gap-2">
+                <span>←</span> Retour aux devis
+            </a>
         </div>
-        <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4">{{ titre }}</h2>
-        <form method="post" enctype="multipart/form-data">
+        <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-3">
+            <span>📄</span> {{ titre }}
+        </h2>
+        <form method="post" enctype="multipart/form-data" class="django-form-container">
             {% csrf_token %}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.client.label }}</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.client.label }}</label>
                     {{ form.client }}
                 </div>
-                <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.opportunite.label }}</label>
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.opportunite.label }}</label>
                     {{ form.opportunite }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.reference.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.reference.label }}</label>
                     {{ form.reference }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.version.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.version.label }}</label>
                     {{ form.version }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.date.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.date.label }}</label>
                     {{ form.date }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.date_validite.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.date_validite.label }}</label>
                     {{ form.date_validite }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.total_amount.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.total_amount.label }}</label>
                     {{ form.total_amount }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.status.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.status.label }}</label>
                     {{ form.status }}
                 </div>
-                <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.commercial.label }}</label>
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.commercial.label }}</label>
                     {{ form.commercial }}
                 </div>
-                <div class="md:col-span-2">
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.pdf_file.label }}</label>
+                <div class="md:col-span-2 p-4 bg-slate-800 rounded-xl border border-slate-600">
+                    <label class="block text-gray-300 text-xs font-bold mb-2 uppercase tracking-wider">Pièce jointe ({{ form.pdf_file.label }})</label>
                     {{ form.pdf_file }}
                 </div>
                 <div class="md:col-span-2">
-                    <label class="block text-gray-400 text-sm font-bold mb-1">{{ form.notes.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.notes.label }}</label>
                     {{ form.notes }}
                 </div>
             </div>
-            <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-slate-700">
-                <a href="{% url 'crm_view' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition">Annuler</a>
-                <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-6 rounded shadow-lg transition">💾 Enregistrer</button>
+            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
+                <a href="{% url 'crm_view' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
+                <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-yellow-500/20 transition uppercase tracking-wider text-sm">
+                    💾 Enregistrer
+                </button>
             </div>
         </form>
     </div>

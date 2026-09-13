@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="mb-6 flex items-center gap-4">
+    <a href="{% url 'om_detail' om.id %}" class="text-gray-400 hover:text-white">← Retour OM-{{ om.numero_om }}</a>
+    <h1 class="text-2xl font-bold text-white">{{ titre }}</h1>
+</div>
+<form method="post" class="max-w-2xl bg-slate-800 border border-slate-700 rounded-xl p-6">
+    {% csrf_token %}
+    <div class="space-y-4">
+        <div>
+            <label class="text-gray-400 text-xs uppercase font-bold">Actions réalisées *</label>
+            <textarea name="actions_realisees" rows="5" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none" required>{{ form.actions_realisees.value|default:'' }}</textarea>
+        </div>
+        <div>
+            <label class="text-gray-400 text-xs uppercase font-bold">Cause racine identifiée</label>
+            <textarea name="cause_racine" rows="3" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">{{ form.cause_racine.value|default:'' }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold">Temps arrêt (min)</label>
+                <input type="number" name="temps_arret_minutes" value="{{ form.temps_arret_minutes.value|default:'0' }}" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="text-gray-400 text-xs uppercase font-bold">Coût MO (DA)</label>
+                <input type="number" step="0.01" name="cout_main_oeuvre" value="{{ form.cout_main_oeuvre.value|default:'0' }}" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+            </div>
+        </div>
+        <div>
+            <label class="text-gray-400 text-xs uppercase font-bold">Coût externe (DA)</label>
+            <input type="number" step="0.01" name="cout_externe" value="{{ form.cout_externe.value|default:'0' }}" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">
+        </div>
+        <div>
+            <label class="text-gray-400 text-xs uppercase font-bold">Notes finales</label>
+            <textarea name="notes" rows="2" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:border-yellow-500 focus:outline-none">{{ form.notes.value|default:'' }}</textarea>
+        </div>
+        <div>
+            <label class="text-gray-400 text-xs uppercase font-bold">Rapport d'intervention</label>
+            <input type="file" name="rapport" class="w-full mt-1 bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2">
+        </div>
+    </div>
+    <div class="flex gap-3 mt-6">
+        <button type="submit" class="bg-green-500 hover:bg-green-400 text-white font-bold py-3 px-8 rounded-lg transition">✓ Clôturer l'OM</button>
+        <a href="{% url 'om_detail' om.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-lg transition">Annuler</a>
+    </div>
+</form>
+{% endblock %}

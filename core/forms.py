@@ -870,3 +870,220 @@ class OFLancementRapideForm(forms.Form):
         label="Machine"
     )
     qte_decoupe = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+
+# ===========================================================================
+# --- FORMULAIRES MAINTENANCE ---
+# ===========================================================================
+
+from .models import (
+    Atelier, CompteurMachine, CategoriePiece, PieceRechange,
+    MouvementPiece, OrdreMaintenance, ConsommationPiece,
+    PlanMaintenancePreventive, AlerteMaintenance,
+)
+
+
+class AtelierForm(forms.ModelForm):
+    class Meta:
+        model = Atelier
+        fields = ['nom', 'code', 'type_atelier', 'description', 'responsable',
+                  'ordre_affichage', 'icone', 'couleur', 'est_actif']
+        widgets = {
+            'nom': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Atelier Impression'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: IMP'}),
+            'type_atelier': forms.Select(attrs={'class': 'form-select'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'responsable': forms.Select(attrs={'class': 'form-select'}),
+            'ordre_affichage': forms.NumberInput(attrs={'class': 'form-control'}),
+            'icone': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 10}),
+            'couleur': forms.TextInput(attrs={'class': 'form-control', 'type': 'color'}),
+        }
+
+
+class MachineMaintenanceForm(forms.ModelForm):
+    """Formulaire Machine amélioré pour la maintenance"""
+    class Meta:
+        model = Machine
+        fields = [
+            'code_machine', 'name', 'type', 'atelier',
+            'marque', 'modele', 'numero_serie', 'annee_fabrication',
+            'date_mise_en_service', 'fournisseur_machine',
+            'puissance_kw', 'vitesse_max', 'laize_max', 'laize_min', 'nb_couleurs',
+            'status', 'criticite',
+            'cout_acquisition', 'cout_horaire',
+            'photo', 'documentation', 'notes',
+        ]
+        widgets = {
+            'code_machine': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto si vide'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Flexo 8 couleurs'}),
+            'type': forms.Select(attrs={'class': 'form-select'}),
+            'atelier': forms.Select(attrs={'class': 'form-select'}),
+            'marque': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Windmöller'}),
+            'modele': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Miraflex II'}),
+            'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
+            'annee_fabrication': forms.NumberInput(attrs={'class': 'form-control', 'min': 1950, 'max': 2030}),
+            'date_mise_en_service': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'fournisseur_machine': forms.Select(attrs={'class': 'form-select'}),
+            'puissance_kw': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'vitesse_max': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'laize_max': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'laize_min': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'nb_couleurs': forms.NumberInput(attrs={'class': 'form-control'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'criticite': forms.Select(attrs={'class': 'form-select'}),
+            'cout_acquisition': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'cout_horaire': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['code_machine'].required = False
+
+
+class CompteurMachineForm(forms.ModelForm):
+    class Meta:
+        model = CompteurMachine
+        fields = ['machine', 'type_compteur', 'valeur', 'notes']
+        widgets = {
+            'machine': forms.Select(attrs={'class': 'form-select'}),
+            'type_compteur': forms.Select(attrs={'class': 'form-select'}),
+            'valeur': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+class CategoriePieceForm(forms.ModelForm):
+    class Meta:
+        model = CategoriePiece
+        fields = ['nom', 'code', 'description', 'icone']
+        widgets = {
+            'nom': forms.TextInput(attrs={'class': 'form-control'}),
+            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'icone': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 10}),
+        }
+
+
+class PieceRechangeForm(forms.ModelForm):
+    class Meta:
+        model = PieceRechange
+        fields = [
+            'reference', 'designation', 'categorie',
+            'machines_compatibles', 'quantite_stock', 'unite',
+            'stock_minimum', 'stock_maximum',
+            'prix_unitaire', 'fournisseur', 'delai_livraison_jours',
+            'emplacement_stock', 'marque_piece', 'reference_fournisseur',
+            'photo', 'notes',
+        ]
+        widgets = {
+            'reference': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: ROUL-6205'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Roulement 6205'}),
+            'categorie': forms.Select(attrs={'class': 'form-select'}),
+            'machines_compatibles': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 5}),
+            'quantite_stock': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'unite': forms.Select(attrs={'class': 'form-select'}),
+            'stock_minimum': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'stock_maximum': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'prix_unitaire': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'fournisseur': forms.Select(attrs={'class': 'form-select'}),
+            'delai_livraison_jours': forms.NumberInput(attrs={'class': 'form-control'}),
+            'emplacement_stock': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Étagère A3-C2'}),
+            'marque_piece': forms.TextInput(attrs={'class': 'form-control'}),
+            'reference_fournisseur': forms.TextInput(attrs={'class': 'form-control'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+class OrdreMaintenanceForm(forms.ModelForm):
+    class Meta:
+        model = OrdreMaintenance
+        fields = [
+            'type_maintenance', 'priorite', 'machine',
+            'titre', 'description_probleme',
+            'technicien_principal', 'date_planifiee',
+            'notes',
+        ]
+        widgets = {
+            'type_maintenance': forms.Select(attrs={'class': 'form-select'}),
+            'priorite': forms.Select(attrs={'class': 'form-select'}),
+            'machine': forms.Select(attrs={'class': 'form-select'}),
+            'titre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Arrêt extrudeuse — surchauffe'}),
+            'description_probleme': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'technicien_principal': forms.Select(attrs={'class': 'form-select'}),
+            'date_planifiee': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+class ClotureOrdreMaintenanceForm(forms.ModelForm):
+    """Formulaire de clôture d'un ordre de maintenance"""
+    class Meta:
+        model = OrdreMaintenance
+        fields = [
+            'actions_realisees', 'cause_racine',
+            'temps_arret_minutes', 'temps_intervention_minutes',
+            'cout_main_oeuvre', 'cout_externe',
+            'rapport', 'photos_avant', 'photos_apres', 'notes',
+        ]
+        widgets = {
+            'actions_realisees': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Décrivez ce qui a été fait...'}),
+            'cause_racine': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Cause identifiée...'}),
+            'temps_arret_minutes': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'temps_intervention_minutes': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'cout_main_oeuvre': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'cout_externe': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+class ConsommationPieceForm(forms.ModelForm):
+    class Meta:
+        model = ConsommationPiece
+        fields = ['piece', 'quantite', 'notes']
+        widgets = {
+            'piece': forms.Select(attrs={'class': 'form-select'}),
+            'quantite': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': 0.1}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+class PlanMaintenancePreventiveForm(forms.ModelForm):
+    class Meta:
+        model = PlanMaintenancePreventive
+        fields = [
+            'machine', 'titre', 'description', 'instructions',
+            'type_frequence', 'frequence_jours', 'frequence_heures',
+            'frequence_metres', 'frequence_tours',
+            'duree_estimee_minutes', 'technicien_defaut',
+            'pieces_necessaires', 'priorite', 'statut', 'notes',
+        ]
+        widgets = {
+            'machine': forms.Select(attrs={'class': 'form-select'}),
+            'titre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Graissage roulements'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'instructions': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': '1. Arrêter la machine\n2. Démonter le carter\n3. ...'}),
+            'type_frequence': forms.Select(attrs={'class': 'form-select'}),
+            'frequence_jours': forms.NumberInput(attrs={'class': 'form-control'}),
+            'frequence_heures': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'frequence_metres': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'frequence_tours': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'duree_estimee_minutes': forms.NumberInput(attrs={'class': 'form-control'}),
+            'technicien_defaut': forms.Select(attrs={'class': 'form-select'}),
+            'pieces_necessaires': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 5}),
+            'priorite': forms.Select(attrs={'class': 'form-select'}),
+            'statut': forms.Select(attrs={'class': 'form-select'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+class MouvementPieceForm(forms.ModelForm):
+    class Meta:
+        model = MouvementPiece
+        fields = ['piece', 'type_mouvement', 'quantite', 'motif', 'notes']
+        widgets = {
+            'piece': forms.Select(attrs={'class': 'form-select'}),
+            'type_mouvement': forms.Select(attrs={'class': 'form-select'}),
+            'quantite': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'motif': forms.TextInput(attrs={'class': 'form-control'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }

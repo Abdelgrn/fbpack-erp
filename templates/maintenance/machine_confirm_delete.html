@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="max-w-lg mx-auto mt-12">
+    <div class="bg-slate-800 border border-red-500/30 rounded-xl p-8 text-center">
+        <span class="text-5xl block mb-4">⚠️</span>
+        <h1 class="text-2xl font-bold text-white mb-2">Supprimer la machine ?</h1>
+        <p class="text-gray-400 mb-1">Vous êtes sur le point de supprimer :</p>
+        <p class="text-yellow-400 font-bold text-xl mb-1">{{ machine.name }}</p>
+        <p class="text-gray-500 text-sm font-mono mb-6">{{ machine.code_machine }} — {{ machine.get_type_display }}</p>
+
+        {% with om_count=machine.ordres_maintenance.count %}
+        {% if om_count > 0 %}
+        <div class="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 mb-4 text-left">
+            <p class="text-orange-400 text-sm font-bold">⚠️ Cette machine a {{ om_count }} ordre(s) de maintenance associé(s).</p>
+            <p class="text-orange-300 text-xs mt-1">Ils seront également supprimés.</p>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <p class="text-red-400 text-sm mb-6 bg-red-500/10 rounded-lg p-3">
+            ⛔ Cette action est <strong>irréversible</strong>. Toutes les données liées à cette machine seront perdues.
+        </p>
+
+        <div class="flex gap-3 justify-center">
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit"
+                    class="bg-red-500 hover:bg-red-400 text-white font-bold py-3 px-8 rounded-lg transition">
+                    🗑️ Oui, supprimer définitivement
+                </button>
+            </form>
+            <a href="{% url 'maintenance_machine_detail' machine.id %}"
+               class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 px-8 rounded-lg transition">
+                Annuler
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
