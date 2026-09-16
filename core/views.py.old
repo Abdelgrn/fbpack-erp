@@ -5,6 +5,8 @@ import pandas as pd
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import timedelta
+from collections import defaultdict
+
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.decorators import login_required
@@ -17,48 +19,549 @@ from django.contrib import messages
 from django.contrib.admin.models import LogEntry
 from django.utils.html import format_html
 import re
+import unicodedata
 
 from .models import (
     Client, ClientContact, InteractionLog, Opportunite,
     TechnicalProduct, Tooling, Quote,
     ProductionOrder, Machine, ConsumptionLog,
     Material, Supplier, ConsommationEncre, ProductionEntry,
+    CalculTempsProduction,
     PurchaseOrder,
     StockLocation, StockLot, StockMovement,
     DemandeAchat, BonCommande, LigneBonCommande, StockSeuil,
     OrdreFabrication, EtapeProduction, SemiProduit,
     SuiviProduction, ConsommationMatiere, ProcessType,
     ChatRoom, ChatMessage, UserPresence,
+    Department, Position, Employee, EmployeeDocument,
+    Skill, EmployeeSkill, MachineAuthorization,
+    Shift, Attendance, LeaveType, LeaveRequest,
+    Payslip, WorkSchedule, ShiftAssignment,
+    MedicalVisit, WorkIncident, ProtectiveEquipment,
+    Atelier, CompteurMachine, CategoriePiece, PieceRechange,
+    MouvementPiece, OrdreMaintenance, ConsommationPiece,
+    PlanMaintenancePreventive, AlerteMaintenance,
 )
 from .forms import (
     ClientForm, ClientContactForm, InteractionLogForm, OpportuniteForm,
     ProductForm, ToolForm, QuoteForm,
     ProductionOrderForm, SupplierForm, MaterialForm, ConsommationEncreForm,
     MachineForm, ProductionEntryForm,
+    CalculTempsProductionForm,
     OrdreFabricationForm, EtapeProductionForm, EtapeProductionFormSet,
     SuiviProductionForm, SemiProduitForm, ConsommationMatiereForm,
     ProcessTypeForm, OFLancementRapideForm,
+    DepartmentForm, PositionForm, EmployeeForm, EmployeeDocumentForm,
+    SkillForm, EmployeeSkillForm, MachineAuthorizationForm,
+    ShiftForm, AttendanceForm, AttendanceBulkForm,
+    LeaveTypeForm, LeaveRequestForm, PayslipForm,
+    WorkScheduleForm, ShiftAssignmentForm,
+    MedicalVisitForm, WorkIncidentForm, ProtectiveEquipmentForm,
+    AtelierForm, MachineMaintenanceForm, CompteurMachineForm,
+    CategoriePieceForm, PieceRechangeForm, MouvementPieceForm,
+    OrdreMaintenanceForm, ClotureOrdreMaintenanceForm,
+    ConsommationPieceForm, PlanMaintenancePreventiveForm,
 )
 
 
 # ===========================================================================
-# --- DASHBOARD --- (PATCHÉ : alertes maintenance + machines en panne)
+# --- IMPORT / EXPORT EXCEL HELPERS ---
+# ===========================================================================
+
+def parse_time_safe(val):
+    if val is None or val == 0 or val == '' or str(val).strip() == '':
+        return None
+    try:
+        if hasattr(val, 'hour'):
+            return val
+        if hasattr(val, 'time'):
+            return val.time()
+        if isinstance(val, float):
+            total_seconds = int(val * 24 * 3600)
+            return datetime.time(total_seconds // 3600, (total_seconds % 3600) // 60)
+        s = str(val).strip()
+        parts = s.replace('h', ':').replace('H', ':').split(':')
+        if len(parts) >= 2:
+            return datetime.time(int(parts[0]), int(parts[1]))
+        return None
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# --- NORMALISATION DES EN-TÊTES EXCEL & DÉTECTION DE CATÉGORIE ---
+# ---------------------------------------------------------------------------
+# Objectif : peu importe comment l'en-tête Excel est écrit ("Categorie ",
+# "Catégorie", "CATEGORIE", avec un espace invisible en fin de chaîne, etc.),
+# pandas doit pouvoir retrouver la bonne colonne. Et si la catégorie est
+# vide ou illisible, on se rabat sur le nom du produit pour ne jamais
+# classer une encre par défaut en Film/Papier.
+
+def normalize_header(h):
+    """Nettoie un nom de colonne Excel : espaces invisibles/en trop, accents, casse."""
+    if h is None:
+        return ''
+    h = str(h).strip()
+    h = unicodedata.normalize('NFKD', h).encode('ascii', 'ignore').decode('ascii')
+    h = h.lower()
+    h = re.sub(r'[\s_]+', '_', h)
+    h = h.strip('_')
+    return h
+
+
+# Pour chaque nom "canonique" utilisé dans le code, la liste des variantes
+# normalisées acceptées dans le fichier Excel.
+COLUMN_CANDIDATES = {
+    'Designation': ['designation', 'nom', 'name', 'produit', 'article', 'libelle'],
+    'Categorie': ['categorie', 'category', 'type', 'famille', 'type_produit'],
+    'Quantite': ['quantite', 'qte', 'stock', 'quantity', 'qte_stock'],
+    'Unite': ['unite', 'unit', 'uom'],
+    'Seuil_Min': ['seuil_min', 'seuil', 'min', 'seuil_minimum', 'stock_min', 'stock_minimum'],
+    'Prix': ['prix', 'prix_unitaire', 'price', 'prix_unite', 'pu'],
+}
+
+
+def build_column_rename_map(columns):
+    """Associe chaque colonne réellement présente dans le fichier Excel à son
+    nom canonique (Designation, Categorie, Quantite, Unite, Seuil_Min, Prix),
+    peu importe la casse, les accents ou les espaces invisibles en trop."""
+    rename_map = {}
+    used_canonicals = set()
+    for col in columns:
+        norm = normalize_header(col)
+        for canonical, aliases in COLUMN_CANDIDATES.items():
+            if canonical in used_canonicals:
+                continue
+            if norm in aliases:
+                rename_map[col] = canonical
+                used_canonicals.add(canonical)
+                break
+    return rename_map
+
+
+# Mots-clés (déjà normalisés, sans accents, en minuscules) qui identifient
+# chaque catégorie de matière, que ce soit dans la valeur de la colonne
+# Catégorie OU dans le nom du produit lui-même (fallback).
+CATEGORY_KEYWORDS = {
+    'INK': ['encre', 'ink', 'tinta'],
+    'SOLV': ['solvant', 'solv', 'diluant', 'thinner'],
+    'GLUE': ['colle', 'glue', 'adhesif', 'adhesive'],
+    'FILM': ['film', 'papier', 'support', 'paper', 'bobine'],
+}
+
+
+def _text_matches_category(text):
+    for code, keywords in CATEGORY_KEYWORDS.items():
+        if any(k in text for k in keywords):
+            return code
+    return None
+
+
+def detect_material_category(raw_cat, designation):
+    """Détermine la catégorie d'une matière.
+    1) On regarde d'abord la valeur de la colonne Catégorie.
+    2) Si elle est vide, absente, ou ne correspond à aucun mot-clé connu,
+       on se rabat sur le nom du produit (Désignation) en dernier recours.
+    Retourne (code_categorie, source) où source explique d'où vient la
+    décision, pour affichage dans le rapport d'import.
+    """
+    def _clean(t):
+        t = unicodedata.normalize('NFKD', str(t or '')).encode('ascii', 'ignore').decode('ascii')
+        return t.lower()
+
+    raw_cat_clean = _clean(raw_cat)
+    designation_clean = _clean(designation)
+
+    code = _text_matches_category(raw_cat_clean)
+    if code:
+        return code, 'colonne Catégorie'
+
+    code = _text_matches_category(designation_clean)
+    if code:
+        return code, 'nom du produit (fallback)'
+
+    return 'FILM', 'valeur par défaut (aucune correspondance trouvée)'
+
+
+@login_required
+def import_stock_view(request):
+    context = {}
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        try:
+            import_type = request.POST.get('import_type')
+            excel_file = request.FILES['excel_file']
+            fs = FileSystemStorage()
+            filename = fs.save(excel_file.name, excel_file)
+            file_path = fs.path(filename)
+            df = pd.read_excel(file_path).fillna(0)
+
+            # Nettoyage automatique des en-têtes : peu importe la casse, les
+            # accents ou les espaces invisibles en fin de nom de colonne,
+            # on retrouve la bonne colonne et on la renomme en interne.
+            rename_map = build_column_rename_map(df.columns)
+            if rename_map:
+                df = df.rename(columns=rename_map)
+
+            count = 0
+            errors = 0
+            details = []
+
+            if import_type == 'STOCK':
+                colonnes_reconnues = ', '.join(sorted(set(rename_map.values()))) if rename_map else None
+                if colonnes_reconnues:
+                    details.append(f"ℹ️ Colonnes Excel reconnues et mappées : {colonnes_reconnues}")
+                else:
+                    details.append("⚠️ Aucune colonne standard reconnue — vérifiez les en-têtes de votre fichier Excel.")
+
+                for idx, row in df.iterrows():
+                    try:
+                        designation = str(row.get('Designation', 'Inconnu')).strip()
+                        if designation in ('', '0', 'nan'):
+                            designation = 'Inconnu'
+
+                        raw_cat = str(row.get('Categorie', '')).strip()
+                        if raw_cat in ('0', 'nan', 'None'):
+                            raw_cat = ''
+
+                        cat_code, cat_source = detect_material_category(raw_cat, designation)
+
+                        Material.objects.update_or_create(
+                            name=designation,
+                            defaults={
+                                'category': cat_code,
+                                'quantity': float(row.get('Quantite', 0) or 0),
+                                'unit': str(row.get('Unite', 'kg')).strip() or 'kg',
+                                'min_threshold': float(row.get('Seuil_Min', 0) or 0),
+                                'price_per_unit': float(row.get('Prix', 0) or 0)
+                            }
+                        )
+                        count += 1
+                        details.append(f"Ligne {idx+2}: ✅ {designation} importé en [{cat_code}] — détecté via {cat_source}")
+                    except Exception as e:
+                        errors += 1
+                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
+
+            elif import_type == 'CRM':
+                for idx, row in df.iterrows():
+                    try:
+                        nom = row.get('Nom')
+                        if nom and nom != 0:
+                            status_map = {'Active': 'ACTIVE', 'Prospect': 'PROSPECT', 'VIP': 'VIP'}
+                            Client.objects.update_or_create(
+                                name=nom,
+                                defaults={
+                                    'city': row.get('Ville', ''),
+                                    'phone': row.get('Telephone', ''),
+                                    'email': row.get('Email', ''),
+                                    'sector': row.get('Secteur', ''),
+                                    'status': status_map.get(row.get('Statut'), 'PROSPECT')
+                                }
+                            )
+                            count += 1
+                            details.append(f"Ligne {idx+2}: ✅ Client {nom} importé")
+                        else:
+                            details.append(f"Ligne {idx+2}: ⚠️ Nom vide — ignorée")
+                    except Exception as e:
+                        errors += 1
+                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
+
+            elif import_type == 'SPECIAL_PROD':
+                for idx, row in df.iterrows():
+                    try:
+                        try:
+                            d_val = pd.to_datetime(row.get('Date')).date()
+                        except Exception:
+                            d_val = datetime.date.today()
+
+                        produit_val = str(row.get('Produit', '')).strip()
+                        if not produit_val or produit_val == '0':
+                            details.append(f"Ligne {idx+2}: ⚠️ Produit vide — ignorée")
+                            continue
+
+                        client_obj = None
+                        cli_name = str(row.get('Client', '')).strip()
+                        if cli_name and cli_name not in ('0', ''):
+                            client_obj, _ = Client.objects.get_or_create(
+                                name=cli_name,
+                                defaults={'city': 'Non renseigné', 'phone': '000'}
+                            )
+
+                        machine_obj = None
+                        mac_name = str(row.get('Machine', '')).strip()
+                        if mac_name and mac_name not in ('0', ''):
+                            machine_obj = Machine.objects.filter(name__icontains=mac_name).first()
+                            if not machine_obj:
+                                machine_obj = Machine.objects.create(
+                                    name=mac_name, type='IMP', status='STOP'
+                                )
+                                details.append(f"  → Machine '{mac_name}' créée automatiquement")
+
+                        equipe_val = str(row.get('Equipe', 'A')).strip().upper()
+                        if equipe_val not in ['A', 'B', 'C']:
+                            equipe_val = 'A'
+
+                        h_debut = parse_time_safe(row.get('H_Debut'))
+                        h_fin = parse_time_safe(row.get('H_Fin'))
+
+                        def safe_float(v, d=0):
+                            try:
+                                x = float(v)
+                                return x if x == x else d
+                            except Exception:
+                                return d
+
+                        entry = ProductionEntry.objects.create(
+                            date=d_val, produit=produit_val,
+                            support=str(row.get('Support', '')),
+                            quantite_lancee=safe_float(row.get('Qte_Lancee')),
+                            lot=str(row.get('Lot', '')),
+                            laize=safe_float(row.get('Laize')),
+                            client=client_obj, equipe=equipe_val,
+                            machine=machine_obj,
+                            heure_debut=h_debut, heure_fin=h_fin,
+                            prod_ml=safe_float(row.get('Prod_ML')),
+                            dechets_demarrage=safe_float(row.get('Dec_Demarrage')),
+                            dechets_lisiere=safe_float(row.get('Dec_Lisiere')),
+                            dechets_jonction=safe_float(row.get('Dec_Jonction')),
+                            dechets_transport=safe_float(row.get('Dec_Transport')),
+                            prod_kg=safe_float(row.get('Prod_KG')),
+                            rebobinage_kg=safe_float(row.get('Rebobinage_KG'))
+                        )
+                        count += 1
+                        details.append(f"Ligne {idx+2}: ✅ {produit_val} du {d_val} importé (ID={entry.id})")
+                    except Exception as e:
+                        errors += 1
+                        details.append(f"Ligne {idx+2}: ❌ ERREUR — {str(e)}")
+
+            elif import_type == 'CONSO':
+                for idx, row in df.iterrows():
+                    try:
+                        try:
+                            d_prod = pd.to_datetime(row.get('Date')).date()
+                        except Exception:
+                            d_prod = datetime.date.today()
+                        raw_type = str(row.get('Type', 'FLEXO')).upper()
+                        final_type = 'HELIO' if 'HELIO' in raw_type else 'FLEXO'
+                        ConsommationEncre.objects.create(
+                            date=d_prod, process_type=final_type,
+                            support=row.get('Support', 'Inconnu'),
+                            laize=float(row.get('Laize', 0)),
+                            bobine_in=float(row.get('Bobine_In', 0)),
+                            bobine_out=float(row.get('Bobine_Out', 0)),
+                            metrage=float(row.get('Metrage', 0)),
+                            encre_noir=float(row.get('Noir', 0)),
+                            encre_magenta=float(row.get('Magenta', 0)),
+                            encre_jaune=float(row.get('Jaune', 0)),
+                            encre_cyan=float(row.get('Cyan', 0)),
+                            encre_dore=float(row.get('Dore', 0)),
+                            encre_silver=float(row.get('Silver', 0)),
+                            encre_orange=float(row.get('Orange', 0)),
+                            encre_blanc=float(row.get('Blanc', 0)),
+                            encre_vernis=float(row.get('Vernis', 0)),
+                            solvant_metoxyn=float(row.get('Metoxyn', 0)),
+                            solvant_2080=float(row.get('2080', 0))
+                        )
+                        count += 1
+                        details.append(f"Ligne {idx+2}: ✅ Conso {d_prod} importée")
+                    except Exception as e:
+                        errors += 1
+                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
+
+            elif import_type == 'TOOLS':
+                for idx, row in df.iterrows():
+                    try:
+                        prod_ref = row.get('Ref_Produit')
+                        if prod_ref and prod_ref != 0:
+                            cli, _ = Client.objects.get_or_create(
+                                name="Client Divers",
+                                defaults={'city': 'Interne', 'phone': '000'}
+                            )
+                            product, _ = TechnicalProduct.objects.get_or_create(
+                                ref_internal=prod_ref,
+                                defaults={
+                                    'name': f"Produit {prod_ref}",
+                                    'client': cli, 'structure_type': 'MONO',
+                                    'width_mm': 100
+                                }
+                            )
+                            type_map = {'Cylindre': 'CYL', 'Cliche': 'CLICHE'}
+                            type_val = row.get('Type', 'CYL')
+                            if type_val == 0:
+                                type_val = 'CYL'
+                            Tooling.objects.update_or_create(
+                                serial_number=row.get('Serial'),
+                                defaults={
+                                    'product': product,
+                                    'tool_type': type_map.get(type_val, 'CYL'),
+                                    'max_impressions': row.get('Tours_Max', 1000000),
+                                    'current_impressions': row.get('Tours_Actuels', 0)
+                                }
+                            )
+                            count += 1
+                            details.append(f"Ligne {idx+2}: ✅ Outil {row.get('Serial')} importé")
+                    except Exception as e:
+                        errors += 1
+                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
+
+            elif import_type == 'PLANNING':
+                for idx, row in df.iterrows():
+                    try:
+                        cli_name = row.get('Client')
+                        if cli_name and cli_name != 0:
+                            client, _ = Client.objects.get_or_create(
+                                name=cli_name, defaults={'city': '?', 'phone': '?'}
+                            )
+                            prod_name = row.get('Produit')
+                            product, _ = TechnicalProduct.objects.get_or_create(
+                                ref_internal=f"REF-{str(prod_name)[:5]}",
+                                defaults={
+                                    'name': prod_name, 'client': client,
+                                    'structure_type': 'MONO', 'width_mm': 500
+                                }
+                            )
+                            mac_name = row.get('Machine')
+                            machine = Machine.objects.filter(name__icontains=str(mac_name)).first()
+                            try:
+                                start_d = pd.to_datetime(row.get('Date_Debut'))
+                            except Exception:
+                                start_d = datetime.datetime.now()
+                            end_d = start_d + timedelta(hours=4)
+                            ProductionOrder.objects.update_or_create(
+                                of_number=str(row.get('OF_Numero')),
+                                defaults={
+                                    'client': client, 'product': product,
+                                    'machine': machine, 'start_time': start_d,
+                                    'end_time': end_d,
+                                    'quantity_planned': row.get('Qte_Prevue', 0),
+                                    'status': 'PLANNED'
+                                }
+                            )
+                            count += 1
+                            details.append(f"Ligne {idx+2}: ✅ OF {row.get('OF_Numero')} importé")
+                    except Exception as e:
+                        errors += 1
+                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
+
+            context = {
+                'message': (
+                    f'⚠️ {count} OK, {errors} erreurs.'
+                    if errors else
+                    f'✅ {count} lignes importées avec succès !'
+                ),
+                'success': count > 0,
+                'details': details
+            }
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+
+        except Exception as e:
+            context = {'message': f'❌ Erreur critique : {str(e)}', 'success': False}
+
+    return render(request, 'stock/import_stock.html', context)
+
+
+def download_template_special_prod(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Production Speciale"
+    headers = [
+        'Date', 'Produit', 'Support', 'Qte_Lancee', 'Lot', 'Laize',
+        'Client', 'Equipe', 'Machine', 'H_Debut', 'H_Fin', 'Prod_ML',
+        'Dec_Demarrage', 'Dec_Lisiere', 'Dec_Jonction', 'Dec_Transport',
+        'Prod_KG', 'Rebobinage_KG'
+    ]
+    hf = Font(name='Arial', bold=True, color='FFFFFF', size=11)
+    hfill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+    tb = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
+    )
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = hf
+        cell.fill = hfill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = tb
+    example = [
+        '15/01/2025', 'Sac Lait 1L', 'PEBD 50μ', 500, 'LOT-001', 320,
+        'Laiterie Atlas', 'A', 'IMP-01', '08:00', '16:30', 12000,
+        5.2, 3.1, 1.5, 2.0, 485, 10
+    ]
+    ef = PatternFill(start_color='E8F5E9', end_color='E8F5E9', fill_type='solid')
+    for col, val in enumerate(example, 1):
+        cell = ws.cell(row=2, column=col, value=val)
+        cell.fill = ef
+        cell.border = tb
+        cell.alignment = Alignment(horizontal='center')
+    for col in ws.columns:
+        ml = max((len(str(c.value)) for c in col if c.value), default=0)
+        ws.column_dimensions[col[0].column_letter].width = ml + 4
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="Template_Production_Speciale.xlsx"'
+    wb.save(response)
+    return response
+
+
+def download_template_stock(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Stock Matieres"
+    headers = ['Designation', 'Categorie', 'Quantite', 'Unite', 'Seuil_Min', 'Prix']
+    hf = Font(name='Arial', bold=True, color='FFFFFF', size=11)
+    hfill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
+    tb = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
+    )
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = hf
+        cell.fill = hfill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = tb
+    examples = [
+        ['Encre Noir Flexo', 'Encre', 120, 'kg', 20, 850],
+        ['Encre Magenta Helio', 'Encre', 45, 'kg', 15, 920],
+        ['Film PEBD 50µ', 'Film', 3200, 'kg', 500, 210],
+        ['Colle PU Bi-Composant', 'Colle', 60, 'kg', 10, 640],
+        ['Solvant Metoxyn', 'Solvant', 200, 'l', 40, 180],
+    ]
+    ef = PatternFill(start_color='E8F5E9', end_color='E8F5E9', fill_type='solid')
+    for row_idx, ex in enumerate(examples, 2):
+        for col, val in enumerate(ex, 1):
+            cell = ws.cell(row=row_idx, column=col, value=val)
+            cell.fill = ef
+            cell.border = tb
+            cell.alignment = Alignment(horizontal='center')
+    for col in ws.columns:
+        ml = max((len(str(c.value)) for c in col if c.value), default=0)
+        ws.column_dimensions[col[0].column_letter].width = ml + 4
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="Template_Stock_Matieres.xlsx"'
+    wb.save(response)
+    return response
+
+
+# ===========================================================================
+# --- DASHBOARD ---
 # ===========================================================================
 
 @login_required
 def dashboard(request):
-    from .models import OrdreMaintenance, AlerteMaintenance
-
     machines_en_panne = Machine.objects.filter(status='PANNE', est_active=True)
     machines_en_maintenance = Machine.objects.filter(status='MAINT', est_active=True)
 
-    # OM ouverts urgents
     om_urgents = OrdreMaintenance.objects.filter(
         statut__in=['OUVERT', 'EN_COURS'],
         priorite__in=['URGENTE', 'HAUTE']
     ).select_related('machine').order_by('-date_creation')[:5]
 
-    # Alertes maintenance non traitées
     alertes_critiques_maint = AlerteMaintenance.objects.filter(
         est_traitee=False,
         niveau='CRITICAL'
@@ -73,14 +576,12 @@ def dashboard(request):
         'count_opportunites': Opportunite.objects.filter(status__in=['PROSPECT', 'QUALIFICATION', 'PROPOSITION', 'NEGOCIATION']).count(),
         'count_devis_envoyes': Quote.objects.filter(status='SENT').count(),
         'pipeline_total': Opportunite.objects.exclude(status__in=['GAGNE', 'PERDU']).aggregate(total=Sum('valeur_estimee'))['total'] or 0,
-        # OF
         'of_total': OrdreFabrication.objects.count(),
         'of_en_cours': OrdreFabrication.objects.filter(statut='EN_COURS').count(),
         'of_en_retard': sum(1 for of in OrdreFabrication.objects.filter(statut__in=['LANCE', 'EN_COURS']) if of.est_en_retard),
         'of_termine_mois': OrdreFabrication.objects.filter(statut='TERMINE', date_fin_reelle__month=timezone.now().month).count(),
         'semi_produits_dispo': SemiProduit.objects.filter(statut='DISPONIBLE').count(),
         'of_recents': OrdreFabrication.objects.select_related('client', 'produit').order_by('-date_creation')[:5],
-        # ── NOUVELLES ALERTES MAINTENANCE ──
         'machines_en_panne': machines_en_panne,
         'machines_en_maintenance': machines_en_maintenance,
         'om_urgents': om_urgents,
@@ -511,13 +1012,11 @@ def edit_production(request, id):
 
 
 # ===========================================================================
-# --- OF MULTI-PROCESSUS (NOUVEAU) ---
+# --- OF MULTI-PROCESSUS ---
 # ===========================================================================
 
 @login_required
 def of_list_view(request):
-    """Liste des Ordres de Fabrication avec filtres"""
-
     statut = request.GET.get('statut', '')
     priorite = request.GET.get('priorite', '')
     client_id = request.GET.get('client', '')
@@ -571,19 +1070,12 @@ def of_list_view(request):
     return render(request, 'of/of_list.html', context)
 
 
-# ─────────────────────────────────────────────────────────────
-# OF CREATE — PATCHÉ : vérification statut machine avant création
-# ─────────────────────────────────────────────────────────────
-
 @login_required
 def of_create_view(request):
-    """Créer un nouvel OF avec ses étapes + vérification statut machine"""
-
     machine_warning = None
     machine_blocked = None
     machine_id = request.GET.get('machine')
 
-    # Vérification préalable si machine passée en paramètre
     if machine_id:
         try:
             machine_check = Machine.objects.get(id=machine_id)
@@ -599,12 +1091,10 @@ def of_create_view(request):
         form = OrdreFabricationForm(request.POST, request.FILES)
         formset = EtapeProductionFormSet(request.POST, prefix='etapes')
 
-        # Vérifier chaque machine des étapes
         blocked_messages = []
         warning_messages = []
 
         if form.is_valid():
-            # Vérifier les machines dans le formset
             for etape_form in formset.forms:
                 machine_val = etape_form.data.get(f"{etape_form.prefix}-machine")
                 if machine_val:
@@ -621,7 +1111,6 @@ def of_create_view(request):
             if blocked_messages:
                 for msg in blocked_messages:
                     messages.error(request, msg)
-                # Ne pas créer l'OF
             else:
                 of = form.save(commit=False)
                 of.cree_par = request.user
@@ -635,7 +1124,6 @@ def of_create_view(request):
                     for obj in formset.deleted_objects:
                         obj.delete()
 
-                # Afficher les warnings mais continuer
                 for msg in warning_messages:
                     messages.warning(request, msg)
 
@@ -655,7 +1143,6 @@ def of_create_view(request):
         'titre': 'Nouvel Ordre de Fabrication',
         'machine_warning': machine_warning,
         'machine_blocked': machine_blocked,
-        # Données machines pour JS
         'machines_statuts': {
             str(m.id): {
                 'status': m.status,
@@ -671,8 +1158,6 @@ def of_create_view(request):
 
 @login_required
 def of_detail_view(request, of_id):
-    """Détail d'un OF avec toutes ses étapes et suivi"""
-
     of = get_object_or_404(
         OrdreFabrication.objects.select_related('client', 'produit', 'cree_par'),
         id=of_id
@@ -709,8 +1194,6 @@ def of_detail_view(request, of_id):
 
 @login_required
 def of_edit_view(request, of_id):
-    """Modifier un OF existant"""
-
     of = get_object_or_404(OrdreFabrication, id=of_id)
 
     if request.method == 'POST':
@@ -741,49 +1224,36 @@ def of_edit_view(request, of_id):
 
 @login_required
 def of_delete_view(request, of_id):
-    """Supprimer un OF"""
-
     of = get_object_or_404(OrdreFabrication, id=of_id)
-
     if request.method == 'POST':
         numero = of.numero_of
         of.delete()
         messages.success(request, f"OF {numero} supprimé.")
         return redirect('of_list')
-
     return render(request, 'of/of_confirm_delete.html', {'of': of})
 
 
 @login_required
 def of_changer_statut(request, of_id, nouveau_statut):
-    """Changer le statut d'un OF"""
-
     of = get_object_or_404(OrdreFabrication, id=of_id)
     ancien_statut = of.statut
 
     if nouveau_statut in dict(OrdreFabrication.STATUT_CHOICES):
         of.statut = nouveau_statut
-
         if nouveau_statut == 'LANCE' and not of.date_lancement:
             of.date_lancement = timezone.now().date()
         elif nouveau_statut == 'TERMINE':
             of.date_fin_reelle = timezone.now().date()
 
         of.save()
-        messages.success(
-            request,
-            f"OF {of.numero_of} : {ancien_statut} → {nouveau_statut}"
-        )
+        messages.success(request, f"OF {of.numero_of} : {ancien_statut} → {nouveau_statut}")
     else:
         messages.error(request, "Statut invalide.")
-
     return redirect('of_detail', of_id=of_id)
 
 
 @login_required
 def of_lancement_rapide(request):
-    """Formulaire de lancement rapide d'OF avec étapes prédéfinies"""
-
     if request.method == 'POST':
         form = OFLancementRapideForm(request.POST)
 
@@ -834,10 +1304,7 @@ def of_lancement_rapide(request):
     else:
         form = OFLancementRapideForm()
 
-    context = {
-        'form': form,
-        'titre': 'Lancement Rapide OF',
-    }
+    context = {'form': form, 'titre': 'Lancement Rapide OF'}
     return render(request, 'of/of_lancement_rapide.html', context)
 
 
@@ -847,8 +1314,6 @@ def of_lancement_rapide(request):
 
 @login_required
 def etape_detail_view(request, etape_id):
-    """Détail d'une étape avec son suivi"""
-
     etape = get_object_or_404(
         EtapeProduction.objects.select_related('of', 'process_type', 'machine', 'operateur'),
         id=etape_id
@@ -892,11 +1357,8 @@ def etape_detail_view(request, etape_id):
         form = SuiviProductionForm()
 
     context = {
-        'etape': etape,
-        'of': etape.of,
-        'suivis': suivis,
-        'consommations': consommations,
-        'semi_produits': semi_produits,
+        'etape': etape, 'of': etape.of, 'suivis': suivis,
+        'consommations': consommations, 'semi_produits': semi_produits,
         'form': form,
     }
     return render(request, 'of/etape_detail.html', context)
@@ -904,10 +1366,7 @@ def etape_detail_view(request, etape_id):
 
 @login_required
 def etape_demarrer(request, etape_id):
-    """Démarrer une étape"""
-
     etape = get_object_or_404(EtapeProduction, id=etape_id)
-
     if etape.statut in ['EN_ATTENTE', 'PRET', 'PAUSE']:
         etape.statut = 'EN_COURS'
         if not etape.date_debut_reel:
@@ -930,8 +1389,6 @@ def etape_demarrer(request, etape_id):
 
 @login_required
 def etape_terminer(request, etape_id):
-    """Terminer une étape et créer le semi-produit"""
-
     etape = get_object_or_404(EtapeProduction, id=etape_id)
 
     if request.method == 'POST':
@@ -995,8 +1452,6 @@ def etape_terminer(request, etape_id):
 
 @login_required
 def semi_produit_list(request):
-    """Liste des semi-produits"""
-
     statut = request.GET.get('statut', '')
     type_sp = request.GET.get('type', '')
 
@@ -1017,27 +1472,21 @@ def semi_produit_list(request):
     }
 
     context = {
-        'semi_produits': semi_produits[:100],
-        'stats': stats,
+        'semi_produits': semi_produits[:100], 'stats': stats,
         'statut_choices': SemiProduit.STATUT_CHOICES,
         'type_choices': SemiProduit.TYPE_CHOICES,
-        'selected_statut': statut,
-        'selected_type': type_sp,
+        'selected_statut': statut, 'selected_type': type_sp,
     }
     return render(request, 'of/semi_produit_list.html', context)
 
 
 @login_required
 def semi_produit_detail(request, sp_id):
-    """Détail d'un semi-produit"""
-
     sp = get_object_or_404(
         SemiProduit.objects.select_related(
             'of_origine', 'etape_origine', 'etape_destination', 'emplacement'
-        ),
-        id=sp_id
+        ), id=sp_id
     )
-
     context = {'semi_produit': sp}
     return render(request, 'of/semi_produit_detail.html', context)
 
@@ -1048,10 +1497,7 @@ def semi_produit_detail(request, sp_id):
 
 @login_required
 def process_type_list(request):
-    """Liste et gestion des types de processus"""
-
     process_types = ProcessType.objects.all().order_by('ordre_defaut')
-
     if request.method == 'POST':
         form = ProcessTypeForm(request.POST)
         if form.is_valid():
@@ -1061,17 +1507,12 @@ def process_type_list(request):
     else:
         form = ProcessTypeForm()
 
-    context = {
-        'process_types': process_types,
-        'form': form,
-    }
+    context = {'process_types': process_types, 'form': form}
     return render(request, 'of/process_type_list.html', context)
 
 
 @login_required
 def process_type_delete(request, pt_id):
-    """Supprimer un type de processus"""
-
     pt = get_object_or_404(ProcessType, id=pt_id)
     if request.method == 'POST':
         pt.delete()
@@ -1085,10 +1526,6 @@ def process_type_delete(request, pt_id):
 
 @login_required
 def of_stats_api(request):
-    """API JSON pour statistiques OF"""
-
-    from collections import defaultdict
-
     statuts = {}
     for code, label in OrdreFabrication.STATUT_CHOICES:
         statuts[code] = OrdreFabrication.objects.filter(statut=code).count()
@@ -1133,10 +1570,6 @@ def stock_view(request):
     })
 
 
-# ===========================================================================
-# --- STOCKS — MATIÈRES PREMIÈRES & FOURNISSEURS ---
-# ===========================================================================
-
 @login_required
 def add_material(request):
     if request.method == 'POST':
@@ -1145,11 +1578,8 @@ def add_material(request):
             form.save()
             messages.success(request, '✅ Matière ajoutée avec succès !')
             return redirect('stock_advanced')
-        else:
-            messages.error(request, '❌ Erreur dans le formulaire.')
     else:
         form = MaterialForm()
-
     suppliers = Supplier.objects.all()
     return render(request, 'stock/material_form.html', {
         'form': form, 'suppliers': suppliers,
@@ -1166,11 +1596,8 @@ def edit_material(request, id):
             form.save()
             messages.success(request, f'✅ Matière "{material.name}" modifiée !')
             return redirect('stock_advanced')
-        else:
-            messages.error(request, '❌ Erreur dans le formulaire.')
     else:
         form = MaterialForm(instance=material)
-
     suppliers = Supplier.objects.all()
     return render(request, 'stock/material_form.html', {
         'form': form, 'material': material, 'suppliers': suppliers,
@@ -1189,6 +1616,16 @@ def delete_material(request, id):
 
 
 @login_required
+def clear_all_stock(request):
+    if request.method == 'POST':
+        StockMovement.objects.all().delete()
+        StockLot.objects.all().delete()
+        count, _ = Material.objects.all().delete()
+        messages.success(request, f"⚠️ Tout le stock a été vidé ({count} matières supprimées).")
+    return redirect('stock_advanced')
+
+
+@login_required
 def add_supplier(request):
     if request.method == 'POST':
         form = SupplierForm(request.POST)
@@ -1196,16 +1633,11 @@ def add_supplier(request):
             form.save()
             messages.success(request, '✅ Fournisseur ajouté avec succès !')
             return redirect('stock_advanced')
-        else:
-            messages.error(request, '❌ Erreur dans le formulaire.')
     else:
         form = SupplierForm()
-
     return render(request, 'stock/supplier_form.html', {
         'form': form, 'title': 'Nouveau Fournisseur', 'btn_label': 'Ajouter le Fournisseur',
     })
-
-
 @login_required
 def edit_supplier(request, id):
     supplier = get_object_or_404(Supplier, id=id)
@@ -1215,11 +1647,8 @@ def edit_supplier(request, id):
             form.save()
             messages.success(request, f'✅ Fournisseur "{supplier.name}" modifié !')
             return redirect('stock_advanced')
-        else:
-            messages.error(request, '❌ Erreur dans le formulaire.')
     else:
         form = SupplierForm(instance=supplier)
-
     return render(request, 'stock/supplier_form.html', {
         'form': form, 'supplier': supplier,
         'title': f'Modifier : {supplier.name}', 'btn_label': 'Enregistrer les modifications',
@@ -1259,7 +1688,6 @@ def conso_list_view(request):
 # ===========================================================================
 
 def highlight_search(text, query):
-    """Surligne les termes recherchés dans le HTML"""
     if not query:
         return text
     pattern = re.compile(f'({re.escape(query)})', re.IGNORECASE)
@@ -1268,8 +1696,6 @@ def highlight_search(text, query):
 
 @login_required
 def stock_advanced_view(request):
-    """Vue principale du module stock avancé avec RECHERCHE INTELLIGENTE"""
-
     search_query = request.GET.get('q', '').strip()
     category_filter = request.GET.get('category', '')
     low_stock_only = request.GET.get('low_stock', '') == 'on'
@@ -1282,10 +1708,8 @@ def stock_advanced_view(request):
             Q(name__icontains=search_query) |
             Q(supplier__name__icontains=search_query)
         )
-
     if category_filter:
         materials = materials.filter(category=category_filter)
-
     if supplier_filter:
         materials = materials.filter(supplier_id=supplier_filter)
 
@@ -1309,11 +1733,7 @@ def stock_advanced_view(request):
 
     for m in all_materials:
         if m.is_low_stock():
-            if m.min_threshold > 0:
-                pct = round((m.quantity / m.min_threshold) * 100, 1)
-            else:
-                pct = 0
-
+            pct = round((m.quantity / m.min_threshold) * 100, 1) if m.min_threshold > 0 else 0
             if m.quantity <= 0:
                 niveau = 'RUPTURE'
                 icone = '🔴'
@@ -1377,7 +1797,7 @@ def stock_advanced_view(request):
                         'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if seuil.date_rupture_prevue else '—',
                         'critique': jours <= 7,
                     })
-        except:
+        except Exception:
             pass
     previsions.sort(key=lambda x: x['jours_restants'])
 
@@ -1396,21 +1816,14 @@ def stock_advanced_view(request):
     da_en_attente = DemandeAchat.objects.filter(statut='SOUMISE').count()
 
     bons_commande = BonCommande.objects.select_related('fournisseur', 'cree_par').order_by('-date_commande')[:50]
-
     consos = ConsommationEncre.objects.all().order_by('-date')[:50]
-
-    valeur_stock_total = sum(
-        float(m.quantity) * float(m.price_per_unit)
-        for m in all_materials
-        if m.price_per_unit
-    )
+    valeur_stock_total = sum(float(m.quantity) * float(m.price_per_unit) for m in all_materials if m.price_per_unit)
 
     context = {
         'search_query': search_query, 'category_filter': category_filter,
         'low_stock_only': low_stock_only, 'supplier_filter': supplier_filter,
-        'categories': Material.CAT_CHOICES,
-        'materials': materials, 'total_matieres': Material.objects.count(),
-        'suppliers': suppliers,
+        'categories': Material.CAT_CHOICES, 'materials': materials,
+        'total_matieres': Material.objects.count(), 'suppliers': suppliers,
         'alertes_stock': alertes_stock, 'nb_alertes': len(alertes_stock),
         'nb_ruptures': nb_ruptures, 'nb_critiques': nb_critiques,
         'nb_alertes_simples': nb_alertes_simples,
@@ -1429,22 +1842,17 @@ def stock_advanced_view(request):
         'bons_commande': bons_commande, 'consos': consos,
         'valeur_stock_total': valeur_stock_total,
     }
-
     return render(request, 'stock/stock_advanced.html', context)
 
 
 @login_required
 def material_search_api(request):
-    """API autocomplete pour recherche dynamique AJAX"""
     query = request.GET.get('q', '').strip()
-
     if len(query) < 1:
         return JsonResponse([], safe=False)
 
     materials = Material.objects.filter(
-        Q(name__icontains=query) |
-        Q(category__icontains=query) |
-        Q(supplier__name__icontains=query)
+        Q(name__icontains=query) | Q(category__icontains=query) | Q(supplier__name__icontains=query)
     ).select_related('supplier').order_by('name')[:30]
 
     results = []
@@ -1459,28 +1867,19 @@ def material_search_api(request):
             'is_low_stock': m.is_low_stock(),
             'price': float(m.price_per_unit) if m.price_per_unit else 0,
         })
-
-    return JsonResponse({
-        'query': query, 'count': len(results), 'results': results
-    })
+    return JsonResponse({'query': query, 'count': len(results), 'results': results})
 
 
 @login_required
 def export_search_results(request):
-    """Export Excel des résultats de recherche"""
     query = request.GET.get('q', '').strip()
     category = request.GET.get('category', '')
-
     materials = Material.objects.select_related('supplier').all()
 
     if query:
-        materials = materials.filter(
-            Q(name__icontains=query) | Q(supplier__name__icontains=query)
-        )
-
+        materials = materials.filter(Q(name__icontains=query) | Q(supplier__name__icontains=query))
     if category:
         materials = materials.filter(category=category)
-
     materials = materials.order_by('name')
 
     wb = openpyxl.Workbook()
@@ -1508,7 +1907,6 @@ def export_search_results(request):
     for row_num, m in enumerate(materials, 2):
         valeur = float(m.quantity) * float(m.price_per_unit) if m.price_per_unit else 0
         etat = "⚠️ ALERTE" if m.is_low_stock() else "✓ OK"
-
         row_data = [
             m.name, m.get_category_display(), m.quantity, m.unit,
             m.min_threshold, m.supplier.name if m.supplier else '',
@@ -1516,7 +1914,6 @@ def export_search_results(request):
             round(valeur, 2), etat
         ]
         ws.append(row_data)
-
         for col_num in range(1, len(row_data) + 1):
             cell = ws.cell(row=row_num, column=col_num)
             cell.border = thin_border
@@ -1528,9 +1925,7 @@ def export_search_results(request):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
 
     filename = f"stock_matieres_{query if query else 'all'}.xlsx"
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
@@ -1555,7 +1950,6 @@ def location_add(request):
         if name:
             StockLocation.objects.create(name=name, type=type_loc, description=desc)
             messages.success(request, f"Emplacement « {name} » créé.")
-        return redirect('stock_advanced')
     return redirect('stock_advanced')
 
 
@@ -1570,9 +1964,7 @@ def location_delete(request, id):
 
 @login_required
 def lot_list(request):
-    lots = StockLot.objects.select_related(
-        'material', 'fournisseur', 'emplacement'
-    ).order_by('-date_reception')
+    lots = StockLot.objects.select_related('material', 'fournisseur', 'emplacement').order_by('-date_reception')
     return render(request, 'stock/stock_advanced.html', {'lots': lots})
 
 
@@ -1606,32 +1998,29 @@ def lot_add(request):
                 StockMovement.objects.create(
                     type='ENTREE', material=material, lot=lot,
                     quantite=quantite, emplacement_destination=emplacement,
-                    utilisateur=request.user,
-                    motif=f"Réception lot {numero_lot}",
+                    utilisateur=request.user, motif=f"Réception lot {numero_lot}"
                 )
             messages.success(request, f"Lot {numero_lot} créé.")
         except Exception as e:
             messages.error(request, f"Erreur : {str(e)}")
-        return redirect('stock_advanced')
     return redirect('stock_advanced')
 
 
 @login_required
 def lot_valider(request, id):
-    lot = get_object_or_404(StockLot, id=id)
+    author_lot = get_object_or_404(StockLot, id=id)
     if request.method == 'POST':
-        ancien_statut = lot.statut
-        lot.statut = 'CONFORME'
-        lot.save()
+        ancien_statut = author_lot.statut
+        author_lot.statut = 'CONFORME'
+        author_lot.save()
         if ancien_statut != 'CONFORME':
             StockMovement.objects.create(
-                type='ENTREE', material=lot.material, lot=lot,
-                quantite=lot.quantite_restante,
-                emplacement_destination=lot.emplacement,
-                utilisateur=request.user,
-                motif=f"Validation lot {lot.numero_lot}",
+                type='ENTREE', material=author_lot.material, lot=author_lot,
+                quantite=author_lot.quantite_restante,
+                emplacement_destination=author_lot.emplacement,
+                utilisateur=request.user, motif=f"Validation lot {author_lot.numero_lot}"
             )
-        messages.success(request, f"Lot {lot.numero_lot} validé.")
+        messages.success(request, f"Lot {author_lot.numero_lot} validé.")
     return redirect('stock_advanced')
 
 
@@ -1648,12 +2037,8 @@ def lot_bloquer(request, id):
 @login_required
 def lot_detail(request, id):
     lot = get_object_or_404(StockLot, id=id)
-    mouvements = lot.mouvements.select_related(
-        'utilisateur', 'machine', 'of'
-    ).order_by('-date')
-    return render(request, 'stock/lot_detail.html', {
-        'lot': lot, 'mouvements': mouvements
-    })
+    mouvements = lot.mouvements.select_related('utilisateur', 'machine', 'of').order_by('-date')
+    return render(request, 'stock/lot_detail.html', {'lot': lot, 'mouvements': mouvements})
 
 
 @login_required
@@ -1669,11 +2054,13 @@ def mouvement_add(request):
             of_id = request.POST.get('of') or None
             machine_id = request.POST.get('machine') or None
             motif = request.POST.get('motif', '')
+
             lot = StockLot.objects.filter(id=lot_id).first() if lot_id else None
             src = StockLocation.objects.filter(id=src_id).first() if src_id else None
             dst = StockLocation.objects.filter(id=dst_id).first() if dst_id else None
             of_obj = ProductionOrder.objects.filter(id=of_id).first() if of_id else None
             machine_obj = Machine.objects.filter(id=machine_id).first() if machine_id else None
+
             StockMovement.objects.create(
                 type=type_mvt, material=material, lot=lot,
                 quantite=quantite, emplacement_source=src,
@@ -1683,7 +2070,6 @@ def mouvement_add(request):
             messages.success(request, "Mouvement enregistré.")
         except Exception as e:
             messages.error(request, f"Erreur : {str(e)}")
-        return redirect('stock_advanced')
     return redirect('stock_advanced')
 
 
@@ -1705,7 +2091,6 @@ def da_add(request):
             messages.success(request, "Demande d'achat créée.")
         except Exception as e:
             messages.error(request, f"Erreur : {str(e)}")
-        return redirect('stock_advanced')
     return redirect('stock_advanced')
 
 
@@ -1761,7 +2146,6 @@ def bc_add(request):
             messages.success(request, f"Bon de commande {bc.reference} créé.")
         except Exception as e:
             messages.error(request, f"Erreur : {str(e)}")
-        return redirect('stock_advanced')
     return redirect('stock_advanced')
 
 
@@ -1852,13 +2236,17 @@ def add_machine(request):
 # ===========================================================================
 
 def _get_filtered_entries(request):
-    entries = ProductionEntry.objects.all().order_by('-date', '-heure_debut')
+    entries = ProductionEntry.objects.exclude(
+        machine__name__icontains="Nettoyage"
+    ).order_by('-date', '-heure_debut')
+    
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
     machine_id = request.GET.get('machine', '')
     support = request.GET.get('support', '')
     equipe = request.GET.get('equipe', '')
     produit = request.GET.get('produit', '')
+    unite = request.GET.get('unite_commande', '')
 
     if date_from:
         entries = entries.filter(date__gte=date_from)
@@ -1872,24 +2260,26 @@ def _get_filtered_entries(request):
         entries = entries.filter(equipe=equipe)
     if produit:
         entries = entries.filter(produit=produit)
+    if unite:
+        entries = entries.filter(unite_commande=unite)
     return entries
 
 
 def _get_filter_context(request):
-    all_produits = ProductionEntry.objects.values_list(
-        'produit', flat=True
-    ).distinct().order_by('produit')
-
+    all_produits = ProductionEntry.objects.values_list('produit', flat=True).distinct().order_by('produit')
+    machines_sans_nettoyage = Machine.objects.exclude(name__icontains="Nettoyage").order_by('name')
     return {
-        'all_machines': Machine.objects.all().order_by('name'),
+        'all_machines': machines_sans_nettoyage,
         'all_supports': ProductionEntry.objects.values_list('support', flat=True).distinct().order_by('support'),
         'all_produits': all_produits,
+        'all_unites': [('PCS', 'Pièces (Étiquettes/Sacs)'), ('KG', 'Tonnage (KG)'), ('ML', 'Mètres Linéaires (ML)')],
         'selected_date_from': request.GET.get('date_from', ''),
         'selected_date_to': request.GET.get('date_to', ''),
         'selected_machine': request.GET.get('machine', ''),
         'selected_support': request.GET.get('support', ''),
         'selected_equipe': request.GET.get('equipe', ''),
         'selected_produit': request.GET.get('produit', ''),
+        'selected_unite': request.GET.get('unite_commande', ''),
     }
 
 
@@ -1899,14 +2289,20 @@ def prod_dashboard(request):
     total_prod_ml = entries.aggregate(t=Sum('prod_ml'))['t'] or 0
     total_prod_kg = entries.aggregate(t=Sum('prod_kg'))['t'] or 0
     total_dechets_kg = round(sum(e.total_dechets_kg for e in entries), 2)
-    taux_dechets = round(
-        (total_dechets_kg / float(total_prod_kg) * 100), 2
-    ) if total_prod_kg else 0
+    taux_dechets = round((total_dechets_kg / float(total_prod_kg) * 100), 2) if total_prod_kg else 0
 
-    from collections import defaultdict
-    data_par_date = defaultdict(
-        lambda: {'ml': 0, 'kg': 0, 'dem': 0, 'lis': 0, 'jon': 0, 'tra': 0, 'taux': []}
-    )
+    stats_modes = {
+        'PCS': {'count': 0, 'volume': 0},
+        'KG': {'count': 0, 'volume': 0},
+        'ML': {'count': 0, 'volume': 0}
+    }
+    for e in entries:
+        mode = getattr(e, 'unite_commande', 'PCS') or 'PCS'
+        if mode in stats_modes:
+            stats_modes[mode]['count'] += 1
+            stats_modes[mode]['volume'] += float(e.quantite_lancee or 0)
+
+    data_par_date = defaultdict(lambda: {'ml': 0, 'kg': 0, 'dem': 0, 'lis': 0, 'jon': 0, 'tra': 0, 'taux': []})
     for e in entries:
         d = str(e.date)
         data_par_date[d]['ml'] += e.prod_ml
@@ -1919,7 +2315,6 @@ def prod_dashboard(request):
             data_par_date[d]['taux'].append(e.taux_dechets)
 
     dates_sorted = sorted(data_par_date.keys())
-
     support_data = defaultdict(float)
     for e in entries:
         support_data[e.support] += e.prod_kg
@@ -1931,6 +2326,7 @@ def prod_dashboard(request):
         'total_dechets_kg': total_dechets_kg,
         'taux_dechets': taux_dechets,
         'count': entries.count(),
+        'stats_modes': stats_modes,
         'prod_ml_dates': json.dumps(dates_sorted),
         'prod_ml_values': json.dumps([round(data_par_date[d]['ml'], 1) for d in dates_sorted]),
         'prod_kg_dates': json.dumps(dates_sorted),
@@ -1939,8 +2335,7 @@ def prod_dashboard(request):
         'prod_kg_support_values': json.dumps([round(v, 2) for v in support_data.values()]),
         'taux_dechets_dates': json.dumps(dates_sorted),
         'taux_dechets_values': json.dumps([
-            round(sum(data_par_date[d]['taux']) / len(data_par_date[d]['taux']), 2)
-            if data_par_date[d]['taux'] else 0
+            round(sum(data_par_date[d]['taux']) / len(data_par_date[d]['taux']), 2) if data_par_date[d]['taux'] else 0
             for d in dates_sorted
         ]),
         'dechets_dates': json.dumps(dates_sorted),
@@ -1959,12 +2354,14 @@ def prod_saisie(request):
         form = ProductionEntryForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, "Saisie enregistrée avec succès.")
+            messages.success(request, "Saisie de production enregistrée avec succès.")
             return redirect('prod_dashboard')
         else:
-            messages.error(request, "Erreur dans le formulaire. Vérifiez les champs.")
+            messages.error(request, "Erreur dans le formulaire. Vérifiez les données saisies.")
     else:
         form = ProductionEntryForm()
+    
+    form.fields['machine'].queryset = Machine.objects.exclude(name__icontains="Nettoyage")
     recent = ProductionEntry.objects.all().order_by('-date', '-heure_debut')[:10]
     context = {
         'form': form, 'titre': 'Nouvelle Saisie Production',
@@ -1980,15 +2377,17 @@ def prod_edit_entry(request, id):
         form = ProductionEntryForm(request.POST, instance=entry)
         if form.is_valid():
             form.save()
-            messages.success(request, "Saisie mise à jour.")
+            messages.success(request, "Saisie mise à jour avec succès.")
             return redirect('prod_base')
         else:
-            messages.error(request, "Erreur dans le formulaire.")
+            messages.error(request, "Erreur dans le formulaire lors de la modification.")
     else:
         form = ProductionEntryForm(instance=entry)
+    
+    form.fields['machine'].queryset = Machine.objects.exclude(name__icontains="Nettoyage")
     recent = ProductionEntry.objects.all().order_by('-date', '-heure_debut')[:10]
     context = {
-        'form': form, 'titre': f'Modifier — {entry.produit} ({entry.date})',
+        'form': form, 'titre': f'Modifier Saisie — {entry.produit} ({entry.date})',
         'recent': recent, 'edit_mode': True, 'entry': entry,
     }
     return render(request, 'production_special/saisie.html', context)
@@ -2021,18 +2420,48 @@ def prod_detail_qualite(request):
     total_dechets_jonction = round(sum(e.dechets_jonction for e in entries), 2)
     total_dechets_transport = round(sum(e.dechets_transport for e in entries), 2)
 
-    from collections import defaultdict
+    dechets_par_machine = defaultdict(lambda: {'total': 0, 'prod': 0, 'dem': 0, 'lis': 0, 'jon': 0, 'tra': 0})
+    dechets_par_equipe = defaultdict(lambda: {'total': 0, 'prod': 0, 'dem': 0, 'lis': 0, 'jon': 0, 'tra': 0})
+
+    for e in entries:
+        m_name = e.machine.name if e.machine else "Inconnue"
+        eq = e.equipe or 'Inconnue'
+        
+        dechets_par_machine[m_name]['total'] += e.total_dechets_kg
+        dechets_par_machine[m_name]['prod'] += e.prod_kg
+        dechets_par_machine[m_name]['dem'] += e.dechets_demarrage
+        dechets_par_machine[m_name]['lis'] += e.dechets_lisiere
+        dechets_par_machine[m_name]['jon'] += e.dechets_jonction
+        dechets_par_machine[m_name]['tra'] += e.dechets_transport
+
+        dechets_par_equipe[eq]['total'] += e.total_dechets_kg
+        dechets_par_equipe[eq]['prod'] += e.prod_kg
+        dechets_par_equipe[eq]['dem'] += e.dechets_demarrage
+        dechets_par_equipe[eq]['lis'] += e.dechets_lisiere
+        dechets_par_equipe[eq]['jon'] += e.dechets_jonction
+        dechets_par_equipe[eq]['tra'] += e.dechets_transport
+
+    for m, val in dechets_par_machine.items():
+        val['taux'] = round((val['total'] / val['prod'] * 100), 2) if val['prod'] > 0 else 0
+        val['total'] = round(val['total'], 2)
+    for eq, val in dechets_par_equipe.items():
+        val['taux'] = round((val['total'] / val['prod'] * 100), 2) if val['prod'] > 0 else 0
+        val['total'] = round(val['total'], 2)
+
     data_dates = defaultdict(lambda: {
-        'dem_a': 0, 'dem_b': 0, 'lis_a': 0, 'lis_b': 0,
-        'jon_a': 0, 'jon_b': 0, 'tra_a': 0, 'tra_b': 0, 'total': 0
+        'dem_a': 0, 'dem_b': 0, 'dem_c': 0,
+        'lis_a': 0, 'lis_b': 0, 'lis_c': 0,
+        'jon_a': 0, 'jon_b': 0, 'jon_c': 0,
+        'tra_a': 0, 'tra_b': 0, 'tra_c': 0, 'total': 0
     })
     for e in entries:
         d = str(e.date)
-        eq = e.equipe
-        data_dates[d]['dem_' + eq.lower()] += e.dechets_demarrage
-        data_dates[d]['lis_' + eq.lower()] += e.dechets_lisiere
-        data_dates[d]['jon_' + eq.lower()] += e.dechets_jonction
-        data_dates[d]['tra_' + eq.lower()] += e.dechets_transport
+        eq = e.equipe or 'A'
+        eq_key = eq.lower()
+        data_dates[d]['dem_' + eq_key] += e.dechets_demarrage
+        data_dates[d]['lis_' + eq_key] += e.dechets_lisiere
+        data_dates[d]['jon_' + eq_key] += e.dechets_jonction
+        data_dates[d]['tra_' + eq_key] += e.dechets_transport
         data_dates[d]['total'] += e.total_dechets_kg
 
     dates_sorted = sorted(data_dates.keys())
@@ -2043,20 +2472,26 @@ def prod_detail_qualite(request):
         'total_dechets_lisiere': total_dechets_lisiere,
         'total_dechets_jonction': total_dechets_jonction,
         'total_dechets_transport': total_dechets_transport,
+        'dechets_par_machine': dict(dechets_par_machine),
+        'dechets_par_equipe': dict(dechets_par_equipe),
         'dates_labels': json.dumps(dates_sorted),
         'dem_a': json.dumps([round(data_dates[d]['dem_a'], 2) for d in dates_sorted]),
         'dem_b': json.dumps([round(data_dates[d]['dem_b'], 2) for d in dates_sorted]),
+        'dem_c': json.dumps([round(data_dates[d]['dem_c'], 2) for d in dates_sorted]),
         'lis_a': json.dumps([round(data_dates[d]['lis_a'], 2) for d in dates_sorted]),
         'lis_b': json.dumps([round(data_dates[d]['lis_b'], 2) for d in dates_sorted]),
+        'lis_c': json.dumps([round(data_dates[d]['lis_c'], 2) for d in dates_sorted]),
         'jon_a': json.dumps([round(data_dates[d]['jon_a'], 2) for d in dates_sorted]),
         'jon_b': json.dumps([round(data_dates[d]['jon_b'], 2) for d in dates_sorted]),
+        'jon_c': json.dumps([round(data_dates[d]['jon_c'], 2) for d in dates_sorted]),
         'tra_a': json.dumps([round(data_dates[d]['tra_a'], 2) for d in dates_sorted]),
         'tra_b': json.dumps([round(data_dates[d]['tra_b'], 2) for d in dates_sorted]),
+        'tra_c': json.dumps([round(data_dates[d]['tra_c'], 2) for d in dates_sorted]),
         'h_dates': json.dumps(dates_sorted),
-        'h_dem': json.dumps([round(data_dates[d]['dem_a'] + data_dates[d]['dem_b'], 2) for d in dates_sorted]),
-        'h_lis': json.dumps([round(data_dates[d]['lis_a'] + data_dates[d]['lis_b'], 2) for d in dates_sorted]),
-        'h_jon': json.dumps([round(data_dates[d]['jon_a'] + data_dates[d]['jon_b'], 2) for d in dates_sorted]),
-        'h_tra': json.dumps([round(data_dates[d]['tra_a'] + data_dates[d]['tra_b'], 2) for d in dates_sorted]),
+        'h_dem': json.dumps([round(data_dates[d]['dem_a'] + data_dates[d]['dem_b'] + data_dates[d]['dem_c'], 2) for d in dates_sorted]),
+        'h_lis': json.dumps([round(data_dates[d]['lis_a'] + data_dates[d]['lis_b'] + data_dates[d]['lis_c'], 2) for d in dates_sorted]),
+        'h_jon': json.dumps([round(data_dates[d]['jon_a'] + data_dates[d]['jon_b'] + data_dates[d]['jon_c'], 2) for d in dates_sorted]),
+        'h_tra': json.dumps([round(data_dates[d]['tra_a'] + data_dates[d]['tra_b'] + data_dates[d]['tra_c'], 2) for d in dates_sorted]),
     }
     context.update(_get_filter_context(request))
     return render(request, 'production_special/detail_qualite.html', context)
@@ -2072,41 +2507,112 @@ def prod_synthese_temps(request):
     temps_ouverture_total = f"{heures}:{minutes:02d}"
     total_rebobinage = round(sum(e.rebobinage_kg for e in entries), 2)
 
-    from collections import defaultdict
+    total_calage_min = sum(getattr(e, 'temps_calage_min', 30) or 30 for e in entries)
+    total_roulage_min = max(0, temps_ouverture_total_min - total_calage_min)
+    
+    calage_heures = round(total_calage_min / 60, 1)
+    roulage_heures = round(total_roulage_min / 60, 1)
+
+    machine_vitesses = defaultdict(list)
+    for e in entries:
+        if e.machine and getattr(e, 'vitesse_machine_trmin', None):
+            machine_vitesses[e.machine.name].append(e.vitesse_machine_trmin)
+    
+    avg_machine_vitesses = {
+        m_name: round(sum(vits) / len(vits), 1) if vits else 0
+        for m_name, vits in machine_vitesses.items()
+    }
+
+    unite_stats = defaultdict(lambda: {'count': 0, 'total': 0})
+    for e in entries:
+        mode = getattr(e, 'unite_commande', 'PCS') or 'PCS'
+        unite_stats[mode]['count'] += 1
+        unite_stats[mode]['total'] += float(e.quantite_lancee or 0)
+
     data_dec = defaultdict(float)
     data_temps_a = defaultdict(float)
     data_temps_b = defaultdict(float)
+    data_temps_c = defaultdict(float)
     produits_set = set()
 
     for e in entries:
         d = str(e.date)
         data_dec[d] += e.decalage
         produits_set.add(e.produit[:20])
-        if e.equipe == 'A':
+        eq = e.equipe or 'A'
+        if eq == 'A':
             data_temps_a[e.produit[:20]] += e.temps_ouverture_minutes / 60
-        elif e.equipe == 'B':
+        elif eq == 'B':
             data_temps_b[e.produit[:20]] += e.temps_ouverture_minutes / 60
+        elif eq == 'C':
+            data_temps_c[e.produit[:20]] += e.temps_ouverture_minutes / 60
 
     dates_sorted = sorted(data_dec.keys())
     produits_sorted = sorted(produits_set)
+
+    calculs_recents = CalculTempsProduction.objects.all().select_related(
+        'client', 'machine_impression', 'machine_decoupe', 'cree_par'
+    ).order_by('-date_calcul')[:30]
+
+    form_calcul = CalculTempsProductionForm()
 
     context = {
         'entries': entries,
         'decalage_total': decalage_total,
         'temps_ouverture_total': temps_ouverture_total,
         'total_rebobinage': total_rebobinage,
+        'calage_heures': calage_heures,
+        'roulage_heures': roulage_heures,
+        'avg_machine_vitesses': avg_machine_vitesses,
+        'unite_stats': dict(unite_stats),
         'decalage_dates': json.dumps(dates_sorted),
         'decalage_values': json.dumps([round(data_dec[d], 2) for d in dates_sorted]),
         'temps_produit_labels': json.dumps(produits_sorted),
         'temps_produit_a': json.dumps([round(data_temps_a.get(p, 0), 2) for p in produits_sorted]),
         'temps_produit_b': json.dumps([round(data_temps_b.get(p, 0), 2) for p in produits_sorted]),
+        'temps_produit_c': json.dumps([round(data_temps_c.get(p, 0), 2) for p in produits_sorted]),
+        'calculs_recents': calculs_recents,
+        'form_calcul': form_calcul,
     }
     context.update(_get_filter_context(request))
     return render(request, 'production_special/synthese_temps.html', context)
 
 
 # ===========================================================================
-# --- MODULE PRODUCTION SPÉCIAL — CONSOMMATION ENCRE & DÉCHETS IMPRESSION ---
+# --- CALCULATEUR PRÉVISIONNEL DE TEMPS ---
+# ===========================================================================
+
+@login_required
+def prod_calculer_temps(request):
+    if request.method == 'POST':
+        form = CalculTempsProductionForm(request.POST)
+        if form.is_valid():
+            calcul = form.save(commit=False)
+            calcul.cree_par = request.user
+            calcul.save()
+            messages.success(request, f"✅ Calcul prévisionnel pour '{calcul.nom_job}' enregistré avec succès !")
+            return redirect('prod_synthese_temps')
+        else:
+            messages.error(request, "❌ Erreur dans le formulaire de calcul. Vérifiez les champs.")
+    return redirect('prod_synthese_temps')
+
+
+@login_required
+def prod_calculer_temps_save(request):
+    return redirect('prod_synthese_temps')
+
+
+@login_required
+def prod_calculer_temps_delete(request, id):
+    calcul = get_object_or_404(CalculTempsProduction, id=id)
+    if request.method == 'POST':
+        calcul.delete()
+        messages.success(request, "🗑️ Calcul prévisionnel supprimé.")
+    return redirect('prod_synthese_temps')
+
+
+# ===========================================================================
+# --- ENCRE & IMPRESSION ---
 # ===========================================================================
 
 def _get_filtered_encre(request):
@@ -2131,14 +2637,8 @@ def _get_filtered_encre(request):
 
 
 def _get_encre_filter_context(request):
-    all_supports = ConsommationEncre.objects.values_list(
-        'support', flat=True
-    ).distinct().order_by('support')
-
-    all_jobs = ConsommationEncre.objects.values_list(
-        'job_name', flat=True
-    ).distinct().order_by('job_name')
-
+    all_supports = ConsommationEncre.objects.values_list('support', flat=True).distinct().order_by('support')
+    all_jobs = ConsommationEncre.objects.values_list('job_name', flat=True).distinct().order_by('job_name')
     return {
         'all_supports_encre': all_supports,
         'all_jobs_encre': list(all_jobs),
@@ -2153,8 +2653,6 @@ def _get_encre_filter_context(request):
 
 @login_required
 def encre_dashboard(request):
-    from collections import defaultdict
-
     consos = _get_filtered_encre(request)
     count = consos.count()
 
@@ -2165,12 +2663,8 @@ def encre_dashboard(request):
     total_gain_masse = sum(c.gain_de_masse_kg for c in consos)
     total_evaporee = sum(c.matiere_evaporee_kg for c in consos)
 
-    taux_gain_global = round(
-        (total_gain_masse / total_injecte * 100), 2
-    ) if total_injecte else 0
-    taux_evap_global = round(
-        (total_evaporee / total_injecte * 100), 2
-    ) if total_injecte else 0
+    taux_gain_global = round((total_gain_masse / total_injecte * 100), 2) if total_injecte else 0
+    taux_evap_global = round((total_evaporee / total_injecte * 100), 2) if total_injecte else 0
 
     total_metrage = sum(c.metrage for c in consos)
 
@@ -2194,9 +2688,7 @@ def encre_dashboard(request):
         '#ffc107', '#9e9e9e', '#ff6d00', '#f5f5f5', '#4caf50'
     ]
 
-    data_dates = defaultdict(lambda: {
-        'encre': 0, 'solvant': 0, 'gain': 0, 'evap': 0, 'metrage': 0
-    })
+    data_dates = defaultdict(lambda: {'encre': 0, 'solvant': 0, 'gain': 0, 'evap': 0, 'metrage': 0})
     for c in consos:
         d = str(c.date)
         data_dates[d]['encre'] += c.total_encre
@@ -2225,8 +2717,7 @@ def encre_dashboard(request):
 
     couleurs_table = [
         {'nom': n, 'val': v, 'color': c}
-        for n, v, c in zip(couleurs_noms, couleurs_vals, couleurs_colors)
-        if v > 0
+        for n, v, c in zip(couleurs_noms, couleurs_vals, couleurs_colors) if v > 0
     ]
 
     context = {
@@ -2353,8 +2844,6 @@ def encre_detail(request, id):
 
 @login_required
 def encre_analyse(request):
-    from collections import defaultdict
-
     consos = _get_filtered_encre(request)
     count = consos.count()
 
@@ -2453,333 +2942,6 @@ def encre_analyse(request):
 
 
 # ===========================================================================
-# --- IMPORT EXCEL ---
-# ===========================================================================
-
-def parse_time_safe(val):
-    if val is None or val == 0 or val == '' or str(val).strip() == '':
-        return None
-    try:
-        if hasattr(val, 'hour'):
-            return val
-        if hasattr(val, 'time'):
-            return val.time()
-        if isinstance(val, float):
-            total_seconds = int(val * 24 * 3600)
-            return datetime.time(total_seconds // 3600, (total_seconds % 3600) // 60)
-        s = str(val).strip()
-        parts = s.replace('h', ':').replace('H', ':').split(':')
-        if len(parts) >= 2:
-            return datetime.time(int(parts[0]), int(parts[1]))
-        return None
-    except Exception:
-        return None
-
-
-@login_required
-def import_stock_view(request):
-    context = {}
-    if request.method == 'POST' and request.FILES.get('excel_file'):
-        try:
-            import_type = request.POST.get('import_type')
-            excel_file = request.FILES['excel_file']
-            fs = FileSystemStorage()
-            filename = fs.save(excel_file.name, excel_file)
-            file_path = fs.path(filename)
-            df = pd.read_excel(file_path).fillna(0)
-            count = 0
-            errors = 0
-            details = []
-
-            if import_type == 'STOCK':
-                for idx, row in df.iterrows():
-                    try:
-                        cat_map = {'Film': 'FILM', 'Encre': 'INK', 'Colle': 'GLUE', 'Solvant': 'SOLV'}
-                        cat_val = row.get('Categorie', 'FILM')
-                        if cat_val == 0:
-                            cat_val = 'FILM'
-                        Material.objects.update_or_create(
-                            name=row.get('Designation', 'Inconnu'),
-                            defaults={
-                                'category': cat_map.get(cat_val, 'FILM'),
-                                'quantity': row.get('Quantite', 0),
-                                'unit': row.get('Unite', 'kg'),
-                                'min_threshold': row.get('Seuil_Min', 0),
-                                'price_per_unit': row.get('Prix', 0)
-                            }
-                        )
-                        count += 1
-                        details.append(f"Ligne {idx+2}: ✅ {row.get('Designation')} importé")
-                    except Exception as e:
-                        errors += 1
-                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
-
-            elif import_type == 'CRM':
-                for idx, row in df.iterrows():
-                    try:
-                        nom = row.get('Nom')
-                        if nom and nom != 0:
-                            status_map = {'Active': 'ACTIVE', 'Prospect': 'PROSPECT', 'VIP': 'VIP'}
-                            Client.objects.update_or_create(
-                                name=nom,
-                                defaults={
-                                    'city': row.get('Ville', ''),
-                                    'phone': row.get('Telephone', ''),
-                                    'email': row.get('Email', ''),
-                                    'sector': row.get('Secteur', ''),
-                                    'status': status_map.get(row.get('Statut'), 'PROSPECT')
-                                }
-                            )
-                            count += 1
-                            details.append(f"Ligne {idx+2}: ✅ Client {nom} importé")
-                        else:
-                            details.append(f"Ligne {idx+2}: ⚠️ Nom vide — ignorée")
-                    except Exception as e:
-                        errors += 1
-                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
-
-            elif import_type == 'SPECIAL_PROD':
-                for idx, row in df.iterrows():
-                    try:
-                        try:
-                            d_val = pd.to_datetime(row.get('Date')).date()
-                        except Exception:
-                            d_val = datetime.date.today()
-
-                        produit_val = str(row.get('Produit', '')).strip()
-                        if not produit_val or produit_val == '0':
-                            details.append(f"Ligne {idx+2}: ⚠️ Produit vide — ignorée")
-                            continue
-
-                        client_obj = None
-                        cli_name = str(row.get('Client', '')).strip()
-                        if cli_name and cli_name not in ('0', ''):
-                            client_obj, _ = Client.objects.get_or_create(
-                                name=cli_name,
-                                defaults={'city': 'Non renseigné', 'phone': '000'}
-                            )
-
-                        machine_obj = None
-                        mac_name = str(row.get('Machine', '')).strip()
-                        if mac_name and mac_name not in ('0', ''):
-                            machine_obj = Machine.objects.filter(name__icontains=mac_name).first()
-                            if not machine_obj:
-                                machine_obj = Machine.objects.create(
-                                    name=mac_name, type='IMP', status='STOP'
-                                )
-                                details.append(f"  → Machine '{mac_name}' créée automatiquement")
-
-                        equipe_val = str(row.get('Equipe', 'A')).strip().upper()
-                        if equipe_val not in ['A', 'B', 'C']:
-                            equipe_val = 'A'
-
-                        h_debut = parse_time_safe(row.get('H_Debut'))
-                        h_fin = parse_time_safe(row.get('H_Fin'))
-
-                        def safe_float(v, d=0):
-                            try:
-                                x = float(v)
-                                return x if x == x else d
-                            except Exception:
-                                return d
-
-                        entry = ProductionEntry.objects.create(
-                            date=d_val, produit=produit_val,
-                            support=str(row.get('Support', '')),
-                            quantite_lancee=safe_float(row.get('Qte_Lancee')),
-                            lot=str(row.get('Lot', '')),
-                            laize=safe_float(row.get('Laize')),
-                            client=client_obj, equipe=equipe_val,
-                            machine=machine_obj,
-                            heure_debut=h_debut, heure_fin=h_fin,
-                            prod_ml=safe_float(row.get('Prod_ML')),
-                            dechets_demarrage=safe_float(row.get('Dec_Demarrage')),
-                            dechets_lisiere=safe_float(row.get('Dec_Lisiere')),
-                            dechets_jonction=safe_float(row.get('Dec_Jonction')),
-                            dechets_transport=safe_float(row.get('Dec_Transport')),
-                            prod_kg=safe_float(row.get('Prod_KG')),
-                            rebobinage_kg=safe_float(row.get('Rebobinage_KG'))
-                        )
-                        count += 1
-                        details.append(f"Ligne {idx+2}: ✅ {produit_val} du {d_val} importé (ID={entry.id})")
-                    except Exception as e:
-                        errors += 1
-                        details.append(f"Ligne {idx+2}: ❌ ERREUR — {str(e)}")
-
-            elif import_type == 'CONSO':
-                for idx, row in df.iterrows():
-                    try:
-                        try:
-                            d_prod = pd.to_datetime(row.get('Date')).date()
-                        except Exception:
-                            d_prod = datetime.date.today()
-                        raw_type = str(row.get('Type', 'FLEXO')).upper()
-                        final_type = 'HELIO' if 'HELIO' in raw_type else 'FLEXO'
-                        ConsommationEncre.objects.create(
-                            date=d_prod, process_type=final_type,
-                            support=row.get('Support', 'Inconnu'),
-                            laize=float(row.get('Laize', 0)),
-                            bobine_in=float(row.get('Bobine_In', 0)),
-                            bobine_out=float(row.get('Bobine_Out', 0)),
-                            metrage=float(row.get('Metrage', 0)),
-                            encre_noir=float(row.get('Noir', 0)),
-                            encre_magenta=float(row.get('Magenta', 0)),
-                            encre_jaune=float(row.get('Jaune', 0)),
-                            encre_cyan=float(row.get('Cyan', 0)),
-                            encre_dore=float(row.get('Dore', 0)),
-                            encre_silver=float(row.get('Silver', 0)),
-                            encre_orange=float(row.get('Orange', 0)),
-                            encre_blanc=float(row.get('Blanc', 0)),
-                            encre_vernis=float(row.get('Vernis', 0)),
-                            solvant_metoxyn=float(row.get('Metoxyn', 0)),
-                            solvant_2080=float(row.get('2080', 0))
-                        )
-                        count += 1
-                        details.append(f"Ligne {idx+2}: ✅ Conso {d_prod} importée")
-                    except Exception as e:
-                        errors += 1
-                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
-
-            elif import_type == 'TOOLS':
-                for idx, row in df.iterrows():
-                    try:
-                        prod_ref = row.get('Ref_Produit')
-                        if prod_ref and prod_ref != 0:
-                            cli, _ = Client.objects.get_or_create(
-                                name="Client Divers",
-                                defaults={'city': 'Interne', 'phone': '000'}
-                            )
-                            product, _ = TechnicalProduct.objects.get_or_create(
-                                ref_internal=prod_ref,
-                                defaults={
-                                    'name': f"Produit {prod_ref}",
-                                    'client': cli, 'structure_type': 'MONO',
-                                    'width_mm': 100
-                                }
-                            )
-                            type_map = {'Cylindre': 'CYL', 'Cliche': 'CLICHE'}
-                            type_val = row.get('Type', 'CYL')
-                            if type_val == 0:
-                                type_val = 'CYL'
-                            Tooling.objects.update_or_create(
-                                serial_number=row.get('Serial'),
-                                defaults={
-                                    'product': product,
-                                    'tool_type': type_map.get(type_val, 'CYL'),
-                                    'max_impressions': row.get('Tours_Max', 1000000),
-                                    'current_impressions': row.get('Tours_Actuels', 0)
-                                }
-                            )
-                            count += 1
-                            details.append(f"Ligne {idx+2}: ✅ Outil {row.get('Serial')} importé")
-                    except Exception as e:
-                        errors += 1
-                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
-
-            elif import_type == 'PLANNING':
-                for idx, row in df.iterrows():
-                    try:
-                        cli_name = row.get('Client')
-                        if cli_name and cli_name != 0:
-                            client, _ = Client.objects.get_or_create(
-                                name=cli_name, defaults={'city': '?', 'phone': '?'}
-                            )
-                            prod_name = row.get('Produit')
-                            product, _ = TechnicalProduct.objects.get_or_create(
-                                ref_internal=f"REF-{str(prod_name)[:5]}",
-                                defaults={
-                                    'name': prod_name, 'client': client,
-                                    'structure_type': 'MONO', 'width_mm': 500
-                                }
-                            )
-                            mac_name = row.get('Machine')
-                            machine = Machine.objects.filter(name__icontains=str(mac_name)).first()
-                            try:
-                                start_d = pd.to_datetime(row.get('Date_Debut'))
-                            except Exception:
-                                start_d = datetime.datetime.now()
-                            end_d = start_d + timedelta(hours=4)
-                            ProductionOrder.objects.update_or_create(
-                                of_number=str(row.get('OF_Numero')),
-                                defaults={
-                                    'client': client, 'product': product,
-                                    'machine': machine, 'start_time': start_d,
-                                    'end_time': end_d,
-                                    'quantity_planned': row.get('Qte_Prevue', 0),
-                                    'status': 'PLANNED'
-                                }
-                            )
-                            count += 1
-                            details.append(f"Ligne {idx+2}: ✅ OF {row.get('OF_Numero')} importé")
-                    except Exception as e:
-                        errors += 1
-                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
-
-            context = {
-                'message': (
-                    f'⚠️ {count} OK, {errors} erreurs.'
-                    if errors else
-                    f'✅ {count} lignes importées avec succès !'
-                ),
-                'success': count > 0,
-                'details': details
-            }
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-
-        except Exception as e:
-            context = {'message': f'❌ Erreur critique : {str(e)}', 'success': False}
-
-    return render(request, 'stock/import_stock.html', context)
-
-
-def download_template_special_prod(request):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Production Speciale"
-    headers = [
-        'Date', 'Produit', 'Support', 'Qte_Lancee', 'Lot', 'Laize',
-        'Client', 'Equipe', 'Machine', 'H_Debut', 'H_Fin', 'Prod_ML',
-        'Dec_Demarrage', 'Dec_Lisiere', 'Dec_Jonction', 'Dec_Transport',
-        'Prod_KG', 'Rebobinage_KG'
-    ]
-    hf = Font(name='Arial', bold=True, color='FFFFFF', size=11)
-    hfill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
-    tb = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin')
-    )
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = hf
-        cell.fill = hfill
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = tb
-    example = [
-        '15/01/2025', 'Sac Lait 1L', 'PEBD 50μ', 500, 'LOT-001', 320,
-        'Laiterie Atlas', 'A', 'IMP-01', '08:00', '16:30', 12000,
-        5.2, 3.1, 1.5, 2.0, 485, 10
-    ]
-    ef = PatternFill(start_color='E8F5E9', end_color='E8F5E9', fill_type='solid')
-    for col, val in enumerate(example, 1):
-        cell = ws.cell(row=2, column=col, value=val)
-        cell.fill = ef
-        cell.border = tb
-        cell.alignment = Alignment(horizontal='center')
-    for col in ws.columns:
-        ml = max((len(str(c.value)) for c in col if c.value), default=0)
-        ws.column_dimensions[col[0].column_letter].width = ml + 4
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename="Template_Production_Speciale.xlsx"'
-    wb.save(response)
-    return response
-
-
-# ===========================================================================
 # --- ADMINISTRATION PERSONNALISÉE ---
 # ===========================================================================
 
@@ -2851,10 +3013,6 @@ def admin_add_user(request):
     return redirect('admin_view')
 
 
-# ═══════════════════════════════════════════════════════════════
-# ══════════ PARTIE 2 — COLLER À LA SUITE DE LA PARTIE 1 ══════
-# ═══════════════════════════════════════════════════════════════
-
 @login_required
 @staff_member_required
 def admin_edit_user(request, user_id):
@@ -2889,34 +3047,11 @@ def admin_toggle_user(request, user_id):
 
 
 # ===========================================================================
-# --- MODULE DRH (RESSOURCES HUMAINES) ---
+# --- MODULE DRH ---
 # ===========================================================================
-
-from .models import (
-    Department, Position, Employee, EmployeeDocument,
-    Skill, EmployeeSkill, MachineAuthorization,
-    Shift, Attendance, LeaveType, LeaveRequest,
-    Payslip, WorkSchedule, ShiftAssignment,
-    MedicalVisit, WorkIncident, ProtectiveEquipment,
-)
-from .forms import (
-    DepartmentForm, PositionForm, EmployeeForm, EmployeeDocumentForm,
-    SkillForm, EmployeeSkillForm, MachineAuthorizationForm,
-    ShiftForm, AttendanceForm, AttendanceBulkForm,
-    LeaveTypeForm, LeaveRequestForm, PayslipForm,
-    WorkScheduleForm, ShiftAssignmentForm,
-    MedicalVisitForm, WorkIncidentForm, ProtectiveEquipmentForm,
-)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# DASHBOARD DRH
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def drh_dashboard(request):
-    """Tableau de bord principal DRH"""
-
     today = timezone.now().date()
     current_month = today.month
     current_year = today.year
@@ -3015,10 +3150,6 @@ def drh_dashboard(request):
 
     return render(request, 'drh/dashboard.html', context)
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# GESTION DES EMPLOYÉS
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def employee_list(request):
@@ -3162,10 +3293,6 @@ def employee_document_add(request, emp_id):
     return render(request, 'drh/document_form.html', context)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# COMPÉTENCES ET AUTORISATIONS
-# ═══════════════════════════════════════════════════════════════════════════
-
 @login_required
 def skill_list(request):
     skills = Skill.objects.select_related('machine_associee').order_by('category', 'name')
@@ -3239,10 +3366,6 @@ def machine_authorization_validate(request, auth_id):
 
     return redirect('employee_detail', emp_id=auth.employee.id)
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# POINTAGE ET PRÉSENCES
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def attendance_list(request):
@@ -3343,10 +3466,6 @@ def attendance_bulk(request):
     context = {'form': form, 'employees': employees, 'titre': 'Pointage en masse'}
     return render(request, 'drh/attendance_bulk.html', context)
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# CONGÉS
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def leave_list(request):
@@ -3464,10 +3583,6 @@ def leave_reject(request, leave_id):
 
     return redirect('leave_list')
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# PAIE
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def payslip_list(request):
@@ -3609,10 +3724,6 @@ def payslip_bulk_generate(request):
     return render(request, 'drh/payslip_bulk.html', context)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# PLANNING
-# ═══════════════════════════════════════════════════════════════════════════
-
 @login_required
 def schedule_list(request):
     schedules = WorkSchedule.objects.select_related(
@@ -3630,7 +3741,6 @@ def schedule_detail(request, schedule_id):
         'employee', 'shift', 'machine'
     ).order_by('date', 'shift__heure_debut')
 
-    from collections import defaultdict
     affectations_par_date = defaultdict(list)
     for aff in affectations:
         affectations_par_date[aff.date].append(aff)
@@ -3662,10 +3772,6 @@ def shift_assignment_add(request, schedule_id):
     context = {'form': form, 'schedule': schedule, 'titre': 'Nouvelle affectation'}
     return render(request, 'drh/assignment_form.html', context)
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# SANTÉ & SÉCURITÉ
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def incident_list(request):
@@ -3735,14 +3841,12 @@ def incident_detail(request, incident_id):
 @login_required
 def medical_visit_list(request):
     visits = MedicalVisit.objects.select_related('employee').order_by('-date_visite')
-
     today = timezone.now().date()
     date_limite = today + timedelta(days=30)
     a_planifier = visits.filter(
         date_prochaine_visite__lte=date_limite,
         date_prochaine_visite__gte=today
     )
-
     context = {'visits': visits[:100], 'a_planifier': a_planifier}
     return render(request, 'drh/medical_list.html', context)
 
@@ -3757,7 +3861,6 @@ def medical_visit_create(request):
             return redirect('medical_list')
     else:
         form = MedicalVisitForm()
-
     context = {'form': form, 'titre': 'Nouvelle visite médicale'}
     return render(request, 'drh/medical_form.html', context)
 
@@ -3781,14 +3884,9 @@ def epi_create(request):
             return redirect('epi_list')
     else:
         form = ProtectiveEquipmentForm()
-
     context = {'form': form, 'titre': 'Attribuer un EPI'}
     return render(request, 'drh/epi_form.html', context)
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# DÉPARTEMENTS ET POSTES
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def department_list(request):
@@ -3844,10 +3942,6 @@ def shift_list(request):
     context = {'shifts': shifts, 'form': form}
     return render(request, 'drh/shift_list.html', context)
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# EXPORTS
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def export_employees_excel(request):
@@ -4059,25 +4153,8 @@ def send_system_notification(request):
 
 
 # ===========================================================================
-# --- MODULE MAINTENANCE AVANCÉ --- (PATCHÉ : om_create + machine_delete)
+# --- MODULE MAINTENANCE AVANCÉ ---
 # ===========================================================================
-
-from .models import (
-    Atelier, CompteurMachine, CategoriePiece, PieceRechange,
-    MouvementPiece, OrdreMaintenance, ConsommationPiece,
-    PlanMaintenancePreventive, AlerteMaintenance,
-)
-from .forms import (
-    AtelierForm, MachineMaintenanceForm, CompteurMachineForm,
-    CategoriePieceForm, PieceRechangeForm, MouvementPieceForm,
-    OrdreMaintenanceForm, ClotureOrdreMaintenanceForm,
-    ConsommationPieceForm, PlanMaintenancePreventiveForm,
-)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# DASHBOARD MAINTENANCE
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def maintenance_dashboard(request):
@@ -4151,9 +4228,8 @@ def maintenance_dashboard(request):
         ).count()
         repartition_type.append({'label': label, 'count': count})
 
-    from django.db.models import Count as DjCount
     top_pannes = Machine.objects.annotate(
-        nb_pannes=DjCount('ordres_maintenance', filter=Q(ordres_maintenance__type_maintenance='CORRECTIVE'))
+        nb_pannes=Count('ordres_maintenance', filter=Q(ordres_maintenance__type_maintenance='CORRECTIVE'))
     ).filter(nb_pannes__gt=0).order_by('-nb_pannes')[:5]
 
     evolution_arret = []
@@ -4169,7 +4245,7 @@ def maintenance_dashboard(request):
     context = {
         'total_machines': total_machines,
         'machines_en_panne': machines_en_panne,
-        'machines_en_maint': machines_en_maint,
+        'machines_en_maintenance': machines_en_maint,
         'machines_en_prod': machines_en_prod,
         'om_ouverts': om_ouverts,
         'om_corrective_mois': om_corrective_mois,
@@ -4201,14 +4277,9 @@ def maintenance_dashboard(request):
     return render(request, 'maintenance/dashboard.html', context)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# ATELIERS
-# ═══════════════════════════════════════════════════════════════════════════
-
 @login_required
 def atelier_list(request):
     ateliers = Atelier.objects.prefetch_related('machines_atelier').order_by('ordre_affichage')
-
     if request.method == 'POST':
         form = AtelierForm(request.POST)
         if form.is_valid():
@@ -4234,10 +4305,6 @@ def atelier_create(request):
         form = AtelierForm()
     return render(request, 'maintenance/atelier_form.html', {'form': form, 'titre': 'Nouvel Atelier'})
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# MACHINES (AMÉLIORÉES) + PATCHÉ : maintenance_machine_delete
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def maintenance_machine_list(request):
@@ -4351,19 +4418,13 @@ def maintenance_machine_edit(request, machine_id):
     })
 
 
-# ─────────────────────────────────────────────────────────────
-# PATCHÉ : SUPPRIMER UNE MACHINE (NOUVEAU)
-# ─────────────────────────────────────────────────────────────
-
 @login_required
 def maintenance_machine_delete(request, machine_id):
-    """Supprimer une machine (avec confirmation)"""
     machine = get_object_or_404(Machine, id=machine_id)
 
     if request.method == 'POST':
         nom = machine.name
         code = machine.code_machine
-        # Vérifier qu'il n'y a pas d'OM ouverts
         om_ouverts = machine.ordres_maintenance.filter(
             statut__in=['OUVERT', 'EN_COURS', 'EN_ATTENTE_PIECE']
         ).count()
@@ -4398,10 +4459,6 @@ def machine_compteur_add(request, machine_id):
         'form': form, 'machine': machine, 'titre': f'Relevé compteur — {machine.name}'
     })
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# ORDRES DE MAINTENANCE — PATCHÉ : om_create avec alertes automatiques
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def om_list(request):
@@ -4453,13 +4510,8 @@ def om_list(request):
     return render(request, 'maintenance/om_list.html', context)
 
 
-# ─────────────────────────────────────────────────────────────
-# PATCHÉ : OM CREATE — alerte automatique dashboard après création
-# ─────────────────────────────────────────────────────────────
-
 @login_required
 def om_create(request):
-    """Créer un ordre de maintenance + alerte automatique"""
     if request.method == 'POST':
         form = OrdreMaintenanceForm(request.POST)
         if form.is_valid():
@@ -4467,16 +4519,13 @@ def om_create(request):
             om.demandeur = request.user
             om.save()
 
-            # Mettre la machine en panne si corrective
             if om.type_maintenance == 'CORRECTIVE':
                 om.machine.status = 'PANNE'
                 om.machine.save(update_fields=['status'])
-
             elif om.type_maintenance == 'PREVENTIVE':
                 om.machine.status = 'MAINT'
                 om.machine.save(update_fields=['status'])
 
-            # ── Créer alerte automatique dans le dashboard ──
             niveau = 'CRITICAL' if om.type_maintenance == 'CORRECTIVE' else 'WARNING'
             type_alerte = 'PANNE' if om.type_maintenance == 'CORRECTIVE' else 'PREVENTIVE_DUE'
 
@@ -4614,10 +4663,6 @@ def om_ajouter_piece(request, om_id):
     })
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# PLANS PRÉVENTIFS
-# ═══════════════════════════════════════════════════════════════════════════
-
 @login_required
 def plan_preventif_list(request):
     machine_filter = request.GET.get('machine', '')
@@ -4714,10 +4759,6 @@ def generer_om_preventifs_auto(request):
 
     return redirect('plan_preventif_list')
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# PIÈCES DE RECHANGE
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def piece_list(request):
@@ -4848,10 +4889,6 @@ def categorie_piece_list(request):
     return render(request, 'maintenance/categorie_piece_list.html', context)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# ALERTES
-# ═══════════════════════════════════════════════════════════════════════════
-
 @login_required
 def alerte_list(request):
     niveau_filter = request.GET.get('niveau', '')
@@ -4901,8 +4938,6 @@ def alerte_traiter(request, alerte_id):
 def generer_alertes(request):
     if request.method == 'POST':
         nb = 0
-
-        # 1. Alertes pièces stock bas
         for piece in PieceRechange.objects.filter(est_active=True):
             if piece.est_rupture:
                 existe = AlerteMaintenance.objects.filter(
@@ -4929,7 +4964,6 @@ def generer_alertes(request):
                     )
                     nb += 1
 
-        # 2. Alertes maintenance préventive dues
         for plan in PlanMaintenancePreventive.objects.filter(statut='ACTIF'):
             if plan.est_a_faire:
                 existe = AlerteMaintenance.objects.filter(
@@ -4945,7 +4979,6 @@ def generer_alertes(request):
                     )
                     nb += 1
 
-        # 3. Alertes OM en retard
         for om in OrdreMaintenance.objects.filter(statut__in=['OUVERT', 'EN_COURS']):
             if om.est_en_retard:
                 existe = AlerteMaintenance.objects.filter(
@@ -4964,10 +4997,6 @@ def generer_alertes(request):
 
     return redirect('alerte_list')
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# KPIs & RAPPORTS
-# ═══════════════════════════════════════════════════════════════════════════
 
 @login_required
 def maintenance_kpi(request):
@@ -5018,23 +5047,15 @@ def maintenance_stats_api(request):
     }
 
     return JsonResponse(data)
-# ============================================================
-# maintenance_calendrier
-# ============================================================
+
 
 @login_required
 def maintenance_calendrier(request):
-    """Calendrier mensuel des interventions maintenance"""
-    from .models import OrdreMaintenance, PlanMaintenancePreventive
-    import json
-
-    # Mois/année en paramètre ou mois courant
     mois = int(request.GET.get('mois', timezone.now().month))
     annee = int(request.GET.get('annee', timezone.now().year))
 
     evenements = []
 
-    # ── 1. Ordres de maintenance (OM réels) ──
     oms = OrdreMaintenance.objects.select_related(
         'machine', 'technicien_principal'
     ).filter(
@@ -5042,7 +5063,6 @@ def maintenance_calendrier(request):
         date_creation__year=annee,
     ).exclude(statut='ANNULE')
 
-    # Aussi les OM planifiés pour ce mois
     oms_planifies = OrdreMaintenance.objects.select_related(
         'machine', 'technicien_principal'
     ).filter(
@@ -5093,7 +5113,6 @@ def maintenance_calendrier(request):
             evenements.append(om_to_event(om, use_planifiee=True))
             seen_ids.add(om.id)
 
-    # ── 2. Plans préventifs à faire ce mois ──
     plans = PlanMaintenancePreventive.objects.select_related(
         'machine', 'technicien_defaut'
     ).filter(statut='ACTIF')
@@ -5102,15 +5121,11 @@ def maintenance_calendrier(request):
     _, nb_jours = calendar.monthrange(annee, mois)
 
     for plan in plans:
-        # Calculer si le plan tombe dans ce mois
         date_prevue = None
-
         if plan.prochaine_execution:
-            if (plan.prochaine_execution.month == mois and
-                    plan.prochaine_execution.year == annee):
+            if (plan.prochaine_execution.month == mois and plan.prochaine_execution.year == annee):
                 date_prevue = plan.prochaine_execution
         elif plan.derniere_execution and plan.frequence_jours:
-            from datetime import timedelta
             prochaine = plan.derniere_execution + timedelta(days=plan.frequence_jours)
             if prochaine.month == mois and prochaine.year == annee:
                 date_prevue = prochaine

@@ -1,123 +1,540 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1 class="text-3xl font-black text-white mb-2">🏭 Module Production</h1>
-<p class="text-gray-400 mb-6">Analyse détaillée de la qualité et des déchets</p>
+
+<style>
+    .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+</style>
+
+<!-- EN-TÊTE DE PAGE -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-3xl font-black text-white mb-1 flex items-center gap-3">
+            🔬 <span>Détail Qualité & Analyse des Déchets</span>
+        </h1>
+        <p class="text-gray-400 text-sm">
+            Analyse approfondie des rebuts par type (Démarrage, Lisière, Jonction, Transport), par équipe (A, B, C) et par machine
+        </p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{% url 'prod_saisie' %}" class="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-red-500/20 flex items-center gap-2">
+            <span>➕</span> Nouvelle Saisie
+        </a>
+    </div>
+</div>
 
 {% include 'production_special/_nav.html' %}
 {% include 'production_special/_filters.html' %}
 
-<!-- KPI DÉCHETS TOTAL -->
-<div class="flex justify-end mb-4">
-    <div class="glass rounded-2xl p-6 border-2 border-red-500/30 min-w-[220px]">
-        <p class="text-xs font-bold text-red-400 uppercase tracking-widest mb-1">Déchets (KG) :</p>
-        <p class="text-5xl font-black text-red-400">{{ total_dechets_kg }}</p>
+<!-- KPIS GLOBAUX DES DÉCHETS -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+    
+    <!-- TOTAL DÉCHETS -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-red-500 sm:col-span-2 lg:col-span-1">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-red-400 uppercase tracking-wider">Total Déchets</p>
+            <span class="text-lg">🗑️</span>
+        </div>
+        <p class="text-3xl font-black text-red-400 mt-2">{{ total_dechets_kg|floatformat:1 }} <span class="text-sm font-semibold text-gray-400">kg</span></p>
+        <p class="text-[11px] text-gray-400 mt-1">Cumul toutes causes confondues</p>
+    </div>
+
+    <!-- DÉCHETS DÉMARRAGE -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-emerald-500">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Démarrage / Calage</p>
+            <span class="text-lg">🟢</span>
+        </div>
+        <p class="text-3xl font-black text-emerald-400 mt-2">{{ total_dechets_demarrage|floatformat:1 }} <span class="text-sm font-semibold text-gray-400">kg</span></p>
+        <p class="text-[11px] text-gray-400 mt-1">Réglage des teintes & repérage</p>
+    </div>
+
+    <!-- DÉCHETS LISIÈRE -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-blue-500">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-blue-400 uppercase tracking-wider">Lisière (Refente)</p>
+            <span class="text-lg">🔵</span>
+        </div>
+        <p class="text-3xl font-black text-blue-400 mt-2">{{ total_dechets_lisiere|floatformat:1 }} <span class="text-sm font-semibold text-gray-400">kg</span></p>
+        <p class="text-[11px] text-gray-400 mt-1">Rognures de bords sur découpe</p>
+    </div>
+
+    <!-- DÉCHETS JONCTION -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-amber-500">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-amber-400 uppercase tracking-wider">Jonctions / Collages</p>
+            <span class="text-lg">🟡</span>
+        </div>
+        <p class="text-3xl font-black text-amber-400 mt-2">{{ total_dechets_jonction|floatformat:1 }} <span class="text-sm font-semibold text-gray-400">kg</span></p>
+        <p class="text-[11px] text-gray-400 mt-1">Raccords et changements bobines</p>
+    </div>
+
+    <!-- DÉCHETS TRANSPORT -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-cyan-500">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Transport / Manutention</p>
+            <span class="text-lg">🚚</span>
+        </div>
+        <p class="text-3xl font-black text-cyan-400 mt-2">{{ total_dechets_transport|floatformat:1 }} <span class="text-sm font-semibold text-gray-400">kg</span></p>
+        <p class="text-[11px] text-gray-400 mt-1">Chocs et manutention interne</p>
+    </div>
+
+</div>
+
+<!-- SECTION : ANALYSE DES REBUTS SÉQUENTIELS PAR WORKFLOW DE COMMANDE -->
+<div class="glass-card rounded-2xl p-6 mb-8 border-t-4 border-t-red-500">
+    <div class="mb-5">
+        <h3 class="text-lg font-black text-white flex items-center gap-2">
+            <span>🔗</span> Cascade Cumulative des Pertes par Commande (Lot de Production)
+        </h3>
+        <p class="text-xs text-gray-400 mt-1">
+            Suivi des rebuts cumulés tout au long du cycle de fabrication d'un lot. Visualisez instantanément quelle étape génère le plus de pertes.
+        </p>
+    </div>
+
+    <div class="space-y-4">
+        {% for wf in workflows_qualite %}
+        <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800">
+            <!-- En-tête de la commande -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-800/60 text-xs">
+                <div class="flex items-center gap-3">
+                    <span class="px-2.5 py-1 font-black bg-red-950 text-red-400 border border-red-900/40 rounded">
+                        LOT : {{ wf.lot }}
+                    </span>
+                    <strong class="text-white text-sm">{{ wf.produit }}</strong>
+                    <span class="text-gray-400">Client: <strong class="text-gray-300">{{ wf.client }}</strong></span>
+                </div>
+                <div class="text-right">
+                    <span class="text-gray-400">Rebuts cumulés : </span>
+                    <strong class="text-red-400 text-sm font-black">{{ wf.total_dechets }} kg</strong>
+                    <span class="text-gray-500 ml-2">| Taux d'usure global : </span>
+                    <strong class="text-yellow-400 font-black">{{ wf.taux_global }}%</strong>
+                </div>
+            </div>
+
+            <!-- Alignement horizontal du flux de rebuts -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+                {% for step in wf.steps %}
+                <div class="bg-slate-950/40 p-3 rounded-lg border border-slate-800 relative flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-[10px] uppercase font-black text-sky-400">{{ step.type_process }}</span>
+                            <span class="text-[10px] text-gray-500 font-medium">{{ step.date|date:"d/m" }}</span>
+                        </div>
+                        <p class="text-xs font-black text-gray-200 mb-2 flex items-center gap-1">
+                            <span>⚙️</span> {{ step.machine }}
+                        </p>
+                    </div>
+
+                    <!-- Barre de ratio des pertes sur l'étape de production corrigée pour éliminer les erreurs CSS de l'IDE -->
+                    <div class="space-y-1.5 my-2">
+                        <div class="flex justify-between text-[10px]">
+                            <span class="text-gray-400">Pertes: <strong class="text-red-400">{{ step.total_dechets_kg|floatformat:1 }} kg</strong></span>
+                            <span class="text-yellow-500 font-bold">Ratio étape : {{ step.taux_dechets }}%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full step-progress-bar" data-width="{{ step.taux_dechets }}"></div>
+                        </div>
+                    </div>
+
+                    <!-- Ventilation des pertes spécifiques à l'étape -->
+                    <div class="grid grid-cols-4 gap-1 text-[9px] text-gray-400 mt-2 pt-2 border-t border-slate-900/60 text-center">
+                        <div>
+                            <span class="block text-emerald-500 font-medium">Démarrage</span>
+                            <strong>{{ step.dechets_demarrage|floatformat:0 }}k</strong>
+                        </div>
+                        <div>
+                            <span class="block text-blue-500 font-medium">Lisière</span>
+                            <strong>{{ step.dechets_lisiere|floatformat:0 }}k</strong>
+                        </div>
+                        <div>
+                            <span class="block text-amber-500 font-medium">Jonction</span>
+                            <strong>{{ step.dechets_jonction|floatformat:0 }}k</strong>
+                        </div>
+                        <div>
+                            <span class="block text-cyan-500 font-medium">Transport</span>
+                            <strong>{{ step.dechets_transport|floatformat:0 }}k</strong>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-3 text-center text-xs text-gray-500 py-2">
+                    Aucune étape de production identifiée.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-6 text-gray-500 bg-slate-900/40 rounded-xl border border-slate-800/60">
+            <span class="text-3xl block mb-2">📋</span>
+            <p class="text-xs text-gray-400">Renseignez des numéros de lots identiques pour générer la cascade cumulative des pertes d'une commande.</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
-<!-- KPIs PAR TYPE DE DÉCHET -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div class="glass rounded-2xl p-6 border-l-4 border-green-500">
-        <p class="text-xs font-bold text-green-400 uppercase tracking-widest mb-2">Déchets Démarrage:</p>
-        <p class="text-4xl font-black text-green-400">{{ total_dechets_demarrage }}</p>
+<!-- SECTION : COMPARATIF PAR ÉQUIPE (3 SHIFTS A, B, C) & RÉPARTITION -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    
+    <!-- PERFORMANCE PAR ÉQUIPE -->
+    <div class="lg:col-span-2 glass-card rounded-2xl p-6">
+        <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+            <span>👥</span> Rebuts et Taux de Déchets par Équipe (3 Shifts 24h/24)
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- ÉQUIPE A -->
+            <div class="p-4 bg-slate-900/80 rounded-xl border border-sky-500/30">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black text-sky-400 uppercase">Équipe A (Matin)</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-500/30">06h - 14h</span>
+                </div>
+                <p class="text-2xl font-black text-white">
+                    {{ dechets_par_equipe.A.total|default:"0" }} <span class="text-xs font-normal text-gray-400">kg déchet</span>
+                </p>
+                <div class="mt-3 pt-2 border-t border-slate-800 text-xs flex justify-between">
+                    <span class="text-gray-400">Prod totale :</span>
+                    <strong class="text-gray-200">{{ dechets_par_equipe.A.prod|floatformat:1|default:"0" }} kg</strong>
+                </div>
+                <div class="mt-1 text-xs flex justify-between">
+                    <span class="text-gray-400">Taux de déchet :</span>
+                    <strong class="{% if dechets_par_equipe.A.taux > 5 %}text-red-400{% else %}text-emerald-400{% endif %}">
+                        {{ dechets_par_equipe.A.taux|default:"0" }} %
+                    </strong>
+                </div>
+            </div>
+
+            <!-- ÉQUIPE B -->
+            <div class="p-4 bg-slate-900/80 rounded-xl border border-emerald-500/30">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black text-emerald-400 uppercase">Équipe B (Après-midi)</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">14h - 22h</span>
+                </div>
+                <p class="text-2xl font-black text-white">
+                    {{ dechets_par_equipe.B.total|default:"0" }} <span class="text-xs font-normal text-gray-400">kg déchet</span>
+                </p>
+                <div class="mt-3 pt-2 border-t border-slate-800 text-xs flex justify-between">
+                    <span class="text-gray-400">Prod totale :</span>
+                    <strong class="text-gray-200">{{ dechets_par_equipe.B.prod|floatformat:1|default:"0" }} kg</strong>
+                </div>
+                <div class="mt-1 text-xs flex justify-between">
+                    <span class="text-gray-400">Taux de déchet :</span>
+                    <strong class="{% if dechets_par_equipe.B.taux > 5 %}text-red-400{% else %}text-emerald-400{% endif %}">
+                        {{ dechets_par_equipe.B.taux|default:"0" }} %
+                    </strong>
+                </div>
+            </div>
+
+            <!-- ÉQUIPE C -->
+            <div class="p-4 bg-slate-900/80 rounded-xl border border-purple-500/30">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black text-purple-400 uppercase">Équipe C (Nuit)</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-500/30">22h - 06h</span>
+                </div>
+                <p class="text-2xl font-black text-white">
+                    {{ dechets_par_equipe.C.total|default:"0" }} <span class="text-xs font-normal text-gray-400">kg déchet</span>
+                </p>
+                <div class="mt-3 pt-2 border-t border-slate-800 text-xs flex justify-between">
+                    <span class="text-gray-400">Prod totale :</span>
+                    <strong class="text-gray-200">{{ dechets_par_equipe.C.prod|floatformat:1|default:"0" }} kg</strong>
+                </div>
+                <div class="mt-1 text-xs flex justify-between">
+                    <span class="text-gray-400">Taux de déchet :</span>
+                    <strong class="{% if dechets_par_equipe.C.taux > 5 %}text-red-400{% else %}text-emerald-400{% endif %}">
+                        {{ dechets_par_equipe.C.taux|default:"0" }} %
+                    </strong>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="glass rounded-2xl p-6 border-l-4 border-blue-500">
-        <p class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">Déchets Lisière:</p>
-        <p class="text-4xl font-black text-blue-400">{{ total_dechets_lisiere }}</p>
+
+    <!-- RÉPARTITION DES DÉCHETS (CAMEMBERT / DONUT) -->
+    <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+        <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+            <span>🍩</span> Répartition par Cause (%)
+        </h3>
+        <div class="relative h-48 flex items-center justify-center">
+            <canvas id="chartTypeDonut"></canvas>
+        </div>
+        <p class="text-[11px] text-gray-400 text-center mt-2">Distribution des pertes sur la sélection</p>
     </div>
-    <div class="glass rounded-2xl p-6 border-l-4 border-red-500">
-        <p class="text-xs font-bold text-red-400 uppercase tracking-widest mb-2">Déchets Jonction:</p>
-        <p class="text-4xl font-black text-red-400">{{ total_dechets_jonction }}</p>
+
+</div>
+
+<!-- SECTION : TABLEAU ANALYTIQUE DES DÉCHETS PAR MACHINE -->
+<div class="glass-card rounded-2xl p-6 mb-8 border-t-4 border-t-slate-600">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <span>🏭</span> Ventilation des Rebuts par Machine
+        </h3>
+        <span class="text-xs text-gray-400">Exclut le matériel de nettoyage</span>
     </div>
-    <div class="glass rounded-2xl p-6 border-l-4 border-cyan-500">
-        <p class="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-2">Déchets Transport:</p>
-        <p class="text-4xl font-black text-cyan-400">{{ total_dechets_transport }}</p>
+
+    <div class="overflow-x-auto rounded-xl border border-slate-800">
+        <table class="w-full text-sm text-left">
+            <thead class="bg-slate-900 text-[10px] uppercase font-black text-gray-400 tracking-wider">
+                <tr>
+                    <th class="px-4 py-3">Machine</th>
+                    <th class="px-3 py-3 text-right">Prod KG</th>
+                    <th class="px-3 py-3 text-right text-emerald-400">Démarrage</th>
+                    <th class="px-3 py-3 text-right text-blue-400">Lisière</th>
+                    <th class="px-3 py-3 text-right text-amber-400">Jonction</th>
+                    <th class="px-3 py-3 text-right text-cyan-400">Transport</th>
+                    <th class="px-3 py-3 text-right text-red-400 font-black">Total Rebut</th>
+                    <th class="px-4 py-3 text-right">Taux Rebut</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/80 text-xs">
+                {% for mac_name, data in dechets_par_machine.items %}
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="px-4 py-3 font-bold text-white flex items-center gap-2">
+                        <span class="text-cyan-400">⚙️</span> {{ mac_name }}
+                    </td>
+                    <td class="px-3 py-3 text-right font-medium text-gray-300">{{ data.prod|floatformat:1 }} kg</td>
+                    <td class="px-3 py-3 text-right text-emerald-300 font-medium">{{ data.dem|floatformat:1 }} kg</td>
+                    <td class="px-3 py-3 text-right text-blue-300 font-medium">{{ data.lis|floatformat:1 }} kg</td>
+                    <td class="px-3 py-3 text-right text-amber-300 font-medium">{{ data.jon|floatformat:1 }} kg</td>
+                    <td class="px-3 py-3 text-right text-cyan-300 font-medium">{{ data.tra|floatformat:1 }} kg</td>
+                    <td class="px-3 py-3 text-right text-red-400 font-black">{{ data.total|floatformat:1 }} kg</td>
+                    <td class="px-4 py-3 text-right font-black {% if data.taux > 5 %}text-red-400{% else %}text-emerald-400{% endif %}">
+                        {{ data.taux }} %
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                        Aucune donnée enregistrée pour les machines sélectionnées.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-<!-- GRAPHIQUES DÉCHETS PAR TYPE ET PAR ÉQUIPE -->
+<!-- SECTION : GRAPHIQUES HISTORIQUES PAR ÉQUIPE (A / B / C) -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-    <!-- Déchets Démarrage par date et équipe -->
-    <div class="glass rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-green-400 mb-4">📊 Somme de Déchets Démarrage (A vs B)</h3>
-        <canvas id="chartDem" height="200"></canvas>
+    
+    <!-- DÉCHETS DÉMARRAGE -->
+    <div class="glass-card rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-emerald-400 mb-4 flex items-center gap-2">
+            <span>🟢</span> Déchets Démarrage par Date & Équipe (kg)
+        </h3>
+        <div class="h-60">
+            <canvas id="chartDem"></canvas>
+        </div>
     </div>
-    <!-- Déchets Lisière par date et équipe -->
-    <div class="glass rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-blue-400 mb-4">📊 Somme de Déchets Lisière (A vs B)</h3>
-        <canvas id="chartLis" height="200"></canvas>
+
+    <!-- DÉCHETS LISIÈRE -->
+    <div class="glass-card rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-blue-400 mb-4 flex items-center gap-2">
+            <span>🔵</span> Déchets Lisière (Refente) par Date & Équipe (kg)
+        </h3>
+        <div class="h-60">
+            <canvas id="chartLis"></canvas>
+        </div>
     </div>
+
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-    <!-- Déchets Jonction par date et équipe -->
-    <div class="glass rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-red-400 mb-4">📊 Somme de Déchets Jonction (A vs B)</h3>
-        <canvas id="chartJon" height="200"></canvas>
+    
+    <!-- DÉCHETS JONCTION -->
+    <div class="glass-card rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-amber-400 mb-4 flex items-center gap-2">
+            <span>🟡</span> Déchets Jonction par Date & Équipe (kg)
+        </h3>
+        <div class="h-60">
+            <canvas id="chartJon"></canvas>
+        </div>
     </div>
-    <!-- Déchets Transport par date et équipe -->
-    <div class="glass rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-cyan-400 mb-4">📊 Somme de Déchets Transport (A vs B)</h3>
-        <canvas id="chartTra" height="200"></canvas>
+
+    <!-- DÉCHETS TRANSPORT -->
+    <div class="glass-card rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-cyan-400 mb-4 flex items-center gap-2">
+            <span>🚚</span> Déchets Transport / Manutention par Date & Équipe (kg)
+        </h3>
+        <div class="h-60">
+            <canvas id="chartTra"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<!-- GRAPHIQUE HORIZONTAL EMPILÉ PAR DATE -->
+<div class="glass-card rounded-2xl p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2">
+            <span>📊</span> Somme Cumulée des Déchets par Date (Toutes Causes Empilées)
+        </h3>
+        <span class="text-xs text-gray-500">Vue chronologique globale</span>
+    </div>
+    <div class="h-72">
+        <canvas id="chartHorizontal"></canvas>
     </div>
 </div>
 
-<!-- GRAPHIQUE HORIZONTAL EMPILÉ -->
-<div class="glass rounded-2xl p-6 mb-6">
-    <h3 class="text-sm font-bold text-gray-300 mb-4">📊 Somme de Déchet KG par Date</h3>
-    <canvas id="chartHorizontal" height="200"></canvas>
-</div>
-
+<!-- SCRIPTS CHART.JS ET APPLICATION DE LA JAUGE SANS CONFLITS IDE -->
 <script>
-const dateLabels = {{ dates_labels|safe }};
+document.addEventListener('DOMContentLoaded', () => {
 
-// Fonction utilitaire pour créer les graphiques par équipe
-function createEquipeChart(canvasId, label, dataA, dataB, colorA, colorB) {
-    new Chart(document.getElementById(canvasId), {
-        type: 'bar',
-        data: {
-            labels: dateLabels,
-            datasets: [
-                { label: 'A', data: dataA, backgroundColor: colorA, borderRadius: 3 },
-                { label: 'B', data: dataB, backgroundColor: colorB, borderRadius: 3 },
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { labels: { color: '#d1d5db' } } },
-            scales: {
-                x: { ticks: { color: '#9ca3af', maxRotation: 45, font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.05)' } }
-            }
-        }
+    // --- APPLICATION DYNAMIQUE DES LARGEURS DE JAUGE (CORRECTIF VS CODE) ---
+    document.querySelectorAll('.step-progress-bar').forEach(el => {
+        let width = parseFloat(el.getAttribute('data-width')) || 0;
+        if (width > 100) width = 100;
+        if (width < 0) width = 0;
+        el.style.width = width + '%';
     });
-}
 
-createEquipeChart('chartDem', 'Démarrage', {{ dem_a|safe }}, {{ dem_b|safe }}, '#22c55e', '#16a34a80');
-createEquipeChart('chartLis', 'Lisière', {{ lis_a|safe }}, {{ lis_b|safe }}, '#3b82f6', '#2563eb80');
-createEquipeChart('chartJon', 'Jonction', {{ jon_a|safe }}, {{ jon_b|safe }}, '#ef4444', '#dc262680');
-createEquipeChart('chartTra', 'Transport', {{ tra_a|safe }}, {{ tra_b|safe }}, '#06b6d4', '#088f9e80');
+    // --- GRAPHIQUES HISTORIQUES ---
+    const dateLabels = JSON.parse('{{ dates_labels|escapejs }}' || '[]');
+    const demA = JSON.parse('{{ dem_a|escapejs }}' || '[]');
+    const demB = JSON.parse('{{ dem_b|escapejs }}' || '[]');
+    const demC = JSON.parse('{{ dem_c|escapejs }}' || '[]');
 
-// Graphique horizontal empilé
-new Chart(document.getElementById('chartHorizontal'), {
-    type: 'bar',
-    data: {
-        labels: {{ h_dates|safe }},
-        datasets: [
-            { label: 'Démarrage', data: {{ h_dem|safe }}, backgroundColor: '#22c55e' },
-            { label: 'Lisière', data: {{ h_lis|safe }}, backgroundColor: '#3b82f6' },
-            { label: 'Jonction', data: {{ h_jon|safe }}, backgroundColor: '#ef4444' },
-            { label: 'Transport', data: {{ h_tra|safe }}, backgroundColor: '#06b6d4' },
-        ]
-    },
-    options: {
-        indexAxis: 'y',
-        responsive: true,
-        plugins: { legend: { labels: { color: '#d1d5db' } } },
-        scales: {
-            x: { stacked: true, ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-            y: { stacked: true, ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
-        }
+    const lisA = JSON.parse('{{ lis_a|escapejs }}' || '[]');
+    const lisB = JSON.parse('{{ lis_b|escapejs }}' || '[]');
+    const lisC = JSON.parse('{{ lis_c|escapejs }}' || '[]');
+
+    const jonA = JSON.parse('{{ jon_a|escapejs }}' || '[]');
+    const jonB = JSON.parse('{{ jon_b|escapejs }}' || '[]');
+    const jonC = JSON.parse('{{ jon_c|escapejs }}' || '[]');
+
+    const traA = JSON.parse('{{ tra_a|escapejs }}' || '[]');
+    const traB = JSON.parse('{{ tra_b|escapejs }}' || '[]');
+    const traC = JSON.parse('{{ tra_c|escapejs }}' || '[]');
+
+    // Fonction utilitaire pour créer les graphiques comparatifs 3 shifts
+    function createEquipeChart(canvasId, dataA, dataB, dataC, colorBase) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: dateLabels,
+                datasets: [
+                    { label: 'Équipe A', data: dataA, backgroundColor: '#38bdf8', borderRadius: 4 },
+                    { label: 'Équipe B', data: dataB, backgroundColor: '#22c55e', borderRadius: 4 },
+                    { label: 'Équipe C', data: dataC, backgroundColor: '#a855f7', borderRadius: 4 },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#cbd5e1', font: { size: 10 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} kg`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#94a3b8', maxRotation: 45, font: { size: 9 } },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y: {
+                        ticks: { color: '#94a3b8', font: { size: 9 }, callback: v => v + ' kg' },
+                        grid: { color: 'rgba(255,255,255,0.08)' }
+                    }
+                }
+            }
+        });
     }
+
+    createEquipeChart('chartDem', demA, demB, demC, '#22c55e');
+    createEquipeChart('chartLis', lisA, lisB, lisC, '#3b82f6');
+    createEquipeChart('chartJon', jonA, jonB, jonC, '#ef4444');
+    createEquipeChart('chartTra', traA, traB, traC, '#06b6d4');
+
+    // --- GRAPHIQUE DONUT PAR TYPE ---
+    const ctxDonut = document.getElementById('chartTypeDonut');
+    if (ctxDonut) {
+        new Chart(ctxDonut, {
+            type: 'doughnut',
+            data: {
+                labels: ['Démarrage', 'Lisière', 'Jonction', 'Transport'],
+                datasets: [{
+                    data: [
+                        parseFloat('{{ total_dechets_demarrage|default:"0" }}'),
+                        parseFloat('{{ total_dechets_lisiere|default:"0" }}'),
+                        parseFloat('{{ total_dechets_jonction|default:"0" }}'),
+                        parseFloat('{{ total_dechets_transport|default:"0" }}')
+                    ],
+                    backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#06b6d4'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#e2e8f0', font: { size: 10 }, boxWidth: 12 }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // --- GRAPHIQUE HORIZONTAL EMPILÉ ---
+    const hDates = JSON.parse('{{ h_dates|escapejs }}' || '[]');
+    const hDem = JSON.parse('{{ h_dem|escapejs }}' || '[]');
+    const hLis = JSON.parse('{{ h_lis|escapejs }}' || '[]');
+    const hJon = JSON.parse('{{ h_jon|escapejs }}' || '[]');
+    const hTra = JSON.parse('{{ h_tra|escapejs }}' || '[]');
+
+    const ctxH = document.getElementById('chartHorizontal');
+    if (ctxH) {
+        new Chart(ctxH, {
+            type: 'bar',
+            data: {
+                labels: hDates,
+                datasets: [
+                    { label: 'Démarrage', data: hDem, backgroundColor: '#22c55e' },
+                    { label: 'Lisière', data: hLis, backgroundColor: '#3b82f6' },
+                    { label: 'Jonction', data: hJon, backgroundColor: '#f59e0b' },
+                    { label: 'Transport', data: hTra, backgroundColor: '#06b6d4' },
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#cbd5e1', font: { size: 11 } }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: { color: '#94a3b8', callback: v => v + ' kg' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: { color: '#94a3b8', font: { size: 10 } },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    }
+                }
+            }
+        });
+    }
+
 });
 </script>
+
 {% endblock %}

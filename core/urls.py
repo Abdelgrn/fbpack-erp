@@ -1,14 +1,16 @@
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
+
 from . import views
+from .views import of_views
+from .views import production_speciale as prod_views
 
 urlpatterns = [
     # ==========================================
     # DASHBOARD & REPORTING
     # ==========================================
     path('', views.dashboard, name='dashboard'),
-    path('production/planning/', views.production_gantt, name='planning'),
     path('reporting/', views.reporting, name='reporting'),
     path('stock/import/', views.import_stock_view, name='import_stock'),
 
@@ -58,42 +60,48 @@ urlpatterns = [
     path('tools/edit/<int:id>/', views.edit_tool, name='edit_tool'),
 
     # ==========================================
-    # PRODUCTION (OF ANCIEN)
+    # PRODUCTION (ANCIEN OF - Conservé pour historique)
     # ==========================================
     path('production/list/', views.production_view, name='production_view'),
     path('production/add/', views.add_production, name='add_production'),
     path('production/edit/<int:id>/', views.edit_production, name='edit_production'),
 
     # ==========================================
-    # OF MULTI-PROCESSUS
+    # PLANNINGS & GANTT (MODULE OF_VIEWS)
     # ==========================================
-    path('of/', views.of_list_view, name='of_list'),
-    path('of/create/', views.of_create_view, name='of_create'),
-    path('of/<int:of_id>/', views.of_detail_view, name='of_detail'),
-    path('of/<int:of_id>/edit/', views.of_edit_view, name='of_edit'),
-    path('of/<int:of_id>/delete/', views.of_delete_view, name='of_delete'),
-    path('of/<int:of_id>/statut/<str:nouveau_statut>/', views.of_changer_statut, name='of_changer_statut'),
-    path('of/lancement-rapide/', views.of_lancement_rapide, name='of_lancement_rapide'),
-    path('of/api/stats/', views.of_stats_api, name='of_stats_api'),
+    path('production/planning/', of_views.production_gantt, name='planning'),
+    path('production/planning-atelier/', of_views.planning_atelier_view, name='planning_atelier'),
 
     # ==========================================
-    # ÉTAPES DE PRODUCTION
+    # OF MULTI-PROCESSUS (MODULE OF_VIEWS)
     # ==========================================
-    path('of/etape/<int:etape_id>/', views.etape_detail_view, name='etape_detail'),
-    path('of/etape/<int:etape_id>/demarrer/', views.etape_demarrer, name='etape_demarrer'),
-    path('of/etape/<int:etape_id>/terminer/', views.etape_terminer, name='etape_terminer'),
+    path('of/', of_views.of_list_view, name='of_list'),
+    path('of/create/', of_views.of_create_view, name='of_create'),
+    path('of/<int:of_id>/', of_views.of_detail_view, name='of_detail'),
+    path('of/<int:of_id>/edit/', of_views.of_edit_view, name='of_edit'),
+    path('of/<int:of_id>/delete/', of_views.of_delete_view, name='of_delete'),
+    path('of/<int:of_id>/statut/<str:nouveau_statut>/', of_views.of_changer_statut, name='of_changer_statut'),
+    path('of/lancement-rapide/', of_views.of_lancement_rapide, name='of_lancement_rapide'),
+    path('of/api/stats/', of_views.of_stats_api, name='of_stats_api'),
 
     # ==========================================
-    # SEMI-PRODUITS
+    # ÉTAPES DE PRODUCTION (MODULE OF_VIEWS)
     # ==========================================
-    path('of/semi-produits/', views.semi_produit_list, name='semi_produit_list'),
-    path('of/semi-produit/<int:sp_id>/', views.semi_produit_detail, name='semi_produit_detail'),
+    path('of/etape/<int:etape_id>/', of_views.etape_detail_view, name='etape_detail'),
+    path('of/etape/<int:etape_id>/demarrer/', of_views.etape_demarrer, name='etape_demarrer'),
+    path('of/etape/<int:etape_id>/terminer/', of_views.etape_terminer, name='etape_terminer'),
 
     # ==========================================
-    # TYPES DE PROCESSUS
+    # SEMI-PRODUITS (MODULE OF_VIEWS)
     # ==========================================
-    path('of/process-types/', views.process_type_list, name='process_type_list'),
-    path('of/process-type/<int:pt_id>/delete/', views.process_type_delete, name='process_type_delete'),
+    path('of/semi-produits/', of_views.semi_produit_list, name='semi_produit_list'),
+    path('of/semi-produit/<int:sp_id>/', of_views.semi_produit_detail, name='semi_produit_detail'),
+
+    # ==========================================
+    # TYPES DE PROCESSUS (MODULE OF_VIEWS)
+    # ==========================================
+    path('of/process-types/', of_views.process_type_list, name='process_type_list'),
+    path('of/process-type/<int:pt_id>/delete/', of_views.process_type_delete, name='process_type_delete'),
 
     # ==========================================
     # STOCKS & ACHATS
@@ -130,7 +138,7 @@ urlpatterns = [
     path('stock/api/dashboard/', views.stock_dashboard_data, name='stock_dashboard_data'),
 
     # ==========================================
-    # PARC MACHINE (ANCIEN — garde pour compat)
+    # PARC MACHINE (ANCIEN — garde pour compatibilité)
     # ==========================================
     path('machines/', views.machine_view, name='machine_view'),
     path('machines/add/', views.add_machine, name='add_machine'),
@@ -138,13 +146,24 @@ urlpatterns = [
     # ==========================================
     # MODULE PRODUCTION SPÉCIAL
     # ==========================================
-    path('prod/', views.prod_dashboard, name='prod_dashboard'),
-    path('prod/saisie/', views.prod_saisie, name='prod_saisie'),
-    path('prod/saisie/edit/<int:id>/', views.prod_edit_entry, name='prod_edit_entry'),
-    path('prod/saisie/delete/<int:id>/', views.prod_delete_entry, name='prod_delete_entry'),
-    path('prod/base/', views.prod_base, name='prod_base'),
-    path('prod/qualite/', views.prod_detail_qualite, name='prod_detail_qualite'),
-    path('prod/synthese/', views.prod_synthese_temps, name='prod_synthese_temps'),
+    path('prod/', prod_views.prod_dashboard, name='prod_dashboard'),
+    path('prod/saisie/', prod_views.prod_saisie, name='prod_saisie'),
+    path('prod/saisie/legacy/', prod_views.prod_saisie_legacy, name='prod_saisie_legacy'),
+    path('prod/fiche/<int:id>/print/', prod_views.prod_print_fiche, name='prod_print_fiche'),
+    path('prod/saisie/edit/<int:id>/', prod_views.prod_edit_entry, name='prod_edit_entry'),
+    path('prod/saisie/delete/<int:id>/', prod_views.prod_delete_entry, name='prod_delete_entry'),
+    path('prod/base/', prod_views.prod_base, name='prod_base'),
+    path('prod/qualite/', prod_views.prod_detail_qualite, name='prod_detail_qualite'),
+    path('prod/synthese/', prod_views.prod_synthese_temps, name='prod_synthese_temps'),
+    
+    # 🚀 NOUVELLES ROUTES DE TRAÇABILITÉ PAR LOT
+    path('prod/tracabilite/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_search'),
+    path('prod/tracabilite/<str:numero_lot>/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_lot'),
+    
+    # CALCULATEUR PRÉVISIONNEL
+    path('prod/synthese/calculer/', prod_views.prod_calculer_temps, name='prod_calculer_temps'),
+    path('prod/synthese/calculer/save/', prod_views.prod_calculer_temps_save, name='prod_calculer_temps_save'),
+    path('prod/synthese/calculer/<int:id>/delete/', prod_views.prod_calculer_temps_delete, name='prod_calculer_temps_delete'),
     path('import/template-special-prod/', views.download_template_special_prod, name='download_template_special_prod'),
 
     # ==========================================
@@ -219,24 +238,16 @@ urlpatterns = [
     path('chat/api/notify/', views.send_system_notification, name='send_system_notification'),
 
     # ==========================================
-    # ✅ MODULE MAINTENANCE AVANCÉ — COMPLET
+    # MAINTENANCE AVANCÉE
     # ==========================================
-
-    # Dashboard
     path('maintenance/', views.maintenance_dashboard, name='maintenance_dashboard'),
-
-    # Ateliers
     path('maintenance/ateliers/', views.atelier_list, name='atelier_list'),
     path('maintenance/atelier/create/', views.atelier_create, name='atelier_create'),
-
-    # Machines améliorées
     path('maintenance/machines/', views.maintenance_machine_list, name='maintenance_machine_list'),
     path('maintenance/machine/create/', views.maintenance_machine_create, name='maintenance_machine_create'),
     path('maintenance/machine/<int:machine_id>/', views.maintenance_machine_detail, name='maintenance_machine_detail'),
     path('maintenance/machine/<int:machine_id>/edit/', views.maintenance_machine_edit, name='maintenance_machine_edit'),
     path('maintenance/machine/<int:machine_id>/compteur/', views.machine_compteur_add, name='machine_compteur_add'),
-
-    # Ordres de Maintenance
     path('maintenance/om/', views.om_list, name='om_list'),
     path('maintenance/om/create/', views.om_create, name='om_create'),
     path('maintenance/om/create/panne/<int:machine_id>/', views.om_create_panne, name='om_create_panne'),
@@ -244,33 +255,23 @@ urlpatterns = [
     path('maintenance/om/<int:om_id>/demarrer/', views.om_demarrer, name='om_demarrer'),
     path('maintenance/om/<int:om_id>/cloturer/', views.om_cloturer, name='om_cloturer'),
     path('maintenance/om/<int:om_id>/piece/add/', views.om_ajouter_piece, name='om_ajouter_piece'),
-
-    # Plans Préventifs
     path('maintenance/preventif/', views.plan_preventif_list, name='plan_preventif_list'),
     path('maintenance/preventif/create/', views.plan_preventif_create, name='plan_preventif_create'),
     path('maintenance/preventif/<int:plan_id>/', views.plan_preventif_detail, name='plan_preventif_detail'),
     path('maintenance/preventif/<int:plan_id>/generer/', views.plan_preventif_generer_om, name='plan_preventif_generer_om'),
     path('maintenance/preventif/generer-auto/', views.generer_om_preventifs_auto, name='generer_om_preventifs_auto'),
-
-    # Pièces de Rechange
     path('maintenance/pieces/', views.piece_list, name='piece_list'),
     path('maintenance/piece/create/', views.piece_create, name='piece_create'),
     path('maintenance/piece/<int:piece_id>/', views.piece_detail, name='piece_detail'),
     path('maintenance/piece/<int:piece_id>/edit/', views.piece_edit, name='piece_edit'),
     path('maintenance/piece/<int:piece_id>/mouvement/', views.piece_mouvement, name='piece_mouvement'),
     path('maintenance/categories-pieces/', views.categorie_piece_list, name='categorie_piece_list'),
-
-    # Alertes
     path('maintenance/alertes/', views.alerte_list, name='alerte_list'),
     path('maintenance/alerte/<int:alerte_id>/traiter/', views.alerte_traiter, name='alerte_traiter'),
     path('maintenance/generer-alertes/', views.generer_alertes, name='generer_alertes'),
-
-    # KPIs
     path('maintenance/kpi/', views.maintenance_kpi, name='maintenance_kpi'),
     path('maintenance/api/stats/', views.maintenance_stats_api, name='maintenance_stats_api'),
-    path('maintenance/machine/<int:machine_id>/delete/', 
-     views.maintenance_machine_delete, 
-     name='maintenance_machine_delete'),
+    path('maintenance/machine/<int:machine_id>/delete/', views.maintenance_machine_delete, name='maintenance_machine_delete'),
     path('maintenance/calendrier/', views.maintenance_calendrier, name='maintenance_calendrier'),
 ]
 

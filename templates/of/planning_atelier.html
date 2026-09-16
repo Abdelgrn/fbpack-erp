@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    /* Styling de l'onglet actif */
+    .tab-active {
+        background-color: rgba(56, 189, 248, 0.15); /* cyan-500/15 */
+        border-color: rgba(56, 189, 248, 0.5);
+        color: #38bdf8;
+    }
+    .tab-inactive {
+        background-color: rgba(30, 41, 59, 0.8); /* slate-800 */
+        border-color: transparent;
+        color: #94a3b8;
+    }
+    .tab-inactive:hover {
+        background-color: rgba(51, 65, 85, 0.8); /* slate-700 */
+        color: #f8fafc;
+    }
+</style>
+
+<div class="w-full">
+    <!-- HEADER -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-black text-white flex items-center gap-3">
+                📅 <span>Planning des Ateliers</span>
+                <span class="bg-blue-900/60 text-blue-400 border border-blue-500/30 text-sm px-3 py-1 rounded-lg ml-2">{{ week_display }}</span>
+            </h1>
+            <p class="text-gray-400 text-sm mt-1">Vue consolidée type tableur pour le suivi d'atelier (OF planifiés + Saisies directes)</p>
+        </div>
+        
+        <form method="GET" action="" class="flex gap-2">
+            <input type="hidden" name="atelier" value="{{ selected_atelier }}">
+            <input type="week" name="week" value="{{ selected_week }}" required class="bg-slate-900 text-white text-sm font-bold border border-slate-700 rounded-lg px-3 py-2 focus:border-cyan-500 cursor-pointer">
+            <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 py-2 rounded-lg transition">🔍 Filtrer</button>
+        </form>
+    </div>
+
+    <!-- ONGLETS ATELIERS -->
+    <div class="flex gap-2 mb-4 overflow-x-auto pb-2">
+        {% for tab in tabs %}
+        <a href="?atelier={{ tab.code }}&week={{ selected_week }}" 
+           class="px-5 py-2.5 rounded-t-lg font-bold text-sm border-b-4 transition-all whitespace-nowrap flex items-center gap-2 
+           {% if tab.code == selected_atelier %}tab-active{% else %}tab-inactive{% endif %}">
+            <span>{{ tab.icone }}</span> {{ tab.nom }}
+            <span class="text-[10px] bg-slate-900 px-1.5 py-0.5 rounded-full">{{ tab.count }}</span>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- TABLEAU TYPE EXCEL -->
+    <div class="bg-slate-900 border-t-4 border-cyan-500 shadow-2xl rounded-b-xl rounded-tr-xl overflow-hidden">
+        
+        <!-- Toolbar info -->
+        <div class="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-white font-bold uppercase tracking-wider text-sm flex items-center gap-2">
+                Vue globale — {{ selected_atelier }}
+            </h2>
+            <div class="text-xs text-gray-400 font-bold space-x-4">
+                <span>Total lignes : <span class="text-cyan-400">{{ stats.nb_lignes }}</span></span>
+                <span>OF distincts : <span class="text-yellow-400">{{ stats.nb_of }}</span></span>
+                <span>Clients : <span class="text-emerald-400">{{ stats.nb_clients }}</span></span>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs whitespace-nowrap">
+                <thead class="bg-slate-950 text-gray-400 uppercase font-black tracking-wider">
+                    <tr>
+                        <th class="px-3 py-4 border-b border-r border-slate-800 w-24">Jour</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Date</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Client</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Produit</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Support</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Qté Finale</th>
+                        {% if selected_atelier == 'FLEXO' or selected_atelier == 'EXTRUSION' %}
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Développement</th>
+                        {% endif %}
+                        <th class="px-3 py-4 border-b border-r border-slate-800 text-yellow-500">N° LOT</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Observation</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Machine</th>
+                        <th class="px-3 py-4 border-b border-slate-800">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-300 divide-y divide-slate-800">
+                    {% for row in rows %}
+                    <tr class="hover:bg-slate-800/80 transition-colors {% if row.jour == 'SAMEDI' or row.jour == 'DIMANCHE' or row.jour == 'VENDREDI' %}bg-slate-800/30{% endif %}">
+                        <td class="px-3 py-3 border-r border-slate-800 font-bold {% if row.jour == 'SAMEDI' or row.jour == 'DIMANCHE' %}text-red-400{% else %}text-gray-400{% endif %}">
+                            {{ row.jour }}
+                        </td>
+                        <td class="px-3 py-3 border-r border-slate-800">{{ row.date|date:"d/m/Y" }}</td>
+                        <td class="px-3 py-3 border-r border-slate-800 font-bold text-white">{{ row.client|truncatechars:20 }}</td>
+                        <td class="px-3 py-3 border-r border-slate-800">{{ row.produit|truncatechars:30 }}</td>
+                        <td class="px-3 py-3 border-r border-slate-800 font-semibold text-blue-300">{{ row.support }}</td>
+                        <td class="px-3 py-3 border-r border-slate-800 font-bold text-emerald-400">{{ row.qte_finale }}</td>
+                        
+                        {% if selected_atelier == 'FLEXO' or selected_atelier == 'EXTRUSION' %}
+                        <td class="px-3 py-3 border-r border-slate-800 font-mono">{{ row.developpement }}</td>
+                        {% endif %}
+                        
+                        <td class="px-3 py-3 border-r border-slate-800 font-bold text-yellow-400 font-mono">{{ row.lot }}</td>
+                        <td class="px-3 py-3 border-r border-slate-800 text-gray-400 text-[11px]">{{ row.observation|truncatechars:40 }}</td>
+                        <td class="px-3 py-3 border-r border-slate-800">
+                            <span class="bg-slate-800 px-2 py-1 rounded text-gray-300">{{ row.machine }}</span>
+                        </td>
+                        <td class="px-3 py-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="bg-{{ row.color }}-500/20 text-{{ row.color }}-400 px-2 py-0.5 rounded uppercase text-[10px] font-bold">
+                                    {{ row.statut_label }}
+                                </span>
+                                {% if row.of_id and row.source == 'OF' %}
+                                <a href="{% url 'of_detail' row.of_id %}" target="_blank" class="text-blue-400 hover:text-white" title="Voir OF">👁</a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" class="px-4 py-16 text-center text-gray-500 font-bold">
+                            📋 Aucune production planifiée pour cet atelier cette semaine.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

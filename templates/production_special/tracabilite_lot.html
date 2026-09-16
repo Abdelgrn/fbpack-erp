@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    .glass-card {
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .timeline-dot {
+        width: 14px; 
+        height: 14px;
+        border-radius: 50%;
+        border: 3px solid #0f172a;
+        flex-shrink: 0;
+        margin-top: 4px;
+    }
+    .timeline-line {
+        width: 2px;
+        background: linear-gradient(to bottom, #334155, transparent);
+        flex: 1;
+        min-height: 30px;
+        margin-left: 6px;
+    }
+    .badge-process {
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+
+    /* === CLASSES COULEURS TIMELINE DOTS === */
+    .dot-purple { background-color: #a855f7; }
+    .dot-blue   { background-color: #3b82f6; }
+    .dot-cyan   { background-color: #06b6d4; }
+    .dot-pink   { background-color: #ec4899; }
+    .dot-orange { background-color: #f97316; }
+    .dot-yellow { background-color: #eab308; }
+    .dot-gray   { background-color: #6b7280; }
+
+    /* === CLASSES COULEURS BADGES PROCESS === */
+    .badge-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-blue   { background: rgba(59, 130, 246, 0.15);  color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-cyan   { background: rgba(6, 182, 212, 0.15);   color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+    .badge-pink   { background: rgba(236, 72, 153, 0.15);  color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+    .badge-orange { background: rgba(249, 115, 22, 0.15);  color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); }
+    .badge-yellow { background: rgba(234, 179, 8, 0.15);   color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+    .badge-gray   { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); }
+</style>
+
+<!-- EN-TÊTE -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-3xl font-black text-white mb-1 flex items-center gap-3">
+            🔗 <span>Traçabilité par N° de Lot</span>
+        </h1>
+        <p class="text-gray-400 text-sm">
+            Historique complet A → Z : OF · Étapes · Fiches journalières · Encres · Déchets · Chat
+        </p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{% url 'prod_saisie' %}" class="bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition">
+            ➕ Nouvelle Fiche
+        </a>
+        <a href="{% url 'prod_dashboard' %}" class="bg-slate-800 hover:bg-slate-700 text-gray-400 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition">
+            ← Dashboard
+        </a>
+    </div>
+</div>
+
+{% include 'production_special/_nav.html' %}
+
+<!-- BARRE DE RECHERCHE LOT -->
+<div class="glass-card rounded-2xl p-5 mb-6 border-t-4 border-t-cyan-500">
+    <form method="GET" action="{% url 'prod_tracabilite_search' %}" class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[220px]">
+            <label class="block text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-1.5">
+                🔍 Rechercher un N° de Lot ou N° OF
+            </label>
+            <input type="text" name="q" value="{{ search_query|default:'' }}"
+                   placeholder="Ex: LOT2025-0001 ou OF2025-0042"
+                   class="w-full bg-slate-950 text-white border border-slate-700 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
+                   autofocus>
+        </div>
+        <button type="submit"
+                class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black px-6 py-3 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-cyan-500/20">
+            Rechercher
+        </button>
+    </form>
+</div>
+
+{% if of %}
+<!-- ================================================================ -->
+<!-- RÉSULTAT : OF TROUVÉ -->
+<!-- ================================================================ -->
+
+<!-- BANDEAU OF -->
+<div class="glass-card rounded-2xl p-6 mb-6 border-t-4 border-t-emerald-500">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-3 mb-2">
+                <span class="px-3 py-1 bg-emerald-950 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-black">
+                    OF-{{ of.numero_of }}
+                </span>
+                <span class="px-3 py-1 bg-yellow-950 text-yellow-400 border border-yellow-500/30 rounded-lg text-xs font-black">
+                    LOT : {{ of.numero_lot }}
+                </span>
+                <span class="px-3 py-1 rounded-lg text-xs font-black
+                    {% if of.statut == 'EN_COURS' %}bg-blue-950 text-blue-400 border border-blue-500/30
+                    {% elif of.statut == 'TERMINE' %}bg-emerald-950 text-emerald-400 border border-emerald-500/30
+                    {% elif of.statut == 'ANNULE' %}bg-red-950 text-red-400 border border-red-500/30
+                    {% else %}bg-slate-800 text-gray-400 border border-slate-600{% endif %}">
+                    {{ of.get_statut_display }}
+                </span>
+                <span class="px-3 py-1 rounded-lg text-xs font-black
+                    {% if of.priorite == 'URGENTE' %}bg-red-950 text-red-400 border border-red-500/30
+                    {% elif of.priorite == 'HAUTE' %}bg-orange-950 text-orange-400 border border-orange-500/30
+                    {% else %}bg-slate-800 text-gray-400 border border-slate-600{% endif %}">
+                    {{ of.get_priorite_display }}
+                </span>
+            </div>
+            <h2 class="text-2xl font-black text-white">{{ of.produit }}</h2>
+            <p class="text-sm text-gray-400 mt-1">
+                Client : <strong class="text-white">{{ of.client.name }}</strong>
+                {% if of.support %} · Support : <strong class="text-cyan-400">{{ of.support }}</strong>{% endif %}
+                {% if of.laize %} · Laize : <strong class="text-white">{{ of.laize }} mm</strong>{% endif %}
+            </p>
+            <p class="text-xs text-gray-500 mt-1">
+                Créé le {{ of.date_creation|date:"d/m/Y H:i" }}
+                {% if of.date_lancement %} · Lancé le {{ of.date_lancement|date:"d/m/Y" }}{% endif %}
+                {% if of.date_prevue_fin %} · Fin prévue {{ of.date_prevue_fin|date:"d/m/Y" }}{% endif %}
+            </p>
+        </div>
+        <div class="text-right">
+            <div class="text-xs text-gray-400 mb-1">Progression OF</div>
+            <div class="text-3xl font-black {% if of.progression >= 100 %}text-emerald-400{% elif of.progression > 0 %}text-cyan-400{% else %}text-gray-500{% endif %}">
+                {{ of.progression }}%
+            </div>
+            <div class="w-32 bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
+                <div class="progress-bar-fill bg-gradient-to-r from-cyan-500 to-emerald-500 h-full rounded-full" data-progress="{{ of.progression }}"></div>
+            </div>
+            <p class="text-[10px] text-gray-500 mt-1">{{ of.etapes_terminees }}/{{ of.nb_etapes }} étapes</p>
+        </div>
+    </div>
+</div>
+
+<!-- KPIs TOTAUX DU LOT -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+    <div class="glass-card rounded-xl p-4 border-l-4 border-l-blue-500">
+        <p class="text-[10px] font-bold text-blue-400 uppercase">Tonnage Produit</p>
+        <p class="text-xl font-black text-white mt-1">{{ totaux.total_prod_kg }} <span class="text-xs text-gray-400">kg</span></p>
+    </div>
+    <div class="glass-card rounded-xl p-4 border-l-4 border-l-red-500">
+        <p class="text-[10px] font-bold text-red-400 uppercase">Déchets Totaux</p>
+        <p class="text-xl font-black text-white mt-1">{{ totaux.total_dechets_kg }} <span class="text-xs text-gray-400">kg</span></p>
+    </div>
+    <div class="glass-card rounded-xl p-4 border-l-4 border-l-amber-500">
+        <p class="text-[10px] font-bold text-amber-400 uppercase">Taux Rebut</p>
+        <p class="text-xl font-black {% if totaux.taux_rebut > 5 %}text-red-400{% else %}text-emerald-400{% endif %} mt-1">{{ totaux.taux_rebut }}%</p>
+    </div>
+    <div class="glass-card rounded-xl p-4 border-l-4 border-l-purple-500">
+        <p class="text-[10px] font-bold text-purple-400 uppercase">Temps Machine</p>
+        <p class="text-xl font-black text-white mt-1">{{ totaux.total_temps_formatted }}</p>
+    </div>
+    <div class="glass-card rounded-xl p-4 border-l-4 border-l-pink-500">
+        <p class="text-[10px] font-bold text-pink-400 uppercase">Encres Consommées</p>
+        <p class="text-xl font-black text-white mt-1">{{ totaux.total_encre_kg }} <span class="text-xs text-gray-400">kg</span></p>
+    </div>
+    <div class="glass-card rounded-xl p-4 border-l-4 border-l-cyan-500">
+        <p class="text-[10px] font-bold text-cyan-400 uppercase">Solvants</p>
+        <p class="text-xl font-black text-white mt-1">{{ totaux.total_solvant_kg }} <span class="text-xs text-gray-400">kg</span></p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+    <!-- COLONNE GAUCHE : TIMELINE WORKFLOW -->
+    <div class="lg:col-span-2 glass-card rounded-2xl p-6 border-t-4 border-t-cyan-500">
+        <h3 class="text-sm font-black text-cyan-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+            <span>⏱️</span> Timeline de Production (Workflow A → Z)
+        </h3>
+
+        {% if workflow %}
+        <div class="space-y-0">
+            {% for step in workflow %}
+            <div class="flex gap-4">
+                <!-- Dot + Line -->
+                <div class="flex flex-col items-center">
+                    <div class="timeline-dot dot-{{ step.couleur|default:'gray' }}"></div>
+                    {% if not forloop.last %}<div class="timeline-line"></div>{% endif %}
+                </div>
+                <!-- Contenu -->
+                <div class="flex-1 pb-6">
+                    <div class="bg-slate-950/80 rounded-xl p-4 border border-slate-800 hover:border-slate-600 transition">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">{{ step.icone }}</span>
+                                <span class="badge-process badge-{{ step.couleur|default:'gray' }}">
+                                    {{ step.display }}
+                                </span>
+                                <span class="text-[10px] text-gray-500 font-mono">{{ step.fiche_numero }}</span>
+                            </div>
+                            <div class="text-right text-[10px] text-gray-400">
+                                {{ step.date|date:"d/m/Y" }}
+                                {% if step.heure_debut %} · {{ step.heure_debut|time:"H:i" }}{% endif %}
+                                {% if step.heure_fin %} → {{ step.heure_fin|time:"H:i" }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] mt-2">
+                            <div>
+                                <span class="text-gray-500 block text-[9px] uppercase">Machine</span>
+                                <strong class="text-white">{{ step.machine }}</strong>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 block text-[9px] uppercase">Conducteur</span>
+                                <strong class="text-gray-300">{{ step.conducteur }}</strong>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 block text-[9px] uppercase">Poids Produit</span>
+                                <strong class="text-emerald-400">{{ step.poids_produit|floatformat:1 }} kg</strong>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 block text-[9px] uppercase">Déchets</span>
+                                <strong class="text-red-400">{{ step.total_dechets|floatformat:1 }} kg</strong>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <a href="{% url 'prod_print_fiche' step.fiche_id %}" target="_blank"
+                               class="text-[10px] font-bold px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-gray-300 rounded-lg border border-slate-700 transition">
+                                🖨️ Imprimer
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-gray-500">
+            <span class="text-4xl block mb-3">📋</span>
+            <p class="text-sm font-bold text-gray-400">Aucune fiche journalière saisie pour ce lot.</p>
+            <p class="text-xs text-gray-600 mt-1">Les opérateurs n'ont pas encore enregistré de production sur ce N° de Lot.</p>
+            <a href="{% url 'prod_saisie' %}" class="inline-block mt-4 text-xs font-bold text-cyan-400 hover:text-cyan-300 transition">
+                ➕ Saisir la première fiche →
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- COLONNE DROITE : INFOS + ENCRES + CHAT -->
+    <div class="space-y-4">
+
+        <!-- Bobines -->
+        <div class="glass-card rounded-2xl p-5 border-t-4 border-t-indigo-500">
+            <h3 class="text-xs font-black text-indigo-400 uppercase tracking-wider mb-3">📦 Bobines</h3>
+            <div class="grid grid-cols-2 gap-3 text-center">
+                <div class="bg-slate-950 rounded-xl p-3 border border-slate-800">
+                    <p class="text-2xl font-black text-orange-400">{{ totaux.total_bobines_meres }}</p>
+                    <p class="text-[10px] text-gray-400 mt-1">Bobines Mères</p>
+                </div>
+                <div class="bg-slate-950 rounded-xl p-3 border border-slate-800">
+                    <p class="text-2xl font-black text-emerald-400">{{ totaux.total_bobines_filles }}</p>
+                    <p class="text-[10px] text-gray-400 mt-1">Bobines Filles</p>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <p class="text-[10px] text-gray-500">{{ totaux.nb_fiches }} fiche(s) journalière(s) · {{ totaux.nb_saisies_anciennes }} saisie(s) ancienne(s)</p>
+            </div>
+        </div>
+
+        <!-- Quantités OF -->
+        <div class="glass-card rounded-2xl p-5 border-t-4 border-t-blue-500">
+            <h3 class="text-xs font-black text-blue-400 uppercase tracking-wider mb-3">⚖️ Quantités OF</h3>
+            <div class="space-y-2 text-xs">
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Prévue</span>
+                    <strong class="text-white">{{ of.quantite_prevue }} kg</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Produite (OF)</span>
+                    <strong class="text-cyan-400">{{ of.quantite_produite }} kg</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Conforme</span>
+                    <strong class="text-emerald-400">{{ of.quantite_conforme }} kg</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Rebut OF</span>
+                    <strong class="text-red-400">{{ of.quantite_rebut }} kg</strong>
+                </div>
+                <div class="flex justify-between pt-2 border-t border-slate-800">
+                    <span class="text-gray-400">Rendement</span>
+                    <strong class="{% if totaux.rendement >= 95 %}text-emerald-400{% elif totaux.rendement >= 80 %}text-yellow-400{% else %}text-red-400{% endif %}">{{ totaux.rendement }}%</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Encres (si présentes) -->
+        {% if encres %}
+        <div class="glass-card rounded-2xl p-5 border-t-4 border-t-pink-500">
+            <h3 class="text-xs font-black text-pink-400 uppercase tracking-wider mb-3">🎨 Encres Consommées</h3>
+            <div class="space-y-1.5 max-h-48 overflow-y-auto">
+                {% for enc in encres %}
+                {% if enc.conso_encre_kg > 0 or enc.conso_solvant_kg > 0 %}
+                <div class="flex items-center justify-between text-[11px] bg-slate-950 rounded-lg px-2.5 py-1.5 border border-slate-800">
+                    <span class="text-gray-300">
+                        <strong class="text-white">G{{ enc.groupe_numero }}</strong>
+                        {% if enc.designation_encre %} · {{ enc.designation_encre }}{% endif %}
+                    </span>
+                    <span class="text-pink-400 font-bold">{{ enc.conso_encre_kg }}kg
+                        {% if enc.conso_solvant_kg %}<span class="text-cyan-400">+{{ enc.conso_solvant_kg }}s</span>{% endif %}
+                    </span>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-800 flex justify-between text-xs">
+                <span class="text-gray-400">Total Encre</span>
+                <strong class="text-pink-400">{{ totaux.total_encre_kg }} kg</strong>
+            </div>
+            <div class="flex justify-between text-xs mt-1">
+                <span class="text-gray-400">Total Solvant</span>
+                <strong class="text-cyan-400">{{ totaux.total_solvant_kg }} kg</strong>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Chat lié -->
+        {% if messages_chat %}
+        <div class="glass-card rounded-2xl p-5 border-t-4 border-t-violet-500">
+            <h3 class="text-xs font-black text-violet-400 uppercase tracking-wider mb-3">💬 Messages Chat liés</h3>
+            <div class="space-y-2 max-h-40 overflow-y-auto">
+                {% for msg in messages_chat %}
+                <div class="bg-slate-950 rounded-lg p-2.5 border border-slate-800 text-[11px]">
+                    <div class="flex justify-between mb-1">
+                        <strong class="text-white">{{ msg.auteur.username }}</strong>
+                        <span class="text-gray-500">{{ msg.date_envoi|date:"d/m H:i" }}</span>
+                    </div>
+                    <p class="text-gray-400">{{ msg.contenu|truncatechars:80 }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Notes OF -->
+        {% if of.notes or of.observation %}
+        <div class="glass-card rounded-2xl p-5 border-t-4 border-t-slate-600">
+            <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-2">📝 Notes / Observations OF</h3>
+            {% if of.notes %}<p class="text-xs text-gray-300 mb-1">{{ of.notes }}</p>{% endif %}
+            {% if of.observation %}<p class="text-xs text-yellow-400/80">{{ of.observation }}</p>{% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Lien OF détail -->
+        <a href="{% url 'of_detail' of.id %}"
+           class="block text-center bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 font-bold px-4 py-3 rounded-xl text-xs uppercase tracking-wider transition">
+            📋 Voir le détail complet de l'OF →
+        </a>
+    </div>
+</div>
+
+<!-- FICHES PAR TYPE (détail) -->
+{% if fiches_par_type %}
+<div class="glass-card rounded-2xl p-6 mb-6 border-t-4 border-t-slate-600">
+    <h3 class="text-sm font-black text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+        <span>📂</span> Fiches Journalières par Processus
+    </h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for type_code, fiches_list in fiches_par_type.items %}
+        {% if fiches_list %}
+        <div class="bg-slate-950 rounded-xl p-4 border border-slate-800">
+            <h4 class="text-xs font-black text-cyan-400 uppercase mb-3">
+                {% if type_code == 'EXTRUSION' %}🌀 Extrusion
+                {% elif type_code == 'FLEXO' %}🖨️ Flexo
+                {% elif type_code == 'HELIO' %}🔄 Hélio
+                {% elif type_code == 'COMPLEXAGE' %}🔗 Complexage
+                {% elif type_code == 'DECOUPE' %}✂️ Découpe 1
+                {% elif type_code == 'DECOUPE2' %}✂️ Découpe 2
+                {% elif type_code == 'FONDS_CARRES' %}🛍️ Fonds Carrés
+                {% else %}{{ type_code }}{% endif %}
+                <span class="text-gray-500 font-normal">({{ fiches_list|length }})</span>
+            </h4>
+            <div class="space-y-2">
+                {% for f in fiches_list %}
+                <div class="flex items-center justify-between text-[11px] bg-slate-900 rounded-lg px-2.5 py-2 border border-slate-800/60">
+                    <div>
+                        <span class="text-white font-bold">{{ f.numero_fiche }}</span>
+                        <span class="text-gray-500 ml-1">{{ f.date_fabrication|date:"d/m" }}</span>
+                        {% if f.conducteur %}<span class="text-gray-600 ml-1">· {{ f.conducteur }}</span>{% endif %}
+                    </div>
+                    <a href="{% url 'prod_print_fiche' f.id %}" target="_blank" class="text-cyan-400 hover:text-cyan-300 font-bold">🖨️</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% elif fiches_orphelines or anciennes_orphelines %}
+<!-- ================================================================ -->
+<!-- FICHES ORPHELINES (sans OF parent) -->
+<!-- ================================================================ -->
+<div class="glass-card rounded-2xl p-6 mb-6 border-t-4 border-t-amber-500">
+    <div class="flex items-center gap-3 mb-4">
+        <span class="text-3xl">⚠️</span>
+        <div>
+            <h2 class="text-lg font-black text-amber-400">Fiches trouvées sans OF parent</h2>
+            <p class="text-xs text-gray-400">Le lot <strong class="text-white">{{ numero_lot }}</strong> a des fiches saisies, mais aucun Ordre de Fabrication n'est lié.</p>
+        </div>
+    </div>
+
+    {% if fiches_orphelines %}
+    <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Fiches Journalières ({{ fiches_orphelines|length }})</h3>
+    <div class="space-y-2 mb-4">
+        {% for f in fiches_orphelines %}
+        <div class="flex items-center justify-between bg-slate-950 rounded-xl px-4 py-3 border border-slate-800 text-sm">
+            <div>
+                <span class="font-black text-white">{{ f.numero_fiche }}</span>
+                <span class="text-cyan-400 text-xs ml-2">{{ f.get_type_fiche_display }}</span>
+                <span class="text-gray-500 text-xs ml-2">{{ f.date_fabrication|date:"d/m/Y" }}</span>
+            </div>
+            <a href="{% url 'prod_print_fiche' f.id %}" target="_blank" class="text-xs font-bold text-cyan-400 hover:text-cyan-300">🖨️ Imprimer</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if anciennes_orphelines %}
+    <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Anciennes Saisies ({{ anciennes_orphelines|length }})</h3>
+    <div class="space-y-2">
+        {% for e in anciennes_orphelines %}
+        <div class="flex items-center justify-between bg-slate-950 rounded-xl px-4 py-3 border border-slate-800 text-sm">
+            <div>
+                <span class="font-black text-white">{{ e.produit }}</span>
+                <span class="text-gray-500 text-xs ml-2">{{ e.date|date:"d/m/Y" }} · Éq. {{ e.equipe }}</span>
+            </div>
+            <span class="text-emerald-400 text-xs font-bold">{{ e.prod_kg }} kg</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="mt-4 p-3 bg-amber-950/30 border border-amber-500/20 rounded-xl text-xs text-amber-300">
+        💡 Conseil : Créez un OF avec le N° de Lot <strong>{{ numero_lot }}</strong> pour lier automatiquement ces fiches et activer la traçabilité complète.
+        <a href="{% url 'of_create' %}" class="underline font-bold ml-1">Créer un OF →</a>
+    </div>
+</div>
+
+{% elif numero_lot %}
+<!-- ================================================================ -->
+<!-- RIEN TROUVÉ -->
+<!-- ================================================================ -->
+<div class="glass-card rounded-2xl p-12 text-center border-t-4 border-t-red-500">
+    <span class="text-5xl block mb-4">🔍</span>
+    <h2 class="text-xl font-black text-white mb-2">Aucun résultat pour « {{ numero_lot }} »</h2>
+    <p class="text-sm text-gray-400 mb-6">Ce N° de Lot ou N° OF n'existe pas encore dans le système.</p>
+    <div class="flex flex-wrap justify-center gap-3">
+        <a href="{% url 'of_create' %}" class="bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider">
+            ➕ Créer un OF
+        </a>
+        <a href="{% url 'prod_saisie' %}" class="bg-slate-800 hover:bg-slate-700 text-gray-300 border border-slate-700 font-bold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition">
+            📝 Saisir une Fiche
+        </a>
+    </div>
+</div>
+
+{% else %}
+<!-- ================================================================ -->
+<!-- ÉTAT INITIAL (pas de recherche) -->
+<!-- ================================================================ -->
+<div class="glass-card rounded-2xl p-12 text-center border-t-4 border-t-cyan-500">
+    <span class="text-5xl block mb-4">🔗</span>
+    <h2 class="text-xl font-black text-white mb-2">Traçabilité Complète par N° de Lot</h2>
+    <p class="text-sm text-gray-400 max-w-lg mx-auto mb-6">
+        Entrez un N° de Lot (ex: <code class="text-cyan-400 bg-slate-950 px-1.5 py-0.5 rounded">LOT2025-0001</code>)
+        ou un N° OF pour afficher l'historique complet : étapes, fiches, encres, déchets, chat.
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-left">
+        <div class="bg-slate-950 rounded-xl p-4 border border-slate-800">
+            <span class="text-2xl block mb-2">🏭</span>
+            <strong class="text-xs text-white block">OF Multi-Processus</strong>
+            <p class="text-[10px] text-gray-500 mt-1">Étapes planifiées, quantités, priorités</p>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-4 border border-slate-800">
+            <span class="text-2xl block mb-2">📋</span>
+            <strong class="text-xs text-white block">Fiches Journalières</strong>
+            <p class="text-[10px] text-gray-500 mt-1">Extrusion, Flexo, Complexage, Découpe…</p>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-4 border border-slate-800">
+            <span class="text-2xl block mb-2">🎨</span>
+            <strong class="text-xs text-white block">Consos & Qualité</strong>
+            <p class="text-[10px] text-gray-500 mt-1">Encres, solvants, déchets, rendement</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Appliquer la largeur des barres de progression en JS sans style CSS inline
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-progress]').forEach(el => {
+        const val = parseFloat(el.getAttribute('data-progress')) || 0;
+        el.style.width = Math.min(100, Math.max(0, val)) + '%';
+    });
+});
+</script>
+
+{% endblock %}

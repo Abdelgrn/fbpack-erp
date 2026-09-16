@@ -2,3 +2,11 @@ venv\Scripts\activate
 python manage.py makemigrations
 python manage.py migrate
 python manage.py runserver
+
+python manage.py shell
+
+from core.models import Material, StockLot, StockMovement
+StockMovement.objects.all().delete()
+StockLot.objects.all().delete()
+Material.objects.all().delete()
+exit()

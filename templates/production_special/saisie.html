@@ -10,11 +10,11 @@
         background-color: #0f172a;
         color: #f8fafc;
         border: 1px solid #334155;
-        border-radius: 0.5rem;
-        padding: 0.6rem 0.75rem;
+        border-radius: 0.6rem;
+        padding: 0.6rem 0.8rem;
         font-size: 0.85rem;
-        transition: all 0.3s ease;
-        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+        transition: all 0.25s ease;
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2);
     }
     
     .django-form-container input:focus, 
@@ -23,141 +23,612 @@
         outline: none;
         border-color: #06b6d4;
         background-color: #1e293b;
-        box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+        box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
     }
+
+    /* Style des onglets de sélection des fiches */
+    .fiche-tab-btn {
+        transition: all 0.2s ease-in-out;
+        opacity: 0.6;
+    }
+    .fiche-tab-btn.active {
+        background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+        color: #0f172a;
+        opacity: 1;
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.35);
+        border-color: transparent !important;
+        transform: translateY(-2px);
+    }
+    .fiche-tab-btn.active strong { color: #0f172a; font-weight: 900; }
+    .fiche-tab-btn.active span { color: #0f172a; }
+    
+    .section-fiche { display: none; }
+    .section-fiche.active { display: block; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
     ::-webkit-calendar-picker-indicator {
         filter: invert(0.8) sepia(1) saturate(3) hue-rotate(175deg);
         cursor: pointer;
     }
+    
+    /* Bouton d'ajout de ligne dynamique */
+    .btn-add-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: rgba(16, 185, 129, 0.1);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .btn-add-row:hover {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+    }
+
+    /* En-têtes de colonnes pour les tableaux */
+    .col-header {
+        font-size: 0.6rem;
+        font-weight: 800;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        text-align: center;
+        padding-bottom: 0.25rem;
+    }
 </style>
 
-<h1 class="text-3xl font-black text-white mb-2">🏭 Module Production</h1>
-<p class="text-gray-400 mb-6">Saisie de données de production</p>
+<!-- EN-TÊTE DE PAGE -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-3xl font-black text-white mb-1 flex items-center gap-3">
+            🏭 <span>Saisie Fiches de Production Journalières</span>
+        </h1>
+        <p class="text-gray-400 text-sm">Remplissez directement vos fiches d'atelier (Flexo, Extrusion, Découpe...)</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <a href="{% url 'prod_saisie_legacy' %}" class="bg-slate-800 hover:bg-slate-700 text-gray-400 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition flex items-center gap-2">
+            <span>🔙</span> Revenir à l'ancienne saisie
+        </a>
+        <a href="{% url 'prod_synthese_temps' %}" class="bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition flex items-center gap-2">
+            <span>⏱️</span> Synthèse & Workflow A-Z
+        </a>
+    </div>
+</div>
 
 {% include 'production_special/_nav.html' %}
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
     
-    <div class="lg:col-span-1">
-        <div class="glass rounded-2xl p-5 border-t-4 border-t-cyan-500 shadow-xl shadow-cyan-900/10">
+    <!-- COLONNE GAUCHE : LE NOUVEAU FORMULAIRE MULTI-FICHES -->
+    <div class="lg:col-span-8">
+        <div class="glass rounded-2xl p-6 border-t-4 border-t-cyan-500 shadow-xl shadow-cyan-950/20 bg-slate-900/80">
             
-            <div class="flex items-center gap-3 mb-5">
-                <div class="h-10 w-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-lg">
-                    {% if edit_mode %}✏️{% else %}📝{% endif %}
+            <div class="flex items-center gap-3 mb-5 pb-4 border-b border-slate-800">
+                <div class="h-11 w-11 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl border border-cyan-500/30">
+                    📝
                 </div>
-                <h2 class="text-xl font-bold text-white">
-                    {% if edit_mode %}Modifier la saisie{% else %}Nouvelle Saisie{% endif %}
-                </h2>
+                <div>
+                    <h2 class="text-lg font-black text-white">Nouvelle Fiche de Fabrication</h2>
+                    <p class="text-xs text-gray-400">Sélectionnez d'abord le processus pour afficher la fiche correspondante</p>
+                </div>
             </div>
             
-            <form method="POST" class="django-form-container">
+            <form method="POST" class="django-form-container" id="prodForm">
                 {% csrf_token %}
-                
-                <div class="grid grid-cols-2 gap-x-3 gap-y-4">
-                    {% for field in form %}
-                    <div class="{% if field.name in 'produit,client,machine,support' %}col-span-2{% else %}col-span-1{% endif %}">
-                        <label class="block text-[10px] font-extrabold text-cyan-400 mb-1.5 uppercase tracking-widest">
-                            {{ field.label }}
-                        </label>
-                        {{ field }}
-                        {% if field.errors %}
-                        <p class="text-red-400 text-[10px] mt-1 font-medium bg-red-400/10 p-1 rounded">{{ field.errors.0 }}</p>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
+
+                {% if form.errors %}
+                <div class="p-4 mb-5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs space-y-1">
+                    <p class="font-bold flex items-center gap-1.5"><span>⚠️</span> Veuillez corriger les erreurs ci-dessous :</p>
+                    {{ form.errors }}
                 </div>
-                
-                <div class="mt-5 p-4 bg-slate-900/80 rounded-xl border border-slate-700">
-                    <div class="flex items-center gap-2 mb-2">
-                        <span class="text-cyan-500">ℹ️</span>
-                        <span class="text-xs font-bold text-gray-300 uppercase tracking-wider">Formules de calcul</span>
-                    </div>
-                    <p class="text-[11px] text-gray-400 mb-1"><strong class="text-gray-200">Déchet KG</strong> = Dém. + Lisière + Jonc. + Transp.</p>
-                    <p class="text-[11px] text-gray-400"><strong class="text-gray-200">Taux Déchets</strong> = (Déchet KG / Prod KG) × 100</p>
-                </div>
-                
-                <button type="submit" class="w-full mt-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/30 text-sm tracking-wide uppercase">
-                    {% if edit_mode %}💾 Mettre à jour la saisie{% else %}✅ Enregistrer la production{% endif %}
-                </button>
-                
-                {% if edit_mode %}
-                <a href="{% url 'prod_base' %}" class="block text-center mt-4 text-gray-400 hover:text-white text-xs transition">← Annuler et Retourner</a>
                 {% endif %}
+                
+                <div class="hidden">{{ form.type_fiche }}</div>
+                <div class="hidden">{{ form.machine }}</div>
+
+                <!-- 1. SÉLECTEUR DYNAMIQUE DE FICHE -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
+                    <button type="button" onclick="changerTypeFiche('EXTRUSION')" id="tab_EXTRUSION" class="fiche-tab-btn p-2 bg-slate-950 rounded-xl border border-slate-700 text-center">
+                        <span class="text-lg block mb-1">🌀</span>
+                        <strong class="text-[9px] text-white block uppercase">Extrusion</strong>
+                    </button>
+                    <button type="button" onclick="changerTypeFiche('FLEXO')" id="tab_FLEXO" class="fiche-tab-btn p-2 bg-slate-950 rounded-xl border border-slate-700 text-center active">
+                        <span class="text-lg block mb-1">🖨️</span>
+                        <strong class="text-[9px] text-white block uppercase">Flexo</strong>
+                    </button>
+                    <button type="button" onclick="changerTypeFiche('HELIO')" id="tab_HELIO" class="fiche-tab-btn p-2 bg-slate-950 rounded-xl border border-slate-700 text-center">
+                        <span class="text-lg block mb-1">🔄</span>
+                        <strong class="text-[9px] text-white block uppercase">Hélio</strong>
+                    </button>
+                    <button type="button" onclick="changerTypeFiche('COMPLEXAGE')" id="tab_COMPLEXAGE" class="fiche-tab-btn p-2 bg-slate-950 rounded-xl border border-slate-700 text-center">
+                        <span class="text-lg block mb-1">🔗</span>
+                        <strong class="text-[9px] text-white block uppercase">Complexe</strong>
+                    </button>
+                    <button type="button" onclick="changerTypeFiche('FONDS_CARRES')" id="tab_FONDS_CARRES" class="fiche-tab-btn p-2 bg-slate-950 rounded-xl border border-slate-700 text-center">
+                        <span class="text-lg block mb-1">🛍️</span>
+                        <strong class="text-[9px] text-white block uppercase">Sacs F.C</strong>
+                    </button>
+                    <button type="button" onclick="changerTypeFiche('DECOUPE')" id="tab_DECOUPE" class="fiche-tab-btn p-2 bg-slate-950 rounded-xl border border-slate-700 text-center">
+                        <span class="text-lg block mb-1">✂️</span>
+                        <strong class="text-[9px] text-white block uppercase">Découpe 1</strong>
+                    </button>
+                    <button type="button" onclick="changerTypeFiche('DECOUPE2')" id="tab_DECOUPE2" class="fiche-tab-btn p-2 bg-slate-950 rounded-xl border border-slate-700 text-center">
+                        <span class="text-lg block mb-1">✂️</span>
+                        <strong class="text-[9px] text-white block uppercase">Découpe 2</strong>
+                    </button>
+                </div>
+
+                <!-- 2. EN-TÊTE COMMUNE -->
+                <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-4 mb-4">
+                    <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-slate-800 pb-1.5 flex items-center gap-1.5">
+                        <span>📌</span> Informations Générales
+                    </span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[10px]">
+                        <div><label class="block text-gray-400 font-bold mb-1">N° Doc / Lot</label>{{ form.numero_doc }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Date</label>{{ form.date_fabrication }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Heure Début</label>{{ form.heure_debut }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Heure Fin</label>{{ form.heure_fin }}</div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[10px]">
+                        <div><label class="block text-gray-400 font-bold mb-1">Client</label>{{ form.client }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Désignation Produit / Motif</label>{{ form.designation_produit }}</div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-[10px]">
+                        <div><label class="block text-gray-400 font-bold mb-1">Poste</label>{{ form.poste }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Équipe</label>{{ form.equipe }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Support</label>{{ form.support }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Laize (mm)</label>{{ form.laize_mm }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Vitesse (m/min)</label>{{ form.vitesse_machine }}</div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[10px]">
+                        <div><label class="block text-gray-400 font-bold mb-1">Conducteur</label>{{ form.conducteur }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Aide Conducteur 1</label>{{ form.aide_conducteur_1 }}</div>
+                        <div><label class="block text-gray-400 font-bold mb-1">Aide Conducteur 2</label>{{ form.aide_conducteur_2 }}</div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- SECTION DYNAMIQUE : FLEXO / HELIO (IMPRESSION) -->
+                <!-- ========================================================= -->
+                <div id="sec_IMPRESSION" class="section-fiche active space-y-4">
+                    
+                    <!-- 🎨 GROUPES ENCRES (CORRIGÉ ET ALIGNÉ PARFAITEMENT) -->
+                    <div class="p-4 bg-slate-950 rounded-xl border border-blue-500/30">
+                        <span class="text-xs font-bold text-blue-400 uppercase tracking-wider block border-b border-slate-800 pb-1.5 mb-4 flex items-center gap-1.5">
+                            <span>🎨</span> 8 Groupes d'Impression (Encres & Solvants)
+                        </span>
+                        {{ fs_flx_enc.management_form }}
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {% for f_enc in fs_flx_enc %}
+                            <div class="p-3 bg-slate-900 flex flex-col justify-between rounded-xl border border-slate-700 shadow-inner min-h-[120px]">
+                                
+                                <div class="flex justify-between items-center mb-2 border-b border-slate-700 pb-1">
+                                    <span class="font-black text-white text-[11px]">Groupe {{ f_enc.groupe_numero.value }}</span>
+                                </div>
+                                {{ f_enc.id }}{{ f_enc.groupe_numero.as_hidden }}
+                                
+                                <div class="flex-1 flex flex-col gap-2">
+                                    <!-- Ligne 1 : Désignation Couleur -->
+                                    <div>
+                                        <label class="block text-[9px] font-bold text-gray-400 uppercase mb-1">Désignation Couleur</label>
+                                        {{ f_enc.designation_encre }}
+                                    </div>
+                                    
+                                    <!-- Ligne 2 : Encre et Solvant avec items-end pour alignement parfait -->
+                                    <div class="grid grid-cols-2 gap-2 mt-auto items-end">
+                                        <div>
+                                            <label class="block text-[9px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Encre (kg)</label>
+                                            {{ f_enc.conso_encre_kg }}
+                                        </div>
+                                        <div>
+                                            <label class="block text-[9px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap">Solv. (kg)</label>
+                                            {{ f_enc.conso_solvant_kg }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- 📦 BOBINES ENTREES -->
+                        <div class="p-4 bg-slate-950 rounded-xl border border-indigo-500/30">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">📦 Bobines Entrées</span>
+                                <button type="button" class="btn-add-row" onclick="addFormsetRow('bobines_entrees', 'container_flx_ent')">➕ Ajouter</button>
+                            </div>
+                            <!-- En-têtes -->
+                            <div class="grid grid-cols-3 gap-1 px-1 mb-1">
+                                <div class="col-header text-left">N° Lot / Bobine</div>
+                                <div class="col-header">Métrage (m)</div>
+                                <div class="col-header">Poids (kg)</div>
+                            </div>
+                            {{ fs_flx_ent.management_form }}
+                            <div id="container_flx_ent" class="space-y-2">
+                                {% for f in fs_flx_ent %}
+                                <div class="grid grid-cols-3 gap-1 formset-row">
+                                    <div>{{ f.num_lot_mp }}</div>
+                                    <div>{{ f.metrage_m }}</div>
+                                    <div>{{ f.poids_kg }}</div>
+                                    <span class="hidden">{{ f.DELETE }}{{ f.id }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- ✅ BOBINES SORTIES -->
+                        <div class="p-4 bg-slate-950 rounded-xl border border-emerald-500/30">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">✅ Bobines Sorties</span>
+                                <button type="button" class="btn-add-row" onclick="addFormsetRow('bobines_imprimees', 'container_flx_imp')">➕ Ajouter</button>
+                            </div>
+                            <!-- En-têtes -->
+                            <div class="grid grid-cols-4 gap-1 px-1 mb-1">
+                                <div class="col-header text-left">Nbre Bob.</div>
+                                <div class="col-header">Métrage (m)</div>
+                                <div class="col-header">Poids (kg)</div>
+                                <div class="col-header">Déchets (kg)</div>
+                            </div>
+                            {{ fs_flx_imp.management_form }}
+                            <div id="container_flx_imp" class="space-y-2">
+                                {% for f in fs_flx_imp %}
+                                <div class="grid grid-cols-4 gap-1 formset-row">
+                                    <div>{{ f.nbre_bobines }}</div>
+                                    <div>{{ f.metrage_m }}</div>
+                                    <div>{{ f.poids_kg }}</div>
+                                    <div>{{ f.dechet_imprime_kg }}</div>
+                                    <span class="hidden">{{ f.DELETE }}{{ f.id }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- SECTION DYNAMIQUE : EXTRUSION -->
+                <!-- ========================================================= -->
+                <div id="sec_EXTRUSION" class="section-fiche space-y-4">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-purple-500/30">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-3">
+                            <span class="text-xs font-bold text-purple-400 uppercase tracking-wider">🌀 Matières Premières</span>
+                            <button type="button" class="btn-add-row" onclick="addFormsetRow('matieres_extrusion', 'container_ext_mat')">➕ Ajouter</button>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 px-1 mb-1">
+                            <div class="col-header text-left">Désignation MP</div>
+                            <div class="col-header text-left">N° Lot MP</div>
+                            <div class="col-header">Poids MP (kg)</div>
+                            <div class="col-header">Qté Rél. (kg)</div>
+                        </div>
+                        {{ fs_ext_mat.management_form }}
+                        <div id="container_ext_mat" class="space-y-2">
+                            {% for f in fs_ext_mat %}
+                            <div class="grid grid-cols-4 gap-1 formset-row">
+                                <div>{{ f.designation }}</div>
+                                <div>{{ f.num_lot_mp }}</div>
+                                <div>{{ f.poids_mp_kg }}</div>
+                                <div>{{ f.qte_realisee_net_kg }}</div>
+                                <span class="hidden">{{ f.DELETE }}{{ f.id }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-slate-950 rounded-xl border border-red-500/30">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-3">
+                            <span class="text-xs font-bold text-red-400 uppercase tracking-wider">🛑 Arrêts Machine (T01-T11)</span>
+                            <button type="button" class="btn-add-row" onclick="addFormsetRow('arrets_extrusion', 'container_ext_arr')">➕ Ajouter</button>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1 px-1 mb-1">
+                            <div class="col-header text-left">Code (T01...)</div>
+                            <div class="col-header text-left">Nature de l'arrêt</div>
+                            <div class="col-header">Temps (min)</div>
+                        </div>
+                        {{ fs_ext_arr.management_form }}
+                        <div id="container_ext_arr" class="space-y-2">
+                            {% for f in fs_ext_arr %}
+                            <div class="grid grid-cols-3 gap-1 formset-row">
+                                <div>{{ f.code_arret }}</div>
+                                <div>{{ f.nature_arret }}</div>
+                                <div>{{ f.temps_min }}</div>
+                                <span class="hidden">{{ f.DELETE }}{{ f.id }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- SECTION DYNAMIQUE : COMPLEXAGE -->
+                <!-- ========================================================= -->
+                <div id="sec_COMPLEXAGE" class="section-fiche space-y-4">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-pink-500/30">
+                        <span class="text-xs font-bold text-pink-400 uppercase tracking-wider block border-b border-slate-800 pb-1.5 mb-3">🧪 Consommables</span>
+                        <div class="grid grid-cols-3 gap-2 text-[10px]">
+                            <div><label class="col-header block text-left">Durcisseur (kg)</label>{{ form.durcisseur_poids }}</div>
+                            <div><label class="col-header block text-left">Résine (kg)</label>{{ form.resine_poids }}</div>
+                            <div><label class="col-header block text-left">Solvant (kg)</label>{{ form.solvant_poids }}</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <!-- Dérouleur 1 -->
+                        <div class="p-3 bg-slate-950 rounded-xl border border-slate-700">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-[10px] font-bold text-gray-300">Dérouleur 1</span>
+                                <button type="button" class="btn-add-row" onclick="addFormsetRow('derouleur1_items', 'container_cpx_dr1')">➕</button>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 px-1 mb-1"><div class="col-header text-left">Lot MP</div><div class="col-header">Poids</div><div class="col-header">Rebut</div></div>
+                            {{ fs_cpx_dr1.management_form }}
+                            <div id="container_cpx_dr1" class="space-y-1">
+                                {% for f in fs_cpx_dr1 %}
+                                <div class="grid grid-cols-3 gap-1 formset-row"><div>{{ f.num_lot_mp }}</div><div>{{ f.poids_kg }}</div><div>{{ f.dechets_kg }}</div><span class="hidden">{{ f.DELETE }}{{ f.id }}</span></div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <!-- Dérouleur 2 -->
+                        <div class="p-3 bg-slate-950 rounded-xl border border-slate-700">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-[10px] font-bold text-gray-300">Dérouleur 2</span>
+                                <button type="button" class="btn-add-row" onclick="addFormsetRow('derouleur2_items', 'container_cpx_dr2')">➕</button>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 px-1 mb-1"><div class="col-header text-left">Lot MP</div><div class="col-header">Poids</div><div class="col-header">Rebut</div></div>
+                            {{ fs_cpx_dr2.management_form }}
+                            <div id="container_cpx_dr2" class="space-y-1">
+                                {% for f in fs_cpx_dr2 %}
+                                <div class="grid grid-cols-3 gap-1 formset-row"><div>{{ f.num_lot_mp }}</div><div>{{ f.poids_kg }}</div><div>{{ f.dechets_kg }}</div><span class="hidden">{{ f.DELETE }}{{ f.id }}</span></div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <!-- Enrouleur -->
+                        <div class="p-3 bg-slate-950 rounded-xl border border-slate-700">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-[10px] font-bold text-emerald-400">Enrouleur</span>
+                                <button type="button" class="btn-add-row" onclick="addFormsetRow('enrouleur_items', 'container_cpx_enr')">➕</button>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 px-1 mb-1"><div class="col-header text-left">Lot</div><div class="col-header">Poids</div><div class="col-header">Rebut</div></div>
+                            {{ fs_cpx_enr.management_form }}
+                            <div id="container_cpx_enr" class="space-y-1">
+                                {% for f in fs_cpx_enr %}
+                                <div class="grid grid-cols-3 gap-1 formset-row"><div>{{ f.num_lot }}</div><div>{{ f.poids_kg }}</div><div>{{ f.dechets_kg }}</div><span class="hidden">{{ f.DELETE }}{{ f.id }}</span></div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- SECTION DYNAMIQUE : DECOUPE & DECOUPE2 -->
+                <!-- ========================================================= -->
+                <div id="sec_DECOUPE" class="section-fiche space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Mères -->
+                        <div class="p-4 bg-slate-950 rounded-xl border border-orange-500/30">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                <span class="text-xs font-bold text-orange-400 uppercase tracking-wider">🧵 Bobines Mères</span>
+                                <button type="button" class="btn-add-row" onclick="addFormsetRow('bobines_meres_decoupe', 'container_dec_bm')">➕ Ajouter</button>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 px-1 mb-1">
+                                <div class="col-header text-left">Réf / N° Lot</div><div class="col-header">Poids (kg)</div><div class="col-header">Métrage (ml)</div>
+                            </div>
+                            {{ fs_dec_bm.management_form }}
+                            <div id="container_dec_bm" class="space-y-2">
+                                {% for f in fs_dec_bm %}
+                                <div class="grid grid-cols-3 gap-1 formset-row">
+                                    <div>{{ f.reference_lot }}</div><div>{{ f.poids_kg }}</div><div>{{ f.metrage_ml }}</div>
+                                    <span class="hidden">{{ f.DELETE }}{{ f.id }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <!-- Filles -->
+                        <div class="p-4 bg-slate-950 rounded-xl border border-emerald-500/30">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">✂️ Bobines Filles</span>
+                                <button type="button" class="btn-add-row" onclick="addFormsetRow('bobines_filles_decoupe', 'container_dec_bf')">➕ Ajouter</button>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 px-1 mb-1">
+                                <div class="col-header text-left">Nbre Filles</div><div class="col-header">Poids (kg)</div><div class="col-header">Rebut (kg)</div>
+                            </div>
+                            {{ fs_dec_bf.management_form }}
+                            <div id="container_dec_bf" class="space-y-2">
+                                {% for f in fs_dec_bf %}
+                                <div class="grid grid-cols-3 gap-1 formset-row">
+                                    <div>{{ f.nombre_filles }}</div><div>{{ f.poids_filles_kg }}</div><div>{{ f.dechets_lisiere_kg }}</div>
+                                    <span class="hidden">{{ f.DELETE }}{{ f.id }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- SECTION DYNAMIQUE : FONDS CARRES -->
+                <!-- ========================================================= -->
+                <div id="sec_FONDS_CARRES" class="section-fiche space-y-4">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-yellow-500/30">
+                        <span class="text-xs font-bold text-yellow-400 uppercase tracking-wider block border-b border-slate-800 pb-1.5 mb-3">👥 Équipes (3 Shifts)</span>
+                        <div class="grid grid-cols-5 gap-1 px-1 mb-1">
+                            <div class="col-header">Shift</div><div class="col-header text-left">Opérateur</div><div class="col-header">Nb Sacs</div><div class="col-header">Poids Sacs (kg)</div><div class="col-header">Déchets (kg)</div>
+                        </div>
+                        {{ fs_fc.management_form }}
+                        <div class="space-y-2">
+                            {% for f in fs_fc %}
+                            <div class="grid grid-cols-5 gap-1 items-center formset-row bg-slate-900 p-2 rounded-lg border border-slate-800">
+                                <strong class="text-yellow-400 text-center text-[10px] uppercase">{{ f.shift_code.value }}</strong>
+                                {{ f.id }}{{ f.equipe_num.as_hidden }}{{ f.shift_code.as_hidden }}
+                                <div>{{ f.operateur }}</div>
+                                <div>{{ f.nb_sacs }}</div>
+                                <div>{{ f.poids_sacs_kg }}</div>
+                                <div>{{ f.dechets_sacs_kg }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOUTON DE VALIDATION ET OBSERVATIONS COMMUNES -->
+                <div class="pt-6">
+                    <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-300 uppercase mb-1">Observations & Remarques</label>
+                            {{ form.observations }}
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-300 uppercase mb-1">Visa Responsable</label>
+                            {{ form.visa_resp_production }}
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-black py-4 rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/25 text-sm tracking-wide uppercase flex items-center justify-center gap-2">
+                        ✅ Enregistrer la Fiche
+                    </button>
+                </div>
             </form>
         </div>
     </div>
     
-    <div class="lg:col-span-2">
-        <div class="glass rounded-2xl p-6 border-t-4 border-t-slate-500 h-full">
+    <!-- COLONNE DROITE : LE MÊME HISTORIQUE ET RAPPEL MÉTIER QUE TON ORIGINAL -->
+    <div class="lg:col-span-4">
+        <div class="glass rounded-2xl p-6 border-t-4 border-t-slate-600 h-full flex flex-col justify-between space-y-4 bg-slate-900/80">
             
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <span>📋</span> Dernières saisies
-                </h2>
-                <span class="text-[10px] font-bold bg-slate-800 text-emerald-400 px-3 py-1 rounded-full border border-slate-700 uppercase tracking-widest flex items-center gap-2">
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    Temps réel
-                </span>
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <span>📋</span> Fiches Récentes
+                    </h2>
+                </div>
+                
+                <div class="overflow-x-auto rounded-xl border border-slate-800">
+                    <table class="w-full text-sm text-left" id="recentEntriesTable">
+                        <thead class="bg-slate-950 text-[10px] uppercase font-black text-gray-400 tracking-wider">
+                            <tr>
+                                <th class="px-3 py-3">Date</th>
+                                <th class="px-3 py-3">Type</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/80 text-xs">
+                            {% for f in recent_fiches %}
+                            <tr class="hover:bg-slate-800/40 transition">
+                                <td class="px-3 py-3 font-bold text-white">{{ f.date_fabrication|date:"d/m" }}</td>
+                                <td class="px-3 py-3"><span class="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700 uppercase">{{ f.get_type_fiche_display }}</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="px-4 py-8 text-center text-gray-500">Aucune fiche récente.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            
-            <div class="overflow-x-auto rounded-xl border border-slate-700">
-                <table class="w-full text-sm text-left">
-                    <thead class="bg-slate-800/80 text-[10px] uppercase font-extrabold text-gray-400 tracking-wider">
-                        <tr>
-                            <th class="px-4 py-3">Date</th>
-                            <th class="px-4 py-3">Produit & Support</th>
-                            <th class="px-4 py-3 text-center">Éq.</th>
-                            <th class="px-4 py-3 text-right">Prod ML</th>
-                            <th class="px-4 py-3 text-right">Prod KG</th>
-                            <th class="px-4 py-3 text-right">Déchet</th>
-                            <th class="px-4 py-3 text-right">Taux</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-700/50 text-xs">
-                        {% for e in recent %}
-                        <tr class="hover:bg-slate-700/30 transition-colors duration-200">
-                            <td class="px-4 py-3 text-gray-300 font-medium whitespace-nowrap">{{ e.date|date:"d/m/Y" }}</td>
-                            <td class="px-4 py-3">
-                                <div class="text-white font-bold mb-0.5">{{ e.produit|truncatechars:25 }}</div>
-                                <div class="text-[10px] text-gray-500">{{ e.support|default:"-" }}</div>
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider
-                                    {% if e.equipe == 'A' %}bg-blue-500/20 text-blue-400 border border-blue-500/20
-                                    {% elif e.equipe == 'B' %}bg-green-500/20 text-green-400 border border-green-500/20
-                                    {% else %}bg-purple-500/20 text-purple-400 border border-purple-500/20{% endif %}">
-                                    {{ e.equipe }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-right text-emerald-400 font-medium">{{ e.prod_ml|floatformat:1 }}</td>
-                            <td class="px-4 py-3 text-right text-emerald-400 font-medium">{{ e.prod_kg|floatformat:2 }}</td>
-                            <td class="px-4 py-3 text-right text-red-400 font-medium">{{ e.total_dechets_kg }}</td>
-                            <td class="px-4 py-3 text-right">
-                                <span class="px-2 py-1 rounded font-bold text-[11px]
-                                    {% if e.taux_dechets > 5 %}bg-red-500/10 text-red-400
-                                    {% elif e.taux_dechets > 3 %}bg-yellow-500/10 text-yellow-400
-                                    {% else %}bg-emerald-500/10 text-emerald-400{% endif %}">
-                                    {{ e.taux_dechets }}%
-                                </span>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="7" class="px-4 py-12 text-center">
-                                <div class="text-4xl mb-3 opacity-50">📭</div>
-                                <div class="text-gray-300 font-bold text-sm">Aucune saisie pour le moment</div>
-                                <div class="text-xs text-gray-500 mt-1">Les données apparaîtront ici après le premier enregistrement.</div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+
+            <!-- RAPPEL MÉTIER FBPACK -->
+            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800/80 text-xs text-gray-400 space-y-1.5">
+                <p class="font-bold text-gray-300 flex items-center gap-1.5">
+                    <span>💡</span> Logique des Gammes de Production :
+                </p>
+                <p>• <strong>Gamme Étiquette (Mono-film)</strong> : 2 étapes réelles ➔ Flexo (Impression) ➔ Découpeuse/Refente.</p>
+                <p>• <strong>Gamme Complexe (Duplex/Triplex)</strong> : 3 étapes réelles ➔ Flexo ➔ Contrecollage ➔ Découpeuse.</p>
+                <p>• <strong>Traçabilité instantanée</strong> : Le numéro de lot chaîne automatiquement toutes les étapes.</p>
             </div>
+
         </div>
     </div>
+
 </div>
+
+<!-- SCRIPT GESTION DYNAMIQUE (ONGLETS + EFFACEMENT ZEROS + AJOUT DE LIGNES) -->
+<script>
+// GESTION DES ONGLETS
+function changerTypeFiche(typeCode) {
+    const typeFicheField = document.getElementById('select_type_fiche');
+    if(typeFicheField) typeFicheField.value = typeCode;
+    
+    document.querySelectorAll('.fiche-tab-btn').forEach(b => b.classList.remove('active'));
+    const activeTab = document.getElementById('tab_' + typeCode);
+    if(activeTab) activeTab.classList.add('active');
+    
+    document.querySelectorAll('.section-fiche').forEach(s => s.classList.remove('active'));
+    
+    // Découpe et Découpe 2 utilisent le même bloc HTML (sec_DECOUPE)
+    let sectionId = 'sec_' + typeCode;
+    if (typeCode === 'FLEXO' || typeCode === 'HELIO') sectionId = 'sec_IMPRESSION';
+    if (typeCode === 'DECOUPE2') sectionId = 'sec_DECOUPE';
+    
+    const activeSection = document.getElementById(sectionId);
+    if(activeSection) activeSection.classList.add('active');
+}
+
+// 🪄 SUPPRESSION AUTOMATIQUE DES "0" AU CLIC
+function attachAutoClearZero(container = document) {
+    container.querySelectorAll('input[type="number"]').forEach(input => {
+        // Au focus, si la valeur est 0, 0.0 ou 0.00, on vide la case
+        input.addEventListener('focus', function() {
+            if (this.value === '0' || this.value === '0.0' || this.value === '0.00') {
+                this.value = '';
+            }
+        });
+        // Si l'utilisateur quitte la case et qu'elle est vide, on remet 0
+        input.addEventListener('blur', function() {
+            if (this.value.trim() === '') {
+                this.value = '0';
+            }
+        });
+    });
+}
+
+// ➕ AJOUT DYNAMIQUE DE LIGNES (FORMSET DJANGO)
+function addFormsetRow(prefix, containerId) {
+    const container = document.getElementById(containerId);
+    const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+    let currentFormCount = parseInt(totalFormsInput.value);
+
+    // Trouver la dernière ligne pour la cloner
+    const rows = container.querySelectorAll('.formset-row');
+    const lastRow = rows[rows.length - 1];
+    
+    if(!lastRow) return;
+
+    // Cloner la ligne
+    const newRow = lastRow.cloneNode(true);
+
+    // Mettre à jour les ID et NAME des inputs clonés (remplacer l'ancien index par le nouveau)
+    newRow.querySelectorAll('input, select, textarea').forEach(input => {
+        if (input.name) {
+            // Remplace "-0-", "-1-" par la nouvelle valeur currentFormCount
+            input.name = input.name.replace(`-${currentFormCount - 1}-`, `-${currentFormCount}-`);
+            input.id = `id_${input.name}`;
+            
+            // Remettre à zéro la valeur du champ cloné
+            if (input.type === 'number') {
+                input.value = '0';
+            } else if (input.type !== 'hidden' && input.type !== 'checkbox') {
+                input.value = '';
+            }
+        }
+    });
+
+    // Ajouter la nouvelle ligne au conteneur
+    container.appendChild(newRow);
+    
+    // Incrémenter le nombre total de formulaires pour Django
+    totalFormsInput.value = currentFormCount + 1;
+
+    // Rattacher l'effacement magique des zéros sur la nouvelle ligne
+    attachAutoClearZero(newRow);
+}
+
+// Initialisation globale au chargement de la page
+document.addEventListener('DOMContentLoaded', () => { 
+    changerTypeFiche('FLEXO'); 
+    attachAutoClearZero(); 
+});
+</script>
+
 {% endblock %}

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Fiche de Fabrication N° {{ fiche.numero_fiche }}</title>
+    <style>
+        @page { size: A4 landscape; margin: 10mm; }
+        body { 
+            font-family: Arial, Helvetica, sans-serif; 
+            font-size: 10pt; 
+            color: #000; 
+            background: #fff; 
+            margin: 0; 
+            padding: 0;
+        }
+        .container { width: 100%; max-width: 1100px; margin: auto; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; vertical-align: middle; }
+        th { background-color: #f0f0f0; font-size: 8pt; font-weight: bold; text-transform: uppercase; }
+        td { font-size: 9pt; }
+        
+        .header-table { border: 2px solid #000; }
+        .header-table td { border: none; }
+        .title-box { border: 1px solid #000; text-align: center; padding: 5px; font-weight: bold; font-size: 14pt; }
+        .logo { font-weight: 900; font-size: 20pt; letter-spacing: -1px; }
+        .subtitle { font-size: 8pt; font-weight: normal; }
+        
+        .no-print { text-align: center; padding: 15px; background: #1e293b; color: white; margin-bottom: 20px; }
+        .print-btn { background: #06b6d4; color: #000; padding: 10px 20px; font-weight: 900; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;}
+        
+        @media print { 
+            .no-print { display: none; } 
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="no-print">
+    <h2>Aperçu de la fiche avant impression</h2>
+    <button class="print-btn" onclick="window.print()">🖨️ IMPRIMER LA FICHE</button>
+</div>
+
+<div class="container">
+    
+    <!-- EN TÊTE PRINCIPALE -->
+    <table class="header-table">
+        <tr>
+            <td width="30%">
+                <div class="logo">FB.PACK<span style="color:#666;">▼</span></div>
+                <div class="subtitle">Sustainable solutions, Quality packs</div>
+            </td>
+            <td width="40%">
+                <div class="title-box">
+                    {{ fiche.get_type_fiche_display }} N° : {{ fiche.numero_fiche|default:fiche.id }}
+                </div>
+            </td>
+            <td width="30%">
+                <table style="margin-bottom:0;">
+                    <tr><th width="40%">Date:</th><td>{{ fiche.date_fabrication|date:"d/m/Y" }}</td></tr>
+                    <tr><th>Heure Début:</th><td>{{ fiche.heure_debut|default:"-" }}</td></tr>
+                    <tr><th>Heure Fin:</th><td>{{ fiche.heure_fin|default:"-" }}</td></tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- INFOS CLIENT ET MACHINE -->
+    <table>
+        <tr>
+            <td width="20%"><strong>Client / Motif:</strong></td><td width="30%">{{ fiche.client.name }} / {{ fiche.designation_produit }}</td>
+            <td width="20%"><strong>Poste:</strong></td><td width="30%">{{ fiche.poste }} (Equipe {{ fiche.equipe }})</td>
+        </tr>
+        <tr>
+            <td><strong>Support:</strong></td><td>{{ fiche.support }}</td>
+            <td><strong>Conducteur:</strong></td><td>{{ fiche.conducteur }}</td>
+        </tr>
+        <tr>
+            <td><strong>Laize / Épaisseur:</strong></td><td>{{ fiche.laize_mm }} mm / {{ fiche.epaisseur_um }} μm</td>
+            <td><strong>Machine / Vitesse:</strong></td><td>{{ fiche.machine.name|default:"-" }} | {{ fiche.vitesse_machine }} m/min</td>
+        </tr>
+    </table>
+
+    <!-- ========================================================= -->
+    <!-- SI C'EST UNE FICHE FLEXO / HELIO (LES 8 GROUPES) -->
+    <!-- ========================================================= -->
+    {% if fiche.type_fiche == 'FLEXO' or fiche.type_fiche == 'HELIO' %}
+        <table>
+            <tr><th colspan="8" style="text-align:center; font-size:10pt;">CONSOMMATION D'ENCRE (8 GROUPES D'IMPRESSION)</th></tr>
+            <tr>
+                {% for enc in fiche.encres_groupes.all %}
+                <th width="12.5%">Groupe {{ enc.groupe_numero }}</th>
+                {% endfor %}
+            </tr>
+            <tr>
+                {% for enc in fiche.encres_groupes.all %}
+                <td style="text-align:center;">
+                    <strong>{{ enc.designation_encre|default:"-" }}</strong><br>
+                    <span style="font-size:8pt;">Encre: {{ enc.conso_encre_kg }} kg</span><br>
+                    <span style="font-size:8pt;">Solvant: {{ enc.conso_solvant_kg }} kg</span>
+                </td>
+                {% endfor %}
+            </tr>
+        </table>
+        
+        <table style="margin-top: 10px;">
+            <tr><th colspan="4" style="text-align:center;">BOBINES ENTRÉES</th> <th colspan="4" style="text-align:center;">BOBINES IMPRIMÉES</th></tr>
+            <tr>
+                <th>N° Lot</th><th>Fournisseur</th><th>Métrage</th><th>Poids</th>
+                <th>Nbre Bob.</th><th>Poids</th><th>Métrage</th><th>Déchet</th>
+            </tr>
+            {% for entr in fiche.bobines_entrees.all %}
+            <tr>
+                <td>{{ entr.num_lot_mp }}</td><td>{{ entr.fournisseur }}</td><td>{{ entr.metrage_m }}</td><td>{{ entr.poids_kg }}</td>
+                <!-- on affiche la sortie correspondante si elle existe (logique basique index par index) -->
+                <td colspan="4" style="border:none; padding:0;"></td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+
+    <!-- ========================================================= -->
+    <!-- SI C'EST UNE FICHE EXTRUSION -->
+    <!-- ========================================================= -->
+    {% if fiche.type_fiche == 'EXTRUSION' %}
+        <table>
+            <tr>
+                <th>Désignation MP</th><th>N° Lot MP</th><th>Poids MP (kg)</th><th>Qté Réalisée Net (kg)</th>
+            </tr>
+            {% for mat in fiche.matieres_extrusion.all %}
+            <tr>
+                <td>{{ mat.designation }}</td><td>{{ mat.num_lot_mp }}</td><td>{{ mat.poids_mp_kg }}</td><td>{{ mat.qte_realisee_net_kg }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+
+    <!-- SECTION SIGNATURES ET OBSERVATIONS COMMUNE -->
+    <table style="margin-top: 15px; border: 2px solid #000;">
+        <tr>
+            <td width="70%" height="80" valign="top">
+                <strong>Observations et Remarques :</strong><br>
+                {{ fiche.observations }}
+            </td>
+            <td width="30%" valign="top" style="text-align: center;">
+                <strong>Visa Responsable Production</strong><br><br><br>
+                {{ fiche.visa_resp_production }}
+            </td>
+        </tr>
+    </table>
+
+</div>
+
+</body>
+</html>
