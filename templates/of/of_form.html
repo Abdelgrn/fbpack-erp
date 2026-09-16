@@ -20,7 +20,6 @@
 </div>
 {% endif %}
 
-<!-- AVERTISSEMENT MACHINE EN MAINTENANCE -->
 {% if machine_warning %}
 <div class="mb-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-5 flex items-start gap-4 shadow-lg">
     <span class="text-3xl">⚠️</span>
@@ -32,7 +31,7 @@
 </div>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data" class="max-w-6xl" id="of-form">
+<form method="post" enctype="multipart/form-data" class="max-w-7xl mx-auto" id="of-form">
     {% csrf_token %}
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -43,53 +42,57 @@
                 <span>📋</span> Informations générales
             </h2>
             <div class="space-y-4">
-                <div>
-                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Client *</label>
-                    <select name="client" id="id_client" class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all" required>
-                        <option value="">-- Sélectionner --</option>
-                        {% for c in form.fields.client.queryset %}
-                        <option value="{{ c.id }}" {% if form.client.value|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Client *</label>
+                        {{ form.client }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Produit *</label>
+                        {{ form.produit }}
+                    </div>
                 </div>
-                <div>
-                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Produit *</label>
-                    <select name="produit" class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all" required>
-                        <option value="">-- Sélectionner --</option>
-                        {% for p in form.fields.produit.queryset %}
-                        <option value="{{ p.id }}" {% if form.produit.value|stringformat:"s" == p.id|stringformat:"s" %}selected{% endif %}>{{ p.ref_internal }} — {{ p.name }}</option>
-                        {% endfor %}
-                    </select>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Quantité prévue (kg) *</label>
+                        {{ form.quantite_prevue }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Support global</label>
+                        {{ form.support }}
+                    </div>
                 </div>
-                <div>
-                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Quantité prévue (kg) *</label>
-                    <input type="number" step="0.01" name="quantite_prevue" value="{{ form.quantite_prevue.value|default:'0' }}"
-                        class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all" required>
-                </div>
-                <div>
-                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Priorité</label>
-                    <select name="priorite" class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all">
-                        {% for value, label in form.fields.priorite.choices %}
-                        <option value="{{ value }}" {% if form.priorite.value == value %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Date lancement</label>
-                        <input type="date" name="date_lancement" value="{{ form.date_lancement.value|default:'' }}"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all">
+                        {{ form.date_lancement }}
                     </div>
                     <div>
                         <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Date fin prévue</label>
-                        <input type="date" name="date_prevue_fin" value="{{ form.date_prevue_fin.value|default:'' }}"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all">
+                        {{ form.date_prevue_fin }}
                     </div>
                 </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Priorité</label>
+                        {{ form.priorite }}
+                    </div>
+                    <div>
+                        <label class="text-yellow-500 text-xs uppercase font-bold block mb-1">N° Lot (auto si vide)</label>
+                        {{ form.numero_lot }}
+                    </div>
+                </div>
+                
                 <div>
-                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Notes / Instructions</label>
-                    <textarea name="notes" rows="3"
-                        class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all">{{ form.notes.value|default:'' }}</textarea>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Observation (Excel)</label>
+                    {{ form.observation }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Notes internes</label>
+                    {{ form.notes }}
                 </div>
             </div>
         </div>
@@ -97,50 +100,37 @@
         <!-- DIMENSIONS & FICHIERS -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl">
             <h2 class="text-white font-bold mb-6 text-lg flex items-center gap-2">
-                <span>📐</span> Dimensions & Spécifications
+                <span>📐</span> Dimensions & Fichiers
             </h2>
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Laize (mm)</label>
-                        <input type="number" step="0.1" name="laize" value="{{ form.laize.value|default:'0' }}"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all">
+                        {{ form.laize }}
                     </div>
                     <div>
                         <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Épaisseur (μm)</label>
-                        <input type="number" step="0.1" name="epaisseur" value="{{ form.epaisseur.value|default:'0' }}"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all">
+                        {{ form.epaisseur }}
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Mandrin (mm)</label>
-                        <input type="number" step="0.1" name="dimension_mandrin" value="{{ form.dimension_mandrin.value|default:'76' }}"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all">
+                        {{ form.dimension_mandrin }}
                     </div>
                     <div>
                         <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Ø Bobine fille (mm)</label>
-                        <input type="number" step="0.1" name="diametre_bobine_fille" value="{{ form.diametre_bobine_fille.value|default:'0' }}"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all">
+                        {{ form.diametre_bobine_fille }}
                     </div>
-                </div>
-                
-                <!-- CHAMP N° LOT AJOUTÉ ICI -->
-                <div class="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 mt-2">
-                    <label class="text-yellow-500 text-xs uppercase font-bold block mb-1">N° Lot *</label>
-                    <input type="text" name="numero_lot" value="{{ form.numero_lot.value|default:'' }}" placeholder="Ex: LOT-2024-001"
-                        class="w-full bg-slate-700 border border-yellow-500/30 text-white rounded-lg px-3 py-2.5 text-sm font-bold font-mono focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none transition-all" required>
                 </div>
 
                 <div class="mt-4">
                     <label class="text-gray-400 text-xs uppercase font-bold block mb-1">BAT Validé</label>
-                    <input type="file" name="bat_file"
-                        class="w-full bg-slate-700 border border-slate-600 text-gray-300 rounded-lg px-3 py-2 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-600 file:text-white hover:file:bg-slate-500 transition-all cursor-pointer">
+                    {{ form.bat_file }}
                 </div>
                 <div>
                     <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Fiche technique</label>
-                    <input type="file" name="fiche_technique"
-                        class="w-full bg-slate-700 border border-slate-600 text-gray-300 rounded-lg px-3 py-2 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-600 file:text-white hover:file:bg-slate-500 transition-all cursor-pointer">
+                    {{ form.fiche_technique }}
                 </div>
             </div>
         </div>
@@ -150,7 +140,7 @@
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 mt-6 shadow-xl">
         <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-700">
             <h2 class="text-white font-bold text-lg flex items-center gap-2">
-                <span>⚙️</span> Étapes de Production
+                <span>⚙️</span> Étapes de Production (Ateliers)
             </h2>
             <button type="button" onclick="ajouterEtape()" 
                 class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition text-sm flex items-center gap-2">
@@ -158,77 +148,77 @@
             </button>
         </div>
 
-        <!-- ALERTE MACHINE JS -->
         <div id="machine-alert" class="hidden mb-4 p-4 rounded-lg border"></div>
 
         {{ formset.management_form }}
         <div id="etapes-container" class="space-y-4">
             {% for etape_form in formset %}
             <div class="etape-row bg-slate-900/50 border border-slate-700 rounded-lg p-5 relative group transition-all hover:border-slate-500">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
                     <div>
-                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">N° Étape</label>
-                        <input type="number" name="{{ etape_form.prefix }}-numero_etape" 
-                            value="{{ etape_form.numero_etape.value|default:forloop.counter }}"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:outline-none">
-                        {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">N°</label>
+                        {{ etape_form.numero_etape }}
                     </div>
                     <div>
-                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Processus</label>
-                        <select name="{{ etape_form.prefix }}-process_type"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:outline-none">
-                            <option value="">-- Aucun --</option>
-                            {% for pt in process_types %}
-                            <option value="{{ pt.id }}" {% if etape_form.process_type.value|stringformat:"s" == pt.id|stringformat:"s" %}selected{% endif %}>{{ pt }}</option>
-                            {% endfor %}
-                        </select>
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Processus</label>
+                        {{ etape_form.process_type }}
                     </div>
                     <div>
-                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Machine</label>
-                        <select name="{{ etape_form.prefix }}-machine" 
-                            class="machine-select w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:outline-none"
-                            onchange="verifierMachine(this)">
-                            <option value="">-- Aucune --</option>
-                            {% for m in machines %}
-                            <option value="{{ m.id }}" 
-                                data-status="{{ m.status }}"
-                                {% if etape_form.machine.value|stringformat:"s" == m.id|stringformat:"s" %}selected{% endif %}>
-                                {{ m.name }} 
-                                {% if m.status == 'PANNE' %}🔴{% elif m.status == 'MAINT' %}🔧{% elif m.status == 'RUN' %}🟢{% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Atelier</label>
+                        {{ etape_form.atelier }}
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Machine</label>
+                        {{ etape_form.machine }}
                         <div class="machine-etape-alert hidden mt-1.5 text-xs px-2 py-1 rounded font-bold"></div>
                     </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4 bg-slate-800/50 p-3 rounded border border-slate-700/50">
                     <div>
-                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Qté entrée (kg)</label>
-                        <input type="number" step="0.01" name="{{ etape_form.prefix }}-quantite_entree"
-                            value="{{ etape_form.quantite_entree.value|default:'0' }}"
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:outline-none">
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support Etape</label>
+                        {{ etape_form.support }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté IN (kg)</label>
+                        {{ etape_form.quantite_entree }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté OUT (ML)</label>
+                        {{ etape_form.quantite_ml }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Nb Bobines</label>
+                        {{ etape_form.nb_bobines }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Dév (mm)</label>
+                        {{ etape_form.developpement }}
+                    </div>
+                    <div>
+                        <label class="text-yellow-500 text-[10px] uppercase font-bold block mb-1">Lot Etape</label>
+                        {{ etape_form.numero_lot_etape }}
                     </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Nom de l'étape</label>
-                        <input type="text" name="{{ etape_form.prefix }}-nom_etape"
-                            value="{{ etape_form.nom_etape.value|default:'' }}"
-                            placeholder="Ex: Extrusion, Impression..."
-                            class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:outline-none">
+                        <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Observation</label>
+                        {{ etape_form.observation }}
                     </div>
-                    <div class="flex items-center justify-between mt-6">
+                    <div class="flex items-center justify-between mt-5">
                         <label class="flex items-center gap-2 cursor-pointer group">
-                            <input type="checkbox" name="{{ etape_form.prefix }}-genere_semi_produit" 
-                                {% if etape_form.genere_semi_produit.value %}checked{% endif %} 
-                                class="w-5 h-5 rounded border-slate-500 text-yellow-500 focus:ring-yellow-500 bg-slate-800">
-                            <span class="text-gray-300 text-sm font-bold group-hover:text-white transition">Génère un semi-produit</span>
+                            {{ etape_form.genere_semi_produit }}
+                            <span class="text-gray-300 text-sm font-bold group-hover:text-white transition">Génère semi-produit</span>
                         </label>
-                        <button type="button" onclick="this.closest('.etape-row').remove()"
-                            class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1">
-                            <span>🗑️</span> Supprimer
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-red-400">Supprimer:</span>
+                            {{ etape_form.DELETE }}
+                        </div>
                     </div>
                 </div>
-                <input type="hidden" name="{{ etape_form.prefix }}-DELETE" value="">
             </div>
             {% endfor %}
         </div>
@@ -238,7 +228,7 @@
     <div class="flex flex-wrap gap-3 mt-8 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-xl">
         {% if not machine_blocked %}
         <button type="submit" class="flex-1 md:flex-none bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 px-8 rounded-lg transition shadow-lg shadow-yellow-500/20 text-sm">
-            💾 Créer l'Ordre de Fabrication
+            💾 Enregistrer l'OF
         </button>
         {% else %}
         <button type="button" disabled
@@ -252,118 +242,44 @@
     </div>
 </form>
 
+{{ machines_statuts|json_script:"machines-statuts-data" }}
+
 <script>
-const machinesStatuts = {{ machines_statuts|safe }};
+// Récupération des données Django proprement (via json_script)
+const machinesStatutsRaw = document.getElementById('machines-statuts-data');
+const machinesStatuts = machinesStatutsRaw ? JSON.parse(machinesStatutsRaw.textContent) : {};
+let etapeCount = parseInt(document.querySelector('[name="etapes-TOTAL_FORMS"]')?.value || 0, 10);
 
-let etapeCount = {{ formset.total_form_count }};
-
-function verifierMachine(selectEl) {
-    const machineId = selectEl.value;
-    const alertDiv = selectEl.parentElement.querySelector('.machine-etape-alert');
-    
-    if (!machineId || !machinesStatuts[machineId]) {
-        alertDiv.classList.add('hidden');
-        selectEl.classList.remove('border-red-500', 'border-yellow-500');
-        return;
-    }
-    
-    const data = machinesStatuts[machineId];
-    alertDiv.classList.remove('hidden');
-    
-    if (!data.peut_creer) {
-        // Bloqué
-        alertDiv.className = 'machine-etape-alert mt-1.5 text-xs px-2 py-1 rounded font-bold bg-red-500/20 text-red-400 border border-red-500/30';
-        alertDiv.textContent = '🚫 ' + data.message;
-        selectEl.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
-        selectEl.classList.remove('border-yellow-500', 'focus:border-yellow-500', 'focus:ring-yellow-500');
-    } else if (data.message) {
-        // Warning
-        alertDiv.className = 'machine-etape-alert mt-1.5 text-xs px-2 py-1 rounded font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
-        alertDiv.textContent = '⚠️ ' + data.message;
-        selectEl.classList.add('border-yellow-500', 'focus:border-yellow-500', 'focus:ring-yellow-500');
-        selectEl.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
-    } else {
-        // OK
-        alertDiv.className = 'machine-etape-alert mt-1.5 text-xs px-2 py-1 rounded font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-        alertDiv.textContent = '✓ Machine opérationnelle';
-        selectEl.classList.remove('border-red-500', 'border-yellow-500', 'focus:border-red-500');
-        selectEl.classList.add('focus:border-yellow-500');
-    }
-}
-
+// Petit script pour gérer l'ajout d'étape dynamique
 function ajouterEtape() {
     const container = document.getElementById('etapes-container');
     const totalForms = document.querySelector('[name="etapes-TOTAL_FORMS"]');
-    
-    const newRow = document.createElement('div');
-    newRow.className = 'etape-row bg-slate-900/50 border border-slate-700 rounded-lg p-5 relative group transition-all hover:border-slate-500';
-    newRow.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">N° Étape</label>
-                <input type="number" name="etapes-${etapeCount}-numero_etape" value="${etapeCount + 1}"
-                    class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:outline-none">
-                <input type="hidden" name="etapes-${etapeCount}-id" value="">
-            </div>
-            <div>
-                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Processus</label>
-                <select name="etapes-${etapeCount}-process_type"
-                    class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:outline-none">
-                    <option value="">-- Aucun --</option>
-                    {% for pt in process_types %}
-                    <option value="{{ pt.id }}">{{ pt }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Machine</label>
-                <select name="etapes-${etapeCount}-machine"
-                    class="machine-select w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:outline-none"
-                    onchange="verifierMachine(this)">
-                    <option value="">-- Aucune --</option>
-                    {% for m in machines %}
-                    <option value="{{ m.id }}" data-status="{{ m.status }}">
-                        {{ m.name }} {% if m.status == 'PANNE' %}🔴{% elif m.status == 'MAINT' %}🔧{% elif m.status == 'RUN' %}🟢{% endif %}
-                    </option>
-                    {% endfor %}
-                </select>
-                <div class="machine-etape-alert hidden mt-1.5 text-xs px-2 py-1 rounded font-bold"></div>
-            </div>
-            <div>
-                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Qté entrée (kg)</label>
-                <input type="number" step="0.01" name="etapes-${etapeCount}-quantite_entree" value="0"
-                    class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm font-mono focus:border-yellow-500 focus:outline-none">
-            </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
-                <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Nom de l'étape</label>
-                <input type="text" name="etapes-${etapeCount}-nom_etape" placeholder="Ex: Extrusion, Impression..."
-                    class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-yellow-500 focus:outline-none">
-            </div>
-            <div class="flex items-center justify-between mt-6">
-                <label class="flex items-center gap-2 cursor-pointer group">
-                    <input type="checkbox" name="etapes-${etapeCount}-genere_semi_produit" checked 
-                        class="w-5 h-5 rounded border-slate-500 text-yellow-500 focus:ring-yellow-500 bg-slate-800">
-                    <span class="text-gray-300 text-sm font-bold group-hover:text-white transition">Génère un semi-produit</span>
-                </label>
-                <button type="button" onclick="this.closest('.etape-row').remove()"
-                    class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1">
-                    <span>🗑️</span> Supprimer
-                </button>
-            </div>
-        </div>
-        <input type="hidden" name="etapes-${etapeCount}-DELETE" value="">
-    `;
+    if (!container || !totalForms) return;
+
+    const rows = container.querySelectorAll('.etape-row');
+    if (rows.length === 0) return;
+
+    const newRow = rows[rows.length - 1].cloneNode(true);
+    const regex = new RegExp('etapes-' + (etapeCount - 1), 'g');
+    newRow.innerHTML = newRow.innerHTML.replace(regex, 'etapes-' + etapeCount);
+
+    // Réinitialiser les valeurs
+    const inputs = newRow.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"]), select, textarea');
+    inputs.forEach(input => {
+        if (input.name && input.name.includes('numero_etape')) {
+            input.value = etapeCount + 1;
+        } else {
+            input.value = '';
+        }
+    });
+
+    // Décocher les cases à cocher
+    const checkboxes = newRow.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => { cb.checked = false; });
+
     container.appendChild(newRow);
     etapeCount++;
     totalForms.value = etapeCount;
 }
-
-// Vérifier toutes les machines au chargement
-document.querySelectorAll('.machine-select').forEach(sel => {
-    if (sel.value) verifierMachine(sel);
-});
 </script>
-
 {% endblock %}

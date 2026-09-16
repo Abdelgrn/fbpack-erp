@@ -4,7 +4,7 @@ from .models import (
     Client, ClientContact, InteractionLog, Opportunite,
     TechnicalProduct, Tooling, Quote,
     ProductionOrder, Supplier, Material, ConsommationEncre,
-    Machine, ProductionEntry,
+    Machine, ProductionEntry, CalculTempsProduction,
     OrdreFabrication, EtapeProduction, SemiProduit,
     SuiviProduction, ConsommationMatiere, ProcessType,
     Department, Position, Employee, EmployeeDocument,
@@ -12,7 +12,14 @@ from .models import (
     Shift, Attendance, LeaveType, LeaveRequest,
     Payslip, WorkSchedule, ShiftAssignment,
     MedicalVisit, WorkIncident, ProtectiveEquipment,
-
+    Atelier, CompteurMachine, CategoriePiece, PieceRechange,
+    MouvementPiece, OrdreMaintenance, ConsommationPiece,
+    PlanMaintenancePreventive, AlerteMaintenance,
+    # === NOUVEAUX MODELES ===
+    FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+    FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+    FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+    FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille
 )
 
 
@@ -230,38 +237,122 @@ class ConsommationEncreForm(forms.ModelForm):
         }
 
 
+# ===========================================================================
+# 🆕 FORMULAIRE SAISIE UNIQUE UNIFIÉE PRODUCTION (ANCIEN - CONSERVÉ)
+# ===========================================================================
+
 class ProductionEntryForm(forms.ModelForm):
     class Meta:
         model = ProductionEntry
         fields = [
-            'date', 'produit', 'support', 'quantite_lancee', 'lot', 'laize',
-            'client', 'equipe', 'machine', 'heure_debut', 'heure_fin',
-            'prod_ml', 'dechets_demarrage', 'dechets_lisiere',
-            'dechets_jonction', 'dechets_transport', 'prod_kg', 'rebobinage_kg'
+            'date', 'produit', 'support', 'client', 'equipe', 'machine', 'type_process',
+            'unite_commande', 'quantite_commandee_unites', 'grammage_g_m2',
+            'quantite_lancee', 'lot', 'laize',
+            'pas_mm', 'laize_produit_mm', 'laize_bobine_mere_mm', 'longueur_bobine_mere_m',
+            'vitesse_machine_trmin', 'temps_calage_min',
+            'heure_debut', 'heure_fin', 'prod_ml', 'prod_kg',
+            'dechets_demarrage', 'dechets_lisiere', 'dechets_jonction', 'dechets_transport',
+            'rebobinage_kg',
+            'of_lie', 'etape_liee',
         ]
         widgets = {
             'date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'produit': forms.TextInput(attrs={'class': 'form-control'}),
-            'support': forms.TextInput(attrs={'class': 'form-control'}),
-            'quantite_lancee': forms.NumberInput(attrs={'class': 'form-control'}),
-            'lot': forms.TextInput(attrs={'class': 'form-control'}),
-            'laize': forms.NumberInput(attrs={'class': 'form-control'}),
+            'produit': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: CRISTA 1.5L / SAFINA 1KG'}),
+            'support': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: OPP 38 BLNC / PET 12 TRS'}),
             'client': forms.Select(attrs={'class': 'form-select'}),
             'equipe': forms.Select(attrs={'class': 'form-select'}),
             'machine': forms.Select(attrs={'class': 'form-select'}),
+            'type_process': forms.Select(attrs={'class': 'form-select'}),
+            'unite_commande': forms.Select(attrs={'class': 'form-select', 'id': 'id_unite_commande'}),
+            'quantite_commandee_unites': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ex: 6000000 (Étiquettes/Sacs) ou 2000 (KG) ou 40000 (ML)'}),
+            'grammage_g_m2': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Ex: 38.0 g/m²', 'step': '0.1'}),
+            'quantite_lancee': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'kg'}),
+            'lot': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'N° Lot / Ref', 'list': 'lots_existants'}),
+            'laize': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'mm'}),
+            'pas_mm': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '275'}),
+            'laize_produit_mm': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '65'}),
+            'laize_bobine_mere_mm': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '825'}),
+            'longueur_bobine_mere_m': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '10000'}),
+            'vitesse_machine_trmin': forms.NumberInput(attrs={'class': 'form-control', 'min': 100, 'max': 400, 'placeholder': '100 - 400 tr/min'}),
+            'temps_calage_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'minutes'}),
             'heure_debut': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'heure_fin': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'prod_ml': forms.NumberInput(attrs={'class': 'form-control'}),
+            'prod_kg': forms.NumberInput(attrs={'class': 'form-control'}),
             'dechets_demarrage': forms.NumberInput(attrs={'class': 'form-control'}),
             'dechets_lisiere': forms.NumberInput(attrs={'class': 'form-control'}),
             'dechets_jonction': forms.NumberInput(attrs={'class': 'form-control'}),
             'dechets_transport': forms.NumberInput(attrs={'class': 'form-control'}),
-            'prod_kg': forms.NumberInput(attrs={'class': 'form-control'}),
             'rebobinage_kg': forms.NumberInput(attrs={'class': 'form-control'}),
+            'of_lie': forms.Select(attrs={'class': 'form-select'}),
+            'etape_liee': forms.Select(attrs={'class': 'form-select'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'machine' in self.fields:
+            self.fields['machine'].queryset = Machine.objects.filter(
+                est_active=True
+            ).exclude(type__in=['NETT_CL', 'NETT_AN']).order_by('name')
+        if 'of_lie' in self.fields:
+            self.fields['of_lie'].queryset = OrdreFabrication.objects.exclude(
+                statut__in=['TERMINE', 'ANNULE']
+            ).order_by('-date_creation')
+            self.fields['of_lie'].required = False
+        if 'etape_liee' in self.fields:
+            self.fields['etape_liee'].required = False
 
-# Ancien formulaire pour compatibilité
+
+class CalculTempsProductionForm(forms.ModelForm):
+    class Meta:
+        model = CalculTempsProduction
+        fields = [
+            'nom_job', 'client', 'type_produit',
+            'quantite_commandee', 'unite_quantite',
+            'pas_mm', 'laize_produit_mm', 'grammage_g_m2',
+            'laize_bobine_mere_mm', 'longueur_bobine_mere_m',
+            'process_impression', 'machine_impression', 'vitesse_impression_mmin',
+            'temps_calage_impression_min', 'temps_decalage_bobine_min',
+            'machine_decoupe', 'vitesse_decoupe_mmin',
+            'temps_calage_decoupe_min', 'temps_rebobinage_fille_min',
+            'date_debut_prevue', 'notes'
+        ]
+        widgets = {
+            'nom_job': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Commande 2 Mllions Étiquettes'}),
+            'client': forms.Select(attrs={'class': 'form-select'}),
+            'type_produit': forms.Select(attrs={'class': 'form-select'}),
+            'quantite_commandee': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'unite_quantite': forms.Select(attrs={'class': 'form-select'}),
+            'pas_mm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': '275'}),
+            'laize_produit_mm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': '65'}),
+            'grammage_g_m2': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': '80'}),
+            'laize_bobine_mere_mm': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': '825'}),
+            'longueur_bobine_mere_m': forms.NumberInput(attrs={'class': 'form-control', 'step': '10', 'placeholder': '10000'}),
+            'process_impression': forms.Select(attrs={'class': 'form-select'}),
+            'machine_impression': forms.Select(attrs={'class': 'form-select'}),
+            'vitesse_impression_mmin': forms.NumberInput(attrs={'class': 'form-control', 'min': 100, 'max': 400, 'step': '5', 'placeholder': '200'}),
+            'temps_calage_impression_min': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'temps_decalage_bobine_min': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'machine_decoupe': forms.Select(attrs={'class': 'form-select'}),
+            'vitesse_decoupe_mmin': forms.NumberInput(attrs={'class': 'form-control', 'min': 100, 'max': 400, 'step': '5', 'placeholder': '250'}),
+            'temps_calage_decoupe_min': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'temps_rebobinage_fille_min': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'date_debut_prevue': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Observations complémentaires...'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'machine_impression' in self.fields:
+            self.fields['machine_impression'].queryset = Machine.objects.filter(
+                est_active=True
+            ).exclude(type__in=['NETT_CL', 'NETT_AN']).order_by('name')
+        if 'machine_decoupe' in self.fields:
+            self.fields['machine_decoupe'].queryset = Machine.objects.filter(
+                est_active=True
+            ).exclude(type__in=['NETT_CL', 'NETT_AN']).order_by('name')
+
+
 class ProductionOrderForm(forms.ModelForm):
     class Meta:
         model = ProductionOrder
@@ -284,18 +375,10 @@ class ProductionOrderForm(forms.ModelForm):
             'opportunite': forms.Select(attrs={'class': 'form-select'}),
         }
 
+
 # ===========================================================================
 # --- FORMULAIRES DRH ---
 # ===========================================================================
-
-from .models import (
-    Department, Position, Employee, EmployeeDocument,
-    Skill, EmployeeSkill, MachineAuthorization,
-    Shift, Attendance, LeaveType, LeaveRequest,
-    Payslip, WorkSchedule, ShiftAssignment,
-    MedicalVisit, WorkIncident, ProtectiveEquipment,
-)
-
 
 class DepartmentForm(forms.ModelForm):
     class Meta:
@@ -328,18 +411,12 @@ class EmployeeForm(forms.ModelForm):
     class Meta:
         model = Employee
         fields = [
-            # Identité
             'nom', 'prenom', 'nom_arabe', 'date_naissance', 'lieu_naissance',
             'genre', 'situation_familiale', 'nb_enfants',
-            # Documents
             'cin', 'num_securite_sociale', 'num_carte_chifa',
-            # Coordonnées
             'adresse', 'wilaya', 'commune', 'telephone', 'telephone_urgence', 'email',
-            # Professionnel
             'department', 'position', 'superieur', 'machine_affectee', 'atelier',
-            # Contrat
             'type_contrat', 'date_embauche', 'date_fin_contrat', 'salaire_base',
-            # Autres
             'statut', 'photo', 'notes',
         ]
         widgets = {
@@ -459,7 +536,6 @@ class AttendanceForm(forms.ModelForm):
 
 
 class AttendanceBulkForm(forms.Form):
-    """Formulaire pour pointage en masse"""
     date = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
     shift = forms.ModelChoiceField(
         queryset=Shift.objects.filter(is_active=True),
@@ -614,6 +690,7 @@ class ProtectiveEquipmentForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
+
 # ===========================================================================
 # --- OF MULTI-PROCESSUS FORMS ---
 # ===========================================================================
@@ -623,57 +700,28 @@ class OrdreFabricationForm(forms.ModelForm):
         model = OrdreFabrication
         fields = [
             'numero_of', 'numero_lot', 'client', 'produit', 'opportunite',
-            'quantite_prevue', 'dimension_mandrin', 'diametre_bobine_fille',
+            'quantite_prevue', 'support',
+            'dimension_mandrin', 'diametre_bobine_fille',
             'laize', 'epaisseur', 'date_lancement', 'date_prevue_fin',
-            'priorite', 'bat_file', 'fiche_technique', 'notes'
+            'priorite', 'bat_file', 'fiche_technique', 'notes', 'observation'
         ]
         widgets = {
-            'numero_of': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Auto-généré si vide'
-            }),
-            'numero_lot': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ex: LOT-2025-001'
-            }),
+            'numero_of': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-généré si vide (ex: OF2025-0001)'}),
+            'numero_lot': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-généré si vide (ex: LOT2025-0001)'}),
             'client': forms.Select(attrs={'class': 'form-select'}),
             'produit': forms.Select(attrs={'class': 'form-select'}),
             'opportunite': forms.Select(attrs={'class': 'form-select'}),
-            'quantite_prevue': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.01',
-                'min': '0'
-            }),
-            'dimension_mandrin': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.1'
-            }),
-            'diametre_bobine_fille': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.1'
-            }),
-            'laize': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.1'
-            }),
-            'epaisseur': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.1'
-            }),
-            'date_lancement': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date'
-            }),
-            'date_prevue_fin': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date'
-            }),
+            'quantite_prevue': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'support': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: OPP 20 TRS, PE 90μ...'}),
+            'dimension_mandrin': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'diametre_bobine_fille': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'laize': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'epaisseur': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'date_lancement': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'date_prevue_fin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'priorite': forms.Select(attrs={'class': 'form-select'}),
-            'notes': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'Instructions spéciales...'
-            }),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Instructions spéciales...'}),
+            'observation': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Ex: BAT SEULEMENT, RELIQUAT, BAT+PROD...'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -689,42 +737,41 @@ class EtapeProductionForm(forms.ModelForm):
     class Meta:
         model = EtapeProduction
         fields = [
-            'numero_etape', 'nom_etape', 'process_type', 'machine',
-            'operateur', 'quantite_entree', 'date_prevue_debut',
-            'date_prevue_fin', 'genere_semi_produit', 'notes'
+            'numero_etape', 'nom_etape', 'process_type', 'atelier', 'machine',
+            'operateur', 'quantite_entree',
+            'support', 'developpement', 'quantite_ml', 'nb_bobines',
+            'numero_lot_etape', 'observation',
+            'date_prevue_debut', 'date_prevue_fin', 'genere_semi_produit', 'notes'
         ]
         widgets = {
-            'numero_etape': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': '1'
-            }),
-            'nom_etape': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ex: Impression Flexo'
-            }),
+            'numero_etape': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'nom_etape': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Impression Flexo'}),
             'process_type': forms.Select(attrs={'class': 'form-select'}),
+            'atelier': forms.Select(attrs={'class': 'form-select'}),
             'machine': forms.Select(attrs={'class': 'form-select'}),
             'operateur': forms.Select(attrs={'class': 'form-select'}),
-            'quantite_entree': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.01'
-            }),
-            'date_prevue_debut': forms.DateTimeInput(attrs={
-                'class': 'form-control',
-                'type': 'datetime-local'
-            }),
-            'date_prevue_fin': forms.DateTimeInput(attrs={
-                'class': 'form-control',
-                'type': 'datetime-local'
-            }),
-            'genere_semi_produit': forms.CheckboxInput(attrs={
-                'class': 'form-check-input'
-            }),
-            'notes': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 2
-            }),
+            'quantite_entree': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'support': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: OPP 20 TRS 920MM'}),
+            'developpement': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': 'Ex: 680'}),
+            'quantite_ml': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Mètres linéaires'}),
+            'nb_bobines': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'numero_lot_etape': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: 90PE440-8, 08CN70'}),
+            'observation': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Ex: RELIQUAT, BAT+PROD, BAT SEULEMENT'}),
+            'date_prevue_debut': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'date_prevue_fin': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'genere_semi_produit': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'machine' in self.fields:
+            self.fields['machine'].queryset = Machine.objects.filter(
+                est_active=True
+            ).exclude(type__in=['NETT_CL', 'NETT_AN']).order_by('atelier__nom', 'name')
+        if 'atelier' in self.fields:
+            self.fields['atelier'].queryset = Atelier.objects.filter(est_actif=True).order_by('ordre_affichage', 'nom')
+            self.fields['atelier'].required = False
 
 
 EtapeProductionFormSet = inlineformset_factory(
@@ -748,22 +795,10 @@ class SuiviProductionForm(forms.ModelForm):
         widgets = {
             'type_evenement': forms.Select(attrs={'class': 'form-select'}),
             'cause_arret': forms.Select(attrs={'class': 'form-select'}),
-            'quantite_produite': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.01'
-            }),
-            'quantite_rebut': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.01'
-            }),
-            'vitesse_machine': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'step': '0.1'
-            }),
-            'commentaire': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 2
-            }),
+            'quantite_produite': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'quantite_rebut': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'vitesse_machine': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'commentaire': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
 
@@ -806,7 +841,7 @@ class ConsommationMatiereForm(forms.ModelForm):
 class ProcessTypeForm(forms.ModelForm):
     class Meta:
         model = ProcessType
-        fields = ['code', 'nom', 'description', 'ordre_defaut', 'icone', 'couleur', 'est_actif']
+        fields = ['code', 'nom', 'description', 'ordre_defaut', 'icone', 'couleur', 'atelier_lie', 'est_actif']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control'}),
             'nom': forms.TextInput(attrs={'class': 'form-control'}),
@@ -814,6 +849,7 @@ class ProcessTypeForm(forms.ModelForm):
             'ordre_defaut': forms.NumberInput(attrs={'class': 'form-control'}),
             'icone': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 10}),
             'couleur': forms.TextInput(attrs={'class': 'form-control', 'type': 'color'}),
+            'atelier_lie': forms.Select(attrs={'class': 'form-select'}),
             'est_actif': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -832,6 +868,11 @@ class OFLancementRapideForm(forms.Form):
     quantite = forms.FloatField(
         widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
         label="Quantité (kg)"
+    )
+    support = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: OPP 20 TRS'}),
+        label="Support"
     )
     priorite = forms.ChoiceField(
         choices=OrdreFabrication.PRIORITE_CHOICES,
@@ -852,35 +893,50 @@ class OFLancementRapideForm(forms.Form):
         label="Machine"
     )
     qte_extrusion = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    support_extrusion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Support extrusion'}))
 
     etape_impression = forms.BooleanField(required=False, initial=True, label="Impression")
     machine_impression = forms.ModelChoiceField(
-        queryset=Machine.objects.filter(type='IMP'),
+        queryset=Machine.objects.filter(type__in=['IMP', 'HELIO']),
         required=False,
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Machine"
     )
     qte_impression = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    support_impression = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Support impression'}))
+    developpement_impression = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': 'Ex: 680'}))
+
+    etape_complexage = forms.BooleanField(required=False, initial=False, label="Complexage")
+    machine_complexage = forms.ModelChoiceField(
+        queryset=Machine.objects.filter(type='COMP'),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Machine"
+    )
+    qte_complexage = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
 
     etape_decoupe = forms.BooleanField(required=False, initial=True, label="Découpe")
     machine_decoupe = forms.ModelChoiceField(
-        queryset=Machine.objects.filter(type='DEC'),
+        queryset=Machine.objects.filter(type__in=['DEC', 'DEC2']),
         required=False,
         widget=forms.Select(attrs={'class': 'form-select'}),
         label="Machine"
     )
     qte_decoupe = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
 
+    etape_fond_carre = forms.BooleanField(required=False, initial=False, label="Fond Carré")
+    machine_fond_carre = forms.ModelChoiceField(
+        queryset=Machine.objects.filter(type__in=['SAC_FC', 'SAC_SO']),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Machine"
+    )
+    qte_fond_carre = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+
+
 # ===========================================================================
 # --- FORMULAIRES MAINTENANCE ---
 # ===========================================================================
-
-from .models import (
-    Atelier, CompteurMachine, CategoriePiece, PieceRechange,
-    MouvementPiece, OrdreMaintenance, ConsommationPiece,
-    PlanMaintenancePreventive, AlerteMaintenance,
-)
-
 
 class AtelierForm(forms.ModelForm):
     class Meta:
@@ -900,7 +956,6 @@ class AtelierForm(forms.ModelForm):
 
 
 class MachineMaintenanceForm(forms.ModelForm):
-    """Formulaire Machine amélioré pour la maintenance"""
     class Meta:
         model = Machine
         fields = [
@@ -1016,7 +1071,6 @@ class OrdreMaintenanceForm(forms.ModelForm):
 
 
 class ClotureOrdreMaintenanceForm(forms.ModelForm):
-    """Formulaire de clôture d'un ordre de maintenance"""
     class Meta:
         model = OrdreMaintenance
         fields = [
@@ -1087,3 +1141,180 @@ class MouvementPieceForm(forms.ModelForm):
             'motif': forms.TextInput(attrs={'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
+
+# ===========================================================================
+# 🚀 FORMULAIRE UNIFIÉ FICHES DE PRODUCTION + TRAÇABILITÉ LOT
+# ===========================================================================
+
+class FicheProductionJournaliereForm(forms.ModelForm):
+    class Meta:
+        model = FicheProductionJournaliere
+        fields = [
+            'type_fiche', 'numero_doc', 'numero_lot', 'date_fabrication', 'heure_debut', 'heure_fin',
+            'poste', 'equipe', 'machine', 'conducteur', 'aide_conducteur_1',
+            'aide_conducteur_2', 'chef_de_quart', 'client', 'designation_produit',
+            'support', 'couleur', 'epaisseur_um', 'laize_mm', 'qte_programmee',
+            'nbr_rouleaux_programmes', 't_preparation_min', 't_fonctionnement_min',
+            't_nettoyage_min', 'vitesse_machine', 'debit_production_kghr',
+            'poids_mandrin_kg', 'mandrin_longueur_mm', 'mandrin_epaisseur_mm',
+            'dechet_bloc_b', 'dechet_b_demarrage_r', 'dechet_film', 'dechet_purge',
+            'dechet_lisiere', 'total_dechets_kg', 'total_qte_lancee', 'reste_bobines_dr1', 'reste_bobines_dr2',
+            'durcisseur_ref', 'durcisseur_poids', 'resine_ref', 'resine_poids',
+            'solvant_ref', 'solvant_poids', 'total_bobines_filles', 'total_metrage_ml', 
+            'total_poids_produit_kg', 'etiquettes_pos',
+            'autocontrole_laize', 'autocontrole_epaisseur',
+            'autocontrole_aspect_visuel', 'autocontrole_autres', 'observations', 'visa_resp_production',
+            'visa_qualite', 'ok_demarrage', 'of_lie'
+        ]
+        widgets = {
+            'type_fiche': forms.Select(attrs={'class': 'form-select', 'id': 'select_type_fiche', 'onchange': 'changerTypeFiche(this.value)'}),
+            'numero_doc': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'N° Doc / Lot de commande'}),
+            # 🚀 CHAMP LOT INTELLIGENT avec datalist pour l'autocomplete
+            'numero_lot': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: LOT2025-0001 (auto-remplit client/produit)',
+                'list': 'lots_existants',
+                'id': 'id_numero_lot',
+                'autocomplete': 'off',
+            }),
+            'date_fabrication': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'heure_debut': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'heure_fin': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'poste': forms.Select(attrs={'class': 'form-select'}),
+            'equipe': forms.Select(attrs={'class': 'form-select'}),
+            'machine': forms.Select(attrs={'class': 'form-select hidden'}),
+            'conducteur': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom du conducteur'}),
+            'aide_conducteur_1': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Aide conducteur 1'}),
+            'aide_conducteur_2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Aide conducteur 2'}),
+            'chef_de_quart': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Chef de quart'}),
+            'client': forms.Select(attrs={'class': 'form-select'}),
+            'designation_produit': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Motif / Désignation Produit'}),
+            'support': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: BOPP 20 TRS, PE 90μ'}),
+            'couleur': forms.TextInput(attrs={'class': 'form-control'}),
+            'epaisseur_um': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'μm'}),
+            'laize_mm': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'mm'}),
+            'qte_programmee': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'nbr_rouleaux_programmes': forms.NumberInput(attrs={'class': 'form-control'}),
+            't_preparation_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'min'}),
+            't_fonctionnement_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'min'}),
+            't_nettoyage_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'min'}),
+            'vitesse_machine': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'm/min'}),
+            'debit_production_kghr': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg/hr'}),
+            'poids_mandrin_kg': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg'}),
+            'mandrin_longueur_mm': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'mm'}),
+            'mandrin_epaisseur_mm': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'mm'}),
+            'dechet_bloc_b': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg'}),
+            'dechet_b_demarrage_r': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg'}),
+            'dechet_film': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg'}),
+            'dechet_purge': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg'}),
+            'dechet_lisiere': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg'}),
+            'total_dechets_kg': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg'}),
+            'total_qte_lancee': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Kg'}),
+            'reste_bobines_dr1': forms.NumberInput(attrs={'class': 'form-control'}),
+            'reste_bobines_dr2': forms.NumberInput(attrs={'class': 'form-control'}),
+            'durcisseur_ref': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Réf. Colle / Durcisseur'}),
+            'durcisseur_poids': forms.NumberInput(attrs={'class': 'form-control'}),
+            'resine_ref': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Réf. Résine'}),
+            'resine_poids': forms.NumberInput(attrs={'class': 'form-control'}),
+            'solvant_ref': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Réf. Solvant'}),
+            'solvant_poids': forms.NumberInput(attrs={'class': 'form-control'}),
+            'total_bobines_filles': forms.NumberInput(attrs={'class': 'form-control'}),
+            'total_metrage_ml': forms.NumberInput(attrs={'class': 'form-control'}),
+            'total_poids_produit_kg': forms.NumberInput(attrs={'class': 'form-control'}),
+            'etiquettes_pos': forms.TextInput(attrs={'class': 'form-control'}),
+            'autocontrole_laize': forms.TextInput(attrs={'class': 'form-control'}),
+            'autocontrole_epaisseur': forms.TextInput(attrs={'class': 'form-control'}),
+            'autocontrole_aspect_visuel': forms.TextInput(attrs={'class': 'form-control'}),
+            'autocontrole_autres': forms.TextInput(attrs={'class': 'form-control'}),
+            'observations': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'visa_resp_production': forms.TextInput(attrs={'class': 'form-control'}),
+            'visa_qualite': forms.TextInput(attrs={'class': 'form-control'}),
+            'ok_demarrage': forms.TextInput(attrs={'class': 'form-control'}),
+            'of_lie': forms.Select(attrs={'class': 'form-select'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['machine'].required = False
+        self.fields['numero_lot'].required = False
+        self.fields['of_lie'].required = False
+        # Liste des OF actifs pour le select
+        self.fields['of_lie'].queryset = OrdreFabrication.objects.exclude(
+            statut__in=['TERMINE', 'ANNULE']
+        ).order_by('-date_creation')
+        self.fields['of_lie'].empty_label = "— Lier à un OF existant (optionnel) —"
+
+
+# --- FORMSETS DES SOUS-TABLES ---
+
+FicheExtrusionMatiereFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheExtrusionMatiere,
+    fields=['designation', 'num_lot_mp', 'poids_mp_kg', 'qte_realisee_net_kg', 'metrage_m', 'qte_realisee_nbr_bobines'],
+    extra=1, can_delete=True
+)
+
+FicheExtrusionArretFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheExtrusionArret,
+    fields=['code_arret', 'nature_arret', 'temps_min'],
+    extra=1, can_delete=True
+)
+
+FicheFlexoBobineEntreeFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheImpressionBobineEntree,
+    fields=['num_ordre', 'num_lot_mp', 'num_bobine', 'fournisseur', 'metrage_m', 'poids_kg', 'dechets_neutre_kg'],
+    extra=1, can_delete=True
+)
+
+FicheFlexoBobineImprimeeFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheImpressionBobineImprimee,
+    fields=['num_ordre', 'nbre_bobines', 'poids_kg', 'metrage_m', 'dechet_imprime_kg', 'observations'],
+    extra=1, can_delete=True
+)
+
+FicheFlexoEncreGroupeFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheImpressionEncreGroupe,
+    fields=['groupe_numero', 'designation_encre', 'code_encre', 'viscosite_sec', 'poids_debut_kg', 'poids_fin_kg', 'conso_encre_kg', 'conso_solvant_kg'],
+    extra=8, max_num=8, can_delete=False
+)
+
+FicheComplexageDerouleur1FormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheComplexageDerouleur1,
+    fields=['num_ordre', 'num_lot_mp', 'num_bobine', 'poids_kg', 'ml', 'dechets_kg'],
+    extra=1, can_delete=True
+)
+
+FicheComplexageDerouleur2FormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheComplexageDerouleur2,
+    fields=['num_ordre', 'num_lot_mp', 'num_bobine', 'poids_kg', 'ml', 'dechets_kg'],
+    extra=1, can_delete=True
+)
+
+FicheComplexageEnrouleurFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheComplexageEnrouleur,
+    fields=['num_ordre', 'num_lot', 'poids_kg', 'ml', 'dechets_kg'],
+    extra=1, can_delete=True
+)
+
+FicheFondCarreEquipeFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheFondCarreEquipe,
+    fields=[
+        'equipe_num', 'shift_code', 'date_fabrication', 'num_equipe', 'operateur',
+        'aide_operateur', 'debut_pro', 'fin_pro', 'fournisseur_mp', 'matiere_nature', 
+        'grm2', 'laize', 'metre_l_initial', 'poids_initial_kg', 'metre_l_decoupe', 
+        'nb_sacs', 'poids_sacs_kg', 'dechets_sacs_kg', 'dechets_bob_kg', 'restes_bob_kg', 'observation'
+    ],
+    extra=3, max_num=3, can_delete=False
+)
+
+FicheDecoupeBobineMereFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheDecoupeBobineMere,
+    fields=['num_ordre', 'reference_lot', 'poids_kg', 'metrage_ml'],
+    extra=1, can_delete=True
+)
+
+FicheDecoupeBobineFilleFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheDecoupeBobineFille,
+    fields=['num_ordre', 'nombre_filles', 'poids_filles_kg', 'nombre_a_reviser', 'poids_a_reviser_kg', 'dechets_demarrage_kg', 'dechets_lisiere_kg', 'dechets_jonction_kg', 'dechets_transport_kg', 'rouleaux_non_conforme_kg'],
+    extra=1, can_delete=True
+)

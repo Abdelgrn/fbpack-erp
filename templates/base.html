@@ -71,6 +71,15 @@
             <img src="{% static 'logo.png' %}" alt="Logo FB PACK" class="h-12 w-auto object-contain">
         </div>
 
+        <!-- 🚀 RECHERCHE GLOBALE LOT -->
+        <div class="p-3 border-b border-slate-800">
+            <form action="{% url 'prod_tracabilite_search' %}" method="GET" class="relative">
+                <input type="text" name="q" placeholder="Chercher un Lot / OF..." 
+                       class="w-full bg-slate-950 text-gray-200 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+            </form>
+        </div>
+
         <!-- MENU NAVIGATION -->
         <nav class="flex-1 py-4 overflow-y-auto space-y-1">
 

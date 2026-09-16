@@ -1,90 +1,517 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1 class="text-3xl font-black text-white mb-2">🏭 Module Production</h1>
-<p class="text-gray-400 mb-6">Synthèse des temps, décalage et rebobinage</p>
+
+<style>
+    .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .badge-mode-pcs {
+        background: rgba(6, 182, 212, 0.15);
+        color: #22d3ee;
+        border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    .badge-mode-kg {
+        background: rgba(234, 179, 8, 0.15);
+        color: #facc15;
+        border: 1px solid rgba(234, 179, 8, 0.3);
+    }
+    .badge-mode-ml {
+        background: rgba(168, 85, 247, 0.15);
+        color: #c084fc;
+        border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+</style>
+
+<!-- EN-TÊTE DE PAGE -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-3xl font-black text-white mb-1 flex items-center gap-3">
+            ⏱️ <span>Synthèse des Temps & Performance A à Z</span>
+        </h1>
+        <p class="text-gray-400 text-sm">
+            Visualisation des flux multi-machines (Impression ➔ Contrecollage ➔ Découpe), lead time, goulots d'étranglement et rendements par commande.
+        </p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="{% url 'prod_saisie' %}" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-cyan-500/20 flex items-center gap-2">
+            <span>➕</span> Nouvelle Saisie
+        </a>
+    </div>
+</div>
 
 {% include 'production_special/_nav.html' %}
 {% include 'production_special/_filters.html' %}
 
-<!-- KPIs -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <!-- Décalage IN/OUT -->
-    <div class="glass rounded-2xl p-8 border-2 border-blue-500/30 text-center">
-        <p class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3">DECALAGE IN/OUT :</p>
-        <p class="text-5xl font-black {% if decalage_total < 0 %}text-red-400{% else %}text-blue-400{% endif %}">
-            {{ decalage_total }}
+<!-- KPIS TEMPS RÉEL GLOBAUX -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+    
+    <!-- KPI 1 : DÉCALAGE -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 {% if decalage_total < 0 %}border-l-red-500{% else %}border-l-blue-500{% endif %}">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Décalage IN/OUT</p>
+            <span class="text-lg">⚖️</span>
+        </div>
+        <p class="text-3xl font-black mt-2 {% if decalage_total < 0 %}text-red-400{% else %}text-blue-400{% endif %}">
+            {{ decalage_total }} <span class="text-sm font-semibold text-gray-400">kg</span>
+        </p>
+        <p class="text-[11px] text-gray-400 mt-1">Poids Sortant (Prod) - Lancé</p>
+    </div>
+
+    <!-- KPI 2 : TEMPS D'OUVERTURE TOTAL -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-purple-500">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Temps d'Ouverture Total</p>
+            <span class="text-lg">⏳</span>
+        </div>
+        <p class="text-3xl font-black text-purple-400 mt-2">
+            {{ temps_ouverture_total }} <span class="text-sm font-semibold text-gray-400">HH:MM</span>
+        </p>
+        <p class="text-[11px] text-gray-400 mt-1">Cumul d'activité des 3 shifts</p>
+    </div>
+
+    <!-- KPI 3 : CALAGE VS ROULAGE -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-amber-500">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Calage vs Roulage</p>
+            <span class="text-lg">⚙️</span>
+        </div>
+        <div class="flex items-baseline gap-2 mt-2">
+            <span class="text-2xl font-black text-amber-400">{{ calage_heures }}h</span>
+            <span class="text-xs text-gray-400 font-bold">calage /</span>
+            <span class="text-2xl font-black text-emerald-400">{{ roulage_heures }}h</span>
+            <span class="text-xs text-gray-400 font-bold">roulage</span>
+        </div>
+        <p class="text-[11px] text-gray-400 mt-1">Temps machine effectif</p>
+    </div>
+
+    <!-- KPI 4 : REBOBINAGE -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-cyan-500">
+        <div class="flex items-center justify-between">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Rebobinage Atelier</p>
+            <span class="text-lg">🔄</span>
+        </div>
+        <p class="text-3xl font-black text-cyan-400 mt-2">
+            {{ total_rebobinage }} <span class="text-sm font-semibold text-gray-400">kg</span>
+        </p>
+        <p class="text-[11px] text-gray-400 mt-1">Quantité reprise sur refendeuse</p>
+    </div>
+
+</div>
+
+<!-- VISUALISATION GRAPHIQUE DES ROUTES DE PRODUCTION (FLUX DE PRODUIT PAR COMMANDE / LOT) -->
+<div class="glass-card rounded-2xl p-6 mb-8 border-t-4 border-t-emerald-500">
+    <div class="mb-6">
+        <h2 class="text-xl font-black text-white flex items-center gap-2">
+            <span>🔗</span> Flux de Production Séquentiel Multi-Machines par Commande
+        </h2>
+        <p class="text-xs text-gray-400 mt-1">
+            Les opérations d'impression (Flexo), contrecollage et de découpe sont liées dynamiquement par le numéro de lot pour restituer le processus complet.
         </p>
     </div>
-    <!-- Temps d'ouverture -->
-    <div class="glass rounded-2xl p-8 border-2 border-red-500/30 text-center">
-        <p class="text-xs font-bold text-red-400 uppercase tracking-widest mb-3">TEMPS D'OUVERTURE :</p>
-        <p class="text-5xl font-black text-red-400">{{ temps_ouverture_total }}</p>
-    </div>
-    <!-- Rebobinage KG -->
-    <div class="glass rounded-2xl p-8 border-2 border-yellow-500/30 text-center">
-        <p class="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-3">REBOBINAGE (KG):</p>
-        <p class="text-5xl font-black text-yellow-400">{{ total_rebobinage }}</p>
+
+    <div class="space-y-6">
+        {% for wf in workflows %}
+        <div class="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 hover:border-emerald-500/40 transition">
+            
+            <!-- En-tête de la commande (Lot) -->
+            <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                    <span class="px-2.5 py-1 text-xs font-black bg-emerald-950 text-emerald-400 border border-emerald-500/30 rounded-lg">
+                        COMMANDE / LOT : {{ wf.lot }}
+                    </span>
+                    <h3 class="text-lg font-black text-white inline-block ml-3">{{ wf.produit }}</h3>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Client : <strong class="text-gray-200">{{ wf.client }}</strong>
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-right">
+                    <div class="bg-slate-800/40 p-2 rounded-lg border border-slate-800">
+                        <span class="text-gray-400 block text-[10px] uppercase">Rendement Global</span>
+                        <strong class="text-emerald-400 text-sm font-black">{{ wf.rendement_global }}%</strong>
+                    </div>
+                    <div class="bg-slate-800/40 p-2 rounded-lg border border-slate-800">
+                        <span class="text-gray-400 block text-[10px] uppercase">Lead Time A ➔ Z</span>
+                        <strong class="text-purple-400 text-sm font-black">{{ wf.lead_time_str }}</strong>
+                    </div>
+                    <div class="bg-slate-800/40 p-2 rounded-lg border border-slate-800">
+                        <span class="text-gray-400 block text-[10px] uppercase">Poids Fini Sortant</span>
+                        <strong class="text-blue-400 text-sm font-black">{{ wf.poids_fini }} kg</strong>
+                    </div>
+                    <div class="bg-slate-800/40 p-2 rounded-lg border border-slate-800">
+                        <span class="text-gray-400 block text-[10px] uppercase">Temps Production</span>
+                        <strong class="text-indigo-400 text-sm font-black">{{ wf.total_ouverture_str }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Traçabilité & Chronologie de Passage Produit -->
+            <div class="mt-6">
+                <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-start gap-4">
+                    {% for step in wf.steps %}
+                    
+                    <!-- Carte de l'Étape de production -->
+                    <div class="flex-1 bg-slate-950/60 rounded-xl p-4 border {% if wf.bottleneck_machine == step.machine %}border-red-500/50 bg-red-950/5{% else %}border-slate-800{% endif %} relative">
+                        {% if wf.bottleneck_machine == step.machine %}
+                        <span class="absolute -top-3 right-3 bg-red-500/10 text-red-400 text-[9px] font-black px-2 py-0.5 rounded border border-red-500/30 flex items-center gap-1 uppercase tracking-wider animate-pulse">
+                            🚨 Goulot d'étranglement
+                        </span>
+                        {% endif %}
+
+                        <div class="absolute -top-3 left-4 bg-slate-800 text-[10px] font-bold px-2 py-0.5 rounded text-gray-300 uppercase tracking-wider border border-slate-700">
+                            {{ step.type_process }}
+                        </div>
+                        
+                        <div class="flex items-center justify-between mb-2 mt-1.5">
+                            <span class="text-sm font-black text-white flex items-center gap-1.5">
+                                <span>⚙️</span> {{ step.machine }}
+                            </span>
+                            <span class="text-[10px] text-gray-400 font-semibold">{{ step.date|date:"d/m/Y" }}</span>
+                        </div>
+
+                        <!-- Paramètres Machines & KPI individuels de l'étape -->
+                        <div class="grid grid-cols-2 gap-2 text-[11px] text-gray-400 mt-2">
+                            <div>
+                                <span class="block text-[9px] uppercase text-gray-500">Heures :</span>
+                                <strong class="text-gray-300">{{ step.heure_debut|time:"H:i" }} ➔ {{ step.heure_fin|time:"H:i" }}</strong>
+                            </div>
+                            <div>
+                                <span class="block text-[9px] uppercase text-gray-500">Vitesse :</span>
+                                <strong class="text-amber-400">{{ step.vitesse }} tr/min</strong>
+                            </div>
+                            <div>
+                                <span class="block text-[9px] uppercase text-gray-500">Rendement :</span>
+                                <strong class="text-emerald-400">{{ step.rendement_etape }}%</strong>
+                            </div>
+                            <div>
+                                <span class="block text-[9px] uppercase text-gray-500">Activité Machine :</span>
+                                <strong class="text-white">{{ step.temps_ouverture_min }} min</strong>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
+                            <span class="text-gray-400">Calage : <strong>{{ step.temps_calage_min }}m</strong> / Roulage : <strong>{{ step.temps_roulage_min }}m</strong></span>
+                            <span class="text-red-400 font-bold">🗑️ {{ step.dechets_kg|floatformat:1 }} kg</span>
+                        </div>
+                    </div>
+
+                    <!-- Visualisation du temps de transfert (Temps Mort d'attente inter-machines) -->
+                    {% if step.transition_next %}
+                    <div class="flex flex-col items-center justify-center py-2 px-3 lg:py-0 text-center">
+                        <span class="text-xs text-yellow-400 font-black flex items-center gap-1 bg-yellow-950/40 px-2 py-1 rounded-lg border border-yellow-500/20">
+                            ⏱️ Transfert : {{ step.transition_next }}
+                        </span>
+                        <div class="hidden lg:block w-8 h-0.5 bg-slate-800 mt-2 relative">
+                            <div class="absolute right-0 -top-1 w-2 h-2 rounded-full bg-slate-600"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+        {% empty %}
+        <div class="text-center py-8 text-gray-500 bg-slate-900/40 rounded-xl border border-slate-800/60">
+            <span class="text-3xl block mb-2">📋</span>
+            <p class="text-xs text-gray-400">Renseignez des numéros de lots identiques pour générer automatiquement l'historique complet d'une commande.</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
-<!-- GRAPHIQUES -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-    <!-- Décalage par date -->
-    <div class="glass rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-gray-300 mb-4">📊 Somme de Décalage</h3>
-        <canvas id="chartDecalage" height="250"></canvas>
+<!-- SECTION : DÉTAIL DES TEMPS & PLANNING A À Z -->
+<div class="glass-card rounded-2xl p-6 mb-8 border-t-4 border-t-cyan-500">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <span>⚡</span> Synthèse Détaillée A à Z par Ligne de Production
+            </h2>
+            <p class="text-xs text-gray-400 mt-0.5">Calculs automatiques adaptés selon l'unité de commande (Pièces, Tonnage KG ou Métrage direct)</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-semibold">
+            <span class="px-2.5 py-1 rounded-lg badge-mode-pcs">🏷️ Pièces</span>
+            <span class="px-2.5 py-1 rounded-lg badge-mode-kg">⚖️ Tonnage</span>
+            <span class="px-2.5 py-1 rounded-lg badge-mode-ml">📏 Métrage</span>
+        </div>
     </div>
-    <!-- Temps ouverture par produit et équipe -->
-    <div class="glass rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-gray-300 mb-4">⏱️ Somme de Temps Ouverture (heures)</h3>
-        <canvas id="chartTemps" height="250"></canvas>
+
+    <div class="space-y-4">
+        {% for e in entries %}
+        <div class="p-5 bg-slate-900/90 rounded-2xl border border-slate-800 hover:border-cyan-500/40 transition-all duration-200">
+            
+            <!-- EN-TÊTE DE LA LIGNE -->
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl">
+                        {% if e.unite_commande == 'KG' %}⚖️{% elif e.unite_commande == 'ML' %}📏{% else %}🏷️{% endif %}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-lg font-black text-white">{{ e.produit }}</h3>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold {% if e.unite_commande == 'KG' %}badge-mode-kg{% elif e.unite_commande == 'ML' %}badge-mode-ml{% else %}badge-mode-pcs{% endif %}">
+                                {{ e.get_unite_commande_display|default:"Pièces (Étiquettes/Sacs)" }}
+                            </span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-gray-300 border border-slate-700">
+                                Lot : {{ e.lot|default:"—" }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">
+                            Client : <strong class="text-gray-200">{{ e.client.name|default:"Non spécifié" }}</strong> · 
+                            Support : <strong class="text-cyan-400">{{ e.support|default:"—" }}</strong> · 
+                            Process : <strong class="text-purple-400">{{ e.get_type_process_display }}</strong> ·
+                            Équipe : <strong class="text-yellow-400">{{ e.equipe }}</strong> ·
+                            Date : <strong class="text-gray-300">{{ e.date|date:"d/m/Y" }}</strong>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="text-right flex items-center gap-4">
+                    <div>
+                        <span class="text-xs text-gray-400">Machine : <strong class="text-white">{{ e.machine.name|default:"Non spécifiée" }}</strong></span><br>
+                        <span class="text-xs text-emerald-400 font-bold">Vitesse : {{ e.vitesse_machine_trmin|floatformat:0|default:"200" }} tr/min</span>
+                    </div>
+                    <a href="{% url 'prod_edit_entry' e.id %}" class="p-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg transition" title="Modifier cette saisie">
+                        ✏️
+                    </a>
+                </div>
+            </div>
+
+            <!-- GRILLE DE CALCUL INTELLIGENTE SELON L'UNITÉ DE COMMANDE -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+                
+                <!-- 1. COMMANDE / POSES -->
+                <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase">
+                        {% if e.unite_commande == 'KG' %}1. Tonnage Lancé{% elif e.unite_commande == 'ML' %}1. Métrage Demandé{% else %}1. Poses / Laizes{% endif %}
+                    </p>
+                    
+                    {% if e.unite_commande == 'KG' %}
+                        <p class="text-lg font-black text-yellow-400">{{ e.quantite_lancee|floatformat:1 }} kg</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5">Laize bobine: {{ e.laize|floatformat:0 }} mm</p>
+                    {% elif e.unite_commande == 'ML' %}
+                        <p class="text-lg font-black text-purple-400">{{ e.prod_ml|floatformat:0 }} ML</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5">Laize bobine: {{ e.laize|floatformat:0 }} mm</p>
+                    {% else %}
+                        <p class="text-lg font-black text-cyan-400">{{ e.nb_poses_largeur|default:"1" }} poses</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5">Mère: {{ e.laize_bobine_mere_mm|floatformat:0 }}mm / Fille: {{ e.laize_produit_mm|floatformat:0 }}mm</p>
+                    {% endif %}
+                </div>
+
+                <!-- 2. MÉTRAGE TOTAL NÉCESSAIRE -->
+                <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase">2. Métrage Total</p>
+                    <p class="text-lg font-black text-blue-400">
+                        {{ e.metrage_total_necessaire_m|floatformat:0 }} <span class="text-xs">m</span>
+                    </p>
+                    <p class="text-[10px] text-gray-400 mt-0.5">
+                        {% if e.unite_commande == 'PCS' %}
+                            Pas de coupe : {{ e.pas_mm|floatformat:0 }} mm
+                        {% elif e.unite_commande == 'KG' %}
+                            Métrage équivalent calculé
+                        {% else %}
+                            Déroulé direct machine
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- 3. BOBINES MÈRES / FILLES -->
+                <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase">3. Bobines Mères/Filles</p>
+                    <p class="text-lg font-black text-indigo-400">
+                        {{ e.nb_bobines_meres_necessaires|default:"1" }} Mère(s)
+                    </p>
+                    <p class="text-[10px] text-gray-400 mt-0.5">
+                        {% if e.unite_commande == 'PCS' %}
+                            ➔ <strong>{{ e.nb_bobines_filles_totales }}</strong> bobines filles
+                        {% else %}
+                            Longueur mère: {{ e.longueur_bobine_mere_m|floatformat:0|default:"10000" }}m
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- 4. TEMPS ESTIMÉ TOTAL -->
+                <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700">
+                    <p class="text-[10px] font-bold text-purple-400 uppercase">4. Temps Estimé Total</p>
+                    <p class="text-lg font-black text-purple-400">{{ e.temps_estime_formatted }}</p>
+                    <p class="text-[10px] text-gray-400 mt-0.5">Calage inclus : {{ e.temps_calage_min|default:"30" }} min</p>
+                </div>
+
+                <!-- 5. DÉCHETS & RENDEMENT -->
+                <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700">
+                    <p class="text-[10px] font-bold text-red-400 uppercase">5. Déchets & Taux</p>
+                    <p class="text-lg font-black text-red-400">{{ e.total_dechets_kg }} <span class="text-xs">kg</span></p>
+                    <p class="text-[10px] text-yellow-400 font-bold mt-0.5">Taux de déchet : {{ e.taux_dechets }}%</p>
+                </div>
+
+            </div>
+
+            <!-- PLANNING HORAIRE & FIN PRÉVISIONNELLE 24H/24 -->
+            <div class="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between text-xs gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-cyan-400 font-bold">📅 Heure de Début :</span>
+                    <strong class="text-white">{{ e.heure_debut|time:"H:i"|default:"08:00" }}</strong>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-yellow-400 font-bold">⏱️ Temps d'ouverture réel :</span>
+                    <strong class="text-white">{{ e.temps_ouverture }} ({{ e.temps_ouverture_minutes }} min)</strong>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-emerald-400 font-bold">🏁 Fin Prévisionnelle de Production :</span>
+                    <strong class="text-emerald-300 font-black text-sm bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                        {{ e.fin_estimee_24h|date:"d/m/Y H:i" }}
+                    </strong>
+                </div>
+            </div>
+
+        </div>
+        {% empty %}
+        <div class="text-center py-16 text-gray-500">
+            <span class="text-4xl block mb-2">📋</span>
+            <p class="text-lg font-bold text-gray-300">Aucune ligne de production trouvée avec ces filtres.</p>
+            <p class="text-xs text-gray-500 mt-1">Utilisez le bouton "➕ Nouvelle Saisie" pour entrer un nouveau job.</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
+<!-- SECTION : GRAPHIQUES HISTORIQUES -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    
+    <!-- GRAPHIQUE 1 : DÉCALAGE PAR DATE -->
+    <div class="glass-card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2">
+                <span>📊</span> Décalage Poids IN/OUT par Date (KG)
+            </h3>
+            <span class="text-xs text-gray-500">Bleu = Positif / Rouge = Perte</span>
+        </div>
+        <div class="h-64">
+            <canvas id="chartDecalage"></canvas>
+        </div>
+    </div>
+
+    <!-- GRAPHIQUE 2 : TEMPS D'OUVERTURE PAR PRODUIT & ÉQUIPE -->
+    <div class="glass-card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2">
+                <span>⏱️</span> Temps d'Ouverture par Produit & Équipe (Heures)
+            </h3>
+            <span class="text-xs text-gray-500">3 Shifts 24h/24 (A, B, C)</span>
+        </div>
+        <div class="h-64">
+            <canvas id="chartTemps"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<!-- CHARGEMENT ET CONFIGURATION DE CHART.JS -->
 <script>
-// Décalage par date (Bar avec couleurs positives/négatives)
-const decalageData = {{ decalage_values|safe }};
-const decalageColors = decalageData.map(v => v >= 0 ? '#3b82f6' : '#ef4444');
+document.addEventListener('DOMContentLoaded', () => {
 
-new Chart(document.getElementById('chartDecalage'), {
-    type: 'bar',
-    data: {
-        labels: {{ decalage_dates|safe }},
-        datasets: [{
-            label: 'Décalage',
-            data: decalageData,
-            backgroundColor: decalageColors,
-            borderRadius: 3,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { ticks: { color: '#9ca3af', maxRotation: 45, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-            y: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,0.1)' } }
-        }
-    }
-});
+    // --- GRAPHIQUE DÉCALAGE ---
+    const decalageData = JSON.parse('{{ decalage_values|escapejs }}' || '[]');
+    const decalageDates = JSON.parse('{{ decalage_dates|escapejs }}' || '[]');
+    const decalageColors = decalageData.map(v => v >= 0 ? '#3b82f6' : '#ef4444');
 
-// Temps ouverture par produit (Grouped Bar)
-new Chart(document.getElementById('chartTemps'), {
-    type: 'bar',
-    data: {
-        labels: {{ temps_produit_labels|safe }},
-        datasets: [
-            { label: 'Équipe A', data: {{ temps_produit_a|safe }}, backgroundColor: '#3b82f6', borderRadius: 3 },
-            { label: 'Équipe B', data: {{ temps_produit_b|safe }}, backgroundColor: '#22c55e', borderRadius: 3 },
-        ]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { labels: { color: '#d1d5db' } } },
-        scales: {
-            x: { ticks: { color: '#9ca3af', maxRotation: 45, font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-            y: { ticks: { color: '#9ca3af', callback: v => v + 'h' }, grid: { color: 'rgba(255,255,255,0.05)' } }
-        }
+    const ctxDec = document.getElementById('chartDecalage');
+    if (ctxDec) {
+        new Chart(ctxDec, {
+            type: 'bar',
+            data: {
+                labels: decalageDates,
+                datasets: [{
+                    label: 'Décalage (kg)',
+                    data: decalageData,
+                    backgroundColor: decalageColors,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` Décalage: ${context.parsed.y} kg`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        ticks: { color: '#94a3b8', maxRotation: 45, font: { size: 10 } }, 
+                        grid: { color: 'rgba(255,255,255,0.05)' } 
+                    },
+                    y: { 
+                        ticks: { color: '#94a3b8', font: { size: 10 } }, 
+                        grid: { color: 'rgba(255,255,255,0.08)' } 
+                    }
+                }
+            }
+        });
     }
+
+    // --- GRAPHIQUE TEMPS PAR PRODUIT ---
+    const tempsProduitLabels = JSON.parse('{{ temps_produit_labels|escapejs }}' || '[]');
+    const tempsProduitA = JSON.parse('{{ temps_produit_a|escapejs }}' || '[]');
+    const tempsProduitB = JSON.parse('{{ temps_produit_b|escapejs }}' || '[]');
+    const tempsProduitC = JSON.parse('{{ temps_produit_c|escapejs }}' || '[]');
+
+    const ctxTemps = document.getElementById('chartTemps');
+    if (ctxTemps) {
+        new Chart(ctxTemps, {
+            type: 'bar',
+            data: {
+                labels: tempsProduitLabels,
+                datasets: [
+                    { label: 'Équipe A', data: tempsProduitA, backgroundColor: '#38bdf8', borderRadius: 4 },
+                    { label: 'Équipe B', data: tempsProduitB, backgroundColor: '#22c55e', borderRadius: 4 },
+                    { label: 'Équipe C', data: tempsProduitC, backgroundColor: '#a855f7', borderRadius: 4 },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { 
+                        position: 'top',
+                        labels: { color: '#e2e8f0', font: { size: 11 } } 
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.dataset.label}: ${context.parsed.y} h`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        ticks: { color: '#94a3b8', maxRotation: 45, font: { size: 10 } }, 
+                        grid: { color: 'rgba(255,255,255,0.05)' } 
+                    },
+                    y: { 
+                        ticks: { 
+                            color: '#94a3b8', 
+                            font: { size: 10 },
+                            callback: v => v + 'h' 
+                        }, 
+                        grid: { color: 'rgba(255,255,255,0.08)' } 
+                    }
+                }
+            }
+        });
+    }
+
 });
 </script>
+
 {% endblock %}
