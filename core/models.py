@@ -149,10 +149,6 @@ class InteractionLog(models.Model):
         return f"{self.get_type_display()} - {self.client.name} ({self.date.strftime('%d/%m/%Y')})"
 
 
-# ===========================================================================
-# --- OPPORTUNITÉS & PIPELINE ---
-# ===========================================================================
-
 class Opportunite(models.Model):
     STAGE_CHOICES = [
         ('PROSPECT', 'Prospect'),
@@ -189,17 +185,6 @@ class Opportunite(models.Model):
 
     def valeur_ponderee(self):
         return round(float(self.valeur_estimee) * self.probabilite / 100, 2)
-
-    def is_active(self):
-        return self.status not in ['GAGNE', 'PERDU']
-
-    def get_status_color(self):
-        colors = {
-            'PROSPECT': 'gray', 'QUALIFICATION': 'blue',
-            'PROPOSITION': 'yellow', 'NEGOCIATION': 'orange',
-            'GAGNE': 'green', 'PERDU': 'red',
-        }
-        return colors.get(self.status, 'gray')
 
 
 # ===========================================================================
@@ -240,11 +225,6 @@ class Tooling(models.Model):
     class Meta:
         verbose_name = "Outillage cliché, cylindre"
         verbose_name_plural = "Outillages cliché, cylindre"
-
-    def wear_percent(self):
-        if self.max_impressions == 0:
-            return 0
-        return round((self.current_impressions / self.max_impressions) * 100, 1)
 
 
 # ===========================================================================
@@ -322,49 +302,32 @@ class Atelier(models.Model):
 
 class Machine(models.Model):
     STATUS_CHOICES = [
-        ('RUN', 'En Production'),
-        ('STOP', 'Arrêt'),
-        ('MAINT', 'Maintenance'),
-        ('PANNE', 'En Panne'),
+        ('RUN', 'En Production'), ('STOP', 'Arrêt'),
+        ('MAINT', 'Maintenance'), ('PANNE', 'En Panne'),
     ]
     TYPE_CHOICES = [
-        ('EXT', 'Extrudeuse'),
-        ('IMP', 'Imprimeuse Flexo'),
-        ('HELIO', 'Imprimeuse Hélio'),
-        ('COMP', 'Complexeuse'),
-        ('DEC', 'Grande Découpe (DCM Panther 1350)'),
-        ('DEC2', 'Petite Découpe (DCM Panther 1)'),
-        ('SAC_FC', 'Machine Fond Carré'),
-        ('SAC_SO', 'Machine Soudure'),
-        ('NETT_CL', 'Nettoyage Cliché'),
-        ('NETT_AN', 'Nettoyage Anilox'),
+        ('EXT', 'Extrudeuse'), ('IMP', 'Imprimeuse Flexo'),
+        ('HELIO', 'Imprimeuse Hélio'), ('COMP', 'Complexeuse'),
+        ('DEC', 'Grande Découpe'), ('DEC2', 'Petite Découpe'),
+        ('SAC_FC', 'Machine Fond Carré'), ('SAC_SO', 'Machine Soudure'),
+        ('NETT_CL', 'Nettoyage Cliché'), ('NETT_AN', 'Nettoyage Anilox'),
         ('AUTRE', 'Autre'),
     ]
     CRITICITE_CHOICES = [
-        ('A', 'Critique (A)'),
-        ('B', 'Important (B)'),
-        ('C', 'Standard (C)'),
+        ('A', 'Critique (A)'), ('B', 'Important (B)'), ('C', 'Standard (C)'),
     ]
 
     code_machine = models.CharField("Code Machine", max_length=50, unique=True, blank=True)
     name = models.CharField("Nom Machine", max_length=100)
     type = models.CharField("Type", max_length=50, choices=TYPE_CHOICES)
-    atelier = models.ForeignKey(
-        Atelier, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='machines_atelier',
-        verbose_name="Atelier"
-    )
+    atelier = models.ForeignKey(Atelier, on_delete=models.SET_NULL, null=True, blank=True, related_name='machines_atelier', verbose_name="Atelier")
 
     marque = models.CharField("Marque", max_length=100, blank=True)
     modele = models.CharField("Modèle", max_length=100, blank=True)
     numero_serie = models.CharField("N° Série", max_length=100, blank=True)
     annee_fabrication = models.IntegerField("Année de fabrication", null=True, blank=True)
     date_mise_en_service = models.DateField("Date de mise en service", null=True, blank=True)
-    fournisseur_machine = models.ForeignKey(
-        Supplier, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='machines_fournies',
-        verbose_name="Fournisseur machine"
-    )
+    fournisseur_machine = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='machines_fournies', verbose_name="Fournisseur machine")
 
     compteur_heures = models.FloatField("Compteur heures machine", default=0)
     compteur_metres = models.FloatField("Compteur mètres produits", default=0)
@@ -396,21 +359,16 @@ class Machine(models.Model):
         ordering = ['atelier', 'name']
 
     def __str__(self):
-        return f"{self.name} ({self.get_type_display()})"
+        return self.name
 
     def save(self, *args, **kwargs):
         if not self.code_machine:
             prefix = self.type if self.type else 'MCH'
-            last = Machine.objects.filter(
-                code_machine__startswith=prefix
-            ).order_by('-code_machine').first()
+            last = Machine.objects.filter(code_machine__startswith=prefix).order_by('-code_machine').first()
             if last and last.code_machine:
-                try:
-                    num = int(last.code_machine.replace(prefix + '-', '')) + 1
-                except (ValueError, IndexError):
-                    num = 1
-            else:
-                num = 1
+                try: num = int(last.code_machine.replace(prefix + '-', '')) + 1
+                except (ValueError, IndexError): num = 1
+            else: num = 1
             self.code_machine = f"{prefix}-{num:03d}"
         super().save(*args, **kwargs)
 
@@ -428,92 +386,28 @@ class Machine(models.Model):
     @property
     def nb_pannes_mois(self):
         debut_mois = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        return self.ordres_maintenance.filter(
-            type_maintenance='CORRECTIVE',
-            date_creation__gte=debut_mois
-        ).count()
+        return self.ordres_maintenance.filter(type_maintenance='CORRECTIVE', date_creation__gte=debut_mois).count()
 
     @property
     def temps_arret_total_heures(self):
-        total_min = self.ordres_maintenance.aggregate(
-            t=Sum('temps_arret_minutes')
-        )['t'] or 0
+        total_min = self.ordres_maintenance.aggregate(t=Sum('temps_arret_minutes'))['t'] or 0
         return round(total_min / 60, 1)
-
-    @property
-    def mtbf(self):
-        pannes = self.ordres_maintenance.filter(
-            type_maintenance='CORRECTIVE',
-            date_cloture__isnull=False
-        ).order_by('date_creation')
-        if pannes.count() < 2:
-            return None
-        dates = list(pannes.values_list('date_creation', flat=True))
-        intervals = []
-        for i in range(1, len(dates)):
-            diff = (dates[i] - dates[i-1]).total_seconds() / 3600
-            intervals.append(diff)
-        if intervals:
-            return round(sum(intervals) / len(intervals), 1)
-        return None
-
-    @property
-    def mttr(self):
-        pannes = self.ordres_maintenance.filter(
-            type_maintenance='CORRECTIVE',
-            temps_arret_minutes__gt=0
-        )
-        if pannes.count() == 0:
-            return None
-        avg = pannes.aggregate(avg=Avg('temps_arret_minutes'))['avg'] or 0
-        return round(avg / 60, 1)
-
-    @property
-    def taux_disponibilite(self):
-        if self.date_mise_en_service:
-            jours_service = (timezone.now().date() - self.date_mise_en_service).days
-            heures_totales = jours_service * 24
-            if heures_totales > 0:
-                return round(
-                    ((heures_totales - self.temps_arret_total_heures) / heures_totales) * 100, 1
-                )
-        return 100.0
-
-    def get_status_color(self):
-        return {
-            'RUN': 'emerald', 'STOP': 'gray',
-            'MAINT': 'orange', 'PANNE': 'red',
-        }.get(self.status, 'gray')
-
-    def get_criticite_color(self):
-        return {'A': 'red', 'B': 'yellow', 'C': 'blue'}.get(self.criticite, 'gray')
 
     @property
     def peut_creer_of(self):
         if self.status == 'PANNE':
             return False, "🔴 MACHINE EN PANNE — Impossible de créer un OF"
-
-        om_ameliorative = self.ordres_maintenance.filter(
-            type_maintenance='AMELIORATIVE',
-            statut__in=['OUVERT', 'EN_COURS']
-        ).first()
+        om_ameliorative = self.ordres_maintenance.filter(type_maintenance='AMELIORATIVE', statut__in=['OUVERT', 'EN_COURS']).first()
         if om_ameliorative:
-            return False, f"🔴 MAINTENANCE AMÉLIORATIVE EN COURS (OM-{om_ameliorative.numero_om}) — Impossible de créer un OF"
-
-        om_preventif = self.ordres_maintenance.filter(
-            type_maintenance__in=['PREVENTIVE', 'PREDICTIVE'],
-            statut__in=['OUVERT', 'EN_COURS']
-        ).first()
+            return False, f"🔴 MAINTENANCE AMÉLIORATIVE EN COURS (OM-{om_ameliorative.numero_om})"
+        om_preventif = self.ordres_maintenance.filter(type_maintenance__in=['PREVENTIVE', 'PREDICTIVE'], statut__in=['OUVERT', 'EN_COURS']).first()
         if om_preventif:
-            return True, f"⚠️ AVERTISSEMENT : Maintenance {om_preventif.get_type_maintenance_display()} en cours (OM-{om_preventif.numero_om}). Vous pouvez créer l'OF mais vérifiez avec la maintenance."
-
+            return True, f"⚠️ AVERTISSEMENT : Maintenance {om_preventif.get_type_maintenance_display()} en cours."
         return True, ""
 
     @property
     def om_actif(self):
-        return self.ordres_maintenance.filter(
-            statut__in=['OUVERT', 'EN_COURS', 'EN_ATTENTE_PIECE']
-        ).order_by('-date_creation').first()
+        return self.ordres_maintenance.filter(statut__in=['OUVERT', 'EN_COURS', 'EN_ATTENTE_PIECE']).order_by('-date_creation').first()
 
 
 class CompteurMachine(models.Model):
@@ -522,18 +416,11 @@ class CompteurMachine(models.Model):
         ('METRES', 'Mètres produits'),
         ('TOURS', 'Tours / Cycles'),
     ]
-
-    machine = models.ForeignKey(
-        Machine, on_delete=models.CASCADE,
-        related_name='releves_compteur', verbose_name="Machine"
-    )
+    machine = models.ForeignKey(Machine, on_delete=models.CASCADE, related_name='releves_compteur', verbose_name="Machine")
     type_compteur = models.CharField("Type", max_length=10, choices=TYPE_COMPTEUR)
     valeur = models.FloatField("Valeur du compteur")
     date_releve = models.DateTimeField("Date du relevé", default=timezone.now)
-    releve_par = models.ForeignKey(
-        User, on_delete=models.SET_NULL,
-        null=True, blank=True, verbose_name="Relevé par"
-    )
+    releve_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Relevé par")
     notes = models.TextField("Notes", blank=True)
 
     class Meta:
@@ -541,26 +428,17 @@ class CompteurMachine(models.Model):
         verbose_name_plural = "Relevés compteurs"
         ordering = ['-date_releve']
 
-    def __str__(self):
-        return f"{self.machine.name} | {self.get_type_compteur_display()} : {self.valeur}"
-
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        machine = self.machine
-        if self.type_compteur == 'HEURES':
-            machine.compteur_heures = self.valeur
-        elif self.type_compteur == 'METRES':
-            machine.compteur_metres = self.valeur
-        elif self.type_compteur == 'TOURS':
-            machine.compteur_tours = self.valeur
-        machine.date_dernier_releve = self.date_releve
-        machine.save(update_fields=[
-            'compteur_heures', 'compteur_metres', 'compteur_tours', 'date_dernier_releve'
-        ])
+        if self.type_compteur == 'HEURES': self.machine.compteur_heures = self.valeur
+        elif self.type_compteur == 'METRES': self.machine.compteur_metres = self.valeur
+        elif self.type_compteur == 'TOURS': self.machine.compteur_tours = self.valeur
+        self.machine.date_dernier_releve = self.date_releve
+        self.machine.save(update_fields=['compteur_heures', 'compteur_metres', 'compteur_tours', 'date_dernier_releve'])
 
 
 # ===========================================================================
-# --- PIÈCES DE RECHANGE (STOCK MAINTENANCE) ---
+# --- MAINTENANCE PRÉVENTIVE, ORDRES & PIÈCES ---
 # ===========================================================================
 
 class CategoriePiece(models.Model):
@@ -580,33 +458,20 @@ class CategoriePiece(models.Model):
 
 class PieceRechange(models.Model):
     UNITE_CHOICES = [
-        ('PCS', 'Pièce(s)'),
-        ('M', 'Mètre(s)'),
-        ('L', 'Litre(s)'),
-        ('KG', 'Kilogramme(s)'),
-        ('SET', 'Jeu / Set'),
+        ('PCS', 'Pièce(s)'), ('M', 'Mètre(s)'), ('L', 'Litre(s)'),
+        ('KG', 'Kilogramme(s)'), ('SET', 'Jeu / Set'),
     ]
 
     reference = models.CharField("Référence", max_length=100, unique=True)
     designation = models.CharField("Désignation", max_length=200)
-    categorie = models.ForeignKey(
-        CategoriePiece, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='pieces',
-        verbose_name="Catégorie"
-    )
-    machines_compatibles = models.ManyToManyField(
-        Machine, blank=True, related_name='pieces_compatibles',
-        verbose_name="Machines compatibles"
-    )
+    categorie = models.ForeignKey(CategoriePiece, on_delete=models.SET_NULL, null=True, blank=True, related_name='pieces', verbose_name="Catégorie")
+    machines_compatibles = models.ManyToManyField(Machine, blank=True, related_name='pieces_compatibles', verbose_name="Machines compatibles")
     quantite_stock = models.FloatField("Quantité en stock", default=0)
     unite = models.CharField("Unité", max_length=5, choices=UNITE_CHOICES, default='PCS')
     stock_minimum = models.FloatField("Stock minimum (alerte)", default=1)
     stock_maximum = models.FloatField("Stock maximum", default=50)
     prix_unitaire = models.DecimalField("Prix unitaire (DA)", max_digits=12, decimal_places=2, default=0)
-    fournisseur = models.ForeignKey(
-        Supplier, on_delete=models.SET_NULL,
-        null=True, blank=True, verbose_name="Fournisseur"
-    )
+    fournisseur = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Fournisseur")
     delai_livraison_jours = models.IntegerField("Délai livraison (jours)", default=7)
     emplacement_stock = models.CharField("Emplacement (étagère, casier)", max_length=100, blank=True)
     marque_piece = models.CharField("Marque", max_length=100, blank=True)
@@ -624,47 +489,19 @@ class PieceRechange(models.Model):
     def __str__(self):
         return f"{self.reference} — {self.designation}"
 
-    @property
-    def est_stock_bas(self):
-        return self.quantite_stock <= self.stock_minimum
-
-    @property
-    def est_rupture(self):
-        return self.quantite_stock <= 0
-
-    @property
-    def valeur_stock(self):
-        return round(float(self.quantite_stock) * float(self.prix_unitaire), 2)
-
-    @property
-    def nb_utilisations_total(self):
-        return self.consommations_piece.aggregate(t=Sum('quantite'))['t'] or 0
-
 
 class MouvementPiece(models.Model):
     TYPE_CHOICES = [
-        ('ENTREE', 'Entrée (Achat)'),
-        ('SORTIE', 'Sortie (Intervention)'),
-        ('AJUSTEMENT', 'Ajustement inventaire'),
-        ('RETOUR', 'Retour'),
+        ('ENTREE', 'Entrée (Achat)'), ('SORTIE', 'Sortie (Intervention)'),
+        ('AJUSTEMENT', 'Ajustement inventaire'), ('RETOUR', 'Retour'),
     ]
 
-    piece = models.ForeignKey(
-        PieceRechange, on_delete=models.CASCADE,
-        related_name='mouvements_piece', verbose_name="Pièce"
-    )
+    piece = models.ForeignKey(PieceRechange, on_delete=models.CASCADE, related_name='mouvements_piece', verbose_name="Pièce")
     type_mouvement = models.CharField("Type", max_length=15, choices=TYPE_CHOICES)
     quantite = models.FloatField("Quantité")
     date_mouvement = models.DateTimeField("Date", default=timezone.now)
-    ordre_maintenance = models.ForeignKey(
-        'OrdreMaintenance', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='mouvements_pieces',
-        verbose_name="Ordre de maintenance"
-    )
-    utilisateur = models.ForeignKey(
-        User, on_delete=models.SET_NULL,
-        null=True, blank=True, verbose_name="Utilisateur"
-    )
+    ordre_maintenance = models.ForeignKey('OrdreMaintenance', on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements_pieces', verbose_name="Ordre de maintenance")
+    utilisateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Utilisateur")
     motif = models.CharField("Motif", max_length=200, blank=True)
     notes = models.TextField("Notes", blank=True)
 
@@ -673,39 +510,22 @@ class MouvementPiece(models.Model):
         verbose_name_plural = "Mouvements pièces"
         ordering = ['-date_mouvement']
 
-    def __str__(self):
-        return f"{self.get_type_mouvement_display()} | {self.piece.designation} | {self.quantite}"
-
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
         if is_new:
-            piece = self.piece
-            if self.type_mouvement in ['ENTREE', 'RETOUR']:
-                piece.quantite_stock += self.quantite
-            elif self.type_mouvement == 'SORTIE':
-                piece.quantite_stock = max(0, piece.quantite_stock - self.quantite)
-            elif self.type_mouvement == 'AJUSTEMENT':
-                piece.quantite_stock = self.quantite
-            piece.save(update_fields=['quantite_stock'])
+            if self.type_mouvement in ['ENTREE', 'RETOUR']: self.piece.quantite_stock += self.quantite
+            elif self.type_mouvement == 'SORTIE': self.piece.quantite_stock = max(0, self.piece.quantite_stock - self.quantite)
+            elif self.type_mouvement == 'AJUSTEMENT': self.piece.quantite_stock = self.quantite
+            self.piece.save(update_fields=['quantite_stock'])
 
-
-# ===========================================================================
-# --- MAINTENANCE PRÉVENTIVE & ORDRES ---
-# ===========================================================================
 
 class PlanMaintenancePreventive(models.Model):
     FREQUENCE_TYPE_CHOICES = [
-        ('TEMPS', 'Basée sur le temps (jours)'),
-        ('HEURES', 'Basée sur les heures machine'),
-        ('METRES', 'Basée sur les mètres produits'),
-        ('TOURS', 'Basée sur les tours/cycles'),
+        ('TEMPS', 'Basée sur le temps (jours)'), ('HEURES', 'Basée sur les heures machine'),
+        ('METRES', 'Basée sur les mètres produits'), ('TOURS', 'Basée sur les tours/cycles'),
     ]
-    STATUT_CHOICES = [
-        ('ACTIF', 'Actif'),
-        ('INACTIF', 'Inactif'),
-        ('SUSPENDU', 'Suspendu'),
-    ]
+    STATUT_CHOICES = [('ACTIF', 'Actif'), ('INACTIF', 'Inactif'), ('SUSPENDU', 'Suspendu')]
 
     machine = models.ForeignKey(Machine, on_delete=models.CASCADE, related_name='plans_preventifs', verbose_name="Machine")
     titre = models.CharField("Titre de la tâche", max_length=200)
@@ -730,61 +550,32 @@ class PlanMaintenancePreventive(models.Model):
     class Meta:
         verbose_name = "Plan maintenance préventive"
         verbose_name_plural = "Plans maintenance préventive"
-        ordering = ['machine', 'titre']
 
 
 class OrdreMaintenance(models.Model):
     TYPE_CHOICES = [
-        ('CORRECTIVE', 'Corrective (Panne)'),
-        ('PREVENTIVE', 'Préventive'),
-        ('PREDICTIVE', 'Prédictive'),
-        ('AMELIORATIVE', 'Améliorative'),
+        ('CORRECTIVE', 'Corrective (Panne)'), ('PREVENTIVE', 'Préventive'),
+        ('PREDICTIVE', 'Prédictive'), ('AMELIORATIVE', 'Améliorative'),
     ]
-    PRIORITE_CHOICES = [
-        ('BASSE', 'Basse'),
-        ('NORMALE', 'Normale'),
-        ('HAUTE', 'Haute'),
-        ('URGENTE', 'Urgente !!'),
-    ]
+    PRIORITE_CHOICES = [('BASSE', 'Basse'), ('NORMALE', 'Normale'), ('HAUTE', 'Haute'), ('URGENTE', 'Urgente !!')]
     STATUT_CHOICES = [
-        ('OUVERT', 'Ouvert'),
-        ('EN_COURS', 'En cours'),
-        ('EN_ATTENTE_PIECE', 'En attente pièce'),
-        ('TERMINE', 'Terminé'),
-        ('ANNULE', 'Annulé'),
+        ('OUVERT', 'Ouvert'), ('EN_COURS', 'En cours'),
+        ('EN_ATTENTE_PIECE', 'En attente pièce'), ('TERMINE', 'Terminé'), ('ANNULE', 'Annulé'),
     ]
 
     numero_om = models.CharField("N° OM", max_length=50, unique=True, blank=True)
     type_maintenance = models.CharField("Type", max_length=20, choices=TYPE_CHOICES)
     priorite = models.CharField("Priorité", max_length=10, choices=PRIORITE_CHOICES, default='NORMALE')
     statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='OUVERT')
-    machine = models.ForeignKey(
-        Machine, on_delete=models.CASCADE,
-        related_name='ordres_maintenance', verbose_name="Machine"
-    )
-    plan_preventif = models.ForeignKey(
-        PlanMaintenancePreventive, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='ordres_generes',
-        verbose_name="Plan préventif source"
-    )
+    machine = models.ForeignKey(Machine, on_delete=models.CASCADE, related_name='ordres_maintenance', verbose_name="Machine")
+    plan_preventif = models.ForeignKey(PlanMaintenancePreventive, on_delete=models.SET_NULL, null=True, blank=True, related_name='ordres_generes', verbose_name="Plan préventif source")
     titre = models.CharField("Titre / Résumé panne", max_length=200)
     description_probleme = models.TextField("Description du problème", blank=True)
     actions_realisees = models.TextField("Actions réalisées", blank=True)
     cause_racine = models.TextField("Cause racine identifiée", blank=True)
-    demandeur = models.ForeignKey(
-        User, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='om_demandes',
-        verbose_name="Demandeur"
-    )
-    technicien_principal = models.ForeignKey(
-        'Employee', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='om_technicien',
-        verbose_name="Technicien principal"
-    )
-    techniciens_secondaires = models.ManyToManyField(
-        'Employee', blank=True, related_name='om_support',
-        verbose_name="Techniciens support"
-    )
+    demandeur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='om_demandes', verbose_name="Demandeur")
+    technicien_principal = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True, related_name='om_technicien', verbose_name="Technicien principal")
+    techniciens_secondaires = models.ManyToManyField('Employee', blank=True, related_name='om_support', verbose_name="Techniciens support")
     date_creation = models.DateTimeField("Date création", auto_now_add=True)
     date_planifiee = models.DateTimeField("Date planifiée", null=True, blank=True)
     date_debut_intervention = models.DateTimeField("Début intervention", null=True, blank=True)
@@ -806,18 +597,12 @@ class OrdreMaintenance(models.Model):
         ordering = ['-date_creation']
 
     def __str__(self):
-        return f"OM-{self.numero_om} | {self.machine.name} | {self.get_type_maintenance_display()}"
+        return f"OM-{self.numero_om} | {self.machine.name}"
 
 
 class ConsommationPiece(models.Model):
-    ordre_maintenance = models.ForeignKey(
-        OrdreMaintenance, on_delete=models.CASCADE,
-        related_name='consommations_pieces', verbose_name="Ordre de maintenance"
-    )
-    piece = models.ForeignKey(
-        PieceRechange, on_delete=models.CASCADE,
-        related_name='consommations_piece', verbose_name="Pièce"
-    )
+    ordre_maintenance = models.ForeignKey(OrdreMaintenance, on_delete=models.CASCADE, related_name='consommations_pieces', verbose_name="Ordre de maintenance")
+    piece = models.ForeignKey(PieceRechange, on_delete=models.CASCADE, related_name='consommations_piece', verbose_name="Pièce")
     quantite = models.FloatField("Quantité utilisée", default=1)
     date_consommation = models.DateTimeField("Date", default=timezone.now)
     notes = models.TextField("Notes", blank=True)
@@ -836,11 +621,7 @@ class AlerteMaintenance(models.Model):
         ('COMPTEUR_SEUIL', 'Seuil compteur atteint'),
         ('OM_EN_RETARD', 'OM en retard'),
     ]
-    NIVEAU_CHOICES = [
-        ('INFO', 'Information'),
-        ('WARNING', 'Avertissement'),
-        ('CRITICAL', 'Critique'),
-    ]
+    NIVEAU_CHOICES = [('INFO', 'Information'), ('WARNING', 'Avertissement'), ('CRITICAL', 'Critique')]
 
     type_alerte = models.CharField("Type", max_length=25, choices=TYPE_CHOICES)
     niveau = models.CharField("Niveau", max_length=10, choices=NIVEAU_CHOICES, default='WARNING')
@@ -862,15 +643,13 @@ class AlerteMaintenance(models.Model):
 
 
 # ===========================================================================
-# --- EMPLACEMENTS ET LOTS ---
+# --- STOCKS AVANCÉS (EMPLACEMENTS, LOTS, MOUVEMENTS, ACHATS) ---
 # ===========================================================================
 
 class StockLocation(models.Model):
     TYPE_CHOICES = [
-        ('GENERAL', 'Magasin Général'),
-        ('TAMPON', 'Stock Tampon'),
-        ('PRODUCTION', 'Zone Production'),
-        ('DECHET', 'Zone Déchets'),
+        ('GENERAL', 'Magasin Général'), ('TAMPON', 'Stock Tampon'),
+        ('PRODUCTION', 'Zone Production'), ('DECHET', 'Zone Déchets'),
         ('QUARANTAINE', 'Quarantaine'),
     ]
     name = models.CharField("Nom de l'emplacement", max_length=100)
@@ -888,10 +667,8 @@ class StockLocation(models.Model):
 
 class StockLot(models.Model):
     STATUT_CHOICES = [
-        ('CONFORME', 'Conforme ✓'),
-        ('BLOQUE', 'Bloqué ✗'),
-        ('EN_ATTENTE', 'En attente contrôle'),
-        ('QUARANTAINE', 'Quarantaine'),
+        ('CONFORME', 'Conforme ✓'), ('BLOQUE', 'Bloqué ✗'),
+        ('EN_ATTENTE', 'En attente contrôle'), ('QUARANTAINE', 'Quarantaine'),
     ]
 
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='lots', verbose_name="Matière première")
@@ -914,8 +691,127 @@ class StockLot(models.Model):
         ordering = ['-date_reception']
 
 
+class StockMovement(models.Model):
+    TYPE_CHOICES = [
+        ('ENTREE', 'Entrée (Achat / Réception)'),
+        ('SORTIE', 'Sortie (Production)'),
+        ('TRANSFERT', 'Transfert interne'),
+        ('AJUSTEMENT', 'Ajustement inventaire'),
+        ('RETOUR', 'Retour fournisseur'),
+        ('PERTE', 'Perte / Déchet'),
+    ]
+
+    date = models.DateTimeField("Date", default=timezone.now)
+    type = models.CharField("Type de mouvement", max_length=20, choices=TYPE_CHOICES)
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='mouvements', verbose_name="Matière")
+    lot = models.ForeignKey(StockLot, on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements', verbose_name="Lot")
+    quantite = models.FloatField("Quantité (kg)")
+    emplacement_source = models.ForeignKey(StockLocation, on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements_sortie', verbose_name="Emplacement source")
+    emplacement_destination = models.ForeignKey(StockLocation, on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements_entree', verbose_name="Emplacement destination")
+    machine = models.ForeignKey(Machine, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Machine")
+    utilisateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Utilisateur")
+    motif = models.CharField("Motif / Référence", max_length=200, blank=True)
+    notes = models.TextField("Notes", blank=True)
+
+    class Meta:
+        verbose_name = "Mouvement de stock"
+        verbose_name_plural = "Mouvements de stock"
+        ordering = ['-date']
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new:
+            mat = self.material
+            if self.type in ['ENTREE']:
+                mat.quantity += self.quantite
+            elif self.type in ['SORTIE', 'PERTE', 'RETOUR']:
+                mat.quantity -= self.quantite
+            mat.save()
+            if self.lot:
+                lot = self.lot
+                if self.type in ['SORTIE', 'PERTE']:
+                    lot.quantite_restante = max(0, lot.quantite_restante - self.quantite)
+                elif self.type == 'ENTREE':
+                    lot.quantite_restante += self.quantite
+                lot.save()
+
+
+class DemandeAchat(models.Model):
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'), ('SOUMISE', 'Soumise pour validation'),
+        ('VALIDEE', 'Validée ✓'), ('REFUSEE', 'Refusée ✗'),
+        ('COMMANDEE', 'Bon de commande émis'),
+    ]
+    URGENCE_CHOICES = [('NORMALE', 'Normale'), ('URGENTE', 'Urgente'), ('CRITIQUE', 'Critique !!')]
+
+    reference = models.CharField("Référence DA", max_length=50, unique=True)
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, verbose_name="Matière demandée")
+    quantite_demandee = models.FloatField("Quantité demandée (kg)")
+    motif = models.TextField("Motif de la demande", blank=True)
+    urgence = models.CharField("Niveau d'urgence", max_length=10, choices=URGENCE_CHOICES, default='NORMALE')
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    demandeur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='demandes_achat', verbose_name="Demandeur")
+    valideur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='validations_achat', verbose_name="Validé par")
+    date_creation = models.DateField("Date création", default=timezone.now)
+    date_validation = models.DateField("Date validation", null=True, blank=True)
+    date_besoin = models.DateField("Date besoin souhaitée", null=True, blank=True)
+    bon_commande = models.ForeignKey('BonCommande', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="BC généré")
+
+    class Meta:
+        verbose_name = "Demande d'achat"
+        verbose_name_plural = "Demandes d'achat"
+        ordering = ['-date_creation']
+
+
+class BonCommande(models.Model):
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'), ('ENVOYE', 'Envoyé fournisseur'),
+        ('CONFIRME', 'Confirmé'), ('RECU_PARTIEL', 'Reçu partiellement'),
+        ('RECU_TOTAL', 'Reçu totalement'), ('ANNULE', 'Annulé'),
+    ]
+
+    reference = models.CharField("Référence BC", max_length=50, unique=True)
+    fournisseur = models.ForeignKey(Supplier, on_delete=models.CASCADE, verbose_name="Fournisseur")
+    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    date_commande = models.DateField("Date commande", default=timezone.now)
+    date_livraison_prevue = models.DateField("Livraison prévue", null=True, blank=True)
+    date_livraison_reelle = models.DateField("Livraison réelle", null=True, blank=True)
+    montant_total = models.DecimalField("Montant total (DA)", max_digits=14, decimal_places=2, default=0)
+    notes = models.TextField("Notes / Conditions", blank=True)
+    cree_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Créé par")
+
+    class Meta:
+        verbose_name = "Bon de commande"
+        verbose_name_plural = "Bons de commande"
+        ordering = ['-date_commande']
+
+
+class LigneBonCommande(models.Model):
+    bon_commande = models.ForeignKey(BonCommande, on_delete=models.CASCADE, related_name='lignes')
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, verbose_name="Matière")
+    quantite_commandee = models.FloatField("Quantité commandée (kg)")
+    quantite_recue = models.FloatField("Quantité reçue (kg)", default=0)
+    prix_unitaire = models.DecimalField("Prix unitaire (DA/kg)", max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = "Ligne BC"
+
+
+class StockSeuil(models.Model):
+    material = models.OneToOneField(Material, on_delete=models.CASCADE, related_name='seuil_intelligent', verbose_name="Matière")
+    consommation_journaliere_moy = models.FloatField("Conso. moyenne/jour (kg)", default=0)
+    delai_fournisseur_jours = models.IntegerField("Délai fournisseur (jours)", default=7)
+    stock_securite_jours = models.IntegerField("Jours de sécurité supplémentaires", default=3)
+    derniere_maj = models.DateTimeField("Dernière mise à jour", auto_now=True)
+
+    class Meta:
+        verbose_name = "Seuil intelligent"
+        verbose_name_plural = "Seuils intelligents"
+
+
 # ===========================================================================
-# --- PRODUCTION ET PROCESSUS ---
+# --- PRODUCTION ET PROCESSUS (OF MULTI-PROCESSUS) ---
 # ===========================================================================
 
 class ProcessType(models.Model):
@@ -942,17 +838,12 @@ class ProcessType(models.Model):
 
 class OrdreFabrication(models.Model):
     STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('LANCE', 'Lancé'),
-        ('EN_COURS', 'En cours'),
-        ('TERMINE', 'Terminé'),
-        ('ANNULE', 'Annulé'),
+        ('BROUILLON', 'Brouillon'), ('LANCE', 'Lancé'),
+        ('EN_COURS', 'En cours'), ('TERMINE', 'Terminé'), ('ANNULE', 'Annulé'),
     ]
     PRIORITE_CHOICES = [
-        ('BASSE', 'Basse'),
-        ('NORMALE', 'Normale'),
-        ('HAUTE', 'Haute'),
-        ('URGENTE', 'Urgente'),
+        ('BASSE', 'Basse'), ('NORMALE', 'Normale'),
+        ('HAUTE', 'Haute'), ('URGENTE', 'Urgente'),
     ]
 
     numero_of = models.CharField("N° OF", max_length=50, unique=True, blank=True)
@@ -998,32 +889,21 @@ class OrdreFabrication(models.Model):
     def save(self, *args, **kwargs):
         if not self.numero_of:
             annee = timezone.now().year
-            last = OrdreFabrication.objects.filter(
-                numero_of__startswith=f"OF{annee}"
-            ).order_by('-numero_of').first()
+            last = OrdreFabrication.objects.filter(numero_of__startswith=f"OF{annee}").order_by('-numero_of').first()
             if last and last.numero_of:
-                try:
-                    num = int(last.numero_of.replace(f"OF{annee}-", '')) + 1
-                except (ValueError, IndexError):
-                    num = 1
-            else:
-                num = 1
+                try: num = int(last.numero_of.replace(f"OF{annee}-", '')) + 1
+                except (ValueError, IndexError): num = 1
+            else: num = 1
             self.numero_of = f"OF{annee}-{num:04d}"
 
         if not self.numero_lot:
             annee = timezone.now().year
-            last = OrdreFabrication.objects.filter(
-                numero_lot__startswith=f"LOT{annee}"
-            ).exclude(pk=self.pk).order_by('-numero_lot').first()
+            last = OrdreFabrication.objects.filter(numero_lot__startswith=f"LOT{annee}").exclude(pk=self.pk).order_by('-numero_lot').first()
             if last and last.numero_lot:
-                try:
-                    num = int(last.numero_lot.replace(f"LOT{annee}-", '')) + 1
-                except (ValueError, IndexError):
-                    num = 1
-            else:
-                num = 1
+                try: num = int(last.numero_lot.replace(f"LOT{annee}-", '')) + 1
+                except (ValueError, IndexError): num = 1
+            else: num = 1
             self.numero_lot = f"LOT{annee}-{num:04d}"
-
         super().save(*args, **kwargs)
 
     @property
@@ -1037,29 +917,19 @@ class OrdreFabrication(models.Model):
     @property
     def progression(self):
         total = self.nb_etapes
-        if total == 0:
-            return 0
+        if total == 0: return 0
         return round((self.etapes_terminees / total) * 100)
 
     @property
     def est_en_retard(self):
-        if self.statut in ['TERMINE', 'ANNULE']:
-            return False
-        if not self.date_prevue_fin:
-            return False
+        if self.statut in ['TERMINE', 'ANNULE']: return False
+        if not self.date_prevue_fin: return False
         return self.date_prevue_fin < timezone.now().date()
 
     @property
     def taux_rebut(self):
-        if self.quantite_produite == 0:
-            return 0
+        if self.quantite_produite == 0: return 0
         return round((self.quantite_rebut / self.quantite_produite) * 100, 2)
-
-    @property
-    def taux_conformite(self):
-        if self.quantite_produite == 0:
-            return 0
-        return round((self.quantite_conforme / self.quantite_produite) * 100, 2)
 
     def get_statut_color(self):
         return {
@@ -1073,24 +943,18 @@ class OrdreFabrication(models.Model):
             'HAUTE': 'orange', 'URGENTE': 'red',
         }.get(self.priorite, 'gray')
 
-    # ==========================================
-    # 🚀 NOUVELLES MÉTHODES DE TRAÇABILITÉ PAR LOT
-    # ==========================================
-
+    # === METHODES TRACABILITE LOT ===
     def get_fiches_journalieres(self):
-        """Retourne toutes les fiches de production liées à ce lot (par numero_lot ou of_lie)"""
         return FicheProductionJournaliere.objects.filter(
             Q(of_lie=self) | Q(numero_lot=self.numero_lot) | Q(numero_doc=self.numero_lot)
         ).distinct().order_by('date_fabrication', 'heure_debut')
 
     def get_saisies_anciennes(self):
-        """Retourne les saisies de l'ancien système ProductionEntry liées au lot"""
         return ProductionEntry.objects.filter(
             Q(of_lie=self) | Q(lot=self.numero_lot)
         ).distinct().order_by('date', 'heure_debut')
 
     def get_fiches_par_type(self):
-        """Retourne un dict avec les fiches groupées par type de processus"""
         fiches = self.get_fiches_journalieres()
         groupes = {
             'EXTRUSION': [], 'FLEXO': [], 'HELIO': [],
@@ -1103,13 +967,11 @@ class OrdreFabrication(models.Model):
         return groupes
 
     def get_consommations_encres(self):
-        """Retourne toutes les consommations d'encre du lot (tous groupes confondus)"""
         fiches = self.get_fiches_journalieres().filter(type_fiche__in=['FLEXO', 'HELIO'])
         encres = FicheImpressionEncreGroupe.objects.filter(fiche__in=fiches).order_by('fiche__date_fabrication', 'groupe_numero')
         return encres
 
     def get_totaux_lot(self):
-        """Calcule tous les totaux du lot (tonnage produit, déchets, encres, temps, etc.)"""
         fiches = self.get_fiches_journalieres()
         saisies_old = self.get_saisies_anciennes()
         
@@ -1164,20 +1026,15 @@ class OrdreFabrication(models.Model):
         }
 
     def get_chat_messages_lot(self):
-        """Retourne les messages du chat liés à cet OF"""
         return ChatMessage.objects.filter(of_lie=self).order_by('-date_envoi')
 
     @property
     def has_fiches(self):
-        """Indique s'il existe au moins une fiche journalière liée au lot"""
         return self.get_fiches_journalieres().exists()
 
     @property
     def workflow_visualisation(self):
-        """Retourne la liste ordonnée des étapes réelles du lot pour affichage timeline"""
-        etapes_prevues = list(self.etapes.all().order_by('numero_etape'))
         fiches_reelles = list(self.get_fiches_journalieres())
-        
         workflow = []
         type_map = {
             'EXTRUSION': {'icone': '🌀', 'couleur': 'purple', 'ordre': 1},
@@ -1211,7 +1068,6 @@ class OrdreFabrication(models.Model):
 
     @classmethod
     def chercher_par_lot(cls, numero_lot):
-        """Méthode de classe pour recherche instantanée par numéro de lot"""
         if not numero_lot:
             return None
         return cls.objects.filter(
@@ -1228,10 +1084,7 @@ class EtapeProduction(models.Model):
 
     of = models.ForeignKey(OrdreFabrication, on_delete=models.CASCADE, related_name='etapes', verbose_name="Ordre de Fabrication")
     process_type = models.ForeignKey(ProcessType, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Type de processus")
-    atelier = models.ForeignKey(
-        Atelier, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='etapes_planifiees', verbose_name="Atelier"
-    )
+    atelier = models.ForeignKey(Atelier, on_delete=models.SET_NULL, null=True, blank=True, related_name='etapes_planifiees', verbose_name="Atelier")
     machine = models.ForeignKey(Machine, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Machine")
     operateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Opérateur", related_name='etapes_assignees')
 
@@ -1273,60 +1126,27 @@ class EtapeProduction(models.Model):
             self.atelier = self.machine.atelier
         if self.process_type and not self.atelier and self.process_type.atelier_lie:
             self.atelier = self.process_type.atelier_lie
-        # Auto-remplissage du numéro de lot étape depuis l'OF si vide
         if not self.numero_lot_etape and self.of and self.of.numero_lot:
             self.numero_lot_etape = self.of.numero_lot
         super().save(*args, **kwargs)
 
     def get_nom_display(self):
-        if self.nom_etape:
-            return self.nom_etape
-        if self.process_type:
-            return self.process_type.nom
+        if self.nom_etape: return self.nom_etape
+        if self.process_type: return self.process_type.nom
         return f"Étape {self.numero_etape}"
 
     @property
     def progression(self):
-        if self.statut == 'TERMINE':
-            return 100
-        if self.statut in ['EN_ATTENTE', 'PRET']:
-            return 0
+        if self.statut == 'TERMINE': return 100
+        if self.statut in ['EN_ATTENTE', 'PRET']: return 0
         if self.quantite_entree > 0:
             return min(100, round((self.quantite_sortie / self.quantite_entree) * 100))
         return 50 if self.statut == 'EN_COURS' else 0
 
     @property
     def rendement(self):
-        if self.quantite_entree == 0:
-            return 0
+        if self.quantite_entree == 0: return 0
         return round((self.quantite_sortie / self.quantite_entree) * 100, 2)
-
-    @property
-    def taux_rebut(self):
-        if self.quantite_entree == 0:
-            return 0
-        return round((self.quantite_rebut / self.quantite_entree) * 100, 2)
-
-    @property
-    def duree_reelle_minutes(self):
-        if self.date_debut_reel and self.date_fin_reel:
-            delta = self.date_fin_reel - self.date_debut_reel
-            return round(delta.total_seconds() / 60)
-        return 0
-
-    @property
-    def duree_prevue_minutes(self):
-        if self.date_prevue_debut and self.date_prevue_fin:
-            delta = self.date_prevue_fin - self.date_prevue_debut
-            return round(delta.total_seconds() / 60)
-        return 0
-
-    def get_statut_color(self):
-        return {
-            'EN_ATTENTE': 'gray', 'PRET': 'cyan',
-            'EN_COURS': 'blue', 'PAUSE': 'orange',
-            'TERMINE': 'green', 'ANNULE': 'red',
-        }.get(self.statut, 'gray')
 
 
 class SemiProduit(models.Model):
@@ -1378,9 +1198,7 @@ class SemiProduit(models.Model):
             elif self.type_semi_produit == 'BOBINE_MERE': prefix = 'BM'
             elif self.type_semi_produit == 'BOBINE_FILLE': prefix = 'BF'
 
-            last = SemiProduit.objects.filter(
-                reference__startswith=f"{prefix}{annee}"
-            ).order_by('-reference').first()
+            last = SemiProduit.objects.filter(reference__startswith=f"{prefix}{annee}").order_by('-reference').first()
             if last and last.reference:
                 try: num = int(last.reference.replace(f"{prefix}{annee}-", '')) + 1
                 except (ValueError, IndexError): num = 1
@@ -1429,6 +1247,10 @@ class ConsommationMatiere(models.Model):
         verbose_name = "Consommation matière"
         verbose_name_plural = "Consommations matières"
 
+
+# ===========================================================================
+# --- ANCIEN SYSTEME (CONSERVE POUR COMPATIBILITÉ TOTALE) ---
+# ===========================================================================
 
 class ProductionOrder(models.Model):
     of_number = models.CharField("N° OF", max_length=50, unique=True)
@@ -1492,10 +1314,6 @@ class Quote(models.Model):
         ordering = ['-date', '-version']
 
 
-# ===========================================================================
-# --- MODULE PRODUCTION SPÉCIAL ---
-# ===========================================================================
-
 class ConsommationEncre(models.Model):
     PROCESS_CHOICES = [('FLEXO', 'Flexo'), ('HELIO', 'Hélio')]
 
@@ -1523,6 +1341,7 @@ class ConsommationEncre(models.Model):
         verbose_name = "Conso. Encre & Solvant"
         verbose_name_plural = "Conso. Encres & Solvants"
 
+    # 🚀 PROPRIÉTÉS RESTAURÉES POUR ADMIN.PY
     @property
     def total_encre(self):
         return (self.encre_noir + self.encre_magenta + self.encre_jaune +
@@ -1610,11 +1429,11 @@ class ProductionEntry(models.Model):
 
     of_lie = models.ForeignKey(
         OrdreFabrication, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='saisies_production', verbose_name="OF lié"
+        related_name='saisies_production_anciennes', verbose_name="OF lié"
     )
     etape_liee = models.ForeignKey(
         EtapeProduction, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='saisies_production', verbose_name="Étape liée"
+        related_name='saisies_production_anciennes', verbose_name="Étape liée"
     )
 
     class Meta:
@@ -1622,17 +1441,14 @@ class ProductionEntry(models.Model):
         verbose_name_plural = "Saisies Production"
         ordering = ['-date', '-heure_debut']
 
-    def __str__(self):
-        return f"{self.date} - {self.produit} - {self.equipe}"
-
     def save(self, *args, **kwargs):
-        # 🚀 Auto-lien vers l'OF si un numéro de lot correspond
         if self.lot and not self.of_lie:
             of = OrdreFabrication.chercher_par_lot(self.lot)
             if of:
                 self.of_lie = of
         super().save(*args, **kwargs)
 
+    # 🚀 PROPRIÉTÉS RESTAURÉES POUR ADMIN.PY
     @property
     def temps_ouverture(self):
         if self.heure_debut and self.heure_fin:
@@ -1770,150 +1586,9 @@ class CalculTempsProduction(models.Model):
     cree_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Créé par")
     notes = models.TextField("Notes / Observations", blank=True)
 
-    class Meta:
-        verbose_name = "Calcul Prévisionnel de Temps"
-        verbose_name_plural = "Calculs Prévisionnels de Temps"
-        ordering = ['-date_calcul']
-
-    def __str__(self):
-        return f"Calcul: {self.nom_job} ({self.quantite_commandee})"
-
 
 # ===========================================================================
-# --- MOUVEMENTS DE STOCK & ACHATS ---
-# ===========================================================================
-
-class StockMovement(models.Model):
-    TYPE_CHOICES = [
-        ('ENTREE', 'Entrée (Achat / Réception)'),
-        ('SORTIE', 'Sortie (Production)'),
-        ('TRANSFERT', 'Transfert interne'),
-        ('AJUSTEMENT', 'Ajustement inventaire'),
-        ('RETOUR', 'Retour fournisseur'),
-        ('PERTE', 'Perte / Déchet'),
-    ]
-
-    date = models.DateTimeField("Date", default=timezone.now)
-    type = models.CharField("Type de mouvement", max_length=20, choices=TYPE_CHOICES)
-    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='mouvements', verbose_name="Matière")
-    lot = models.ForeignKey('StockLot', on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements', verbose_name="Lot")
-    quantite = models.FloatField("Quantité (kg)")
-    emplacement_source = models.ForeignKey('StockLocation', on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements_sortie', verbose_name="Emplacement source")
-    emplacement_destination = models.ForeignKey('StockLocation', on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements_entree', verbose_name="Emplacement destination")
-    of = models.ForeignKey('ProductionOrder', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="OF lié")
-    machine = models.ForeignKey(Machine, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Machine")
-    utilisateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Utilisateur")
-    motif = models.CharField("Motif / Référence", max_length=200, blank=True)
-    notes = models.TextField("Notes", blank=True)
-
-    class Meta:
-        verbose_name = "Mouvement de stock"
-        verbose_name_plural = "Mouvements de stock"
-        ordering = ['-date']
-
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-        if is_new:
-            mat = self.material
-            if self.type in ['ENTREE']:
-                mat.quantity += self.quantite
-            elif self.type in ['SORTIE', 'PERTE', 'RETOUR']:
-                mat.quantity -= self.quantite
-            mat.save()
-            if self.lot:
-                lot = self.lot
-                if self.type in ['SORTIE', 'PERTE']:
-                    lot.quantite_restante = max(0, lot.quantite_restante - self.quantite)
-                elif self.type == 'ENTREE':
-                    lot.quantite_restante += self.quantite
-                lot.save()
-
-
-class DemandeAchat(models.Model):
-    STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('SOUMISE', 'Soumise pour validation'),
-        ('VALIDEE', 'Validée ✓'),
-        ('REFUSEE', 'Refusée ✗'),
-        ('COMMANDEE', 'Bon de commande émis'),
-    ]
-    URGENCE_CHOICES = [
-        ('NORMALE', 'Normale'),
-        ('URGENTE', 'Urgente'),
-        ('CRITIQUE', 'Critique !!'),
-    ]
-
-    reference = models.CharField("Référence DA", max_length=50, unique=True)
-    material = models.ForeignKey(Material, on_delete=models.CASCADE, verbose_name="Matière demandée")
-    quantite_demandee = models.FloatField("Quantité demandée (kg)")
-    motif = models.TextField("Motif de la demande", blank=True)
-    urgence = models.CharField("Niveau d'urgence", max_length=10, choices=URGENCE_CHOICES, default='NORMALE')
-    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
-    demandeur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='demandes_achat', verbose_name="Demandeur")
-    valideur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='validations_achat', verbose_name="Validé par")
-    date_creation = models.DateField("Date création", default=timezone.now)
-    date_validation = models.DateField("Date validation", null=True, blank=True)
-    date_besoin = models.DateField("Date besoin souhaitée", null=True, blank=True)
-    bon_commande = models.ForeignKey('BonCommande', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="BC généré")
-
-    class Meta:
-        verbose_name = "Demande d'achat"
-        verbose_name_plural = "Demandes d'achat"
-        ordering = ['-date_creation']
-
-
-class BonCommande(models.Model):
-    STATUT_CHOICES = [
-        ('BROUILLON', 'Brouillon'),
-        ('ENVOYE', 'Envoyé fournisseur'),
-        ('CONFIRME', 'Confirmé'),
-        ('RECU_PARTIEL', 'Reçu partiellement'),
-        ('RECU_TOTAL', 'Reçu totalement'),
-        ('ANNULE', 'Annulé'),
-    ]
-
-    reference = models.CharField("Référence BC", max_length=50, unique=True)
-    fournisseur = models.ForeignKey(Supplier, on_delete=models.CASCADE, verbose_name="Fournisseur")
-    statut = models.CharField("Statut", max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
-    date_commande = models.DateField("Date commande", default=timezone.now)
-    date_livraison_prevue = models.DateField("Livraison prévue", null=True, blank=True)
-    date_livraison_reelle = models.DateField("Livraison réelle", null=True, blank=True)
-    montant_total = models.DecimalField("Montant total (DA)", max_digits=14, decimal_places=2, default=0)
-    notes = models.TextField("Notes / Conditions", blank=True)
-    cree_par = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Créé par")
-
-    class Meta:
-        verbose_name = "Bon de commande"
-        verbose_name_plural = "Bons de commande"
-        ordering = ['-date_commande']
-
-
-class LigneBonCommande(models.Model):
-    bon_commande = models.ForeignKey(BonCommande, on_delete=models.CASCADE, related_name='lignes')
-    material = models.ForeignKey(Material, on_delete=models.CASCADE, verbose_name="Matière")
-    quantite_commandee = models.FloatField("Quantité commandée (kg)")
-    quantite_recue = models.FloatField("Quantité reçue (kg)", default=0)
-    prix_unitaire = models.DecimalField("Prix unitaire (DA/kg)", max_digits=10, decimal_places=2, default=0)
-
-    class Meta:
-        verbose_name = "Ligne BC"
-
-
-class StockSeuil(models.Model):
-    material = models.OneToOneField(Material, on_delete=models.CASCADE, related_name='seuil_intelligent', verbose_name="Matière")
-    consommation_journaliere_moy = models.FloatField("Conso. moyenne/jour (kg)", default=0)
-    delai_fournisseur_jours = models.IntegerField("Délai fournisseur (jours)", default=7)
-    stock_securite_jours = models.IntegerField("Jours de sécurité supplémentaires", default=3)
-    derniere_maj = models.DateTimeField("Dernière mise à jour", auto_now=True)
-
-    class Meta:
-        verbose_name = "Seuil intelligent"
-        verbose_name_plural = "Seuils intelligents"
-
-
-# ===========================================================================
-# 🚀 FICHES DE PRODUCTION JOURNALIÈRES MODERNISÉES (AVEC TRAÇABILITÉ LOT)
+# 🚀 NOUVEAUX MODÈLES DES FICHES DE PRODUCTION JOURNALIÈRES
 # ===========================================================================
 
 class FicheProductionJournaliere(models.Model):
@@ -2012,7 +1687,6 @@ class FicheProductionJournaliere(models.Model):
         return f"{self.get_type_fiche_display()} N°{self.numero_fiche or self.id} ({self.date_fabrication})"
 
     def save(self, *args, **kwargs):
-        # Génération auto du numéro de fiche
         if not self.numero_fiche:
             annee = timezone.now().year
             prefix_map = {
@@ -2021,33 +1695,24 @@ class FicheProductionJournaliere(models.Model):
                 'DECOUPE': 'FDEC', 'DECOUPE2': 'FDEC2',
             }
             prefix = prefix_map.get(self.type_fiche, 'FICH')
-            last = FicheProductionJournaliere.objects.filter(
-                numero_fiche__startswith=f"{prefix}{annee}"
-            ).order_by('-numero_fiche').first()
+            last = FicheProductionJournaliere.objects.filter(numero_fiche__startswith=f"{prefix}{annee}").order_by('-numero_fiche').first()
             if last and last.numero_fiche:
                 try: num = int(last.numero_fiche.replace(f"{prefix}{annee}-", '')) + 1
                 except (ValueError, IndexError): num = 1
             else: num = 1
             self.numero_fiche = f"{prefix}{annee}-{num:04d}"
         
-        # 🚀 TRAÇABILITÉ AUTOMATIQUE : si un numéro de lot est saisi mais pas d'OF, on le cherche
         if not self.of_lie and self.numero_lot:
             of = OrdreFabrication.chercher_par_lot(self.numero_lot)
             if of:
                 self.of_lie = of
-                # Auto-remplir client et produit si vide
-                if not self.client:
-                    self.client = of.client
-                if not self.designation_produit:
-                    self.designation_produit = str(of.produit) if of.produit else ''
-                if not self.support:
-                    self.support = of.support or ''
+                if not self.client: self.client = of.client
+                if not self.designation_produit: self.designation_produit = str(of.produit) if of.produit else ''
+                if not self.support: self.support = of.support or ''
         
-        # 🚀 Si of_lie est renseigné mais pas de numero_lot, on remplit
         if self.of_lie and not self.numero_lot:
             self.numero_lot = self.of_lie.numero_lot
         
-        # Si numero_doc est vide, on le pré-remplit avec le lot
         if not self.numero_doc and self.numero_lot:
             self.numero_doc = self.numero_lot
         
@@ -2075,11 +1740,6 @@ class FicheProductionJournaliere(models.Model):
         elif self.type_fiche == 'FONDS_CARRES':
             return sum(e.poids_sacs_kg for e in self.fonds_carres_equipes.all())
         return 0
-
-    @property
-    def has_lot(self):
-        """Vérifie si la fiche est bien liée à un OF"""
-        return bool(self.of_lie or self.numero_lot)
 
 
 # --- SOUS-TABLES SPÉCIFIQUES ---
@@ -2238,6 +1898,9 @@ class Department(models.Model):
         verbose_name = "Département"
         verbose_name_plural = "Départements"
 
+    def __str__(self):
+        return self.name
+
 
 class Position(models.Model):
     CATEGORY_CHOICES = [
@@ -2259,6 +1922,9 @@ class Position(models.Model):
     class Meta:
         verbose_name = "Poste"
         verbose_name_plural = "Postes"
+
+    def __str__(self):
+        return self.name
 
 
 class Employee(models.Model):
@@ -2318,6 +1984,9 @@ class Employee(models.Model):
         verbose_name = "Employé"
         verbose_name_plural = "Employés"
 
+    def __str__(self):
+        return f"{self.nom} {self.prenom}"
+
 
 class EmployeeDocument(models.Model):
     TYPE_CHOICES = [
@@ -2356,6 +2025,9 @@ class Skill(models.Model):
     class Meta:
         verbose_name = "Compétence"
         verbose_name_plural = "Compétences"
+
+    def __str__(self):
+        return self.name
 
 
 class EmployeeSkill(models.Model):
@@ -2415,6 +2087,9 @@ class Shift(models.Model):
         verbose_name = "Équipe (Shift)"
         verbose_name_plural = "Équipes (Shifts)"
 
+    def __str__(self):
+        return self.name
+
 
 class Attendance(models.Model):
     STATUT_CHOICES = [
@@ -2457,6 +2132,9 @@ class LeaveType(models.Model):
     class Meta:
         verbose_name = "Type de congé"
         verbose_name_plural = "Types de congés"
+
+    def __str__(self):
+        return self.name
 
 
 class LeaveRequest(models.Model):
@@ -2748,14 +2426,14 @@ def corriger_base_machines_post_migrate(sender, **kwargs):
 
             Machine.objects.filter(name__icontains='1350').update(
                 type='DEC',
-                name='DCM Panther 1350 (Grande Découpe)'
+                name='DCM Panther 1350'
             )
 
             Machine.objects.filter(Q(name__icontains='DCM panther 1') | Q(name__icontains='DCM Panther 1')).exclude(
                 name__icontains='1350'
             ).update(
                 type='DEC2',
-                name='DCM Panther 1 (Petite Découpe)'
+                name='DCM Panther 1'
             )
         except Exception:
             pass

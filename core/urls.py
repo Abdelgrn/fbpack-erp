@@ -150,13 +150,14 @@ urlpatterns = [
     path('prod/saisie/', prod_views.prod_saisie, name='prod_saisie'),
     path('prod/saisie/legacy/', prod_views.prod_saisie_legacy, name='prod_saisie_legacy'),
     path('prod/fiche/<int:id>/print/', prod_views.prod_print_fiche, name='prod_print_fiche'),
+    path('prod/fiche/<int:id>/delete/', prod_views.prod_delete_fiche, name='prod_delete_fiche'),  # <-- AJOUTE
     path('prod/saisie/edit/<int:id>/', prod_views.prod_edit_entry, name='prod_edit_entry'),
     path('prod/saisie/delete/<int:id>/', prod_views.prod_delete_entry, name='prod_delete_entry'),
     path('prod/base/', prod_views.prod_base, name='prod_base'),
     path('prod/qualite/', prod_views.prod_detail_qualite, name='prod_detail_qualite'),
     path('prod/synthese/', prod_views.prod_synthese_temps, name='prod_synthese_temps'),
     
-    # 🚀 NOUVELLES ROUTES DE TRAÇABILITÉ PAR LOT
+    # TRAÇABILITÉ PAR LOT
     path('prod/tracabilite/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_search'),
     path('prod/tracabilite/<str:numero_lot>/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_lot'),
     

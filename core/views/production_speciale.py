@@ -128,7 +128,6 @@ def prod_saisie(request):
 
             messages.success(request, f"✅ Fiche {fiche.get_type_fiche_display()} enregistrée avec succès !")
             
-            # Si un lot était renseigné, on redirige vers sa traçabilité !
             if fiche.numero_lot or fiche.of_lie:
                 lot = fiche.numero_lot or (fiche.of_lie.numero_lot if fiche.of_lie else None)
                 if lot:
@@ -147,24 +146,19 @@ def prod_saisie(request):
         'titre': 'Nouvelle Fiche de Production Journalière',
         'recent_fiches': recent_fiches,
         
-        # Initialisation de tous les FormSets vides pour le frontend
         'fs_ext_mat': FicheExtrusionMatiereFormSet(),
         'fs_ext_arr': FicheExtrusionArretFormSet(),
-        
         'fs_flx_ent': FicheFlexoBobineEntreeFormSet(),
         'fs_flx_imp': FicheFlexoBobineImprimeeFormSet(),
         'fs_flx_enc': FicheFlexoEncreGroupeFormSet(initial=[{'groupe_numero': i} for i in range(1, 9)]),
-        
         'fs_cpx_dr1': FicheComplexageDerouleur1FormSet(),
         'fs_cpx_dr2': FicheComplexageDerouleur2FormSet(),
         'fs_cpx_enr': FicheComplexageEnrouleurFormSet(),
-        
         'fs_fc': FicheFondCarreEquipeFormSet(initial=[
             {'equipe_num': 1, 'shift_code': '08_16'}, 
             {'equipe_num': 2, 'shift_code': '16_00'}, 
             {'equipe_num': 3, 'shift_code': '00_08'}
         ]),
-        
         'fs_dec_bm': FicheDecoupeBobineMereFormSet(),
         'fs_dec_bf': FicheDecoupeBobineFilleFormSet(),
     }
@@ -178,14 +172,25 @@ def prod_print_fiche(request, id):
     return render(request, 'production_special/fiche_print.html', {'fiche': fiche})
 
 
+@login_required
+def prod_delete_fiche(request, id):
+    """Suppression d'une FicheProductionJournaliere"""
+    fiche = get_object_or_404(FicheProductionJournaliere, id=id)
+    if request.method == 'POST':
+        numero = fiche.numero_fiche or str(fiche.id)
+        fiche.delete()
+        messages.success(request, f"🗑️ Fiche {numero} supprimée avec succès.")
+        return redirect('prod_base')
+    return redirect('prod_base')
+
+
 # ===========================================================================
-# 🚀 VUE TRAÇABILITÉ PAR LOT (LE COEUR DU SYSTÈME)
+# 🚀 VUE TRAÇABILITÉ PAR LOT
 # ===========================================================================
 
 @login_required
 def prod_tracabilite_lot(request, numero_lot=None):
     """Affiche la timeline complète d'un lot, de la création à la dernière fiche de production."""
-    # Si recherche via la barre globale (paramètre GET ?q=LOT...)
     q = request.GET.get('q')
     if q:
         return redirect('prod_tracabilite_lot', numero_lot=q)
@@ -193,7 +198,6 @@ def prod_tracabilite_lot(request, numero_lot=None):
     context = {'numero_lot': numero_lot, 'search_query': numero_lot}
     
     if numero_lot:
-        # On utilise notre méthode de classe intelligente !
         of = OrdreFabrication.chercher_par_lot(numero_lot)
         
         if of:
@@ -205,7 +209,6 @@ def prod_tracabilite_lot(request, numero_lot=None):
             context['messages_chat'] = of.get_chat_messages_lot()
             messages.success(request, f"Traçabilité complète trouvée pour l'OF {of.numero_of} (Lot: {of.numero_lot})")
         else:
-            # Si l'OF n'existe pas, on cherche les fiches "orphelines"
             fiches = FicheProductionJournaliere.objects.filter(
                 Q(numero_lot__iexact=numero_lot) | Q(numero_doc__iexact=numero_lot)
             ).order_by('-date_fabrication', '-heure_debut')
@@ -222,7 +225,7 @@ def prod_tracabilite_lot(request, numero_lot=None):
 
 
 # ===========================================================================
-# --- ANCIENNE VUE DE SAISIE (CONSERVÉE SOUS UN NOUVEAU NOM) ---
+# --- ANCIENNE VUE DE SAISIE ---
 # ===========================================================================
 
 @login_required
@@ -249,12 +252,11 @@ def prod_saisie_legacy(request):
 
 
 # ===========================================================================
-# VUES EXISTANTES (AVEC AJOUT DES NOUVELLES FICHES DANS LE CONTEXTE)
+# VUES EXISTANTES
 # ===========================================================================
 
 @login_required
 def prod_dashboard(request):
-    # --- LOGIQUE EXISTANTE (ProductionEntry) ---
     entries = _get_filtered_entries(request)
     total_prod_ml = entries.aggregate(t=Sum('prod_ml'))['t'] or 0
     total_prod_kg = entries.aggregate(t=Sum('prod_kg'))['t'] or 0
@@ -289,12 +291,11 @@ def prod_dashboard(request):
     for e in entries:
         support_data[e.support] += e.prod_kg
 
-    # --- AJOUT NOUVELLE LOGIQUE (Fiches Modernisées) ---
     fiches_modernes = FicheProductionJournaliere.objects.all().order_by('-date_fabrication', '-heure_debut')
     
     context = {
         'entries': entries[:20],
-        'fiches_modernes': fiches_modernes[:20], # Injecté pour le dashboard unifié
+        'fiches_modernes': fiches_modernes[:20],
         'total_prod_ml': round(float(total_prod_ml), 2),
         'total_prod_kg': round(float(total_prod_kg), 2),
         'total_dechets_kg': total_dechets_kg,
@@ -350,7 +351,7 @@ def prod_delete_entry(request, id):
     entry = get_object_or_404(ProductionEntry, id=id)
     if request.method == 'POST':
         entry.delete()
-        messages.success(request, "Saisie supprimée.")
+        messages.success(request, "🗑️ Saisie supprimée avec succès.")
         return redirect('prod_base')
     return render(request, 'production_special/confirm_delete.html', {'entry': entry})
 

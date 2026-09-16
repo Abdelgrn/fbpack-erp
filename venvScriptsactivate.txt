@@ -10,3 +10,26 @@ StockMovement.objects.all().delete()
 StockLot.objects.all().delete()
 Material.objects.all().delete()
 exit()
+
+
+
+core/views/
+├── __init__.py
+├── imports_export.py
+├── dashboard.py
+├── crm.py
+├── prepress.py
+├── production_of.py
+├── stock.py
+├── machines.py
+├── production_speciale.py
+├── encre.py
+├── admin_custom.py
+├── drh.py
+├── chat.py
+└── maintenance.py
+
+
+git add .
+git commit -m "Mise à jour"
+git push
