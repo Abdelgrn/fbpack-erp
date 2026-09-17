@@ -4,7 +4,8 @@ from core.models import (
     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
-    FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille, OrdreFabrication
+    FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille, OrdreFabrication,
+    FicheDecoupeArret, FicheDecoupeControle,
 )
 
 class FicheProductionJournaliereForm(forms.ModelForm):
@@ -169,8 +170,44 @@ FicheDecoupeBobineMereFormSet = inlineformset_factory(
     extra=1, can_delete=True
 )
 
+# ✂️ Bobines Filles complètes (fiche papier : filles + à réviser + 4 déchets + non conforme)
 FicheDecoupeBobineFilleFormSet = inlineformset_factory(
     FicheProductionJournaliere, FicheDecoupeBobineFille,
-    fields=['num_ordre', 'nombre_filles', 'poids_filles_kg', 'nombre_a_reviser', 'poids_a_reviser_kg', 'dechets_demarrage_kg', 'dechets_lisiere_kg', 'dechets_jonction_kg', 'dechets_transport_kg', 'rouleaux_non_conforme_kg'],
+    fields=[
+        'num_ordre',
+        'nombre_filles', 'poids_filles_kg',
+        'nombre_a_reviser', 'poids_a_reviser_kg',
+        'dechets_demarrage_kg', 'dechets_lisiere_kg',
+        'dechets_jonction_kg', 'dechets_transport_kg',
+        'rouleaux_non_conforme_kg',
+    ],
     extra=1, can_delete=True
 )
+
+# 🛑 14 causes d'arrêts de la fiche papier Découpe
+FicheDecoupeArretFormSet = inlineformset_factory(
+    FicheProductionJournaliere, FicheDecoupeArret,
+    fields=['cause', 'temps_min', 'dechets_kg'],
+    extra=14, max_num=14, can_delete=False
+)
+
+
+# 🔬 Formulaire Autocontrôle Avant/Après Découpe
+class FicheDecoupeControleForm(forms.ModelForm):
+    class Meta:
+        model = FicheDecoupeControle
+        exclude = ['fiche']
+        widgets = {
+            'laize_mere_avant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'laize_fille_apres': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'impression_avant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'impression_apres': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'etat_bobine_avant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'etat_bobine_apres': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'froissage_avant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'froissage_apres': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'alignement_mandrin_avant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'alignement_mandrin_apres': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+            'nbr_jonction_avant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nbr'}),
+            'decalage_impress_avant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '✔ / ❌'}),
+        }

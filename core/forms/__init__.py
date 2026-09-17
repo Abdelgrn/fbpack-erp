@@ -1,5 +1,9 @@
 # CRM
-from .crm import ClientForm, ClientContactForm, InteractionLogForm, OpportuniteForm, QuoteForm
+from .crm import (
+    ClientForm, ClientContactForm, InteractionLogForm, OpportuniteForm, QuoteForm,
+    CommandeClientForm, LigneCommandeClientForm, LigneCommandeClientFormSet,
+    DemandePrixForm,
+)
 
 # Prepress
 from .prepress import ProductForm, ToolForm
@@ -13,6 +17,7 @@ from .machines import MachineForm, MachineMaintenanceForm, CompteurMachineForm, 
 # Production OF
 from .production_of import (
     OrdreFabricationForm, EtapeProductionForm, EtapeProductionFormSet,
+    PlanificationEtapeFormSet,
     SuiviProductionForm, SemiProduitForm, ConsommationMatiereForm,
     ProcessTypeForm, OFLancementRapideForm
 )
@@ -30,7 +35,8 @@ from .fiches import (
     FicheProductionJournaliereForm, FicheExtrusionMatiereFormSet, FicheExtrusionArretFormSet,
     FicheFlexoBobineEntreeFormSet, FicheFlexoBobineImprimeeFormSet, FicheFlexoEncreGroupeFormSet,
     FicheComplexageDerouleur1FormSet, FicheComplexageDerouleur2FormSet, FicheComplexageEnrouleurFormSet,
-    FicheFondCarreEquipeFormSet, FicheDecoupeBobineMereFormSet, FicheDecoupeBobineFilleFormSet
+    FicheFondCarreEquipeFormSet, FicheDecoupeBobineMereFormSet, FicheDecoupeBobineFilleFormSet,
+    FicheDecoupeArretFormSet, FicheDecoupeControleForm
 )
 
 # Maintenance
@@ -52,6 +58,8 @@ from .drh import (
 __all__ = [
     # CRM
     "ClientForm", "ClientContactForm", "InteractionLogForm", "OpportuniteForm", "QuoteForm",
+    "CommandeClientForm", "LigneCommandeClientForm", "LigneCommandeClientFormSet",
+    "DemandePrixForm",
     # Prepress
     "ProductForm", "ToolForm",
     # Stock
@@ -60,6 +68,7 @@ __all__ = [
     "MachineForm", "MachineMaintenanceForm", "CompteurMachineForm", "AtelierForm",
     # Production OF
     "OrdreFabricationForm", "EtapeProductionForm", "EtapeProductionFormSet",
+    "PlanificationEtapeFormSet",
     "SuiviProductionForm", "SemiProduitForm", "ConsommationMatiereForm",
     "ProcessTypeForm", "OFLancementRapideForm",
     # Production Spéciale
@@ -71,6 +80,7 @@ __all__ = [
     "FicheFlexoBobineEntreeFormSet", "FicheFlexoBobineImprimeeFormSet", "FicheFlexoEncreGroupeFormSet",
     "FicheComplexageDerouleur1FormSet", "FicheComplexageDerouleur2FormSet", "FicheComplexageEnrouleurFormSet",
     "FicheFondCarreEquipeFormSet", "FicheDecoupeBobineMereFormSet", "FicheDecoupeBobineFilleFormSet",
+    "FicheDecoupeArretFormSet", "FicheDecoupeControleForm",
     # Maintenance
     "CategoriePieceForm", "PieceRechangeForm", "OrdreMaintenanceForm",
     "ClotureOrdreMaintenanceForm", "ConsommationPieceForm",

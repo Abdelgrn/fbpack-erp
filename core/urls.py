@@ -21,6 +21,7 @@ urlpatterns = [
     path('crm/client/add/', views.add_client, name='add_client'),
     path('crm/client/<int:id>/', views.client_detail, name='client_detail'),
     path('crm/client/<int:id>/edit/', views.edit_client, name='edit_client'),
+    path('crm/client/<int:id>/convertir/', views.convertir_prospect, name='convertir_prospect'),
 
     # ==========================================
     # CRM — CONTACTS
@@ -51,6 +52,51 @@ urlpatterns = [
     path('crm/devis/<int:id>/convert/', views.convert_quote_to_order, name='convert_quote'),
 
     # ==========================================
+    # CRM — COMMANDES CLIENTS
+    # ==========================================
+    path('crm/commandes/', views.commandes_list, name='commandes_list'),
+    path('crm/commande/add/', views.add_commande, name='add_commande'),
+    path('crm/commande/<int:id>/', views.commande_detail, name='commande_detail'),
+    path('crm/commande/<int:id>/edit/', views.edit_commande, name='edit_commande'),
+    path('crm/commande/<int:id>/statut/<str:nouveau_statut>/', views.commande_changer_statut, name='commande_changer_statut'),
+    path('crm/commande/<int:id>/stock/', views.commande_check_stock, name='commande_check_stock'),
+    path('crm/commande/<int:id>/creer-of/', views.commande_creer_of, name='commande_creer_of'),
+
+    # ==========================================
+    # CRM — DEMANDES DE PRIX
+    # ==========================================
+    path('crm/demandes-prix/', views.demandes_prix_list, name='demandes_prix_list'),
+    path('crm/demande-prix/add/', views.add_demande_prix, name='add_demande_prix'),
+    path('crm/demande-prix/<int:id>/edit/', views.edit_demande_prix, name='edit_demande_prix'),
+    path('crm/demande-prix/<int:id>/vers-devis/', views.demande_prix_vers_devis, name='demande_prix_vers_devis'),
+
+    # ==========================================
+    # CRM — OF INTÉGRÉ
+    # ==========================================
+    path('crm/of/', views.crm_of_list, name='crm_of_list'),
+    path('crm/of/create/', views.crm_of_create, name='crm_of_create'),
+    path('crm/of/<int:of_id>/', views.crm_of_detail, name='crm_of_detail'),
+    path('crm/of/<int:of_id>/edit/', views.crm_of_edit, name='crm_of_edit'),
+    path('crm/of/<int:of_id>/statut/<str:nouveau_statut>/', views.crm_of_changer_statut, name='crm_of_changer_statut'),
+    path('crm/api/stock-check/', views.api_check_material_stock, name='api_check_material_stock'),
+
+    # ==========================================
+    # MODULE PLANIFICATION & ORDONNANCEMENT
+    # ==========================================
+    path('planification/', of_views.planning_atelier_view, name='planning_atelier'),
+    path('planification/backlog/', of_views.of_list_view, name='of_list'),
+    path('planification/gantt/', of_views.production_gantt, name='planning'),
+    path('planification/ordonnancer/<int:of_id>/', of_views.planification_ordonnancer, name='planification_ordonnancer'),
+    path('planification/export-excel/', of_views.export_planning_excel, name='export_planning_excel'), # 🔥 NOUVELLE LIGNE AJOUTÉE ICI
+
+    # Alias de compatibilité
+    path('crm/of/alias-list/', views.crm_of_list, name='of_list_alias'),
+    path('crm/of/alias-create/', views.crm_of_create, name='of_create'),
+    path('crm/of/alias-<int:of_id>/', views.crm_of_detail, name='of_detail'),
+    path('crm/of/alias-<int:of_id>/edit/', views.crm_of_edit, name='of_edit'),
+    path('crm/of/alias-<int:of_id>/statut/<str:nouveau_statut>/', views.crm_of_changer_statut, name='of_changer_statut'),
+
+    # ==========================================
     # PRÉPRESSE & OUTILS
     # ==========================================
     path('prepress/', views.prepress_view, name='prepress_view'),
@@ -60,45 +106,33 @@ urlpatterns = [
     path('tools/edit/<int:id>/', views.edit_tool, name='edit_tool'),
 
     # ==========================================
-    # PRODUCTION (ANCIEN OF - Conservé pour historique)
+    # PRODUCTION (ANCIEN OF)
     # ==========================================
     path('production/list/', views.production_view, name='production_view'),
     path('production/add/', views.add_production, name='add_production'),
     path('production/edit/<int:id>/', views.edit_production, name='edit_production'),
 
     # ==========================================
-    # PLANNINGS & GANTT (MODULE OF_VIEWS)
+    # OF MULTI-PROCESSUS TECHNIQUE ATELIER
     # ==========================================
-    path('production/planning/', of_views.production_gantt, name='planning'),
-    path('production/planning-atelier/', of_views.planning_atelier_view, name='planning_atelier'),
-
-    # ==========================================
-    # OF MULTI-PROCESSUS (MODULE OF_VIEWS)
-    # ==========================================
-    path('of/', of_views.of_list_view, name='of_list'),
-    path('of/create/', of_views.of_create_view, name='of_create'),
-    path('of/<int:of_id>/', of_views.of_detail_view, name='of_detail'),
-    path('of/<int:of_id>/edit/', of_views.of_edit_view, name='of_edit'),
-    path('of/<int:of_id>/delete/', of_views.of_delete_view, name='of_delete'),
-    path('of/<int:of_id>/statut/<str:nouveau_statut>/', of_views.of_changer_statut, name='of_changer_statut'),
     path('of/lancement-rapide/', of_views.of_lancement_rapide, name='of_lancement_rapide'),
     path('of/api/stats/', of_views.of_stats_api, name='of_stats_api'),
 
     # ==========================================
-    # ÉTAPES DE PRODUCTION (MODULE OF_VIEWS)
+    # ÉTAPES DE PRODUCTION
     # ==========================================
     path('of/etape/<int:etape_id>/', of_views.etape_detail_view, name='etape_detail'),
     path('of/etape/<int:etape_id>/demarrer/', of_views.etape_demarrer, name='etape_demarrer'),
     path('of/etape/<int:etape_id>/terminer/', of_views.etape_terminer, name='etape_terminer'),
 
     # ==========================================
-    # SEMI-PRODUITS (MODULE OF_VIEWS)
+    # SEMI-PRODUITS
     # ==========================================
     path('of/semi-produits/', of_views.semi_produit_list, name='semi_produit_list'),
     path('of/semi-produit/<int:sp_id>/', of_views.semi_produit_detail, name='semi_produit_detail'),
 
     # ==========================================
-    # TYPES DE PROCESSUS (MODULE OF_VIEWS)
+    # TYPES DE PROCESSUS
     # ==========================================
     path('of/process-types/', of_views.process_type_list, name='process_type_list'),
     path('of/process-type/<int:pt_id>/delete/', of_views.process_type_delete, name='process_type_delete'),
@@ -138,7 +172,7 @@ urlpatterns = [
     path('stock/api/dashboard/', views.stock_dashboard_data, name='stock_dashboard_data'),
 
     # ==========================================
-    # PARC MACHINE (ANCIEN — garde pour compatibilité)
+    # PARC MACHINE
     # ==========================================
     path('machines/', views.machine_view, name='machine_view'),
     path('machines/add/', views.add_machine, name='add_machine'),
@@ -150,7 +184,8 @@ urlpatterns = [
     path('prod/saisie/', prod_views.prod_saisie, name='prod_saisie'),
     path('prod/saisie/legacy/', prod_views.prod_saisie_legacy, name='prod_saisie_legacy'),
     path('prod/fiche/<int:id>/print/', prod_views.prod_print_fiche, name='prod_print_fiche'),
-    path('prod/fiche/<int:id>/delete/', prod_views.prod_delete_fiche, name='prod_delete_fiche'),  # <-- AJOUTE
+    path('prod/fiche/<int:id>/delete/', prod_views.prod_delete_fiche, name='prod_delete_fiche'),
+    path('prod/fiche/<int:id>/edit/', views.prod_edit_fiche, name='prod_edit_fiche'),
     path('prod/saisie/edit/<int:id>/', prod_views.prod_edit_entry, name='prod_edit_entry'),
     path('prod/saisie/delete/<int:id>/', prod_views.prod_delete_entry, name='prod_delete_entry'),
     path('prod/base/', prod_views.prod_base, name='prod_base'),

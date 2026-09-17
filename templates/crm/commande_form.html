@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-6">
+    <div class="glass rounded-2xl border border-slate-700 shadow-2xl p-8">
+        <div class="mb-4 flex items-center justify-between">
+            <a href="{% url 'commandes_list' %}" class="text-gray-500 hover:text-white text-sm transition flex items-center gap-2">
+                <span>←</span> Retour aux commandes
+            </a>
+            {% if commande %}
+            <a href="{% url 'commande_detail' commande.id %}" class="text-emerald-400 hover:underline text-sm font-bold">
+                Fiche {{ commande.reference }} →
+            </a>
+            {% endif %}
+        </div>
+
+        <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-3">
+            <span>🛒</span> {{ titre }}
+        </h2>
+
+        <form method="post" id="commande-form" class="django-form-container">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+                <!-- INFOS CLIENT & COMMERCIAL -->
+                <div class="md:col-span-3 bg-slate-900/50 p-3 rounded-lg border-l-4 border-emerald-500 font-bold text-xs uppercase tracking-widest text-emerald-400">
+                    Client & Commercial
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.client.label }} *</label>
+                    {{ form.client }}
+                    {% if form.client.errors %}<p class="text-red-400 text-xs mt-1">{{ form.client.errors }}</p>{% endif %}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.commercial.label }}</label>
+                    {{ form.commercial }}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.priorite.label }}</label>
+                    {{ form.priorite }}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.opportunite.label }}</label>
+                    {{ form.opportunite }}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.devis.label }}</label>
+                    {{ form.devis }}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.statut.label }}</label>
+                    {{ form.statut }}
+                </div>
+
+                <!-- DATES & CONDITIONS -->
+                <div class="md:col-span-3 bg-slate-900/50 p-3 rounded-lg border-l-4 border-emerald-500 font-bold text-xs uppercase tracking-widest text-emerald-400 mt-2">
+                    Dates & Conditions Commerciales
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.date_commande.label }} *</label>
+                    {{ form.date_commande }}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.date_livraison_prevue.label }}</label>
+                    {{ form.date_livraison_prevue }}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.delai_livraison_jours.label }}</label>
+                    {{ form.delai_livraison_jours }}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.conditions_paiement.label }}</label>
+                    {{ form.conditions_paiement }}
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.remise_globale.label }}</label>
+                    {{ form.remise_globale }}
+                </div>
+
+                <div class="md:col-span-3">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.adresse_livraison.label }}</label>
+                    {{ form.adresse_livraison }}
+                </div>
+
+                <div class="md:col-span-3">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.notes.label }}</label>
+                    {{ form.notes }}
+                </div>
+            </div>
+
+            <!-- TABLEAU DES LIGNES DE COMMANDE -->
+            <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-700 mb-8">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
+                    <div>
+                        <h3 class="text-white font-bold text-base flex items-center gap-2">
+                            <span>📦</span> Articles & Vérification Stock Temps Réel
+                        </h3>
+                        <p class="text-xs text-gray-400 mt-0.5">Le stock matière s'affiche automatiquement à la sélection.</p>
+                    </div>
+                </div>
+
+                {{ formset.management_form }}
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-950 text-gray-300 uppercase font-bold">
+                            <tr>
+                                <th class="p-2 min-w-[180px]">Produit Technique</th>
+                                <th class="p-2 min-w-[200px]">Matière Première & Stock</th>
+                                <th class="p-2 min-w-[180px]">Désignation *</th>
+                                <th class="p-2 w-24">Qté *</th>
+                                <th class="p-2 w-20">Unité</th>
+                                <th class="p-2 w-28">Prix Unitaire (DA)</th>
+                                <th class="p-2 w-20">Remise %</th>
+                                <th class="p-2 w-28 text-right">Total HT</th>
+                                <th class="p-2 w-12 text-center">Suppr.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lignes-tbody" class="divide-y divide-slate-800">
+                            {% for f in formset %}
+                            <tr class="ligne-row hover:bg-slate-800/50">
+                                {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+                                <td class="p-2">{{ f.produit }}</td>
+                                <td class="p-2">
+                                    {{ f.material }}
+                                    <div class="stock-live-feedback text-[10px] mt-1 font-bold hidden"></div>
+                                </td>
+                                <td class="p-2">{{ f.designation }}</td>
+                                <td class="p-2">{{ f.quantite }}</td>
+                                <td class="p-2">{{ f.unite }}</td>
+                                <td class="p-2">{{ f.prix_unitaire }}</td>
+                                <td class="p-2">{{ f.remise }}</td>
+                                <td class="p-2 text-right font-mono font-bold text-yellow-400 ligne-total">0 DA</td>
+                                <td class="p-2 text-center">
+                                    {% if formset.can_delete %}
+                                        {{ f.DELETE }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- BOUTONS -->
+            <div class="flex justify-end gap-3 pt-6 border-t border-slate-700">
+                <a href="{% url 'commandes_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-emerald-500/20 transition uppercase tracking-wider text-sm">
+                    💾 Enregistrer la Commande
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // API Check stock dynamique lors de la sélection de la matière
+    function checkStockRow(row) {
+        const matSelect = row.querySelector('select[name$="-material"]');
+        const qteInput = row.querySelector('input[name$="-quantite"]');
+        const feedback = row.querySelector('.stock-live-feedback');
+
+        if (!matSelect || !feedback) return;
+        const matId = matSelect.value;
+        const qte = qteInput ? parseFloat(qteInput.value || 0) : 0;
+
+        if (!matId) {
+            feedback.classList.add('hidden');
+            return;
+        }
+
+        fetch(`/crm/api/stock-check/?material_id=${matId}&quantite=${qte}`)
+            .then(res => res.json())
+            .then(data => {
+                feedback.classList.remove('hidden', 'text-green-400', 'text-red-400');
+                if (data.disponible) {
+                    feedback.classList.add('text-green-400');
+                    feedback.textContent = `✓ Stock OK (${data.stock} ${data.unit} dispo)`;
+                } else {
+                    feedback.classList.add('text-red-400');
+                    feedback.textContent = `⚠️ Stock insuffisant (${data.stock} ${data.unit} dispo / besoin ${qte})`;
+                }
+            })
+            .catch(() => feedback.classList.add('hidden'));
+    }
+
+    // Calcul du total ligne
+    function calcLigneTotal(row) {
+        const qte = parseFloat(row.querySelector('input[name$="-quantite"]')?.value || 0);
+        const pu = parseFloat(row.querySelector('input[name$="-prix_unitaire"]')?.value || 0);
+        const rem = parseFloat(row.querySelector('input[name$="-remise"]')?.value || 0);
+
+        const total = qte * pu * (1 - rem / 100);
+        const totalCell = row.querySelector('.ligne-total');
+        if (totalCell) {
+            totalCell.textContent = Math.round(total).toLocaleString('fr-FR') + ' DA';
+        }
+    }
+
+    // Attacher listeners
+    document.querySelectorAll('.ligne-row').forEach(row => {
+        const matSelect = row.querySelector('select[name$="-material"]');
+        const qteInput = row.querySelector('input[name$="-quantite"]');
+        const puInput = row.querySelector('input[name$="-prix_unitaire"]');
+        const remInput = row.querySelector('input[name$="-remise"]');
+
+        if (matSelect) matSelect.addEventListener('change', () => checkStockRow(row));
+        if (qteInput) qteInput.addEventListener('input', () => { checkStockRow(row); calcLigneTotal(row); });
+        if (puInput) puInput.addEventListener('input', () => calcLigneTotal(row));
+        if (remInput) remInput.addEventListener('input', () => calcLigneTotal(row));
+
+        // Initial
+        checkStockRow(row);
+        calcLigneTotal(row);
+    });
+});
+</script>
+{% endblock %}

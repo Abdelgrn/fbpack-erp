@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-3xl mx-auto mt-8">
+    <div class="glass rounded-2xl border border-slate-700 shadow-2xl p-8">
+        <div class="mb-4">
+            <a href="{% url 'demandes_prix_list' %}" class="text-gray-500 hover:text-white text-sm transition flex items-center gap-2">
+                <span>←</span> Retour aux demandes
+            </a>
+        </div>
+        <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-3">
+            <span>💰</span> {{ titre }}
+        </h2>
+        <form method="post" class="django-form-container">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.objet.label }} *</label>
+                    {{ form.objet }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.client.label }} *</label>
+                    {{ form.client }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.contact.label }}</label>
+                    {{ form.contact }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.produit.label }}</label>
+                    {{ form.produit }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.quantite_demandee.label }}</label>
+                    {{ form.quantite_demandee }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.date_demande.label }}</label>
+                    {{ form.date_demande }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.date_reponse_souhaitee.label }}</label>
+                    {{ form.date_reponse_souhaitee }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.statut.label }}</label>
+                    {{ form.statut }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.budget_indicatif.label }}</label>
+                    {{ form.budget_indicatif }}
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.description.label }}</label>
+                    {{ form.description }}
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.notes.label }}</label>
+                    {{ form.notes }}
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
+                <a href="{% url 'demandes_prix_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-purple-500/20 transition uppercase tracking-wider text-sm">
+                    💾 Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

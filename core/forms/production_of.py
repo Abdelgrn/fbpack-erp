@@ -5,6 +5,7 @@ from core.models import (
     ConsommationMatiere, ProcessType, Client, TechnicalProduct, Machine, Atelier
 )
 
+
 class OrdreFabricationForm(forms.ModelForm):
     class Meta:
         model = OrdreFabrication
@@ -16,13 +17,13 @@ class OrdreFabricationForm(forms.ModelForm):
             'priorite', 'bat_file', 'fiche_technique', 'notes', 'observation'
         ]
         widgets = {
-            'numero_of': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-généré si vide (ex: OF2025-0001)'}),
-            'numero_lot': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-généré si vide (ex: LOT2025-0001)'}),
+            'numero_of': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Auto-généré si vide'}),
+            'numero_lot': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Saisi par le planificateur'}),
             'client': forms.Select(attrs={'class': 'form-select'}),
             'produit': forms.Select(attrs={'class': 'form-select'}),
             'opportunite': forms.Select(attrs={'class': 'form-select'}),
             'quantite_prevue': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
-            'support': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: OPP 20 TRS, PE 90μ...'}),
+            'support': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: OPP 20 TRS'}),
             'dimension_mandrin': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
             'diametre_bobine_fille': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
             'laize': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
@@ -30,8 +31,8 @@ class OrdreFabricationForm(forms.ModelForm):
             'date_lancement': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'date_prevue_fin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'priorite': forms.Select(attrs={'class': 'form-select'}),
-            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Instructions spéciales...'}),
-            'observation': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Ex: BAT SEULEMENT, RELIQUAT, BAT+PROD...'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'observation': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -51,44 +52,87 @@ class EtapeProductionForm(forms.ModelForm):
             'operateur', 'quantite_entree',
             'support', 'developpement', 'quantite_ml', 'nb_bobines',
             'numero_lot_etape', 'observation',
-            'date_prevue_debut', 'date_prevue_fin', 'genere_semi_produit', 'notes'
+            'date_planifiee', 'heure_debut_planifiee', 'heure_fin_planifiee',
+            'shift', 'equipe', 'ordre_passage',
+            'genere_semi_produit', 'notes'
         ]
         widgets = {
             'numero_etape': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-            'nom_etape': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Impression Flexo'}),
+            'nom_etape': forms.TextInput(attrs={'class': 'form-control'}),
             'process_type': forms.Select(attrs={'class': 'form-select'}),
             'atelier': forms.Select(attrs={'class': 'form-select'}),
             'machine': forms.Select(attrs={'class': 'form-select'}),
             'operateur': forms.Select(attrs={'class': 'form-select'}),
             'quantite_entree': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'support': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: OPP 20 TRS 920MM'}),
-            'developpement': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': 'Ex: 680'}),
-            'quantite_ml': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Mètres linéaires'}),
+            'support': forms.TextInput(attrs={'class': 'form-control'}),
+            'developpement': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}),
+            'quantite_ml': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'nb_bobines': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-            'numero_lot_etape': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: 90PE440-8, 08CN70'}),
-            'observation': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Ex: RELIQUAT, BAT+PROD, BAT SEULEMENT'}),
-            'date_prevue_debut': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'date_prevue_fin': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'numero_lot_etape': forms.TextInput(attrs={'class': 'form-control'}),
+            'observation': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'date_planifiee': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            
+            # Utilisation de TextInput pour supprimer le contrôle AM/PM Chrome et garantir 24h (ex: 16:00)
+            'heure_debut_planifiee': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': '08:00', 'pattern': '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'}
+            ),
+            'heure_fin_planifiee': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': '16:00', 'pattern': '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'}
+            ),
+            
+            'shift': forms.Select(attrs={'class': 'form-select'}),
+            'equipe': forms.Select(attrs={'class': 'form-select'}),
+            'ordre_passage': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
             'genere_semi_produit': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['heure_debut_planifiee'].input_formats = ['%H:%M', '%H:%M:%S']
+        self.fields['heure_fin_planifiee'].input_formats = ['%H:%M', '%H:%M:%S']
+
+        for name in [
+            'process_type', 'atelier', 'machine', 'operateur', 'nom_etape',
+            'support', 'observation', 'notes', 'date_planifiee',
+            'heure_debut_planifiee', 'heure_fin_planifiee', 'shift', 'equipe',
+            'numero_lot_etape', 'developpement', 'quantite_ml', 'nb_bobines',
+            'numero_etape', 'quantite_entree', 'ordre_passage',
+        ]:
+            if name in self.fields:
+                self.fields[name].required = False
+
         if 'machine' in self.fields:
-            self.fields['machine'].queryset = Machine.objects.filter(
-                est_active=True
-            ).exclude(type__in=['NETT_CL', 'NETT_AN']).order_by('atelier__nom', 'name')
+            try:
+                self.fields['machine'].queryset = Machine.objects.filter(
+                    est_active=True
+                ).exclude(type__in=['NETT_CL', 'NETT_AN']).order_by('atelier__nom', 'name')
+            except Exception:
+                self.fields['machine'].queryset = Machine.objects.all().order_by('name')
         if 'atelier' in self.fields:
-            self.fields['atelier'].queryset = Atelier.objects.filter(est_actif=True).order_by('ordre_affichage', 'nom')
-            self.fields['atelier'].required = False
+            try:
+                self.fields['atelier'].queryset = Atelier.objects.filter(
+                    est_actif=True
+                ).order_by('ordre_affichage', 'nom')
+            except Exception:
+                self.fields['atelier'].queryset = Atelier.objects.all()
 
 
 EtapeProductionFormSet = inlineformset_factory(
     OrdreFabrication,
     EtapeProduction,
     form=EtapeProductionForm,
-    extra=3,
+    extra=0,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+
+PlanificationEtapeFormSet = inlineformset_factory(
+    OrdreFabrication,
+    EtapeProduction,
+    form=EtapeProductionForm,
+    extra=0,
     can_delete=True,
     min_num=0,
     validate_min=False,
@@ -181,7 +225,7 @@ class OFLancementRapideForm(forms.Form):
     )
     support = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: OPP 20 TRS'}),
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
         label="Support"
     )
     priorite = forms.ChoiceField(
@@ -203,7 +247,7 @@ class OFLancementRapideForm(forms.Form):
         label="Machine"
     )
     qte_extrusion = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
-    support_extrusion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Support extrusion'}))
+    support_extrusion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
 
     etape_impression = forms.BooleanField(required=False, initial=True, label="Impression")
     machine_impression = forms.ModelChoiceField(
@@ -213,8 +257,8 @@ class OFLancementRapideForm(forms.Form):
         label="Machine"
     )
     qte_impression = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control'}))
-    support_impression = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Support impression'}))
-    developpement_impression = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': 'Ex: 680'}))
+    support_impression = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    developpement_impression = forms.FloatField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1'}))
 
     etape_complexage = forms.BooleanField(required=False, initial=False, label="Complexage")
     machine_complexage = forms.ModelChoiceField(

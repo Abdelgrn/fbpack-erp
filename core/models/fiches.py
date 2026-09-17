@@ -2,6 +2,7 @@ import datetime
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.apps import apps
 from datetime import timedelta
 
 class FicheProductionJournaliere(models.Model):
@@ -117,7 +118,7 @@ class FicheProductionJournaliere(models.Model):
             self.numero_fiche = f"{prefix}{annee}-{num:04d}"
         
         if not self.of_lie and self.numero_lot:
-            OrdreFabrication = models.apps.get_model('core', 'OrdreFabrication')
+            OrdreFabrication = apps.get_model('core', 'OrdreFabrication')
             of = OrdreFabrication.chercher_par_lot(self.numero_lot)
             if of:
                 self.of_lie = of
@@ -331,3 +332,46 @@ class FicheDecoupeBobineFille(models.Model):
 
     class Meta:
         app_label = 'core'
+
+
+# ===========================================================================
+# NOUVEAUX MODÈLES : FICHE PAPIER DÉCOUPE (Arrêts + Autocontrôle)
+# ===========================================================================
+
+class FicheDecoupeArret(models.Model):
+    """14 causes d'arrêt de la fiche papier Découpe (Changement format, Panne, etc.)"""
+    fiche = models.ForeignKey(
+        FicheProductionJournaliere, on_delete=models.CASCADE, related_name='arrets_decoupe'
+    )
+    cause = models.CharField("Arrêt", max_length=150)
+    temps_min = models.IntegerField("Temps (min)", default=0)
+    dechets_kg = models.FloatField("Déchets (Kg)", default=0)
+
+    class Meta:
+        app_label = 'core'
+        verbose_name = "Arrêt Découpe"
+        verbose_name_plural = "Arrêts Découpe"
+
+
+class FicheDecoupeControle(models.Model):
+    """Autocontrôle Avant / Après Découpe (bloc de la fiche papier)"""
+    fiche = models.OneToOneField(
+        FicheProductionJournaliere, on_delete=models.CASCADE, related_name='controle_decoupe'
+    )
+    laize_mere_avant = models.CharField("Laize Mère (Avant)", max_length=50, blank=True)
+    laize_fille_apres = models.CharField("Laize Fille (Après)", max_length=50, blank=True)
+    impression_avant = models.CharField("Impression (Avant)", max_length=50, blank=True)
+    impression_apres = models.CharField("Impression (Après)", max_length=50, blank=True)
+    etat_bobine_avant = models.CharField("État Bobine (Avant)", max_length=50, blank=True)
+    etat_bobine_apres = models.CharField("État Bobine (Après)", max_length=50, blank=True)
+    froissage_avant = models.CharField("Froissage (Avant)", max_length=50, blank=True)
+    froissage_apres = models.CharField("Froissage (Après)", max_length=50, blank=True)
+    alignement_mandrin_avant = models.CharField("Alignement Mandrin (Avant)", max_length=50, blank=True)
+    alignement_mandrin_apres = models.CharField("Alignement Mandrin (Après)", max_length=50, blank=True)
+    nbr_jonction_avant = models.CharField("Nbr Jonction (Avant)", max_length=50, blank=True)
+    decalage_impress_avant = models.CharField("Décalage Impression (Avant)", max_length=50, blank=True)
+
+    class Meta:
+        app_label = 'core'
+        verbose_name = "Autocontrôle Découpe"
+        verbose_name_plural = "Autocontrôles Découpe"

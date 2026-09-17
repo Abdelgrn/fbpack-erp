@@ -16,19 +16,28 @@
                 {% if client.status == 'PROSPECT' %}<span class="bg-blue-500/20 text-blue-400 text-sm px-2 py-1 rounded border border-blue-500/30">Prospect</span>{% endif %}
             </h1>
             {% if client.code_client %}<div class="text-gray-500 text-sm font-mono mt-1">Code : {{ client.code_client }}</div>{% endif %}
-            <div class="text-gray-400 text-sm mt-1">{{ client.city }} {% if client.region %}· {{ client.get_region_display }}{% endif %} {% if client.segment %}· {{ client.get_segment_display }}{% endif %}</div>
+            <div class="text-gray-400 text-sm mt-1">
+                {{ client.city }} {% if client.region %}· {{ client.get_region_display }}{% endif %} 
+                {% if client.segment %}· {{ client.get_segment_display }}{% endif %}
+                {% if client.source_prospect %}· Source: <span class="text-purple-400">{{ client.get_source_prospect_display }}</span>{% endif %}
+            </div>
         </div>
         <div class="flex gap-2 flex-wrap">
             <a href="{% url 'edit_client' client.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition text-sm">✏️ Modifier</a>
             <a href="{% url 'add_contact' client.id %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Contact</a>
             <a href="{% url 'add_opportunite' %}?client_id={{ client.id }}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Opportunité</a>
+            <a href="{% url 'add_commande' %}?client_id={{ client.id }}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Commande</a>
             <a href="{% url 'add_quote' %}?client_id={{ client.id }}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded transition text-sm">+ Devis</a>
             <a href="{% url 'add_interaction' client.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Interaction</a>
+            
+            {% if client.status == 'PROSPECT' %}
+            <a href="{% url 'convertir_prospect' client.id %}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded transition text-sm" onclick="return confirm('Convertir ce prospect en client actif ?')">→ Client Actif</a>
+            {% endif %}
         </div>
     </div>
 
     <!-- INFOS RAPIDES -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
             <div class="text-2xl font-bold text-white">{{ contacts.count }}</div>
             <div class="text-xs text-gray-400 mt-1">Contacts</div>
@@ -36,6 +45,10 @@
         <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
             <div class="text-2xl font-bold text-white">{{ opportunites.count }}</div>
             <div class="text-xs text-gray-400 mt-1">Opportunités</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-emerald-500/30 p-4 text-center">
+            <div class="text-2xl font-bold text-emerald-400">{{ commandes.count }}</div>
+            <div class="text-xs text-emerald-400/70 mt-1">Commandes</div>
         </div>
         <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
             <div class="text-2xl font-bold text-white">{{ quotes.count }}</div>
@@ -45,7 +58,7 @@
             <div class="text-xl font-bold text-yellow-400 font-mono">
                 {% if client.ca_estime %}{{ client.ca_estime|floatformat:0 }}{% else %}—{% endif %}
             </div>
-            <div class="text-xs text-gray-400 mt-1">Volume Estimé (KG/Étiqu.)</div>
+            <div class="text-xs text-gray-400 mt-1">Vol. (KG/Étiqu)</div>
         </div>
     </div>
 
@@ -56,47 +69,36 @@
 
             <!-- INFOS GÉNÉRALES -->
             <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
-                <h3 class="text-white font-bold mb-4 border-b border-slate-700 pb-2">📋 Informations</h3>
+                <h3 class="text-white font-bold mb-4 border-b border-slate-700 pb-2">📋 Informations & Conditions</h3>
                 <div class="space-y-2 text-sm">
                     {% if client.phone %}
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Téléphone</span>
-                        <span class="text-white">{{ client.phone }}</span>
-                    </div>
+                    <div class="flex justify-between"><span class="text-gray-500">Téléphone</span><span class="text-white">{{ client.phone }}</span></div>
                     {% endif %}
                     {% if client.email %}
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Email</span>
-                        <a href="mailto:{{ client.email }}" class="text-blue-400 hover:underline">{{ client.email }}</a>
-                    </div>
+                    <div class="flex justify-between"><span class="text-gray-500">Email</span><a href="mailto:{{ client.email }}" class="text-blue-400 hover:underline">{{ client.email }}</a></div>
                     {% endif %}
                     {% if client.website %}
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Web</span>
-                        <a href="{{ client.website }}" target="_blank" class="text-blue-400 hover:underline text-xs">{{ client.website|truncatechars:30 }}</a>
-                    </div>
+                    <div class="flex justify-between"><span class="text-gray-500">Web</span><a href="{{ client.website }}" target="_blank" class="text-blue-400 hover:underline text-xs">{{ client.website|truncatechars:30 }}</a></div>
                     {% endif %}
                     {% if client.sector %}
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Secteur</span>
-                        <span class="text-white">{{ client.sector }}</span>
-                    </div>
+                    <div class="flex justify-between"><span class="text-gray-500">Secteur</span><span class="text-white">{{ client.sector }}</span></div>
                     {% endif %}
                     {% if client.size %}
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Taille</span>
-                        <span class="text-white">{{ client.get_size_display }}</span>
-                    </div>
+                    <div class="flex justify-between"><span class="text-gray-500">Taille</span><span class="text-white">{{ client.get_size_display }}</span></div>
                     {% endif %}
                     {% if client.commercial %}
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Commercial</span>
-                        <span class="text-white">{{ client.commercial.get_full_name|default:client.commercial.username }}</span>
-                    </div>
+                    <div class="flex justify-between"><span class="text-gray-500">Commercial</span><span class="text-white">{{ client.commercial.get_full_name|default:client.commercial.username }}</span></div>
                     {% endif %}
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Client depuis</span>
-                        <span class="text-white">{{ client.date_creation|date:"d/m/Y" }}</span>
+                    <div class="flex justify-between"><span class="text-gray-500">Client depuis</span><span class="text-white">{{ client.date_creation|date:"d/m/Y" }}</span></div>
+                    {% if client.ice_nif %}
+                    <div class="flex justify-between"><span class="text-gray-500">ICE / NIF</span><span class="text-white font-mono">{{ client.ice_nif }}</span></div>
+                    {% endif %}
+
+                    <div class="mt-3 pt-3 border-t border-slate-700">
+                        <div class="flex justify-between mb-1"><span class="text-gray-500">Paiement</span><span class="text-yellow-400">{{ client.get_conditions_paiement_display|default:"Standard" }}</span></div>
+                        <div class="flex justify-between mb-1"><span class="text-gray-500">Délai Lvr.</span><span class="text-white">{{ client.delai_livraison_jours }} jours</span></div>
+                        <div class="flex justify-between mb-1"><span class="text-gray-500">Remise std</span><span class="text-emerald-400">{{ client.remise_defaut }}%</span></div>
+                        <div class="flex justify-between"><span class="text-gray-500">Lim. crédit</span><span class="text-white font-mono">{{ client.limite_credit|floatformat:0 }} DA</span></div>
                     </div>
                 </div>
                 {% if client.notes %}
@@ -142,42 +144,172 @@
                 <p class="text-gray-500 text-sm text-center py-4">Aucun contact. <a href="{% url 'add_contact' client.id %}" class="text-blue-400 hover:underline">En ajouter un</a></p>
                 {% endif %}
             </div>
-
-        </div>
-
-        <!-- COLONNE DROITE : Opportunités + Devis + Historique + Production -->
-        <div class="lg:col-span-2 space-y-5">
-
-            <!-- OPPORTUNITÉS -->
+            
+            <!-- HISTORIQUE INTERACTIONS (Tiré de l'original) -->
             <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                    <h3 class="text-white font-bold">🎯 Opportunités ({{ opportunites.count }})</h3>
-                    <a href="{% url 'add_opportunite' %}?client_id={{ client.id }}" class="text-xs text-green-400 hover:text-green-300">+ Ajouter</a>
+                    <h3 class="text-white font-bold">📋 Historique Interactions</h3>
+                    <a href="{% url 'add_interaction' client.id %}" class="text-xs text-blue-400 hover:text-blue-300">+ Ajouter</a>
                 </div>
-                {% if opportunites %}
-                <div class="space-y-2">
-                    {% for opp in opportunites %}
-                    <div class="bg-slate-700/50 rounded-lg p-3 flex justify-between items-center">
-                        <div>
-                            <div class="font-bold text-white text-sm">{{ opp.titre }}</div>
-                            <div class="flex items-center gap-3 mt-1">
-                                {% if opp.status == 'GAGNE' %}
-                                    <span class="text-xs text-green-400">{{ opp.get_status_display }}</span>
-                                {% elif opp.status == 'PERDU' %}
-                                    <span class="text-xs text-red-400">{{ opp.get_status_display }}</span>
-                                {% else %}
-                                    <span class="text-xs text-blue-400">{{ opp.get_status_display }}</span>
+                {% if interactions %}
+                <div class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    {% for log in interactions %}
+                    <div class="border-l-2 border-slate-600 pl-4 pb-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    {% if log.type == 'CALL' %}<span class="text-xs bg-blue-500/20 text-blue-400 px-1 rounded">📞 Appel</span>
+                                    {% elif log.type == 'EMAIL' %}<span class="text-xs bg-yellow-500/20 text-yellow-400 px-1 rounded">✉ Email</span>
+                                    {% elif log.type == 'MEET' %}<span class="text-xs bg-green-500/20 text-green-400 px-1 rounded">🤝 RDV</span>
+                                    {% elif log.type == 'VISITE' %}<span class="text-xs bg-purple-500/20 text-purple-400 px-1 rounded">🚗 Visite</span>
+                                    {% else %}<span class="text-xs bg-slate-500/20 text-gray-400 px-1 rounded">📝 Note</span>{% endif %}
+                                    <span class="font-bold text-white text-sm">{{ log.summary }}</span>
+                                </div>
+                                {% if log.details %}<p class="text-xs text-gray-400 mt-1">{{ log.details|truncatechars:120 }}</p>{% endif %}
+                                {% if log.next_action %}
+                                <div class="text-xs text-yellow-400 mt-1">→ {{ log.next_action }}
+                                    {% if log.next_action_date %}({{ log.next_action_date|date:"d/m/Y" }}){% endif %}
+                                </div>
                                 {% endif %}
-                                <span class="text-xs text-yellow-400 font-mono">{{ opp.valeur_estimee|floatformat:0 }} KG/Étiqu.</span>
-                                <span class="text-xs text-gray-500">{{ opp.probabilite }}%</span>
                             </div>
+                            <div class="text-xs text-gray-500 flex-shrink-0 ml-4">{{ log.date|date:"d/m/Y" }}</div>
                         </div>
-                        <a href="{% url 'edit_opportunite' opp.id %}" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0">Éditer</a>
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-gray-500 text-sm text-center py-3">Aucune opportunité.</p>
+                <p class="text-gray-500 text-sm text-center py-4">Aucune interaction enregistrée.</p>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <!-- COLONNE DROITE : Opportunités + Commandes + Devis + Production -->
+        <div class="lg:col-span-2 space-y-5">
+            
+            <!-- NOUVEAU: COMMANDES CLIENTS -->
+            <div class="bg-slate-800 rounded-xl border border-emerald-500/30 p-5 shadow-lg shadow-emerald-500/5">
+                <div class="flex justify-between items-center mb-4 border-b border-emerald-500/30 pb-2">
+                    <h3 class="text-emerald-400 font-bold">🛒 Commandes ({{ commandes.count }})</h3>
+                    <a href="{% url 'add_commande' %}?client_id={{ client.id }}" class="text-xs text-emerald-400 hover:text-emerald-300">+ Nouvelle Commande</a>
+                </div>
+                {% if commandes %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-gray-400">
+                        <thead class="text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th class="pb-2 text-left">Réf.</th>
+                                <th class="pb-2 text-left">Date</th>
+                                <th class="pb-2 text-left">Statut</th>
+                                <th class="pb-2 text-left">Montant</th>
+                                <th class="pb-2 text-left">OF lié</th>
+                                <th class="pb-2 text-right"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for cmd in commandes %}
+                            <tr>
+                                <td class="py-2">
+                                    <a href="{% url 'commande_detail' cmd.id %}" class="font-mono text-emerald-400 font-bold hover:underline">{{ cmd.reference }}</a>
+                                    {% if cmd.priorite == 'URGENTE' %} <span class="text-[10px] text-red-400">🔴</span> {% endif %}
+                                </td>
+                                <td class="py-2 text-xs">{{ cmd.date_commande|date:"d/m/Y" }}</td>
+                                <td class="py-2">
+                                    <span class="bg-{{ cmd.get_statut_color }}-500/10 text-{{ cmd.get_statut_color }}-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold">{{ cmd.get_statut_display }}</span>
+                                </td>
+                                <td class="py-2 font-mono text-yellow-400 text-xs font-bold">{{ cmd.montant_total|floatformat:0 }} DA</td>
+                                <td class="py-2 text-xs">
+                                    {% if cmd.of_lie %}
+                                    <a href="{% url 'of_detail' cmd.of_lie.id %}" class="text-neon hover:underline">{{ cmd.of_lie.numero_of }}</a>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td class="py-2 text-right">
+                                    <a href="{% url 'edit_commande' cmd.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Édit.</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-sm text-center py-3">Aucune commande pour ce client.</p>
+                {% endif %}
+            </div>
+
+            <!-- OPPORTUNITÉS -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h3 class="text-white font-bold">🎯 Opportunités Actives ({{ opportunites.count }})</h3>
+                    <a href="{% url 'add_opportunite' %}?client_id={{ client.id }}" class="text-xs text-green-400 hover:text-green-300">+ Ajouter</a>
+                </div>
+                {% if opportunites %}
+                <div class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    {% for opp_info in opp_stock_info %}
+                    <div class="bg-slate-700/50 rounded-lg p-3 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-white text-sm">{{ opp_info.opp.titre }}</div>
+                            {% if opp_info.opp.produit_demande %}<div class="text-[10px] text-cyan-400 mt-0.5">{{ opp_info.opp.produit_demande }}</div>{% endif %}
+                            
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-xs text-blue-400">{{ opp_info.opp.get_status_display }}</span>
+                                <span class="text-xs text-yellow-400 font-mono">{{ opp_info.opp.valeur_estimee|floatformat:0 }} KG</span>
+                                <span class="text-xs text-gray-500">{{ opp_info.opp.probabilite }}%</span>
+                            </div>
+                            
+                            {% if opp_info.opp.material_principal %}
+                            <div class="mt-1.5">
+                                {% if opp_info.stock.disponible == True %}
+                                <span class="stock-ok px-1.5 py-0.5 rounded text-[10px] font-bold">✓ Stock Mat. OK</span>
+                                {% elif opp_info.stock.disponible == False %}
+                                <span class="stock-ko px-1.5 py-0.5 rounded text-[10px] font-bold" title="{{ opp_info.stock.message }}">⚠️ Manque matière</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'edit_opportunite' opp_info.opp.id %}" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0">Éditer</a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-sm text-center py-3">Aucune opportunité active.</p>
+                {% endif %}
+            </div>
+
+            <!-- NOUVEAU: DEMANDES DE PRIX -->
+            <div class="bg-slate-800 rounded-xl border border-purple-500/30 p-5 shadow-lg shadow-purple-500/5">
+                <div class="flex justify-between items-center mb-4 border-b border-purple-500/30 pb-2">
+                    <h3 class="text-purple-400 font-bold">💰 Demandes de Prix ({{ demandes_prix.count }})</h3>
+                    <a href="{% url 'add_demande_prix' %}?client_id={{ client.id }}" class="text-xs text-purple-400 hover:text-purple-300">+ Nouvelle DP</a>
+                </div>
+                {% if demandes_prix %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-gray-400">
+                        <thead class="text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th class="pb-2 text-left">Réf.</th>
+                                <th class="pb-2 text-left">Objet</th>
+                                <th class="pb-2 text-left">Statut</th>
+                                <th class="pb-2 text-right"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for dp in demandes_prix|slice:":5" %}
+                            <tr>
+                                <td class="py-2 font-mono text-purple-400 text-xs font-bold">{{ dp.reference }}</td>
+                                <td class="py-2 text-white text-xs">{{ dp.objet|truncatechars:30 }}</td>
+                                <td class="py-2">
+                                    <span class="bg-slate-700 text-gray-300 px-2 py-0.5 rounded text-[10px] uppercase font-bold">{{ dp.get_statut_display }}</span>
+                                </td>
+                                <td class="py-2 text-right">
+                                    <a href="{% url 'edit_demande_prix' dp.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Édit.</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-sm text-center py-3">Aucune demande de prix.</p>
                 {% endif %}
             </div>
 
@@ -227,10 +359,12 @@
                 {% endif %}
             </div>
 
-            <!-- COMMANDES PRODUCTION -->
+            <!-- ANCIENNES COMMANDES PRODUCTION (LEGACY) -->
             {% if orders %}
             <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
-                <h3 class="text-white font-bold mb-4 border-b border-slate-700 pb-2">🏭 Dernières Commandes Production</h3>
+                <h3 class="text-white font-bold mb-4 border-b border-slate-700 pb-2 flex items-center justify-between">
+                    <span>🏭 Historique Prod. Legacy</span>
+                </h3>
                 <div class="space-y-2">
                     {% for of in orders %}
                     <div class="bg-slate-700/50 rounded-lg p-3 flex justify-between items-center">
@@ -255,43 +389,6 @@
                 </div>
             </div>
             {% endif %}
-
-            <!-- HISTORIQUE INTERACTIONS -->
-            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
-                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                    <h3 class="text-white font-bold">📋 Historique Interactions</h3>
-                    <a href="{% url 'add_interaction' client.id %}" class="text-xs text-blue-400 hover:text-blue-300">+ Ajouter</a>
-                </div>
-                {% if interactions %}
-                <div class="space-y-3">
-                    {% for log in interactions %}
-                    <div class="border-l-2 border-slate-600 pl-4 pb-3">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    {% if log.type == 'CALL' %}<span class="text-xs bg-blue-500/20 text-blue-400 px-1 rounded">📞 Appel</span>
-                                    {% elif log.type == 'EMAIL' %}<span class="text-xs bg-yellow-500/20 text-yellow-400 px-1 rounded">✉ Email</span>
-                                    {% elif log.type == 'MEET' %}<span class="text-xs bg-green-500/20 text-green-400 px-1 rounded">🤝 RDV</span>
-                                    {% elif log.type == 'VISITE' %}<span class="text-xs bg-purple-500/20 text-purple-400 px-1 rounded">🚗 Visite</span>
-                                    {% else %}<span class="text-xs bg-slate-500/20 text-gray-400 px-1 rounded">📝 Note</span>{% endif %}
-                                    <span class="font-bold text-white text-sm">{{ log.summary }}</span>
-                                </div>
-                                {% if log.details %}<p class="text-xs text-gray-400 mt-1">{{ log.details|truncatechars:120 }}</p>{% endif %}
-                                {% if log.next_action %}
-                                <div class="text-xs text-yellow-400 mt-1">→ {{ log.next_action }}
-                                    {% if log.next_action_date %}({{ log.next_action_date|date:"d/m/Y" }}){% endif %}
-                                </div>
-                                {% endif %}
-                            </div>
-                            <div class="text-xs text-gray-500 flex-shrink-0 ml-4">{{ log.date|date:"d/m/Y" }}</div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-gray-500 text-sm text-center py-4">Aucune interaction enregistrée.</p>
-                {% endif %}
-            </div>
 
         </div>
     </div>

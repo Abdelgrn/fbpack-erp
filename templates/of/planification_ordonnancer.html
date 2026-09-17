@@ -1,0 +1,470 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-6">
+    <div class="mb-4">
+        <a href="{% url 'of_list' %}" class="text-gray-500 hover:text-white text-sm transition flex items-center gap-2">
+            <span>←</span> Retour au Backlog
+        </a>
+    </div>
+
+    <div class="glass rounded-2xl border border-blue-500/30 shadow-2xl p-8">
+
+        <div class="border-b border-slate-700 pb-6 mb-6">
+            <h2 class="text-2xl font-bold text-white flex items-center gap-3">
+                <span>📅</span> Ordonnancement OF {{ of.numero_of }}
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                <div>
+                    <span class="block text-[10px] text-gray-500 uppercase font-bold">Client</span>
+                    <span class="text-white font-bold">{{ of.client.name }}</span>
+                </div>
+                <div>
+                    <span class="block text-[10px] text-gray-500 uppercase font-bold">Produit</span>
+                    <span class="text-cyan-400">{{ of.produit.name }}</span>
+                </div>
+                <div>
+                    <span class="block text-[10px] text-gray-500 uppercase font-bold">Quantité</span>
+                    <span class="text-yellow-400 font-mono">{{ of.quantite_prevue|floatformat:0 }} kg</span>
+                </div>
+                <div>
+                    <span class="block text-[10px] text-gray-500 uppercase font-bold">Délai Commercial</span>
+                    <span class="text-white">{{ of.date_prevue_fin|date:"d/m/Y"|default:"-" }}</span>
+                </div>
+            </div>
+        </div>
+
+        {% if formset.errors or formset.non_form_errors %}
+        <div class="mb-6 bg-red-500/10 border border-red-500/40 rounded-xl p-4 text-sm text-red-300">
+            <p class="font-bold mb-2">Erreurs de validation :</p>
+            {{ formset.non_form_errors }}
+            {% for f in formset %}
+                {% if f.errors %}
+                <div class="mt-2">
+                    <span class="text-white font-bold">Étape {{ f.instance.numero_etape|default:forloop.counter }} :</span>
+                    {{ f.errors }}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" class="django-form-container" id="form-ordonnancer" novalidate>
+            {% csrf_token %}
+
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-5 mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- BLOC 1 : NUMERO DE LOT -->
+                <div>
+                    <label class="block text-yellow-400 text-sm font-bold mb-2 uppercase tracking-wider">
+                        🏷️ Numéro de Lot (Planification)
+                    </label>
+                    <input type="text" name="numero_lot" id="id_numero_lot_of" value="{{ of.numero_lot|default_if_none:'' }}"
+                           placeholder="Ex: 08CN70"
+                           class="w-full bg-slate-900 border border-yellow-500/50 rounded-lg px-4 py-2 text-white font-mono text-lg focus:border-yellow-400 focus:outline-none">
+                    <p class="text-xs text-gray-400 mt-2">Ce lot se propage automatiquement sur toutes les étapes.</p>
+                </div>
+
+                <!-- BLOC 2 : SÉLECTEUR DE SEMAINE (Dimanche → Jeudi) -->
+                <div>
+                    <label class="block text-cyan-400 text-sm font-bold mb-2 uppercase tracking-wider flex items-center gap-2">
+                        📅 Planifier pour la Semaine Cible
+                    </label>
+                    <input type="week" id="id_semaine_cible" value="{{ current_week_str }}"
+                           class="w-full bg-slate-900 border border-cyan-500/50 rounded-lg px-4 py-2 text-white font-mono text-lg focus:border-cyan-400 focus:outline-none cursor-pointer">
+                    <p class="text-xs text-cyan-300/70 mt-2">⚡ Semaine fb.pack = <strong>Dimanche → Jeudi</strong>. Les dates se remplissent auto (Étape 1 = Dimanche, Étape 2 = Lundi…).</p>
+                </div>
+            </div>
+
+            {{ formset.management_form }}
+
+            <div id="etapes-container" class="space-y-6">
+                {% for etape_form in formset %}
+                <div class="etape-planif-row bg-slate-800 rounded-xl border border-slate-600 p-5 relative transition-all hover:border-blue-500">
+                    {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
+
+                    <div class="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
+                        <div class="flex items-center gap-4">
+                            <div class="bg-slate-900 text-gray-400 h-8 w-8 rounded-full flex items-center justify-center font-bold border border-slate-700 etape-numero">
+                                {{ etape_form.instance.numero_etape|default:forloop.counter }}
+                            </div>
+                            <h3 class="text-white font-bold text-lg">{{ etape_form.instance.get_nom_display|default:"Étape" }}</h3>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] uppercase font-bold px-2 py-1 rounded bg-slate-900 border border-slate-700 text-gray-400">
+                                {{ etape_form.instance.get_statut_display|default:"Nouveau" }}
+                            </span>
+                            <button type="button" class="btn-supprimer-etape bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 rounded-lg px-3 py-1 text-xs font-bold transition flex items-center gap-1" title="Supprimer cette étape">
+                                🗑️ <span class="hidden sm:inline">Supprimer</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="hidden">
+                        {{ etape_form.DELETE }}
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Machine</label>
+                            {{ etape_form.machine }}
+                        </div>
+                        <div>
+                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Date prévue</label>
+                            {{ etape_form.date_planifiee }}
+                        </div>
+                        <div>
+                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase tracking-wider">Shift</label>
+                            {{ etape_form.shift }}
+                        </div>
+                        <div>
+                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase tracking-wider">Équipe</label>
+                            {{ etape_form.equipe }}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase tracking-wider">Heure début (24H ex: 08:00)</label>
+                            {{ etape_form.heure_debut_planifiee }}
+                        </div>
+                        <div>
+                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase tracking-wider">Heure fin (24H ex: 16:00)</label>
+                            {{ etape_form.heure_fin_planifiee }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">Ordre passage</label>
+                            {{ etape_form.ordre_passage }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">Lot étape</label>
+                            {{ etape_form.numero_lot_etape }}
+                        </div>
+                    </div>
+
+                    <details class="group bg-slate-900/50 rounded-lg">
+                        <summary class="cursor-pointer text-xs font-bold text-gray-400 p-3 hover:text-white transition">
+                            ▶ Détails techniques (Support, Qté, Dév)
+                        </summary>
+                        <div class="p-4 pt-0 grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div class="hidden">{{ etape_form.numero_etape }}</div>
+                            <div class="hidden">{{ etape_form.process_type }}</div>
+                            <div class="hidden">{{ etape_form.atelier }}</div>
+                            <div class="hidden">{{ etape_form.operateur }}</div>
+                            <div class="hidden">{{ etape_form.nom_etape }}</div>
+                            <div class="hidden">{{ etape_form.genere_semi_produit }}</div>
+                            <div class="hidden">{{ etape_form.notes }}</div>
+                            <div>
+                                <label class="text-[10px] text-gray-500 uppercase font-bold">Support</label>
+                                {{ etape_form.support }}
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-gray-500 uppercase font-bold">Qté Entrée</label>
+                                {{ etape_form.quantite_entree }}
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-gray-500 uppercase font-bold">Qté ML</label>
+                                {{ etape_form.quantite_ml }}
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-gray-500 uppercase font-bold">Dév (mm)</label>
+                                {{ etape_form.developpement }}
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-gray-500 uppercase font-bold">Nb Bobines</label>
+                                {{ etape_form.nb_bobines }}
+                            </div>
+                            <div class="col-span-2 md:col-span-5">
+                                <label class="text-[10px] text-gray-500 uppercase font-bold">Observation</label>
+                                {{ etape_form.observation }}
+                            </div>
+                        </div>
+                    </details>
+                </div>
+                {% empty %}
+                <div class="text-center py-12 bg-slate-900/80 rounded-xl border border-amber-500/30 p-8" id="empty-state-message">
+                    <div class="text-amber-400 text-3xl mb-3">⚠️</div>
+                    <h3 class="text-white text-lg font-bold mb-2">Aucune étape de production définie sur cet OF</h3>
+                    <p class="text-gray-400 text-sm max-w-md mx-auto mb-6">
+                        Le commercial a créé cet OF sans ajouter d'étapes d'ateliers. Vous pouvez générer la séquence standard en un clic, ou ajouter les étapes manuellement.
+                    </p>
+                    <a href="?generer_etapes=1" class="bg-amber-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 px-8 rounded-lg shadow-lg shadow-amber-500/20 transition uppercase text-sm tracking-wider inline-flex items-center gap-2">
+                        <span>⚡</span> Générer automatiquement les étapes (Extrusion, Flexo, Découpe...)
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- TEMPLATE VIDE POUR CLONAGE -->
+            <div id="empty-form-template" style="display:none;">
+                <div class="etape-planif-row bg-slate-800 rounded-xl border border-green-600 p-5 relative transition-all hover:border-green-500">
+                    {% with formset.empty_form as etape_form %}
+                    {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
+
+                    <div class="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
+                        <div class="flex items-center gap-4">
+                            <div class="bg-slate-900 text-green-400 h-8 w-8 rounded-full flex items-center justify-center font-bold border border-green-700 etape-numero">#</div>
+                            <h3 class="text-white font-bold text-lg">Nouvelle Étape</h3>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] uppercase font-bold px-2 py-1 rounded bg-green-900/50 border border-green-500/40 text-green-400">Nouveau</span>
+                            <button type="button" class="btn-supprimer-etape bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 rounded-lg px-3 py-1 text-xs font-bold transition flex items-center gap-1">
+                                🗑️ <span class="hidden sm:inline">Supprimer</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="hidden">{{ etape_form.DELETE }}</div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Machine</label>
+                            {{ etape_form.machine }}
+                        </div>
+                        <div>
+                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Date prévue</label>
+                            {{ etape_form.date_planifiee }}
+                        </div>
+                        <div>
+                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase tracking-wider">Shift</label>
+                            {{ etape_form.shift }}
+                        </div>
+                        <div>
+                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase tracking-wider">Équipe</label>
+                            {{ etape_form.equipe }}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase tracking-wider">Heure début (24H)</label>
+                            {{ etape_form.heure_debut_planifiee }}
+                        </div>
+                        <div>
+                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase tracking-wider">Heure fin (24H)</label>
+                            {{ etape_form.heure_fin_planifiee }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">Ordre passage</label>
+                            {{ etape_form.ordre_passage }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">Lot étape</label>
+                            {{ etape_form.numero_lot_etape }}
+                        </div>
+                    </div>
+
+                    <details class="group bg-slate-900/50 rounded-lg">
+                        <summary class="cursor-pointer text-xs font-bold text-gray-400 p-3 hover:text-white transition">▶ Détails techniques</summary>
+                        <div class="p-4 pt-0 grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div class="hidden">{{ etape_form.numero_etape }}</div>
+                            <div class="hidden">{{ etape_form.process_type }}</div>
+                            <div class="hidden">{{ etape_form.atelier }}</div>
+                            <div class="hidden">{{ etape_form.operateur }}</div>
+                            <div class="hidden">{{ etape_form.nom_etape }}</div>
+                            <div class="hidden">{{ etape_form.genere_semi_produit }}</div>
+                            <div class="hidden">{{ etape_form.notes }}</div>
+                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Support</label>{{ etape_form.support }}</div>
+                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Qté Entrée</label>{{ etape_form.quantite_entree }}</div>
+                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Qté ML</label>{{ etape_form.quantite_ml }}</div>
+                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Dév (mm)</label>{{ etape_form.developpement }}</div>
+                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Nb Bobines</label>{{ etape_form.nb_bobines }}</div>
+                            <div class="col-span-2 md:col-span-5"><label class="text-[10px] text-gray-500 uppercase font-bold">Observation</label>{{ etape_form.observation }}</div>
+                        </div>
+                    </details>
+                    {% endwith %}
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-center">
+                <button type="button" id="btn-ajouter-etape" class="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white border-2 border-dashed border-green-500/50 hover:border-green-500 rounded-xl px-6 py-3 font-bold transition flex items-center gap-2 uppercase text-sm tracking-wider">
+                    <span class="text-xl">➕</span> Ajouter une étape
+                </button>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
+                <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-blue-500/20 transition uppercase tracking-wider text-sm flex items-center gap-2">
+                    <span>📅</span> Valider le Planning
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const SHIFT_HOURS = {
+    'MATIN': ['08:00', '16:00'],
+    'SOIR':  ['16:00', '00:00'],
+    'NUIT':  ['00:00', '08:00']
+};
+
+function applyShiftHours(row) {
+    const shiftSel = row.querySelector('select[name$="-shift"]');
+    const hDeb = row.querySelector('input[name$="-heure_debut_planifiee"]');
+    const hFin = row.querySelector('input[name$="-heure_fin_planifiee"]');
+    if (!shiftSel || !hDeb || !hFin) return;
+    const val = shiftSel.value;
+    if (SHIFT_HOURS[val]) {
+        hDeb.value = SHIFT_HOURS[val][0];
+        hFin.value = SHIFT_HOURS[val][1];
+    }
+}
+
+/* =========================================================
+   SEMAINE fb.pack = DIMANCHE → JEUDI
+   input type=week donne une semaine ISO (lundi).
+   On prend le DIMANCHE (= lundi ISO - 1 jour).
+   ========================================================= */
+function getSundayOfWeek(weekStr) {
+    if (!weekStr) return null;
+    const parts = weekStr.split('-W');
+    if (parts.length !== 2) return null;
+
+    const year = parseInt(parts[0], 10);
+    const week = parseInt(parts[1], 10);
+
+    // Lundi ISO de la semaine
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7; // Dimanche JS = 0 → 7
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (week - 1) * 7);
+
+    // Dimanche = veille du lundi ISO
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() - 1);
+    return sunday;
+}
+
+function formatDateISO(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function appliquerDatesParSemaine() {
+    const weekPicker = document.getElementById('id_semaine_cible');
+    if (!weekPicker || !weekPicker.value) return;
+
+    const startSunday = getSundayOfWeek(weekPicker.value);
+    if (!startSunday) return;
+
+    // Jours ouvrés fb.pack : Dimanche(+0), Lundi(+1), Mardi(+2), Mercredi(+3), Jeudi(+4)
+    // Si plus de 5 étapes → on continue sur les jours suivants
+    let visibleIndex = 0;
+    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(function(row) {
+        if (row.style.display === 'none') return;
+        const deleteInput = row.querySelector('input[name$="-DELETE"]');
+        if (deleteInput && deleteInput.checked) return;
+
+        const dateInput = row.querySelector('input[name$="-date_planifiee"]');
+        if (dateInput) {
+            const stepDate = new Date(startSunday);
+            stepDate.setDate(startSunday.getDate() + visibleIndex);
+            dateInput.value = formatDateISO(stepDate);
+        }
+        visibleIndex++;
+    });
+}
+
+function propagerNumeroLot() {
+    const numeroLotOF = document.getElementById('id_numero_lot_of');
+    if (!numeroLotOF) return;
+    const valeur = numeroLotOF.value.trim();
+
+    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(function(row) {
+        if (row.style.display === 'none') return;
+        const inputLotEtape = row.querySelector('input[name$="-numero_lot_etape"]');
+        if (inputLotEtape) inputLotEtape.value = valeur;
+    });
+}
+
+function renuméroterEtapes() {
+    let visibleIndex = 1;
+    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(function(row) {
+        if (row.style.display === 'none') return;
+        const deleteInput = row.querySelector('input[name$="-DELETE"]');
+        if (deleteInput && deleteInput.checked) return;
+
+        const numDiv = row.querySelector('.etape-numero');
+        if (numDiv) numDiv.textContent = visibleIndex;
+
+        const numEtapeInput = row.querySelector('input[name$="-numero_etape"]');
+        if (numEtapeInput) numEtapeInput.value = visibleIndex;
+
+        const ordrePassageInput = row.querySelector('input[name$="-ordre_passage"]');
+        if (ordrePassageInput) ordrePassageInput.value = visibleIndex;
+
+        visibleIndex++;
+    });
+}
+
+function attacherEvenementsRow(row) {
+    const shiftSel = row.querySelector('select[name$="-shift"]');
+    if (shiftSel) {
+        shiftSel.addEventListener('change', function() { applyShiftHours(row); });
+    }
+
+    const btnSup = row.querySelector('.btn-supprimer-etape');
+    if (btnSup) {
+        btnSup.addEventListener('click', function() {
+            if (!confirm("Confirmer la suppression de cette étape ?")) return;
+            const deleteInput = row.querySelector('input[name$="-DELETE"]');
+            if (deleteInput) deleteInput.checked = true;
+            row.style.display = 'none';
+            renuméroterEtapes();
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(function(row) {
+        attacherEvenementsRow(row);
+        const shiftSel = row.querySelector('select[name$="-shift"]');
+        const hDeb = row.querySelector('input[name$="-heure_debut_planifiee"]');
+        if (shiftSel && shiftSel.value && hDeb && !hDeb.value) applyShiftHours(row);
+    });
+
+    const weekPicker = document.getElementById('id_semaine_cible');
+    if (weekPicker) {
+        weekPicker.addEventListener('change', appliquerDatesParSemaine);
+    }
+
+    const numeroLotOF = document.getElementById('id_numero_lot_of');
+    if (numeroLotOF) {
+        numeroLotOF.addEventListener('input', propagerNumeroLot);
+        numeroLotOF.addEventListener('change', propagerNumeroLot);
+        setTimeout(function() {
+            if (numeroLotOF.value.trim()) {
+                document.querySelectorAll('input[name$="-numero_lot_etape"]').forEach(function(input) {
+                    if (!input.value.trim()) input.value = numeroLotOF.value.trim();
+                });
+            }
+        }, 100);
+    }
+
+    const btnAjouter = document.getElementById('btn-ajouter-etape');
+    const container = document.getElementById('etapes-container');
+    const template = document.getElementById('empty-form-template');
+    const totalForms = document.querySelector('input[name="etapes-TOTAL_FORMS"]');
+    const emptyState = document.getElementById('empty-state-message');
+
+    if (btnAjouter && container && template && totalForms) {
+        btnAjouter.addEventListener('click', function() {
+            if (emptyState) emptyState.style.display = 'none';
+            const currentIndex = parseInt(totalForms.value);
+            let newHtml = template.innerHTML.replace(/__prefix__/g, currentIndex);
+            const temp = document.createElement('div');
+            temp.innerHTML = newHtml.trim();
+            const newRow = temp.firstElementChild;
+            container.appendChild(newRow);
+            totalForms.value = currentIndex + 1;
+            attacherEvenementsRow(newRow);
+            propagerNumeroLot();
+            appliquerDatesParSemaine();
+            renuméroterEtapes();
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    }
+});
+</script>
+{% endblock %}

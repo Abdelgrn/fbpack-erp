@@ -2,42 +2,39 @@
 {% block content %}
 
 <style>
-    /* Styling de l'onglet actif */
     .tab-active {
-        background-color: rgba(56, 189, 248, 0.15); /* cyan-500/15 */
+        background-color: rgba(56, 189, 248, 0.15);
         border-color: rgba(56, 189, 248, 0.5);
         color: #38bdf8;
     }
     .tab-inactive {
-        background-color: rgba(30, 41, 59, 0.8); /* slate-800 */
+        background-color: rgba(30, 41, 59, 0.8);
         border-color: transparent;
         color: #94a3b8;
     }
     .tab-inactive:hover {
-        background-color: rgba(51, 65, 85, 0.8); /* slate-700 */
+        background-color: rgba(51, 65, 85, 0.8);
         color: #f8fafc;
     }
 </style>
 
 <div class="w-full">
-    <!-- HEADER -->
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
             <h1 class="text-3xl font-black text-white flex items-center gap-3">
-                📅 <span>Planning des Ateliers</span>
+                📅 <span>Planification & Ordonnancement</span>
                 <span class="bg-blue-900/60 text-blue-400 border border-blue-500/30 text-sm px-3 py-1 rounded-lg ml-2">{{ week_display }}</span>
             </h1>
-            <p class="text-gray-400 text-sm mt-1">Vue consolidée type tableur pour le suivi d'atelier (OF planifiés + Saisies directes)</p>
+            <p class="text-gray-400 text-sm mt-1">Tour de contrôle de production — Vue par Ateliers (Style Excel fb.pack)</p>
         </div>
         
         <form method="GET" action="" class="flex gap-2">
             <input type="hidden" name="atelier" value="{{ selected_atelier }}">
             <input type="week" name="week" value="{{ selected_week }}" required class="bg-slate-900 text-white text-sm font-bold border border-slate-700 rounded-lg px-3 py-2 focus:border-cyan-500 cursor-pointer">
-            <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 py-2 rounded-lg transition">🔍 Filtrer</button>
+            <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 py-2 rounded-lg transition shadow-lg">🔍 Filtrer</button>
         </form>
     </div>
 
-    <!-- ONGLETS ATELIERS -->
     <div class="flex gap-2 mb-4 overflow-x-auto pb-2">
         {% for tab in tabs %}
         <a href="?atelier={{ tab.code }}&week={{ selected_week }}" 
@@ -49,18 +46,25 @@
         {% endfor %}
     </div>
 
-    <!-- TABLEAU TYPE EXCEL -->
     <div class="bg-slate-900 border-t-4 border-cyan-500 shadow-2xl rounded-b-xl rounded-tr-xl overflow-hidden">
         
-        <!-- Toolbar info -->
-        <div class="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+        <div class="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center flex-wrap gap-3">
             <h2 class="text-white font-bold uppercase tracking-wider text-sm flex items-center gap-2">
-                Vue globale — {{ selected_atelier }}
+                PLANNING PRÉVENTIF — {{ selected_atelier }}
             </h2>
-            <div class="text-xs text-gray-400 font-bold space-x-4">
-                <span>Total lignes : <span class="text-cyan-400">{{ stats.nb_lignes }}</span></span>
-                <span>OF distincts : <span class="text-yellow-400">{{ stats.nb_of }}</span></span>
-                <span>Clients : <span class="text-emerald-400">{{ stats.nb_clients }}</span></span>
+            <div class="flex items-center gap-4">
+                {# 🔥 NOUVEAU BOUTON EXPORT EXCEL ICI #}
+                <a href="{% url 'export_planning_excel' %}?week={{ selected_week }}" class="bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/50 text-emerald-400 px-3 py-1.5 rounded transition text-xs font-bold shadow-lg flex items-center gap-1">
+                    <span>📊</span> Exporter Excel
+                </a>
+
+                <a href="{% url 'of_list' %}" class="bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 px-3 py-1.5 rounded transition text-xs font-bold shadow-lg flex items-center gap-1">
+                    <span>📋</span> Voir le Backlog (OF à planifier)
+                </a>
+                <div class="text-xs text-gray-400 font-bold space-x-4 border-l border-slate-700 pl-4">
+                    <span>Lignes : <span class="text-cyan-400">{{ stats.nb_lignes }}</span></span>
+                    <span>OF : <span class="text-yellow-400">{{ stats.nb_of }}</span></span>
+                </div>
             </div>
         </div>
 
@@ -68,57 +72,75 @@
             <table class="w-full text-left text-xs whitespace-nowrap">
                 <thead class="bg-slate-950 text-gray-400 uppercase font-black tracking-wider">
                     <tr>
-                        <th class="px-3 py-4 border-b border-r border-slate-800 w-24">Jour</th>
-                        <th class="px-3 py-4 border-b border-r border-slate-800">Date</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800 w-24">Jour & Date</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Shift / Équipe</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Heure Prévue</th>
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Machine</th>
                         <th class="px-3 py-4 border-b border-r border-slate-800">Client</th>
                         <th class="px-3 py-4 border-b border-r border-slate-800">Produit</th>
                         <th class="px-3 py-4 border-b border-r border-slate-800">Support</th>
                         <th class="px-3 py-4 border-b border-r border-slate-800">Qté Finale</th>
-                        {% if selected_atelier == 'FLEXO' or selected_atelier == 'EXTRUSION' %}
-                        <th class="px-3 py-4 border-b border-r border-slate-800">Développement</th>
+                        {% if selected_atelier == 'FLEXO' or selected_atelier == 'HELIO' or selected_atelier == 'EXTRUSION' %}
+                        <th class="px-3 py-4 border-b border-r border-slate-800">Dév (mm)</th>
                         {% endif %}
                         <th class="px-3 py-4 border-b border-r border-slate-800 text-yellow-500">N° LOT</th>
                         <th class="px-3 py-4 border-b border-r border-slate-800">Observation</th>
-                        <th class="px-3 py-4 border-b border-r border-slate-800">Machine</th>
-                        <th class="px-3 py-4 border-b border-slate-800">Statut</th>
+                        <th class="px-3 py-4 border-b border-slate-800 text-center">Action</th>
                     </tr>
                 </thead>
                 <tbody class="text-gray-300 divide-y divide-slate-800">
                     {% for row in rows %}
                     <tr class="hover:bg-slate-800/80 transition-colors {% if row.jour == 'SAMEDI' or row.jour == 'DIMANCHE' or row.jour == 'VENDREDI' %}bg-slate-800/30{% endif %}">
-                        <td class="px-3 py-3 border-r border-slate-800 font-bold {% if row.jour == 'SAMEDI' or row.jour == 'DIMANCHE' %}text-red-400{% else %}text-gray-400{% endif %}">
-                            {{ row.jour }}
+                        <td class="px-3 py-3 border-r border-slate-800">
+                            <div class="font-bold {% if row.jour == 'SAMEDI' or row.jour == 'DIMANCHE' %}text-red-400{% else %}text-gray-400{% endif %}">{{ row.jour }}</div>
+                            <div class="text-[10px] text-gray-500">{{ row.date|date:"d/m/Y" }}</div>
                         </td>
-                        <td class="px-3 py-3 border-r border-slate-800">{{ row.date|date:"d/m/Y" }}</td>
+                        <td class="px-3 py-3 border-r border-slate-800">
+                            {% if row.source == 'OF' %}
+                                <div class="font-bold text-white">{{ row.shift }}</div>
+                                <div class="text-[10px] text-cyan-400">{{ row.equipe }}</div>
+                            {% else %}
+                                <span class="text-gray-600">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-3 border-r border-slate-800 font-mono text-xs text-yellow-300">
+                            {% if row.heure_debut and row.heure_fin %}
+                                {{ row.heure_debut|time:"H:i" }} - {{ row.heure_fin|time:"H:i" }}
+                            {% elif row.heure_debut %}
+                                {{ row.heure_debut|time:"H:i" }}
+                            {% else %}
+                                <span class="text-gray-600">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-3 border-r border-slate-800">
+                            <span class="bg-slate-800 px-2 py-1 rounded text-gray-300 font-bold border border-slate-700">{{ row.machine }}</span>
+                        </td>
                         <td class="px-3 py-3 border-r border-slate-800 font-bold text-white">{{ row.client|truncatechars:20 }}</td>
-                        <td class="px-3 py-3 border-r border-slate-800">{{ row.produit|truncatechars:30 }}</td>
+                        <td class="px-3 py-3 border-r border-slate-800 text-gray-300">{{ row.produit|truncatechars:30 }}</td>
                         <td class="px-3 py-3 border-r border-slate-800 font-semibold text-blue-300">{{ row.support }}</td>
                         <td class="px-3 py-3 border-r border-slate-800 font-bold text-emerald-400">{{ row.qte_finale }}</td>
                         
-                        {% if selected_atelier == 'FLEXO' or selected_atelier == 'EXTRUSION' %}
+                        {% if selected_atelier == 'FLEXO' or selected_atelier == 'HELIO' or selected_atelier == 'EXTRUSION' %}
                         <td class="px-3 py-3 border-r border-slate-800 font-mono">{{ row.developpement }}</td>
                         {% endif %}
                         
                         <td class="px-3 py-3 border-r border-slate-800 font-bold text-yellow-400 font-mono">{{ row.lot }}</td>
-                        <td class="px-3 py-3 border-r border-slate-800 text-gray-400 text-[11px]">{{ row.observation|truncatechars:40 }}</td>
-                        <td class="px-3 py-3 border-r border-slate-800">
-                            <span class="bg-slate-800 px-2 py-1 rounded text-gray-300">{{ row.machine }}</span>
-                        </td>
-                        <td class="px-3 py-3">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="bg-{{ row.color }}-500/20 text-{{ row.color }}-400 px-2 py-0.5 rounded uppercase text-[10px] font-bold">
-                                    {{ row.statut_label }}
-                                </span>
-                                {% if row.of_id and row.source == 'OF' %}
-                                <a href="{% url 'of_detail' row.of_id %}" target="_blank" class="text-blue-400 hover:text-white" title="Voir OF">👁</a>
-                                {% endif %}
-                            </div>
+                        <td class="px-3 py-3 border-r border-slate-800 text-gray-400 text-[11px] max-w-[200px] truncate whitespace-normal">{{ row.observation }}</td>
+                        <td class="px-3 py-3 text-center">
+                            {% if row.of_id and row.source == 'OF' %}
+                            <a href="{% url 'planification_ordonnancer' row.of_id %}" class="bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 border border-blue-500/30 px-2 py-1 rounded transition text-[10px] font-bold">
+                                ✏️ Planifier
+                            </a>
+                            {% else %}
+                            <span class="bg-slate-700/50 text-gray-500 px-2 py-1 rounded text-[10px]">Archive</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="11" class="px-4 py-16 text-center text-gray-500 font-bold">
-                            📋 Aucune production planifiée pour cet atelier cette semaine.
+                        <td colspan="12" class="px-4 py-16 text-center text-gray-500 font-bold">
+                            📋 Aucune production planifiée pour cet atelier cette semaine.<br>
+                            <a href="{% url 'of_list' %}" class="text-blue-400 hover:underline mt-2 inline-block font-normal">Aller dans le Backlog pour planifier des OF →</a>
                         </td>
                     </tr>
                     {% endfor %}

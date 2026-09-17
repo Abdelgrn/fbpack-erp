@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <nav class="mb-4">
+        <ol class="flex items-center gap-2 text-sm text-gray-400">
+            <li><a href="{% url 'crm_view' %}" class="hover:text-white">CRM</a></li>
+            <li>→</li>
+            <li><a href="{% url 'crm_of_list' %}" class="hover:text-neon">OF Commercial</a></li>
+            <li>→</li>
+            <li class="text-white font-mono">{{ of.numero_of }}</li>
+        </ol>
+    </nav>
+
+    <div class="flex justify-between items-start mb-6 flex-wrap gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3 flex-wrap">
+                🏭 OF {{ of.numero_of }}
+                {% if of.statut == 'TERMINE' %}
+                    <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded text-sm border border-green-500/30">{{ of.get_statut_display }}</span>
+                {% elif of.statut == 'EN_COURS' %}
+                    <span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded text-sm border border-yellow-500/30 animate-pulse">{{ of.get_statut_display }}</span>
+                {% elif of.statut == 'LANCE' %}
+                    <span class="bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded text-sm border border-cyan-500/30">{{ of.get_statut_display }}</span>
+                {% else %}
+                    <span class="bg-gray-500/20 text-gray-400 px-3 py-1 rounded text-sm border border-gray-500/30">{{ of.get_statut_display }}</span>
+                {% endif %}
+            </h1>
+            <p class="text-gray-400 mt-1">
+                Lot:
+                {% if of.numero_lot %}
+                <span class="text-yellow-400 font-bold font-mono">{{ of.numero_lot }}</span>
+                {% else %}
+                <span class="text-orange-400 text-sm font-bold">⏳ En attente planificateur</span>
+                {% endif %}
+                | Client: <a href="{% url 'client_detail' of.client.id %}" class="text-white hover:text-yellow-400 font-bold">{{ of.client.name }}</a>
+            </p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            {% if of.statut == 'BROUILLON' %}
+            <a href="{% url 'crm_of_changer_statut' of.id 'LANCE' %}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition text-sm">▶ Lancer</a>
+            {% elif of.statut == 'LANCE' %}
+            <a href="{% url 'crm_of_changer_statut' of.id 'EN_COURS' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition text-sm">⚙️ Démarrer</a>
+            {% elif of.statut == 'EN_COURS' %}
+            <a href="{% url 'crm_of_changer_statut' of.id 'TERMINE' %}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition text-sm">✓ Terminer</a>
+            {% endif %}
+            <a href="{% url 'crm_of_edit' of.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition text-sm">✏️ Modifier</a>
+            <a href="{% url 'planification_ordonnancer' of.id %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition text-sm">📅 Ordonnancer</a>
+            <a href="{% url 'crm_of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-2 px-4 rounded transition text-sm">← Liste OF</a>
+            <a href="{% url 'crm_view' %}" class="text-gray-400 hover:text-white font-bold py-2 px-3 text-sm">CRM</a>
+        </div>
+    </div>
+
+    {% if commandes_liees %}
+    <div class="mb-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+        <h3 class="text-emerald-400 font-bold text-sm mb-2">🛒 Commande(s) CRM liée(s)</h3>
+        <div class="flex flex-wrap gap-2">
+            {% for cmd in commandes_liees %}
+            <a href="{% url 'commande_detail' cmd.id %}" class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded text-xs font-bold hover:bg-emerald-500/30">
+                {{ cmd.reference }} — {{ cmd.get_statut_display }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="space-y-6">
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                <div class="bg-slate-900 px-4 py-3 border-b border-slate-700">
+                    <h3 class="text-white font-bold">📋 Infos</h3>
+                </div>
+                <div class="p-4 space-y-3 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-400">Produit</span><span class="text-white">{{ of.produit.name }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-400">Support</span><span class="text-blue-300">{{ of.support|default:"—" }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-400">N° Lot</span>
+                        {% if of.numero_lot %}
+                        <span class="text-yellow-400 font-mono font-bold">{{ of.numero_lot }}</span>
+                        {% else %}
+                        <span class="text-orange-400 text-xs font-bold">Non attribué (planif.)</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex justify-between"><span class="text-gray-400">Lancement</span><span class="text-white">{{ of.date_lancement|date:"d/m/Y"|default:"-" }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-400">Fin prévue</span>
+                        <span class="{% if of.est_en_retard %}text-red-400 font-bold{% else %}text-white{% endif %}">{{ of.date_prevue_fin|date:"d/m/Y"|default:"-" }}</span>
+                    </div>
+                    {% if of.observation %}
+                    <div class="pt-2 border-t border-slate-700">
+                        <span class="text-gray-400 text-xs block mb-1">Observation</span>
+                        <span class="text-yellow-400 text-sm font-bold">{{ of.observation }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="bg-slate-800 rounded-xl border border-blue-500/30 overflow-hidden">
+                <div class="bg-blue-900/30 px-4 py-3 border-b border-blue-500/30">
+                    <h3 class="text-blue-400 font-bold">📊 Production</h3>
+                </div>
+                <div class="p-4">
+                    <div class="mb-4">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-gray-400 text-sm">Progression</span>
+                            <span class="text-white font-bold">{{ of.progression }}%</span>
+                        </div>
+                        <div class="bg-slate-700 rounded-full h-4 overflow-hidden">
+                            <div class="h-full bg-blue-500" data-width="{{ of.progression }}"></div>
+                        </div>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span class="text-gray-400">Qté prévue</span><span class="text-white font-bold">{{ of.quantite_prevue|floatformat:1 }} kg</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400">Qté produite</span><span class="text-green-400 font-bold">{{ of.quantite_produite|floatformat:1 }} kg</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400">Rebuts</span><span class="text-red-400">{{ of.quantite_rebut|floatformat:1 }} kg</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2">
+            <div class="bg-slate-800 rounded-xl border border-green-500/30 overflow-hidden">
+                <div class="bg-green-900/30 px-4 py-3 border-b border-green-500/30">
+                    <h3 class="text-green-400 font-bold">⚙️ Étapes ({{ of.etapes_terminees }}/{{ of.nb_etapes }})</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    {% for etape in etapes %}
+                    <div class="bg-slate-700/50 rounded-lg border border-slate-600 p-4">
+                        <div class="flex justify-between items-start mb-3 border-b border-slate-600 pb-2">
+                            <div>
+                                <h4 class="text-white font-bold text-lg">Étape {{ etape.numero_etape }}: {{ etape.get_nom_display }}</h4>
+                                <div class="text-gray-400 text-xs mt-1 space-x-2">
+                                    {% if etape.atelier %}<span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">🏭 {{ etape.atelier.nom }}</span>{% endif %}
+                                    {% if etape.machine %}<span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">🔧 {{ etape.machine.name }}</span>{% endif %}
+                                </div>
+                            </div>
+                            <span class="text-xs px-2 py-1 rounded bg-slate-800 text-gray-300 border border-slate-600 uppercase font-bold">{{ etape.get_statut_display }}</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                            <div><span class="text-gray-500 block">Support</span><span class="text-blue-300 font-bold">{{ etape.support|default:"-" }}</span></div>
+                            <div><span class="text-gray-500 block">Entrée</span><span class="text-white font-bold">{{ etape.quantite_entree|floatformat:1 }} kg</span></div>
+                            <div><span class="text-gray-500 block">Sortie</span><span class="text-green-400 font-bold">{{ etape.quantite_sortie|floatformat:1 }} kg</span></div>
+                            <div><span class="text-gray-500 block">Lot étape</span><span class="text-yellow-400 font-mono font-bold">{{ etape.numero_lot_etape|default:"—" }}</span></div>
+                        </div>
+                        {% if etape.date_planifiee or etape.shift or etape.equipe %}
+                        <div class="mt-3 pt-3 border-t border-slate-600 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div><span class="text-gray-500 block">Date planif.</span><span class="text-white">{{ etape.date_planifiee|date:"d/m/Y"|default:"—" }}</span></div>
+                            <div><span class="text-gray-500 block">Shift</span><span class="text-cyan-300">{{ etape.get_shift_display|default:"—" }}</span></div>
+                            <div><span class="text-gray-500 block">Équipe</span><span class="text-emerald-300">{{ etape.get_equipe_display|default:"—" }}</span></div>
+                            <div><span class="text-gray-500 block">Horaire</span><span class="text-yellow-300 font-mono">{% if etape.heure_debut_planifiee %}{{ etape.heure_debut_planifiee|time:"H:i" }}{% if etape.heure_fin_planifiee %} - {{ etape.heure_fin_planifiee|time:"H:i" }}{% endif %}{% else %}—{% endif %}</span></div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-8 text-gray-500">
+                        Aucune étape.
+                        <a href="{% url 'crm_of_edit' of.id %}" class="text-emerald-400 hover:underline block mt-2">+ Ajouter des étapes</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-width]').forEach(function(bar) {
+        bar.style.width = (bar.getAttribute('data-width') || 0) + '%';
+    });
+});
+</script>
+{% endblock %}

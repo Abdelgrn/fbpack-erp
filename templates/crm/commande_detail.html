@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+
+    <!-- BREADCRUMB + EN-TÊTE -->
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                <a href="{% url 'crm_view' %}" class="hover:text-white">CRM</a>
+                <span>→</span>
+                <a href="{% url 'commandes_list' %}" class="hover:text-white">Commandes</a>
+                <span>→</span>
+                <span class="text-gray-300 font-mono">{{ commande.reference }}</span>
+            </div>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+                <span>🛒</span> Commande {{ commande.reference }}
+                {% if commande.statut == 'LIVREE' %}
+                    <span class="bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-full border border-green-500/30">Livrée ✓</span>
+                {% elif commande.statut == 'EN_PRODUCTION' %}
+                    <span class="bg-yellow-500/20 text-yellow-400 text-xs px-2.5 py-1 rounded-full border border-yellow-500/30 animate-pulse">En Production</span>
+                {% elif commande.statut == 'CONFIRMEE' %}
+                    <span class="bg-blue-500/20 text-blue-400 text-xs px-2.5 py-1 rounded-full border border-blue-500/30">Confirmée</span>
+                {% elif commande.statut == 'ANNULEE' %}
+                    <span class="bg-red-500/20 text-red-400 text-xs px-2.5 py-1 rounded-full border border-red-500/30">Annulée</span>
+                {% else %}
+                    <span class="bg-gray-500/20 text-gray-400 text-xs px-2.5 py-1 rounded-full border border-gray-500/30">Brouillon</span>
+                {% endif %}
+            </h1>
+            <p class="text-gray-400 text-sm mt-1">
+                Client : <a href="{% url 'client_detail' commande.client.id %}" class="text-yellow-400 hover:underline font-bold">{{ commande.client.name }}</a>
+                | Date commande : {{ commande.date_commande|date:"d/m/Y" }}
+            </p>
+        </div>
+
+        <div class="flex gap-2 flex-wrap">
+            <a href="{% url 'edit_commande' commande.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition text-sm">
+                ✏️ Modifier
+            </a>
+
+            {% if not commande.of_lie and commande.peut_creer_of %}
+            <a href="{% url 'commande_creer_of' commande.id %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow-lg transition text-sm flex items-center gap-1">
+                <span>🏭</span> Créer Ordre de Fabrication
+            </a>
+            {% endif %}
+
+            {% if commande.statut == 'BROUILLON' %}
+            <a href="{% url 'commande_changer_statut' commande.id 'CONFIRMEE' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition text-sm">
+                ✓ Confirmer Commande
+            </a>
+            {% elif commande.statut == 'CONFIRMEE' %}
+            <a href="{% url 'commande_changer_statut' commande.id 'EN_PRODUCTION' %}" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded transition text-sm">
+                ⚙️ Mettre en production
+            </a>
+            {% elif commande.statut == 'PRETE' %}
+            <a href="{% url 'commande_changer_statut' commande.id 'LIVREE' %}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition text-sm">
+                🚚 Marquer Livrée
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- BANNIÈRE ÉTAT DU STOCK TEMPS RÉEL -->
+    <div class="mb-6 p-4 rounded-xl border {% if stock_check.tout_disponible %}bg-emerald-500/10 border-emerald-500/30{% else %}bg-red-500/10 border-red-500/30{% endif %}">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">{% if stock_check.tout_disponible %}✅{% else %}⚠️{% endif %}</span>
+                <div>
+                    <h3 class="font-bold text-sm {% if stock_check.tout_disponible %}text-emerald-400{% else %}text-red-400{% endif %}">
+                        {% if stock_check.tout_disponible %}
+                            Toutes les matières premières sont disponibles en stock pour cette commande.
+                        {% else %}
+                            Stock insuffisant pour {{ stock_check.nb_ko }} article(s) sur cette commande.
+                        {% endif %}
+                    </h3>
+                    <p class="text-xs text-gray-400">
+                        Total lignes : {{ stock_check.nb_lignes }} | Dispo OK : {{ stock_check.nb_ok }} | Rupture : {{ stock_check.nb_ko }}
+                    </p>
+                </div>
+            </div>
+            <a href="{% url 'stock_advanced' %}" class="text-xs underline text-gray-300 hover:text-white">Voir Magasin Stock →</a>
+        </div>
+    </div>
+
+    <!-- GRILLE PRINCIPALE -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- COLONNE GAUCHE (Résumé + OF lié) -->
+        <div class="space-y-6">
+
+            <!-- CARTE RÉSUMÉ -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <h3 class="text-white font-bold mb-4 border-b border-slate-700 pb-2">📋 Détails Commercial</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Commercial</span>
+                        <span class="text-white font-bold">{{ commande.commercial.get_full_name|default:commande.commercial.username|default:"—" }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Priorité</span>
+                        <span class="text-white">{{ commande.get_priorite_display }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Livraison prévue</span>
+                        <span class="text-yellow-400 font-mono">{{ commande.date_livraison_prevue|date:"d/m/Y"|default:"Non définie" }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Délai livraison</span>
+                        <span class="text-white">{{ commande.delai_livraison_jours }} jours</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Paiement</span>
+                        <span class="text-white">{{ commande.conditions_paiement|default:"Standard" }}</span>
+                    </div>
+                    {% if commande.remise_globale > 0 %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Remise globale</span>
+                        <span class="text-emerald-400 font-bold">{{ commande.remise_globale }}%</span>
+                    </div>
+                    {% endif %}
+                    <div class="pt-3 border-t border-slate-700 flex justify-between items-center">
+                        <span class="text-gray-300 font-bold">Montant Total HT</span>
+                        <span class="text-2xl font-bold font-mono text-yellow-400">{{ commande.montant_total|floatformat:0 }} DA</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARTE OF LIÉ -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <h3 class="text-white font-bold mb-3 border-b border-slate-700 pb-2 flex items-center justify-between">
+                    <span>🏭 Ordre de Fabrication</span>
+                    {% if commande.of_lie %}
+                    <a href="{% url 'crm_of_detail' commande.of_lie.id %}" class="text-xs text-neon hover:underline">Accéder OF →</a>
+                    {% endif %}
+                </h3>
+
+                {% if commande.of_lie %}
+                <div class="bg-slate-900/60 rounded-lg p-4 border border-slate-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-mono text-neon font-bold text-base">{{ commande.of_lie.numero_of }}</span>
+                        <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-gray-300 border border-slate-700">{{ commande.of_lie.get_statut_display }}</span>
+                    </div>
+                    <div class="text-xs text-gray-400 space-y-1">
+                        <div>Lot : <span class="text-yellow-400 font-mono">{{ commande.of_lie.numero_lot|default:"—" }}</span></div>
+                        <div>Produit : <span class="text-white">{{ commande.of_lie.produit.name }}</span></div>
+                        <div>Progression : <span class="text-cyan-400 font-bold">{{ commande.of_lie.progression }}%</span></div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-gray-500 text-xs mb-3">Aucun OF créé pour cette commande.</p>
+                    {% if commande.peut_creer_of %}
+                    <a href="{% url 'commande_creer_of' commande.id %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded text-xs transition inline-block">
+                        + Générer l'OF maintenant
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <!-- COLONNE DROITE (Tableau des articles) -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+                <div class="bg-slate-900 px-5 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="text-white font-bold">📦 Lignes de la Commande ({{ lignes.count }})</h3>
+                    <span class="text-xs text-gray-400">Total quantité : <strong class="text-white">{{ commande.quantite_totale|floatformat:1 }} kg</strong></span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-gray-400">
+                        <thead class="bg-slate-950 text-gray-300 uppercase font-bold text-xs">
+                            <tr>
+                                <th class="px-4 py-3">Désignation / Produit</th>
+                                <th class="px-4 py-3">Matière Liée</th>
+                                <th class="px-4 py-3">Qté</th>
+                                <th class="px-4 py-3">Prix U.</th>
+                                <th class="px-4 py-3">Total Ligne</th>
+                                <th class="px-4 py-3 text-center">Dispo Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for ligne in lignes %}
+                            {% with info=ligne.verifier_stock %}
+                            <tr class="hover:bg-slate-700/50 transition">
+                                <td class="px-4 py-3">
+                                    <div class="font-bold text-white">{{ ligne.designation }}</div>
+                                    {% if ligne.produit %}
+                                    <div class="text-xs text-cyan-400">Produit FT : {{ ligne.produit.name }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 text-xs">
+                                    {% if ligne.material %}
+                                    <span class="text-gray-200 font-medium">{{ ligne.material.name }}</span>
+                                    <div class="text-[10px] text-gray-500">Stock dispo : {{ info.stock|floatformat:1 }} {{ ligne.material.unit }}</div>
+                                    {% else %}
+                                    <span class="text-gray-600 italic">Non spécifiée</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 font-bold text-white">{{ ligne.quantite|floatformat:1 }} {{ ligne.unite }}</td>
+                                <td class="px-4 py-3 font-mono text-xs">{{ ligne.prix_unitaire|floatformat:0 }} DA</td>
+                                <td class="px-4 py-3 font-mono text-yellow-400 font-bold text-xs">{{ ligne.montant_ligne|floatformat:0 }} DA</td>
+                                <td class="px-4 py-3 text-center">
+                                    {% if info.disponible == True %}
+                                        <span class="stock-ok px-2 py-1 rounded text-[10px] font-bold">✓ Stock OK</span>
+                                    {% elif info.disponible == False %}
+                                        <span class="stock-ko px-2 py-1 rounded text-[10px] font-bold" title="{{ info.message }}">⚠️ Manque {{ info.manque|floatformat:1 }} {{ info.unit }}</span>
+                                    {% else %}
+                                        <span class="stock-na px-2 py-1 rounded text-[10px] font-bold">N/A</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endwith %}
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                    Aucune ligne sur cette commande. <a href="{% url 'edit_commande' commande.id %}" class="text-emerald-400 hover:underline">Ajouter des articles</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {% if commande.adresse_livraison or commande.notes %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% if commande.adresse_livraison %}
+                <div class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+                    <h4 class="text-xs uppercase text-gray-400 font-bold mb-1">📍 Adresse de Livraison</h4>
+                    <p class="text-sm text-gray-200">{{ commande.adresse_livraison }}</p>
+                </div>
+                {% endif %}
+                {% if commande.notes %}
+                <div class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+                    <h4 class="text-xs uppercase text-gray-400 font-bold mb-1">📝 Notes & Instructions</h4>
+                    <p class="text-sm text-gray-200">{{ commande.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <div class="mb-1">
+                <a href="{% url 'crm_view' %}" class="text-gray-500 hover:text-white text-sm transition">← Retour CRM</a>
+            </div>
+            <h1 class="text-3xl font-bold text-white">OF Commercial</h1>
+            <p class="text-gray-400 mt-1">Suivez l'avancement en production de vos commandes clients.</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition text-sm">Vue Complète Prod →</a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
+            <div class="text-3xl font-bold text-white">{{ stats.total }}</div>
+            <div class="text-gray-400 text-sm">Total OF (Filtre)</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-emerald-500/30 p-4 text-center">
+            <div class="text-3xl font-bold text-emerald-400">{{ stats.lies_commandes }}</div>
+            <div class="text-emerald-400/70 text-sm">Liés aux commandes</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-yellow-500/30 p-4 text-center">
+            <div class="text-3xl font-bold text-yellow-400">{{ stats.en_cours }}</div>
+            <div class="text-yellow-400/70 text-sm">En cours</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-green-500/30 p-4 text-center">
+            <div class="text-3xl font-bold text-green-400">{{ stats.termine }}</div>
+            <div class="text-green-400/70 text-sm">Terminés</div>
+        </div>
+    </div>
+
+    <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-400">
+                <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-[10px] tracking-wider">
+                    <tr>
+                        <th class="px-4 py-4">N° OF</th>
+                        <th class="px-4 py-4">Client / Cmd Liée</th>
+                        <th class="px-4 py-4">Produit</th>
+                        <th class="px-4 py-4">Quantité</th>
+                        <th class="px-4 py-4">Progression Production</th>
+                        <th class="px-4 py-4">Dates</th>
+                        <th class="px-4 py-4">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for of in ofs %}
+                    <tr class="hover:bg-slate-700/50 transition">
+                        <td class="px-4 py-4">
+                            <a href="{% url 'of_detail' of.id %}" class="font-mono text-neon font-bold hover:underline text-sm">{{ of.numero_of }}</a>
+                            {% if of.numero_lot %}
+                            <div class="text-[10px] text-gray-500 font-mono mt-0.5">{{ of.numero_lot }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4">
+                            <a href="{% url 'client_detail' of.client.id %}" class="text-white font-bold hover:underline">{{ of.client.name }}</a>
+                            {% if of.commandes_client.exists %}
+                            <div class="mt-1">
+                                {% for cmd in of.commandes_client.all %}
+                                <a href="{% url 'commande_detail' cmd.id %}" class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded mr-1 hover:bg-emerald-500/30">🛒 {{ cmd.reference }}</a>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-white text-xs">{{ of.produit.name|truncatechars:30 }}</td>
+                        <td class="px-4 py-4">
+                            <div class="text-white font-bold">{{ of.quantite_prevue|floatformat:0 }} kg</div>
+                            <div class="text-[10px] text-green-400 mt-0.5">Prod: {{ of.quantite_produite|floatformat:0 }} kg</div>
+                        </td>
+                        <td class="px-4 py-4" style="min-width: 120px;">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 bg-slate-700 rounded-full h-2 overflow-hidden">
+                                    <div class="h-full {% if of.progression >= 100 %}bg-green-500{% elif of.progression > 50 %}bg-blue-500{% else %}bg-yellow-500{% endif %}" data-width="{{ of.progression }}"></div>
+                                </div>
+                                <span class="text-xs text-white font-bold">{{ of.progression }}%</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="text-xs">L: <span class="text-gray-300">{{ of.date_lancement|date:"d/m/y"|default:"-" }}</span></div>
+                            <div class="text-xs mt-0.5 {% if of.est_en_retard %}text-red-400 font-bold{% else %}text-gray-400{% endif %}">F: <span>{{ of.date_prevue_fin|date:"d/m/y"|default:"-" }}</span></div>
+                        </td>
+                        <td class="px-4 py-4">
+                            {% if of.statut == 'TERMINE' %}
+                                <span class="bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-green-500/20">Terminé</span>
+                            {% elif of.statut == 'EN_COURS' %}
+                                <span class="bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-yellow-500/20 animate-pulse">En cours</span>
+                            {% elif of.statut == 'LANCE' %}
+                                <span class="bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-cyan-500/20">Lancé</span>
+                            {% elif of.statut == 'ANNULE' %}
+                                <span class="bg-red-500/10 text-red-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-red-500/20">Annulé</span>
+                            {% else %}
+                                <span class="bg-gray-500/10 text-gray-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-gray-500/20">Brouillon</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-10 text-center text-gray-500">Aucun OF trouvé.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('[data-width]').forEach(function(el) {
+        var w = el.getAttribute('data-width');
+        if (w) el.style.width = w + '%';
+    });
+});
+</script>
+{% endblock %}
