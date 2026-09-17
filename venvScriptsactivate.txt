@@ -13,21 +13,90 @@ exit()
 
 
 
-core/views/
-├── __init__.py
-├── imports_export.py
-├── dashboard.py
-├── crm.py
-├── prepress.py
-├── production_of.py
-├── stock.py
-├── machines.py
-├── production_speciale.py
-├── encre.py
-├── admin_custom.py
-├── drh.py
-├── chat.py
-└── maintenance.py
+core/
+│
+├── models/
+│   ├── __init__.py              ← Réexporte tous les modèles + signal post_migrate
+│   ├── crm.py                   ← Client, ClientContact, InteractionLog, Opportunite
+│   ├── prepress.py              ← TechnicalProduct, Tooling
+│   ├── stock.py                 ← Supplier, Material, StockLocation, StockLot,
+│   │                               StockMovement, DemandeAchat, BonCommande,
+│   │                               LigneBonCommande, StockSeuil
+│   ├── machines.py              ← Atelier, Machine, CompteurMachine
+│   ├── maintenance.py           ← CategoriePiece, PieceRechange, MouvementPiece,
+│   │                               PlanMaintenancePreventive, OrdreMaintenance,
+│   │                               ConsommationPiece, AlerteMaintenance
+│   ├── production_of.py         ← ProcessType, OrdreFabrication, EtapeProduction,
+│   │                               SemiProduit, SuiviProduction, ConsommationMatiere
+│   ├── production_speciale.py   ← ProductionOrder, ConsumptionLog, PurchaseOrder,
+│   │                               Quote, ProductionEntry, CalculTempsProduction
+│   ├── encre.py                 ← ConsommationEncre
+│   ├── fiches.py                ← FicheProductionJournaliere + 11 sous-tables
+│   │                               (FicheExtrusion*, FicheImpression*,
+│   │                                FicheComplexage*, FicheFondCarre*,
+│   │                                FicheDecoupe*)
+│   ├── drh.py                   ← Department, Position, Employee, EmployeeDocument,
+│   │                               Skill, EmployeeSkill, MachineAuthorization,
+│   │                               Shift, Attendance, LeaveType, LeaveRequest,
+│   │                               SalaryGrid, Payslip, WorkSchedule,
+│   │                               ShiftAssignment, MedicalVisit, WorkIncident,
+│   │                               ProtectiveEquipment
+│   └── chat.py                  ← ChatRoom, ChatMessage, UserPresence
+│
+├── forms/
+│   ├── __init__.py              ← Réexporte tous les formulaires + formsets
+│   ├── crm.py                   ← ClientForm, ClientContactForm, InteractionLogForm,
+│   │                               OpportuniteForm, QuoteForm
+│   ├── prepress.py              ← ProductForm, ToolForm
+│   ├── stock.py                 ← SupplierForm, MaterialForm
+│   ├── machines.py              ← MachineForm, MachineMaintenanceForm,
+│   │                               CompteurMachineForm, AtelierForm
+│   ├── maintenance.py           ← CategoriePieceForm, PieceRechangeForm,
+│   │                               OrdreMaintenanceForm, ClotureOrdreMaintenanceForm,
+│   │                               ConsommationPieceForm, PlanMaintenancePreventiveForm,
+│   │                               MouvementPieceForm
+│   ├── production_of.py         ← OrdreFabricationForm, EtapeProductionForm,
+│   │                               EtapeProductionFormSet, SuiviProductionForm,
+│   │                               SemiProduitForm, ConsommationMatiereForm,
+│   │                               ProcessTypeForm, OFLancementRapideForm
+│   ├── production_speciale.py   ← ProductionEntryForm, CalculTempsProductionForm,
+│   │                               ProductionOrderForm
+│   ├── encre.py                 ← ConsommationEncreForm
+│   ├── fiches.py                ← FicheProductionJournaliereForm + 11 FormSets
+│   │                               (FicheExtrusion*, FicheFlexo*,
+│   │                                FicheComplexage*, FicheFondCarre*,
+│   │                                FicheDecoupe*)
+│   └── drh.py                   ← DepartmentForm, PositionForm, EmployeeForm,
+│                                   EmployeeDocumentForm, SkillForm, EmployeeSkillForm,
+│                                   MachineAuthorizationForm, ShiftForm, AttendanceForm,
+│                                   AttendanceBulkForm, LeaveTypeForm, LeaveRequestForm,
+│                                   PayslipForm, WorkScheduleForm, ShiftAssignmentForm,
+│                                   MedicalVisitForm, WorkIncidentForm,
+│                                   ProtectiveEquipmentForm
+│
+├── views/
+│   ├── __init__.py              ← Réexporte toutes les vues
+│   ├── crm.py                   ← Vues CRM (clients, contacts, opportunités, devis)
+│   ├── prepress.py              ← Vues Prépresse (fiches techniques, outillage)
+│   ├── stock.py                 ← Vues Stock (matières, lots, mouvements, achats)
+│   ├── machines.py              ← Vues Machines & Ateliers
+│   ├── maintenance.py           ← Vues Maintenance (OM, pièces, plans préventifs)
+│   ├── production_of.py         ← Vues OF Multi-Processus (étapes, suivi)
+│   ├── production_speciale.py   ← Vues Production Legacy (saisies, calculs temps)
+│   ├── encre.py                 ← Vues Consommation Encre & Solvant
+│   ├── of_views.py              ← Vues Fiches Journalières + Traçabilité Lot
+│   ├── drh.py                   ← Vues DRH (employés, pointages, congés, paie)
+│   ├── chat.py                  ← Vues Chat Temps Réel
+│   ├── dashboard.py             ← Vues Tableau de Bord
+│   ├── admin_custom.py          ← Vues Admin Personnalisées
+│   └── imports_export.py        ← Vues Import/Export Excel/CSV
+│
+├── __init__.py 
+├── consumers.py
+├── admin.py                     
+├── urls.py
+├── context_processors.py
+└── routing.py                  
 
 
 git add .

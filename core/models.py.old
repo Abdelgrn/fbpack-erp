@@ -708,6 +708,8 @@ class StockMovement(models.Model):
     quantite = models.FloatField("Quantité (kg)")
     emplacement_source = models.ForeignKey(StockLocation, on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements_sortie', verbose_name="Emplacement source")
     emplacement_destination = models.ForeignKey(StockLocation, on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements_entree', verbose_name="Emplacement destination")
+    # 🚀 CHAMP RE-DÉFINI PROPREMENT POUR ÉVITER LES ERREURS DE SELECT_RELATED DANS STOCK.PY
+    of = models.ForeignKey('OrdreFabrication', on_delete=models.SET_NULL, null=True, blank=True, related_name='mouvements_stock', verbose_name="OF lié")
     machine = models.ForeignKey(Machine, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Machine")
     utilisateur = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Utilisateur")
     motif = models.CharField("Motif / Référence", max_length=200, blank=True)
@@ -1740,6 +1742,12 @@ class FicheProductionJournaliere(models.Model):
         elif self.type_fiche == 'FONDS_CARRES':
             return sum(e.poids_sacs_kg for e in self.fonds_carres_equipes.all())
         return 0
+
+    @property
+    def taux_dechets_calcul(self):
+        prod = self.total_prod_kg_calcul
+        if prod <= 0: return 0
+        return round((self.total_dechets_kg or 0) / prod * 100, 2)
 
 
 # --- SOUS-TABLES SPÉCIFIQUES ---
