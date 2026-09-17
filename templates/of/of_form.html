@@ -6,7 +6,6 @@
     <h1 class="text-2xl font-bold text-white">{{ titre }}</h1>
 </div>
 
-<!-- ALERTE BLOCAGE MACHINE -->
 {% if machine_blocked %}
 <div class="mb-6 bg-red-500/10 border border-red-500/40 rounded-xl p-5 flex items-start gap-4 shadow-lg">
     <span class="text-3xl">🚫</span>
@@ -81,7 +80,7 @@
                         {{ form.priorite }}
                     </div>
                     <div>
-                        <label class="text-yellow-500 text-xs uppercase font-bold block mb-1">N° Lot (auto si vide)</label>
+                        <label class="text-yellow-500 text-xs uppercase font-bold block mb-1">N° Lot</label>
                         {{ form.numero_lot }}
                     </div>
                 </div>
@@ -148,8 +147,6 @@
             </button>
         </div>
 
-        <div id="machine-alert" class="hidden mb-4 p-4 rounded-lg border"></div>
-
         {{ formset.management_form }}
         <div id="etapes-container" class="space-y-4">
             {% for etape_form in formset %}
@@ -172,7 +169,6 @@
                     <div class="md:col-span-2">
                         <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Machine</label>
                         {{ etape_form.machine }}
-                        <div class="machine-etape-alert hidden mt-1.5 text-xs px-2 py-1 rounded font-bold"></div>
                     </div>
                 </div>
 
@@ -242,44 +238,98 @@
     </div>
 </form>
 
-{{ machines_statuts|json_script:"machines-statuts-data" }}
+<!-- FORMULAIRE VIDE PATRON DJANGO (Dynamic empty_form) -->
+<div id="empty-form-template" class="hidden">
+    <div class="etape-row bg-slate-900/50 border border-slate-700 rounded-lg p-5 relative group transition-all hover:border-slate-500">
+        {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+        
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">N°</label>
+                {{ formset.empty_form.numero_etape }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Processus</label>
+                {{ formset.empty_form.process_type }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Atelier</label>
+                {{ formset.empty_form.atelier }}
+            </div>
+            <div class="md:col-span-2">
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Machine</label>
+                {{ formset.empty_form.machine }}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4 bg-slate-800/50 p-3 rounded border border-slate-700/50">
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support Etape</label>
+                {{ formset.empty_form.support }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté IN (kg)</label>
+                {{ formset.empty_form.quantite_entree }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté OUT (ML)</label>
+                {{ formset.empty_form.quantite_ml }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Nb Bobines</label>
+                {{ formset.empty_form.nb_bobines }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Dév (mm)</label>
+                {{ formset.empty_form.developpement }}
+            </div>
+            <div>
+                <label class="text-yellow-500 text-[10px] uppercase font-bold block mb-1">Lot Etape</label>
+                {{ formset.empty_form.numero_lot_etape }}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Observation</label>
+                {{ formset.empty_form.observation }}
+            </div>
+            <div class="flex items-center justify-between mt-5">
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    {{ formset.empty_form.genere_semi_produit }}
+                    <span class="text-gray-300 text-sm font-bold group-hover:text-white transition">Génère semi-produit</span>
+                </label>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-red-400">Supprimer:</span>
+                    {{ formset.empty_form.DELETE }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
-// Récupération des données Django proprement (via json_script)
-const machinesStatutsRaw = document.getElementById('machines-statuts-data');
-const machinesStatuts = machinesStatutsRaw ? JSON.parse(machinesStatutsRaw.textContent) : {};
-let etapeCount = parseInt(document.querySelector('[name="etapes-TOTAL_FORMS"]')?.value || 0, 10);
-
-// Petit script pour gérer l'ajout d'étape dynamique
 function ajouterEtape() {
     const container = document.getElementById('etapes-container');
     const totalForms = document.querySelector('[name="etapes-TOTAL_FORMS"]');
-    if (!container || !totalForms) return;
+    const emptyTemplate = document.getElementById('empty-form-template');
+    
+    if (!container || !totalForms || !emptyTemplate) return;
 
-    const rows = container.querySelectorAll('.etape-row');
-    if (rows.length === 0) return;
+    const formIdx = parseInt(totalForms.value, 10) || 0;
+    const newHtml = emptyTemplate.innerHTML.replace(/__prefix__/g, formIdx);
 
-    const newRow = rows[rows.length - 1].cloneNode(true);
-    const regex = new RegExp('etapes-' + (etapeCount - 1), 'g');
-    newRow.innerHTML = newRow.innerHTML.replace(regex, 'etapes-' + etapeCount);
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = newHtml.trim();
+    const newRow = wrapper.firstElementChild;
 
-    // Réinitialiser les valeurs
-    const inputs = newRow.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"]), select, textarea');
-    inputs.forEach(input => {
-        if (input.name && input.name.includes('numero_etape')) {
-            input.value = etapeCount + 1;
-        } else {
-            input.value = '';
-        }
-    });
-
-    // Décocher les cases à cocher
-    const checkboxes = newRow.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(cb => { cb.checked = false; });
+    const numInput = newRow.querySelector('input[name$="-numero_etape"]');
+    if (numInput) {
+        numInput.value = formIdx + 1;
+    }
 
     container.appendChild(newRow);
-    etapeCount++;
-    totalForms.value = etapeCount;
+    totalForms.value = formIdx + 1;
 }
 </script>
 {% endblock %}

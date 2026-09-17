@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="mb-1">
+                <a href="{% url 'crm_view' %}" class="text-gray-500 hover:text-white text-sm transition">← Retour CRM</a>
+            </div>
+            <h1 class="text-3xl font-bold text-white">Commandes Clients</h1>
+            <p class="text-gray-400 mt-1">Gestion des commandes commerciales, reliées au stock et à la production.</p>
+        </div>
+        <a href="{% url 'add_commande' %}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded shadow-lg transition">
+            + Nouvelle Commande
+        </a>
+    </div>
+
+    <!-- Stats rapides -->
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-3 text-center">
+            <div class="text-2xl font-bold text-white">{{ stats.total }}</div>
+            <div class="text-xs text-gray-400 mt-1">Total</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-gray-500/30 p-3 text-center">
+            <div class="text-2xl font-bold text-gray-400">{{ stats.brouillon }}</div>
+            <div class="text-xs text-gray-500 mt-1">Brouillon</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-blue-500/30 p-3 text-center">
+            <div class="text-2xl font-bold text-blue-400">{{ stats.confirmee }}</div>
+            <div class="text-xs text-blue-400 mt-1">Confirmées</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-yellow-500/30 p-3 text-center">
+            <div class="text-2xl font-bold text-yellow-400">{{ stats.en_production }}</div>
+            <div class="text-xs text-yellow-400 mt-1">En Prod</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-cyan-500/30 p-3 text-center">
+            <div class="text-2xl font-bold text-cyan-400">{{ stats.prete }}</div>
+            <div class="text-xs text-cyan-400 mt-1">Prêtes</div>
+        </div>
+        <div class="bg-slate-800 rounded-xl border border-green-500/30 p-3 text-center">
+            <div class="text-2xl font-bold text-green-400">{{ stats.livree }}</div>
+            <div class="text-xs text-green-400 mt-1">Livrées</div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <form method="get" class="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+            <label class="block text-gray-400 text-xs mb-1 uppercase font-bold">Recherche</label>
+            <input type="text" name="q" value="{{ search }}" placeholder="Réf, client..." class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
+        </div>
+        <div>
+            <label class="block text-gray-400 text-xs mb-1 uppercase font-bold">Statut</label>
+            <select name="statut" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
+                <option value="">Tous</option>
+                {% for code, label in statut_choices %}
+                <option value="{{ code }}" {% if selected_statut == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-gray-400 text-xs mb-1 uppercase font-bold">Client</label>
+            <select name="client" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm focus:border-neon focus:outline-none">
+                <option value="">Tous</option>
+                {% for c in clients %}
+                <option value="{{ c.id }}" {% if selected_client == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button type="submit" class="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition">🔍 Filtrer</button>
+        </div>
+    </form>
+
+    <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-400">
+                <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-xs">
+                    <tr>
+                        <th class="px-5 py-4">Référence</th>
+                        <th class="px-5 py-4">Client</th>
+                        <th class="px-5 py-4">Date</th>
+                        <th class="px-5 py-4">Montant</th>
+                        <th class="px-5 py-4">Statut</th>
+                        <th class="px-5 py-4">OF Lié</th>
+                        <th class="px-5 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for cmd in commandes %}
+                    <tr class="hover:bg-slate-700/50 transition">
+                        <td class="px-5 py-4">
+                            <a href="{% url 'commande_detail' cmd.id %}" class="font-mono text-emerald-400 font-bold hover:underline">{{ cmd.reference }}</a>
+                            {% if cmd.priorite == 'URGENTE' %} <span class="text-[10px] text-red-400 ml-1">🔴</span> {% endif %}
+                        </td>
+                        <td class="px-5 py-4">
+                            <a href="{% url 'client_detail' cmd.client.id %}" class="text-white hover:underline font-bold">{{ cmd.client.name }}</a>
+                        </td>
+                        <td class="px-5 py-4 text-xs">{{ cmd.date_commande|date:"d/m/Y" }}</td>
+                        <td class="px-5 py-4 font-mono text-yellow-400">{{ cmd.montant_total|floatformat:0 }} DA</td>
+                        <td class="px-5 py-4">
+                            <span class="bg-{{ cmd.get_statut_color }}-500/10 text-{{ cmd.get_statut_color }}-400 px-2 py-1 rounded text-xs border border-{{ cmd.get_statut_color }}-500/20">
+                                {{ cmd.get_statut_display }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4 text-xs">
+                            {% if cmd.of_lie %}
+                                <a href="{% url 'of_detail' cmd.of_lie.id %}" class="text-neon hover:underline">{{ cmd.of_lie.numero_of }}</a>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <a href="{% url 'commande_detail' cmd.id %}" class="text-emerald-400 hover:text-emerald-300 text-xs">Voir</a>
+                                <a href="{% url 'edit_commande' cmd.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Édit.</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-10 text-center text-gray-500">Aucune commande trouvée.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

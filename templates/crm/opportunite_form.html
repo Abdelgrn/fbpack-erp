@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="max-w-3xl mx-auto mt-8">
+<div class="max-w-4xl mx-auto mt-8">
     <div class="glass rounded-2xl border border-slate-700 shadow-2xl p-8">
         <div class="mb-4">
             <a href="{% url 'opportunites_view' %}" class="text-gray-500 hover:text-white text-sm transition flex items-center gap-2">
@@ -10,15 +10,28 @@
         <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-3">
             <span>🎯</span> {{ titre }}
         </h2>
+
+        <!-- FEEDBACK STOCK (Si mode édition et matière renseignée) -->
+        {% if stock_info %}
+        <div class="mb-6 p-4 rounded-xl border {% if stock_info.disponible %}bg-emerald-500/10 border-emerald-500/30{% else %}bg-red-500/10 border-red-500/30{% endif %}">
+            <h3 class="font-bold text-sm {% if stock_info.disponible %}text-emerald-400{% else %}text-red-400{% endif %} flex items-center gap-2">
+                {% if stock_info.disponible %}✅ Stock suffisant{% else %}⚠️ Stock insuffisant{% endif %}
+            </h3>
+            <p class="text-xs text-gray-300 mt-1">{{ stock_info.message }}</p>
+        </div>
+        {% endif %}
+
         <form method="post" class="django-form-container">
             {% csrf_token %}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <!-- INFOS GÉNÉRALES -->
+                <div class="md:col-span-2 bg-slate-900/50 p-2 rounded border-l-2 border-blue-500 font-bold text-xs uppercase text-blue-400">Informations</div>
                 <div class="md:col-span-2">
-                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.titre.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.titre.label }} *</label>
                     {{ form.titre }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.client.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.client.label }} *</label>
                     {{ form.client }}
                 </div>
                 <div>
@@ -32,11 +45,36 @@
                 <div>
                     <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.probabilite.label }}</label>
                     {{ form.probabilite }}
-                    <p class="text-[10px] text-gray-500 mt-1">Saisir une valeur entre 0 et 100</p>
+                </div>
+
+                <!-- BESOIN PRODUIT & STOCK -->
+                <div class="md:col-span-2 bg-slate-900/50 p-2 rounded border-l-2 border-yellow-500 font-bold text-xs uppercase text-yellow-400 mt-4">Besoin Produit & Matière</div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.produit_demande.label }}</label>
+                    {{ form.produit_demande }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.valeur_estimee.label }}</label>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.material_principal.label }}</label>
+                    {{ form.material_principal }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.quantite_estimee.label }}</label>
+                    {{ form.quantite_estimee }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.valeur_estimee.label }} (Ancien Volume KG)</label>
                     {{ form.valeur_estimee }}
+                </div>
+
+                <!-- FINANCIER & DATES -->
+                <div class="md:col-span-2 bg-slate-900/50 p-2 rounded border-l-2 border-green-500 font-bold text-xs uppercase text-green-400 mt-4">Financier & Suivi</div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.prix_estime.label }}</label>
+                    {{ form.prix_estime }}
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.devis_lie.label }}</label>
+                    {{ form.devis_lie }}
                 </div>
                 <div>
                     <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.date_ouverture.label }}</label>
@@ -47,11 +85,11 @@
                     {{ form.date_cloture_prevue }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.motif_perte.label }}</label>
-                    {{ form.motif_perte }}
-                    <p class="text-[10px] text-gray-500 mt-1">À remplir uniquement si statut est 'Perdu'</p>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.date_prevue_commande.label }}</label>
+                    {{ form.date_prevue_commande }}
                 </div>
-                <div class="md:col-span-2">
+                
+                <div class="md:col-span-2 mt-4">
                     <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.description.label }}</label>
                     {{ form.description }}
                 </div>
@@ -60,6 +98,7 @@
                     {{ form.notes }}
                 </div>
             </div>
+            
             <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
                 <a href="{% url 'crm_view' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
                 <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-yellow-500/20 transition uppercase tracking-wider text-sm">

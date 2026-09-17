@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    .django-form-container input, 
+    .django-form-container select, 
+    .django-form-container textarea,
+    .form-control, .form-select {
+        width: 100%;
+        background-color: #0f172a;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        border-radius: 0.6rem;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+        transition: all 0.25s ease;
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+    }
+    
+    .django-form-container input:focus, 
+    .django-form-container select:focus, 
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #06b6d4;
+        background-color: #1e293b;
+        box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
+    }
+
+    ::-webkit-calendar-picker-indicator {
+        filter: invert(0.8) sepia(1) saturate(3) hue-rotate(175deg);
+        cursor: pointer;
+    }
+</style>
+
+<!-- EN-TÊTE DE PAGE -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-3xl font-black text-white mb-1 flex items-center gap-3">
+            🏭 <span>{{ titre }}</span>
+        </h1>
+        <p class="text-gray-400 text-sm">Ancienne interface de saisie simplifiée de production (ProductionEntry)</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <a href="{% url 'prod_saisie' %}" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-lg shadow-cyan-500/20">
+            <span>📝</span> Saisie Moderne (Fiches Atelier)
+        </a>
+        <a href="{% url 'prod_synthese_temps' %}" class="bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition flex items-center gap-2">
+            <span>⏱️</span> Synthèse & Workflow A-Z
+        </a>
+    </div>
+</div>
+
+{% include 'production_special/_nav.html' %}
+
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- COLONNE GAUCHE : FORMULAIRE DE SAISIE -->
+    <div class="lg:col-span-8">
+        <div class="glass rounded-2xl p-6 border-t-4 border-t-cyan-500 shadow-xl shadow-cyan-950/20 bg-slate-900/80">
+            
+            <div class="flex items-center gap-3 mb-5 pb-4 border-b border-slate-800">
+                <div class="h-11 w-11 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl border border-cyan-500/30">
+                    ⚡
+                </div>
+                <div>
+                    <h2 class="text-lg font-black text-white">
+                        {% if edit_mode %}Modification de la saisie #{{ entry.id }}{% else %}Saisie de Production Simplifiée{% endif %}
+                    </h2>
+                    <p class="text-xs text-gray-400">Renseignez directement les champs de production ci-dessous</p>
+                </div>
+            </div>
+            
+            <form method="POST" class="django-form-container space-y-6">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="p-4 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs space-y-1">
+                    <p class="font-bold flex items-center gap-1.5"><span>⚠️</span> Veuillez corriger les erreurs ci-dessous :</p>
+                    {{ form.errors }}
+                </div>
+                {% endif %}
+
+                <!-- SECTION 1: DATES & PROCESSUS -->
+                <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-4">
+                    <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-slate-800 pb-1.5 flex items-center gap-1.5">
+                        <span>📌</span> Date, Machine & Équipe
+                    </span>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Date</label>
+                            {{ form.date }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Heure Début</label>
+                            {{ form.heure_debut }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Heure Fin</label>
+                            {{ form.heure_fin }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Processus</label>
+                            {{ form.type_process }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Machine</label>
+                            {{ form.machine }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Équipe</label>
+                            {{ form.equipe }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: CLIENT & PRODUIT -->
+                <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-4">
+                    <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block border-b border-slate-800 pb-1.5 flex items-center gap-1.5">
+                        <span>📦</span> Client, Produit & Lot
+                    </span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Client</label>
+                            {{ form.client }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Produit / Désignation</label>
+                            {{ form.produit }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Support / Matière</label>
+                            {{ form.support }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">N° Lot</label>
+                            {{ form.lot }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Laize (mm)</label>
+                            {{ form.laize }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 3: QUANTITÉS & PRODUCTION -->
+                <div class="p-4 bg-slate-950 rounded-xl border border-emerald-500/30 space-y-4">
+                    <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider block border-b border-slate-800 pb-1.5 flex items-center gap-1.5">
+                        <span>⚖️</span> Quantités & Production Réalisée
+                    </span>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Quantité Lancée (kg)</label>
+                            {{ form.quantite_lancee }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Prod Réalisée (kg)</label>
+                            {{ form.prod_kg }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Prod Réalisée (ML)</label>
+                            {{ form.prod_ml }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 4: DÉCHETS & REBUTS -->
+                <div class="p-4 bg-slate-950 rounded-xl border border-red-500/30 space-y-4">
+                    <span class="text-xs font-bold text-red-400 uppercase tracking-wider block border-b border-slate-800 pb-1.5 flex items-center gap-1.5">
+                        <span>🗑️</span> Déchets & Rebuts (KG)
+                    </span>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1 text-center">Démarrage</label>
+                            {{ form.dechets_demarrage }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1 text-center">Lisière</label>
+                            {{ form.dechets_lisiere }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1 text-center">Jonction</label>
+                            {{ form.dechets_jonction }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1 text-center">Transport</label>
+                            {{ form.dechets_transport }}
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1 text-center">Rebobinage</label>
+                            {{ form.rebobinage_kg }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOUTON DE VALIDATION -->
+                <div class="pt-4">
+                    <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-black py-4 rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/25 text-sm tracking-wide uppercase flex items-center justify-center gap-2">
+                        ✅ {% if edit_mode %}Mettre à jour la Saisie{% else %}Enregistrer la Saisie{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- COLONNE DROITE : HISTORIQUE DES SAISIES RÉCENTES -->
+    <div class="lg:col-span-4">
+        <div class="glass rounded-2xl p-6 border-t-4 border-t-slate-600 h-full flex flex-col justify-between space-y-4 bg-slate-900/80">
+            
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <span>📋</span> Saisies Récentes
+                    </h2>
+                </div>
+                
+                <div class="overflow-x-auto rounded-xl border border-slate-800">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-950 text-[10px] uppercase font-black text-gray-400 tracking-wider">
+                            <tr>
+                                <th class="px-3 py-3">Date</th>
+                                <th class="px-3 py-3">Produit</th>
+                                <th class="px-3 py-3 text-right">Prod (kg)</th>
+                                <th class="px-3 py-3 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/80 text-xs">
+                            {% for e in recent %}
+                            <tr class="hover:bg-slate-800/40 transition">
+                                <td class="px-3 py-3 font-bold text-white whitespace-nowrap">{{ e.date|date:"d/m" }}</td>
+                                <td class="px-3 py-3 font-medium text-gray-300 truncate max-w-[120px]">{{ e.produit }}</td>
+                                <td class="px-3 py-3 text-right font-bold text-cyan-400">{{ e.prod_kg|floatformat:1 }}</td>
+                                <td class="px-3 py-3 text-center whitespace-nowrap">
+                                    <a href="{% url 'prod_edit_entry' e.id %}" class="text-blue-400 hover:text-blue-300 mr-2" title="Modifier">✏️</a>
+                                    <a href="{% url 'prod_delete_entry' e.id %}" class="text-red-400 hover:text-red-300" title="Supprimer">🗑️</a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">Aucune saisie récente.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RAPPEL AIDE -->
+            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800/80 text-xs text-gray-400 space-y-1.5">
+                <p class="font-bold text-gray-300 flex items-center gap-1.5">
+                    <span>💡</span> Note d'utilisation :
+                </p>
+                <p>Cette page permet la saisie rapide des anciennes entrées directes. Pour bénéficier des fiches détaillées d'atelier (Flexo, Découpe, Extrusion), utilisez la <a href="{% url 'prod_saisie' %}" class="text-cyan-400 underline font-bold">Saisie Moderne</a>.</p>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('focus', function() {
+            if (this.value === '0' || this.value === '0.0' || this.value === '0.00') {
+                this.value = '';
+            }
+        });
+        input.addEventListener('blur', function() {
+            if (this.value.trim() === '') {
+                this.value = '0';
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

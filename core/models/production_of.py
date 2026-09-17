@@ -4,6 +4,8 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.apps import apps
+from django.conf import settings
+
 
 class ProcessType(models.Model):
     code = models.CharField("Code", max_length=20, unique=True)
@@ -84,19 +86,13 @@ class OrdreFabrication(models.Model):
             annee = timezone.now().year
             last = OrdreFabrication.objects.filter(numero_of__startswith=f"OF{annee}").order_by('-numero_of').first()
             if last and last.numero_of:
-                try: num = int(last.numero_of.replace(f"OF{annee}-", '')) + 1
-                except (ValueError, IndexError): num = 1
-            else: num = 1
+                try:
+                    num = int(last.numero_of.replace(f"OF{annee}-", '')) + 1
+                except (ValueError, IndexError):
+                    num = 1
+            else:
+                num = 1
             self.numero_of = f"OF{annee}-{num:04d}"
-
-        if not self.numero_lot:
-            annee = timezone.now().year
-            last = OrdreFabrication.objects.filter(numero_lot__startswith=f"LOT{annee}").exclude(pk=self.pk).order_by('-numero_lot').first()
-            if last and last.numero_lot:
-                try: num = int(last.numero_lot.replace(f"LOT{annee}-", '')) + 1
-                except (ValueError, IndexError): num = 1
-            else: num = 1
-            self.numero_lot = f"LOT{annee}-{num:04d}"
         super().save(*args, **kwargs)
 
     @property
@@ -110,18 +106,22 @@ class OrdreFabrication(models.Model):
     @property
     def progression(self):
         total = self.nb_etapes
-        if total == 0: return 0
+        if total == 0:
+            return 0
         return round((self.etapes_terminees / total) * 100)
 
     @property
     def est_en_retard(self):
-        if self.statut in ['TERMINE', 'ANNULE']: return False
-        if not self.date_prevue_fin: return False
+        if self.statut in ['TERMINE', 'ANNULE']:
+            return False
+        if not self.date_prevue_fin:
+            return False
         return self.date_prevue_fin < timezone.now().date()
 
     @property
     def taux_rebut(self):
-        if self.quantite_produite == 0: return 0
+        if self.quantite_produite == 0:
+            return 0
         return round((self.quantite_rebut / self.quantite_produite) * 100, 2)
 
     def get_statut_color(self):
@@ -136,7 +136,6 @@ class OrdreFabrication(models.Model):
             'HAUTE': 'orange', 'URGENTE': 'red',
         }.get(self.priorite, 'gray')
 
-    # === METHODES TRACABILITE LOT (Résolution dynamique via Django app registry) ===
     def get_fiches_journalieres(self):
         FicheProductionJournaliere = apps.get_model('core', 'FicheProductionJournaliere')
         return FicheProductionJournaliere.objects.filter(
@@ -164,13 +163,13 @@ class OrdreFabrication(models.Model):
     def get_consommations_encres(self):
         fiches = self.get_fiches_journalieres().filter(type_fiche__in=['FLEXO', 'HELIO'])
         FicheImpressionEncreGroupe = apps.get_model('core', 'FicheImpressionEncreGroupe')
-        encres = FicheImpressionEncreGroupe.objects.filter(fiche__in=fiches).order_by('fiche__date_fabrication', 'groupe_numero')
-        return encres
+        return FicheImpressionEncreGroupe.objects.filter(fiche__in=fiches).order_by(
+            'fiche__date_fabrication', 'groupe_numero'
+        )
 
     def get_totaux_lot(self):
         fiches = self.get_fiches_journalieres()
         saisies_old = self.get_saisies_anciennes()
-        
         total_prod_kg = 0
         total_dechets_kg = 0
         total_encre_kg = 0
@@ -178,23 +177,23 @@ class OrdreFabrication(models.Model):
         total_temps_min = 0
         total_bobines_meres = 0
         total_bobines_filles = 0
-        
+
         for f in fiches:
             total_prod_kg += f.total_prod_kg_calcul or 0
             total_dechets_kg += f.total_dechets_kg or 0
             total_temps_min += f.temps_ouverture_minutes or 0
-            
+
             if f.type_fiche in ['FLEXO', 'HELIO']:
                 for enc in f.encres_groupes.all():
                     total_encre_kg += enc.conso_encre_kg or 0
                     total_solvant_kg += enc.conso_solvant_kg or 0
                 total_bobines_meres += f.bobines_entrees.count()
                 total_bobines_filles += sum(b.nbre_bobines for b in f.bobines_imprimees.all())
-            
+
             elif f.type_fiche in ['DECOUPE', 'DECOUPE2']:
                 total_bobines_meres += f.bobines_meres_decoupe.count()
                 total_bobines_filles += sum(b.nombre_filles for b in f.bobines_filles_decoupe.all())
-        
+
         for e in saisies_old:
             total_prod_kg += e.prod_kg or 0
             total_dechets_kg += e.total_dechets_kg or 0
@@ -202,10 +201,9 @@ class OrdreFabrication(models.Model):
 
         taux_rebut = round((total_dechets_kg / total_prod_kg * 100), 2) if total_prod_kg > 0 else 0
         rendement = round((total_prod_kg / float(self.quantite_prevue) * 100), 2) if self.quantite_prevue > 0 else 0
-        
         heures = int(total_temps_min // 60)
         minutes = int(total_temps_min % 60)
-        
+
         return {
             'total_prod_kg': round(total_prod_kg, 2),
             'total_dechets_kg': round(total_dechets_kg, 2),
@@ -242,7 +240,7 @@ class OrdreFabrication(models.Model):
             'DECOUPE2': {'icone': '✂️', 'couleur': 'orange', 'ordre': 4},
             'FONDS_CARRES': {'icone': '🛍️', 'couleur': 'yellow', 'ordre': 5},
         }
-        
+
         for f in fiches_reelles:
             info = type_map.get(f.type_fiche, {'icone': '⚙️', 'couleur': 'gray', 'ordre': 99})
             workflow.append({
@@ -260,7 +258,7 @@ class OrdreFabrication(models.Model):
                 'fiche_id': f.id,
                 'fiche_numero': f.numero_fiche,
             })
-        
+
         return sorted(workflow, key=lambda x: (x['date'], x['heure_debut'] or datetime.time.min))
 
     @classmethod
@@ -278,6 +276,23 @@ class EtapeProduction(models.Model):
         ('EN_COURS', 'En cours'), ('PAUSE', 'En pause'),
         ('TERMINE', 'Terminé'), ('ANNULE', 'Annulé'),
     ]
+
+    SHIFT_CHOICES = [
+        ('MATIN', 'Matin (08h-16h)'),
+        ('SOIR', 'Soir (16h-00h)'),
+        ('NUIT', 'Nuit (00h-08h)'),
+    ]
+    EQUIPE_CHOICES = [
+        ('A', 'Équipe A'),
+        ('B', 'Équipe B'),
+        ('C', 'Équipe C'),
+    ]
+
+    SHIFT_HOURS = {
+        'MATIN': (datetime.time(8, 0), datetime.time(16, 0)),
+        'SOIR': (datetime.time(16, 0), datetime.time(0, 0)),
+        'NUIT': (datetime.time(0, 0), datetime.time(8, 0)),
+    }
 
     of = models.ForeignKey(OrdreFabrication, on_delete=models.CASCADE, related_name='etapes', verbose_name="Ordre de Fabrication")
     process_type = models.ForeignKey(ProcessType, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Type de processus")
@@ -299,8 +314,16 @@ class EtapeProduction(models.Model):
     quantite_sortie = models.FloatField("Quantité sortie (kg)", default=0)
     quantite_rebut = models.FloatField("Rebuts (kg)", default=0)
 
-    date_prevue_debut = models.DateTimeField("Début prévu", null=True, blank=True)
-    date_prevue_fin = models.DateTimeField("Fin prévue", null=True, blank=True)
+    date_planifiee = models.DateField("Date planifiée", null=True, blank=True)
+    heure_debut_planifiee = models.TimeField("Heure début estimée", null=True, blank=True)
+    heure_fin_planifiee = models.TimeField("Heure fin estimée", null=True, blank=True)
+    shift = models.CharField("Shift", max_length=10, choices=SHIFT_CHOICES, blank=True)
+    equipe = models.CharField("Équipe assignée", max_length=10, choices=EQUIPE_CHOICES, blank=True)
+    ordre_passage = models.IntegerField("Ordre de passage sur machine", default=1)
+
+    date_prevue_debut = models.DateTimeField("Début prévu (Legacy)", null=True, blank=True)
+    date_prevue_fin = models.DateTimeField("Fin prévue (Legacy)", null=True, blank=True)
+
     date_debut_reel = models.DateTimeField("Début réel", null=True, blank=True)
     date_fin_reel = models.DateTimeField("Fin réelle", null=True, blank=True)
     temps_arret_minutes = models.IntegerField("Temps d'arrêt (min)", default=0)
@@ -311,39 +334,78 @@ class EtapeProduction(models.Model):
 
     class Meta:
         app_label = 'core'
-        verbose_name = "Étape de production"
-        verbose_name_plural = "Étapes de production"
+        verbose_name = "Étape de production / Planification"
+        verbose_name_plural = "Étapes de production / Planifications"
         ordering = ['of', 'numero_etape']
         unique_together = ['of', 'numero_etape']
 
     def __str__(self):
         return f"Étape {self.numero_etape} - {self.get_nom_display()} - {self.of.numero_of}"
 
+    def get_statut_color(self):
+        """Résout l'erreur AttributeError sur les étapes dans le tableau de planification"""
+        return {
+            'EN_ATTENTE': 'gray',
+            'PRET': 'cyan',
+            'EN_COURS': 'yellow',
+            'PAUSE': 'orange',
+            'TERMINE': 'green',
+            'ANNULE': 'red',
+        }.get(self.statut, 'gray')
+
+    def apply_shift_hours(self):
+        if self.shift and self.shift in self.SHIFT_HOURS:
+            h_deb, h_fin = self.SHIFT_HOURS[self.shift]
+            if not self.heure_debut_planifiee:
+                self.heure_debut_planifiee = h_deb
+            if not self.heure_fin_planifiee:
+                self.heure_fin_planifiee = h_fin
+
     def save(self, *args, **kwargs):
-        if self.machine and not self.atelier and self.machine.atelier:
+        if self.machine and not self.atelier and getattr(self.machine, 'atelier', None):
             self.atelier = self.machine.atelier
         if self.process_type and not self.atelier and self.process_type.atelier_lie:
             self.atelier = self.process_type.atelier_lie
-        if not self.numero_lot_etape and self.of and self.of.numero_lot:
+
+        self.apply_shift_hours()
+
+        if not self.numero_lot_etape and self.of_id and self.of.numero_lot:
             self.numero_lot_etape = self.of.numero_lot
+
+        if self.date_planifiee:
+            if self.heure_debut_planifiee:
+                naive = datetime.datetime.combine(self.date_planifiee, self.heure_debut_planifiee)
+                self.date_prevue_debut = timezone.make_aware(naive) if settings.USE_TZ else naive
+            if self.heure_fin_planifiee:
+                fin_date = self.date_planifiee
+                if self.heure_fin_planifiee == datetime.time(0, 0) and self.shift == 'SOIR':
+                    fin_date = self.date_planifiee + datetime.timedelta(days=1)
+                naive = datetime.datetime.combine(fin_date, self.heure_fin_planifiee)
+                self.date_prevue_fin = timezone.make_aware(naive) if settings.USE_TZ else naive
+
         super().save(*args, **kwargs)
 
     def get_nom_display(self):
-        if self.nom_etape: return self.nom_etape
-        if self.process_type: return self.process_type.nom
+        if self.nom_etape:
+            return self.nom_etape
+        if self.process_type:
+            return self.process_type.nom
         return f"Étape {self.numero_etape}"
 
     @property
     def progression(self):
-        if self.statut == 'TERMINE': return 100
-        if self.statut in ['EN_ATTENTE', 'PRET']: return 0
+        if self.statut == 'TERMINE':
+            return 100
+        if self.statut in ['EN_ATTENTE', 'PRET']:
+            return 0
         if self.quantite_entree > 0:
             return min(100, round((self.quantite_sortie / self.quantite_entree) * 100))
         return 50 if self.statut == 'EN_COURS' else 0
 
     @property
     def rendement(self):
-        if self.quantite_entree == 0: return 0
+        if self.quantite_entree == 0:
+            return 0
         return round((self.quantite_sortie / self.quantite_entree) * 100, 2)
 
 
@@ -391,17 +453,24 @@ class SemiProduit(models.Model):
         if not self.reference:
             annee = timezone.now().year
             prefix = 'SP'
-            if self.type_semi_produit == 'FILM_EXTRUDE': prefix = 'SPE'
-            elif self.type_semi_produit == 'FILM_IMPRIME': prefix = 'SPI'
-            elif self.type_semi_produit == 'FILM_COMPLEXE': prefix = 'SPC'
-            elif self.type_semi_produit == 'BOBINE_MERE': prefix = 'BM'
-            elif self.type_semi_produit == 'BOBINE_FILLE': prefix = 'BF'
-
+            if self.type_semi_produit == 'FILM_EXTRUDE':
+                prefix = 'SPE'
+            elif self.type_semi_produit == 'FILM_IMPRIME':
+                prefix = 'SPI'
+            elif self.type_semi_produit == 'FILM_COMPLEXE':
+                prefix = 'SPC'
+            elif self.type_semi_produit == 'BOBINE_MERE':
+                prefix = 'BM'
+            elif self.type_semi_produit == 'BOBINE_FILLE':
+                prefix = 'BF'
             last = SemiProduit.objects.filter(reference__startswith=f"{prefix}{annee}").order_by('-reference').first()
             if last and last.reference:
-                try: num = int(last.reference.replace(f"{prefix}{annee}-", '')) + 1
-                except (ValueError, IndexError): num = 1
-            else: num = 1
+                try:
+                    num = int(last.reference.replace(f"{prefix}{annee}-", '')) + 1
+                except (ValueError, IndexError):
+                    num = 1
+            else:
+                num = 1
             self.reference = f"{prefix}{annee}-{num:05d}"
         super().save(*args, **kwargs)
 

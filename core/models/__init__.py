@@ -3,7 +3,10 @@ from django.dispatch import receiver
 from django.db.models import Q
 
 # CRM
-from .crm import Client, ClientContact, InteractionLog, Opportunite
+from .crm import (
+    Client, ClientContact, InteractionLog, Opportunite,
+    CommandeClient, LigneCommandeClient, DemandePrix,
+)
 
 # Prepress
 from .prepress import TechnicalProduct, Tooling
@@ -45,7 +48,8 @@ from .fiches import (
     FicheImpressionBobineEntree, FicheImpressionBobineImprimee,
     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
-    FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille
+    FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+    FicheDecoupeArret, FicheDecoupeControle,
 )
 
 # DRH
@@ -88,6 +92,7 @@ def corriger_base_machines_post_migrate(sender, **kwargs):
 __all__ = [
     # CRM
     'Client', 'ClientContact', 'InteractionLog', 'Opportunite',
+    'CommandeClient', 'LigneCommandeClient', 'DemandePrix',
     # Prepress
     'TechnicalProduct', 'Tooling',
     # Stock
@@ -111,6 +116,7 @@ __all__ = [
     'FicheImpressionBobineEntree', 'FicheImpressionBobineImprimee', 'FicheImpressionEncreGroupe',
     'FicheComplexageDerouleur1', 'FicheComplexageDerouleur2', 'FicheComplexageEnrouleur',
     'FicheFondCarreEquipe', 'FicheDecoupeBobineMere', 'FicheDecoupeBobineFille',
+    'FicheDecoupeArret', 'FicheDecoupeControle',
     # DRH
     'Department', 'Position', 'Employee', 'EmployeeDocument', 'Skill', 'EmployeeSkill',
     'MachineAuthorization', 'Shift', 'Attendance', 'LeaveType', 'LeaveRequest', 'SalaryGrid',

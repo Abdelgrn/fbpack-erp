@@ -1,5 +1,11 @@
 from django import forms
-from core.models import Client, ClientContact, InteractionLog, Opportunite, Quote
+from django.forms import inlineformset_factory
+from core.models import (
+    Client, ClientContact, InteractionLog, Opportunite, Quote,
+    CommandeClient, LigneCommandeClient, DemandePrix,
+    Material, TechnicalProduct,
+)
+
 
 class ClientForm(forms.ModelForm):
     class Meta:
@@ -7,7 +13,10 @@ class ClientForm(forms.ModelForm):
         fields = [
             'name', 'code_client', 'status', 'segment', 'size', 'region',
             'ca_estime', 'sector', 'city', 'address', 'phone', 'email',
-            'website', 'commercial', 'notes'
+            'website', 'commercial', 'notes',
+            # AJOUTS CRM MODERNE
+            'source_prospect', 'conditions_paiement', 'delai_livraison_jours',
+            'remise_defaut', 'limite_credit', 'ice_nif',
         ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -25,7 +34,14 @@ class ClientForm(forms.ModelForm):
             'website': forms.URLInput(attrs={'class': 'form-control'}),
             'commercial': forms.Select(attrs={'class': 'form-select'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'source_prospect': forms.Select(attrs={'class': 'form-select'}),
+            'conditions_paiement': forms.Select(attrs={'class': 'form-select'}),
+            'delai_livraison_jours': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'remise_defaut': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0, 'max': 100}),
+            'limite_credit': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'ice_nif': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ICE / NIF / RC'}),
         }
+
 
 class ClientContactForm(forms.ModelForm):
     class Meta:
@@ -40,6 +56,7 @@ class ClientContactForm(forms.ModelForm):
             'is_primary': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
 
 class InteractionLogForm(forms.ModelForm):
     class Meta:
@@ -60,12 +77,16 @@ class InteractionLogForm(forms.ModelForm):
         if client:
             self.fields['contact'].queryset = ClientContact.objects.filter(client=client)
 
+
 class OpportuniteForm(forms.ModelForm):
     class Meta:
         model = Opportunite
         fields = [
             'client', 'commercial', 'titre', 'description', 'status',
-            'valeur_estimee', 'probabilite', 'date_cloture_prevue', 'notes'
+            'valeur_estimee', 'probabilite', 'date_cloture_prevue', 'notes',
+            # AJOUTS CRM MODERNE
+            'produit_demande', 'quantite_estimee', 'prix_estime',
+            'date_prevue_commande', 'devis_lie', 'material_principal',
         ]
         widgets = {
             'client': forms.Select(attrs={'class': 'form-select'}),
@@ -77,7 +98,23 @@ class OpportuniteForm(forms.ModelForm):
             'probabilite': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'max': 100}),
             'date_cloture_prevue': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'produit_demande': forms.Select(attrs={'class': 'form-select'}),
+            'quantite_estimee': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0}),
+            'prix_estime': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0}),
+            'date_prevue_commande': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'devis_lie': forms.Select(attrs={'class': 'form-select'}),
+            'material_principal': forms.Select(attrs={'class': 'form-select'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['produit_demande'].required = False
+        self.fields['devis_lie'].required = False
+        self.fields['material_principal'].required = False
+        self.fields['produit_demande'].queryset = TechnicalProduct.objects.all().order_by('name')
+        self.fields['material_principal'].queryset = Material.objects.all().order_by('name')
+        self.fields['devis_lie'].queryset = Quote.objects.all().order_by('-date')
+
 
 class QuoteForm(forms.ModelForm):
     class Meta:
@@ -97,3 +134,116 @@ class QuoteForm(forms.ModelForm):
             'status': forms.Select(attrs={'class': 'form-select'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
+
+class CommandeClientForm(forms.ModelForm):
+    class Meta:
+        model = CommandeClient
+        fields = [
+            'client', 'opportunite', 'devis', 'commercial',
+            'date_commande', 'date_livraison_prevue', 'statut', 'priorite',
+            'conditions_paiement', 'delai_livraison_jours', 'remise_globale',
+            'adresse_livraison', 'notes',
+        ]
+        widgets = {
+            'client': forms.Select(attrs={'class': 'form-select'}),
+            'opportunite': forms.Select(attrs={'class': 'form-select'}),
+            'devis': forms.Select(attrs={'class': 'form-select'}),
+            'commercial': forms.Select(attrs={'class': 'form-select'}),
+            'date_commande': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'date_livraison_prevue': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'statut': forms.Select(attrs={'class': 'form-select'}),
+            'priorite': forms.Select(attrs={'class': 'form-select'}),
+            'conditions_paiement': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: 30 jours, Acompte 30%...'}),
+            'delai_livraison_jours': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'remise_globale': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0, 'max': 100}),
+            'adresse_livraison': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['opportunite'].required = False
+        self.fields['devis'].required = False
+        self.fields['commercial'].required = False
+        self.fields['opportunite'].queryset = Opportunite.objects.exclude(
+            status__in=['PERDU']
+        ).select_related('client').order_by('-date_ouverture')
+        self.fields['devis'].queryset = Quote.objects.all().order_by('-date')
+
+
+class LigneCommandeClientForm(forms.ModelForm):
+    class Meta:
+        model = LigneCommandeClient
+        fields = [
+            'produit', 'material', 'designation', 'quantite', 'unite',
+            'prix_unitaire', 'remise', 'date_livraison', 'notes',
+        ]
+        widgets = {
+            'produit': forms.Select(attrs={'class': 'form-select'}),
+            'material': forms.Select(attrs={'class': 'form-select'}),
+            'designation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Désignation article'}),
+            'quantite': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0}),
+            'unite': forms.TextInput(attrs={'class': 'form-control'}),
+            'prix_unitaire': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0}),
+            'remise': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0, 'max': 100}),
+            'date_livraison': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'notes': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['produit'].required = False
+        self.fields['material'].required = False
+        self.fields['produit'].queryset = TechnicalProduct.objects.all().order_by('name')
+        self.fields['material'].queryset = Material.objects.all().order_by('name')
+        # Annoter le stock dans le label matière pour le commercial
+        self.fields['material'].label_from_instance = lambda obj: (
+            f"{obj.name} — Stock: {obj.quantity:.1f} {obj.unit}"
+            f"{' ⚠️ BAS' if obj.is_low_stock() else ''}"
+        )
+
+
+LigneCommandeClientFormSet = inlineformset_factory(
+    CommandeClient,
+    LigneCommandeClient,
+    form=LigneCommandeClientForm,
+    extra=3,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+
+
+class DemandePrixForm(forms.ModelForm):
+    class Meta:
+        model = DemandePrix
+        fields = [
+            'client', 'contact', 'commercial', 'opportunite',
+            'objet', 'description', 'produit', 'quantite_demandee',
+            'budget_indicatif', 'date_demande', 'date_reponse_souhaitee',
+            'statut', 'notes',
+        ]
+        widgets = {
+            'client': forms.Select(attrs={'class': 'form-select'}),
+            'contact': forms.Select(attrs={'class': 'form-select'}),
+            'commercial': forms.Select(attrs={'class': 'form-select'}),
+            'opportunite': forms.Select(attrs={'class': 'form-select'}),
+            'objet': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'produit': forms.Select(attrs={'class': 'form-select'}),
+            'quantite_demandee': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0}),
+            'budget_indicatif': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0}),
+            'date_demande': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'date_reponse_souhaitee': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'statut': forms.Select(attrs={'class': 'form-select'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['contact'].required = False
+        self.fields['opportunite'].required = False
+        self.fields['produit'].required = False
+        self.fields['commercial'].required = False
+        self.fields['produit'].queryset = TechnicalProduct.objects.all().order_by('name')

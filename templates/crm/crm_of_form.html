@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-6 flex items-center gap-4 flex-wrap">
+        <a href="{% url 'crm_of_list' %}" class="text-gray-400 hover:text-white transition">← OF Commercial</a>
+        <a href="{% url 'crm_view' %}" class="text-gray-500 hover:text-white text-sm">CRM</a>
+        <h1 class="text-2xl font-bold text-white">{{ titre }}</h1>
+    </div>
+
+    <div class="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3 text-sm text-blue-300">
+        ℹ️ Le <strong class="text-white">N° Lot</strong> n’est pas saisi ici. Il sera attribué par le <strong class="text-yellow-400">planificateur</strong> lors de l’ordonnancement.
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="django-form-container" id="crm-of-form">
+        {% csrf_token %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl">
+                <h2 class="text-white font-bold mb-6 text-lg flex items-center gap-2">
+                    <span>📋</span> Informations générales
+                </h2>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Client *</label>
+                            {{ form.client }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Produit *</label>
+                            {{ form.produit }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Quantité prévue (kg) *</label>
+                            {{ form.quantite_prevue }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Support global</label>
+                            {{ form.support }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Date lancement</label>
+                            {{ form.date_lancement }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Date fin prévue</label>
+                            {{ form.date_prevue_fin }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Priorité</label>
+                            {{ form.priorite }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">N° OF</label>
+                            {{ form.numero_of }}
+                            <p class="text-[10px] text-gray-500 mt-1">Auto si vide</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Opportunité</label>
+                        {{ form.opportunite }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Observation</label>
+                        {{ form.observation }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Notes</label>
+                        {{ form.notes }}
+                    </div>
+                    <div class="hidden">{{ form.numero_lot }}</div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl">
+                <h2 class="text-white font-bold mb-6 text-lg flex items-center gap-2">
+                    <span>📐</span> Dimensions & Fichiers
+                </h2>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Laize (mm)</label>
+                            {{ form.laize }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Épaisseur (μm)</label>
+                            {{ form.epaisseur }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Mandrin (mm)</label>
+                            {{ form.dimension_mandrin }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Ø Bobine fille</label>
+                            {{ form.diametre_bobine_fille }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">BAT Validé</label>
+                        {{ form.bat_file }}
+                    </div>
+                    <div>
+                        <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Fiche technique</label>
+                        {{ form.fiche_technique }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ÉTAPES DE PRODUCTION -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 mt-6 shadow-xl">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-700">
+                <h2 class="text-white font-bold text-lg flex items-center gap-2">
+                    <span>⚙️</span> Étapes de Production
+                </h2>
+                <button type="button" onclick="ajouterEtape()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition text-sm flex items-center gap-2">
+                    <span>+</span> Ajouter Étape
+                </button>
+            </div>
+
+            {{ formset.management_form }}
+            <div id="etapes-container" class="space-y-4">
+                {% for etape_form in formset %}
+                <div class="etape-row bg-slate-900/50 border border-slate-700 rounded-lg p-5">
+                    {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">N°</label>
+                            {{ etape_form.numero_etape }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Processus</label>
+                            {{ etape_form.process_type }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Atelier</label>
+                            {{ etape_form.atelier }}
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Machine (optionnel)</label>
+                            {{ etape_form.machine }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 bg-slate-800/50 p-3 rounded border border-slate-700/50">
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support</label>
+                            {{ etape_form.support }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté IN (kg)</label>
+                            {{ etape_form.quantite_entree }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté OUT (ML)</label>
+                            {{ etape_form.quantite_ml }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Nb Bobines</label>
+                            {{ etape_form.nb_bobines }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Dév (mm)</label>
+                            {{ etape_form.developpement }}
+                        </div>
+                    </div>
+                    <div class="hidden">{{ etape_form.numero_lot_etape }}</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Observation</label>
+                            {{ etape_form.observation }}
+                        </div>
+                        <div class="flex items-center justify-between mt-5">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                {{ etape_form.genere_semi_produit }}
+                                <span class="text-gray-300 text-sm font-bold">Génère semi-produit</span>
+                            </label>
+                            {% if etape_form.DELETE %}
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-red-400">Supprimer:</span>
+                                {{ etape_form.DELETE }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="hidden">
+                        {{ etape_form.date_planifiee }}
+                        {{ etape_form.heure_debut_planifiee }}
+                        {{ etape_form.heure_fin_planifiee }}
+                        {{ etape_form.shift }}
+                        {{ etape_form.equipe }}
+                        {{ etape_form.ordre_passage }}
+                        {{ etape_form.operateur }}
+                        {{ etape_form.notes }}
+                        {{ etape_form.nom_etape }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mt-8 bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-lg transition text-sm">
+                💾 Enregistrer l'OF (CRM)
+            </button>
+            {% if of %}
+            <a href="{% url 'crm_of_detail' of.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-lg transition text-sm">Annuler</a>
+            {% else %}
+            <a href="{% url 'crm_of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-lg transition text-sm">Annuler</a>
+            {% endif %}
+            <a href="{% url 'crm_view' %}" class="text-gray-400 hover:text-white font-bold py-3 px-4 text-sm">← Retour CRM</a>
+        </div>
+    </form>
+</div>
+
+<!-- PATRON DE FORMULAIRE VIDE DJANGO (Garantit que le bouton +Ajouter Étape marche toujours) -->
+<div id="empty-form-template" class="hidden">
+    <div class="etape-row bg-slate-900/50 border border-slate-700 rounded-lg p-5">
+        {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">N°</label>
+                {{ formset.empty_form.numero_etape }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Processus</label>
+                {{ formset.empty_form.process_type }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Atelier</label>
+                {{ formset.empty_form.atelier }}
+            </div>
+            <div class="md:col-span-2">
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Machine (optionnel)</label>
+                {{ formset.empty_form.machine }}
+            </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 bg-slate-800/50 p-3 rounded border border-slate-700/50">
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support</label>
+                {{ formset.empty_form.support }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté IN (kg)</label>
+                {{ formset.empty_form.quantite_entree }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté OUT (ML)</label>
+                {{ formset.empty_form.quantite_ml }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Nb Bobines</label>
+                {{ formset.empty_form.nb_bobines }}
+            </div>
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Dév (mm)</label>
+                {{ formset.empty_form.developpement }}
+            </div>
+        </div>
+        <div class="hidden">{{ formset.empty_form.numero_lot_etape }}</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Observation</label>
+                {{ formset.empty_form.observation }}
+            </div>
+            <div class="flex items-center justify-between mt-5">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    {{ formset.empty_form.genere_semi_produit }}
+                    <span class="text-gray-300 text-sm font-bold">Génère semi-produit</span>
+                </label>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-red-400">Supprimer:</span>
+                    {{ formset.empty_form.DELETE }}
+                </div>
+            </div>
+        </div>
+        <div class="hidden">
+            {{ formset.empty_form.date_planifiee }}
+            {{ formset.empty_form.heure_debut_planifiee }}
+            {{ formset.empty_form.heure_fin_planifiee }}
+            {{ formset.empty_form.shift }}
+            {{ formset.empty_form.equipe }}
+            {{ formset.empty_form.ordre_passage }}
+            {{ formset.empty_form.operateur }}
+            {{ formset.empty_form.notes }}
+            {{ formset.empty_form.nom_etape }}
+        </div>
+    </div>
+</div>
+
+<script>
+function ajouterEtape() {
+    const container = document.getElementById('etapes-container');
+    const totalForms = document.querySelector('[name="etapes-TOTAL_FORMS"]');
+    const emptyTemplate = document.getElementById('empty-form-template');
+    
+    if (!container || !totalForms || !emptyTemplate) return;
+
+    const formIdx = parseInt(totalForms.value, 10) || 0;
+    const newHtml = emptyTemplate.innerHTML.replace(/__prefix__/g, formIdx);
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = newHtml.trim();
+    const newRow = wrapper.firstElementChild;
+
+    // Attribuer automatiquement le numéro d'étape
+    const numInput = newRow.querySelector('input[name$="-numero_etape"]');
+    if (numInput) {
+        numInput.value = formIdx + 1;
+    }
+
+    container.appendChild(newRow);
+    totalForms.value = formIdx + 1;
+}
+</script>
+{% endblock %}

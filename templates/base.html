@@ -59,8 +59,14 @@
             filter: invert(0.8) sepia(1) saturate(3) hue-rotate(175deg);
             cursor: pointer;
         }
+
+        /* Badge stock CRM */
+        .stock-ok { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        .stock-ko { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+        .stock-na { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
     </style>
 </head>
+
 <body class="bg-darkbg text-gray-200 font-sans h-screen flex overflow-hidden">
     
     <!-- SIDEBAR -->
@@ -87,9 +93,11 @@
             <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                 <span class="mr-3 text-lg">📊</span> Dashboard
             </a>
+
             <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}">
                 <span class="mr-3 text-lg">📅</span> Planning Gantt
             </a>
+
             <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}">
                 <span class="mr-3 text-lg">📈</span> Reporting
             </a>
@@ -99,18 +107,27 @@
                 Gestion Opérationnelle
             </div>
             
+            <!-- CRM & DEVIS -->
             <a href="{% url 'crm_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'crm' in request.path %}active{% endif %}">
                 <span class="mr-3">🤝</span> CRM & Devis
             </a>
+
+            <!-- PRÉPRESSE -->
             <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'prepress' in request.path %}active{% endif %}">
                 <span class="mr-3">🎨</span> Prépresse & Outils
             </a>
-            <a href="{% url 'of_list' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/of/' in request.path %}active{% endif %}">
-                <span class="mr-3">🏭</span> Ordres Fabrication
+
+            <!-- NOUVEAU MODULE PLANIFICATION (REMPLACE VISUELLEMENT OF) -->
+            <a href="{% url 'planning_atelier' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'planification' in request.path or 'planning-atelier' in request.path or '/of/' in request.path and 'crm' not in request.path %}active{% endif %}">
+                <span class="mr-3">📅</span> Planification
             </a>
+
+            <!-- PRODUCTION SPÉCIALE -->
             <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/prod/' in request.path and '/encre/' not in request.path %}active{% endif %}">
                 <span class="mr-3">⚙️</span> Production Spécial
             </a>
+
+            <!-- STOCKS & ACHATS -->
             <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/stock/' in request.path %}active{% endif %}">
                 <span class="mr-3">📦</span> Stocks & Achats
             </a>
@@ -120,10 +137,10 @@
                 Maintenance
             </div>
 
-            <!-- UN SEUL BOUTON POUR TOUTE LA MAINTENANCE -->
             <a href="{% url 'maintenance_dashboard' %}" class="nav-link-maint flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/maintenance/' in request.path %}active{% endif %}">
                 <span class="mr-3">🔧</span>
                 <span>Maintenance</span>
+
                 {% if alertes_maintenance_count > 0 %}
                 <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                     {{ alertes_maintenance_count }}
@@ -149,6 +166,7 @@
             <a href="{% url 'chat_home' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}">
                 <span class="mr-3">💬</span> Chat d'Équipe
             </a>
+
             <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300 {% if 'import' in request.path %}active{% endif %}">
                 <span class="mr-3">📥</span> Importer Excel
             </a>
@@ -157,12 +175,17 @@
 
         <!-- ZONE UTILISATEUR -->
         <div class="mt-auto border-t border-slate-700 p-4 bg-slate-900/80 backdrop-blur-sm">
+
             <div class="flex items-center gap-3 mb-4">
                 <div class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold shadow-lg shadow-orange-500/20">
                     {{ user.username|slice:":1"|upper }}
                 </div>
+
                 <div class="overflow-hidden">
-                    <p class="text-sm font-bold text-white truncate w-32">{{ user.username|default:"Utilisateur" }}</p>
+                    <p class="text-sm font-bold text-white truncate w-32">
+                        {{ user.username|default:"Utilisateur" }}
+                    </p>
+
                     <p class="text-[10px] text-emerald-400 flex items-center gap-1">
                         <span class="relative flex h-2 w-2">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -174,6 +197,7 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2">
+
                 <a href="{% url 'admin_view' %}" class="flex items-center justify-center gap-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg border border-slate-600 transition duration-200">
                     ⚙️ Admin
                 </a>
@@ -184,6 +208,7 @@
                         🚪 Sortir
                     </button>
                 </form>
+
             </div>
         </div>
     </aside>
@@ -194,17 +219,35 @@
         <!-- MESSAGES DJANGO -->
         {% if messages %}
         <div class="px-8 pt-4">
+
             {% for message in messages %}
+
             <div class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
                 {% if message.tags == 'success' %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
                 {% elif message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400
                 {% elif message.tags == 'warning' %}bg-yellow-500/10 border border-yellow-500/30 text-yellow-400
                 {% else %}bg-blue-500/10 border border-blue-500/30 text-blue-400{% endif %}">
-                {% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+
+                {% if message.tags == 'success' %}
+                    ✅
+                {% elif message.tags == 'error' %}
+                    ❌
+                {% elif message.tags == 'warning' %}
+                    ⚠️
+                {% else %}
+                    ℹ️
+                {% endif %}
+
                 {{ message }}
-                <button onclick="this.parentElement.remove()" class="ml-auto text-gray-500 hover:text-white">✕</button>
+
+                <button onclick="this.parentElement.remove()" class="ml-auto text-gray-500 hover:text-white">
+                    ✕
+                </button>
+
             </div>
+
             {% endfor %}
+
         </div>
         {% endif %}
         
@@ -212,16 +255,27 @@
             {% block content %}
             {% endblock %}
         </div>
+
     </main>
 
     <!-- AUTO-HIDE MESSAGES -->
     <script>
         setTimeout(function() {
-            document.querySelectorAll('[class*="bg-emerald-500/10"], [class*="bg-red-500/10"], [class*="bg-yellow-500/10"], [class*="bg-blue-500/10"]').forEach(function(el) {
+            document.querySelectorAll(
+                '[class*="bg-emerald-500/10"], ' +
+                '[class*="bg-red-500/10"], ' +
+                '[class*="bg-yellow-500/10"], ' +
+                '[class*="bg-blue-500/10"]'
+            ).forEach(function(el) {
+
                 if (el.parentElement.classList.contains('px-8')) {
+
                     el.style.transition = 'opacity 0.5s';
                     el.style.opacity = '0';
-                    setTimeout(function() { el.remove(); }, 500);
+
+                    setTimeout(function() {
+                        el.remove();
+                    }, 500);
                 }
             });
         }, 5000);

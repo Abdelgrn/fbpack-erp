@@ -7,7 +7,7 @@
     <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <h1 class="text-3xl font-bold text-white">CRM Commercial</h1>
-            <p class="text-gray-400 mt-1">Clients, opportunités, devis et pipeline de vente.</p>
+            <p class="text-gray-400 mt-1">Clients, opportunités, devis, commandes et pipeline de vente.</p>
         </div>
         <div class="flex gap-2 flex-wrap">
             <a href="{% url 'add_client' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow-lg transition flex items-center gap-2">
@@ -16,25 +16,60 @@
             <a href="{% url 'add_opportunite' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded shadow-lg transition flex items-center gap-2">
                 + Opportunité
             </a>
+            <a href="{% url 'add_commande' %}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded shadow-lg transition flex items-center gap-2">
+                + Commande
+            </a>
             <a href="{% url 'add_quote' %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2">
                 + Devis
+            </a>
+            <a href="{% url 'add_demande_prix' %}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded transition flex items-center gap-2">
+                + Demande Prix
             </a>
         </div>
     </div>
 
+    <!-- ALERTES STOCK -->
+    {% if stock_alerts %}
+    <div class="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+        <h3 class="text-red-400 font-bold text-sm mb-2 flex items-center gap-2">
+            ⚠️ Alertes stock sur opportunités actives ({{ stock_alerts|length }})
+        </h3>
+        <div class="space-y-1">
+            {% for alert in stock_alerts %}
+            <div class="flex items-center justify-between text-xs bg-slate-900/50 rounded px-3 py-2">
+                <span class="text-white">
+                    <a href="{% url 'edit_opportunite' alert.opportunite.id %}" class="text-yellow-400 hover:underline font-bold">{{ alert.opportunite.titre }}</a>
+                    — {{ alert.opportunite.client.name }}
+                </span>
+                <span class="stock-ko px-2 py-0.5 rounded text-[10px] font-bold">{{ alert.info.message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ONGLETS -->
     <div class="flex border-b border-slate-700 mb-6 overflow-x-auto">
-        <button onclick="openTab('tab-pipeline', this)" class="tab-btn px-5 py-3 text-sm font-bold text-white border-b-2 border-yellow-500 focus:outline-none whitespace-nowrap">
+        <button type="button" onclick="openTab('tab-pipeline', this)" class="tab-btn px-5 py-3 text-sm font-bold text-white border-b-2 border-yellow-500 focus:outline-none whitespace-nowrap">
             📊 Pipeline
         </button>
-        <button onclick="openTab('tab-clients', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+        <button type="button" onclick="openTab('tab-clients', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
             🤝 Clients ({{ clients.count }})
         </button>
-        <button onclick="openTab('tab-opportunites', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+        <button type="button" onclick="openTab('tab-opportunites', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
             🎯 Opportunités
         </button>
-        <button onclick="openTab('tab-quotes', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+        <button type="button" onclick="openTab('tab-commandes', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+            🛒 Commandes ({{ commandes_stats.total }})
+        </button>
+        <button type="button" onclick="openTab('tab-quotes', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
             📄 Devis
+        </button>
+        <button type="button" onclick="openTab('tab-demandes', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+            💰 Demandes ({{ demandes_stats.total }})
+        </button>
+        <button type="button" onclick="openTab('tab-of', this)" class="tab-btn px-5 py-3 text-sm font-bold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none whitespace-nowrap">
+            🏭 OF Production
         </button>
     </div>
 
@@ -42,6 +77,27 @@
     <!-- ONGLET 1 : PIPELINE  -->
     <!-- ===================== -->
     <div id="tab-pipeline" class="tab-content block animate-fade-in">
+
+        <!-- KPI RAPIDES -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
+                <div class="text-2xl font-bold text-blue-400">{{ prospects_count }}</div>
+                <div class="text-xs text-gray-400 mt-1">Prospects</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-emerald-500/30 p-4 text-center">
+                <div class="text-2xl font-bold text-emerald-400">{{ commandes_stats.confirmee }}</div>
+                <div class="text-xs text-gray-400 mt-1">Cmd confirmées</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-yellow-500/30 p-4 text-center">
+                <div class="text-2xl font-bold text-yellow-400">{{ commandes_stats.en_production }}</div>
+                <div class="text-xs text-gray-400 mt-1">En production</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-purple-500/30 p-4 text-center">
+                <div class="text-2xl font-bold text-purple-400">{{ demandes_stats.nouvelles }}</div>
+                <div class="text-xs text-gray-400 mt-1">DP nouvelles</div>
+            </div>
+        </div>
+
         <h2 class="text-xl font-bold text-white mb-4">Pipeline de vente</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
             {% for stage in pipeline_stages %}
@@ -70,28 +126,39 @@
         <h3 class="text-lg font-bold text-white mb-3">Opportunités en cours</h3>
         <div class="overflow-x-auto pb-4">
             <div class="flex gap-4 min-w-max">
-                {% for stage_code, stage_label in opportunites.model.STAGE_CHOICES %}
-                {% if stage_code != 'GAGNE' and stage_code != 'PERDU' %}
-                <div class="w-64 flex-shrink-0">
-                    <div class="bg-slate-900 rounded-lg p-2 mb-2">
-                        <span class="text-xs font-bold text-gray-300 uppercase">{{ stage_label }}</span>
+                {% for stage in pipeline_stages %}
+                {% if stage.code != 'GAGNE' and stage.code != 'PERDU' %}
+                <div class="w-72 flex-shrink-0">
+                    <div class="bg-slate-900 rounded-lg p-2 mb-2 flex justify-between items-center">
+                        <span class="text-xs font-bold text-gray-300 uppercase">{{ stage.label }}</span>
+                        <span class="text-xs text-gray-500">{{ stage.count }}</span>
                     </div>
                     <div class="space-y-2">
                         {% for opp in opportunites %}
-                        {% if opp.status == stage_code %}
-                        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-yellow-500/50 transition cursor-pointer" onclick="window.location='{% url 'edit_opportunite' opp.id %}'">
+                        {% if opp.status == stage.code %}
+                        <a href="{% url 'edit_opportunite' opp.id %}" class="block bg-slate-800 border border-slate-700 rounded-lg p-3 hover:border-yellow-500/50 transition">
                             <div class="font-bold text-white text-sm mb-1 truncate">{{ opp.titre }}</div>
                             <div class="text-xs text-gray-400 mb-2">{{ opp.client.name }}</div>
                             <div class="flex justify-between items-center">
                                 <span class="text-xs text-yellow-400 font-mono">{{ opp.valeur_estimee|floatformat:0 }} KG/Étiqu.</span>
                                 <span class="text-xs text-gray-500">{{ opp.probabilite }}%</span>
                             </div>
+                            {% if opp.material_principal %}
+                            <div class="mt-2">
+                                {% with stock=opp.stock_disponible_pour_opportunite %}
+                                {% if stock.disponible == False %}
+                                <span class="stock-ko px-1.5 py-0.5 rounded text-[10px] font-bold">⚠️ Stock KO</span>
+                                {% elif stock.disponible == True %}
+                                <span class="stock-ok px-1.5 py-0.5 rounded text-[10px] font-bold">✓ Stock OK</span>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            {% endif %}
                             {% if opp.date_cloture_prevue %}
                             <div class="text-xs text-gray-500 mt-1">📅 {{ opp.date_cloture_prevue|date:"d/m/Y" }}</div>
                             {% endif %}
-                        </div>
+                        </a>
                         {% endif %}
-                        {% empty %}
                         {% endfor %}
                     </div>
                 </div>
@@ -160,6 +227,9 @@
                                 <div class="text-xs text-gray-500 font-mono">{{ client.code_client }}</div>
                                 {% endif %}
                                 <div class="text-xs text-gray-500">{{ client.city }}</div>
+                                {% if client.source_prospect %}
+                                <div class="text-[10px] text-purple-400 mt-0.5">📍 {{ client.get_source_prospect_display }}</div>
+                                {% endif %}
                             </td>
                             <td class="px-5 py-4">
                                 {% if client.status == 'ACTIVE' %}
@@ -189,10 +259,14 @@
                                 {% if client.ca_estime %}{{ client.ca_estime|floatformat:0 }} KG/Étiqu.{% else %}—{% endif %}
                             </td>
                             <td class="px-5 py-4 text-right">
-                                <div class="flex justify-end gap-2">
+                                <div class="flex justify-end gap-2 flex-wrap">
                                     <a href="{% url 'client_detail' client.id %}" class="text-yellow-400 hover:text-yellow-300 font-medium text-xs">Fiche</a>
                                     <a href="{% url 'edit_client' client.id %}" class="text-blue-400 hover:text-blue-300 font-medium text-xs">Éditer</a>
                                     <a href="{% url 'add_opportunite' %}?client_id={{ client.id }}" class="text-green-400 hover:text-green-300 font-medium text-xs">+ Opport.</a>
+                                    <a href="{% url 'add_commande' %}?client_id={{ client.id }}" class="text-emerald-400 hover:text-emerald-300 font-medium text-xs">+ Cmd</a>
+                                    {% if client.status == 'PROSPECT' %}
+                                    <a href="{% url 'convertir_prospect' client.id %}" class="text-purple-400 hover:text-purple-300 font-medium text-xs" onclick="return confirm('Convertir en client actif ?')">→ Client</a>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -227,6 +301,7 @@
                             <th class="px-5 py-4">Étape</th>
                             <th class="px-5 py-4">Valeur</th>
                             <th class="px-5 py-4">Proba.</th>
+                            <th class="px-5 py-4">Stock</th>
                             <th class="px-5 py-4">Clôture prévue</th>
                             <th class="px-5 py-4 text-right">Actions</th>
                         </tr>
@@ -237,6 +312,7 @@
                             <td class="px-5 py-4">
                                 <div class="font-bold text-white">{{ opp.titre }}</div>
                                 {% if opp.commercial %}<div class="text-xs text-gray-500">{{ opp.commercial.get_full_name|default:opp.commercial.username }}</div>{% endif %}
+                                {% if opp.produit_demande %}<div class="text-xs text-cyan-400 mt-0.5">{{ opp.produit_demande }}</div>{% endif %}
                             </td>
                             <td class="px-5 py-4">
                                 <a href="{% url 'client_detail' opp.client.id %}" class="text-blue-400 hover:underline">{{ opp.client.name }}</a>
@@ -257,22 +333,42 @@
                             <td class="px-5 py-4 text-yellow-400 font-mono text-xs">{{ opp.valeur_estimee|floatformat:0 }} KG/Étiqu.</td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-2">
-                                    <div class="w-16 bg-slate-700 rounded-full h-1.5">
-                                        <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ opp.probabilite }}%"></div>
+                                    <div class="w-16 bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                        <div class="bg-blue-500 h-1.5 rounded-full" data-width="{{ opp.probabilite }}"></div>
                                     </div>
                                     <span class="text-xs text-gray-400">{{ opp.probabilite }}%</span>
                                 </div>
+                            </td>
+                            <td class="px-5 py-4">
+                                {% if opp.material_principal %}
+                                    {% with stock=opp.stock_disponible_pour_opportunite %}
+                                    {% if stock.disponible == True %}
+                                        <span class="stock-ok px-2 py-0.5 rounded text-[10px] font-bold">✓ OK</span>
+                                    {% elif stock.disponible == False %}
+                                        <span class="stock-ko px-2 py-0.5 rounded text-[10px] font-bold">⚠️ KO</span>
+                                    {% else %}
+                                        <span class="stock-na px-2 py-0.5 rounded text-[10px] font-bold">N/A</span>
+                                    {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="text-gray-600 text-xs">—</span>
+                                {% endif %}
                             </td>
                             <td class="px-5 py-4 text-gray-300 text-xs">
                                 {{ opp.date_cloture_prevue|date:"d/m/Y"|default:"—" }}
                             </td>
                             <td class="px-5 py-4 text-right">
-                                <a href="{% url 'edit_opportunite' opp.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Éditer</a>
+                                <div class="flex justify-end gap-2">
+                                    <a href="{% url 'edit_opportunite' opp.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Éditer</a>
+                                    {% if opp.status == 'GAGNE' %}
+                                    <a href="{% url 'add_commande' %}?client_id={{ opp.client.id }}&opportunite_id={{ opp.id }}" class="text-emerald-400 hover:text-emerald-300 text-xs">→ Cmd</a>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                                 Aucune opportunité. <a href="{% url 'add_opportunite' %}" class="text-blue-400 hover:underline">En créer une</a>
                             </td>
                         </tr>
@@ -283,8 +379,120 @@
         </div>
     </div>
 
+    <!-- ========================== -->
+    <!-- ONGLET 4 : COMMANDES      -->
+    <!-- ========================== -->
+    <div id="tab-commandes" class="tab-content hidden animate-fade-in">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h2 class="text-xl font-bold text-white">Commandes Clients</h2>
+                <p class="text-xs text-gray-500 mt-1">Reliées au stock et à la production (OF)</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'commandes_list' %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition text-sm">Voir tout</a>
+                <a href="{% url 'add_commande' %}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded transition">+ Nouvelle Commande</a>
+            </div>
+        </div>
+
+        <!-- Stats commandes -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-3 text-center">
+                <div class="text-xl font-bold text-white">{{ commandes_stats.total }}</div>
+                <div class="text-[10px] text-gray-400">Total</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-gray-500/30 p-3 text-center">
+                <div class="text-xl font-bold text-gray-400">{{ commandes_stats.brouillon }}</div>
+                <div class="text-[10px] text-gray-500">Brouillon</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-blue-500/30 p-3 text-center">
+                <div class="text-xl font-bold text-blue-400">{{ commandes_stats.confirmee }}</div>
+                <div class="text-[10px] text-blue-400/70">Confirmées</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-yellow-500/30 p-3 text-center">
+                <div class="text-xl font-bold text-yellow-400">{{ commandes_stats.en_production }}</div>
+                <div class="text-[10px] text-yellow-400/70">En production</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-green-500/30 p-3 text-center">
+                <div class="text-xl font-bold text-green-400">{{ commandes_stats.livree }}</div>
+                <div class="text-[10px] text-green-400/70">Livrées</div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="px-5 py-4">Référence</th>
+                            <th class="px-5 py-4">Client</th>
+                            <th class="px-5 py-4">Date</th>
+                            <th class="px-5 py-4">Montant</th>
+                            <th class="px-5 py-4">Statut</th>
+                            <th class="px-5 py-4">OF lié</th>
+                            <th class="px-5 py-4">Livraison</th>
+                            <th class="px-5 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        {% for cmd in commandes %}
+                        <tr class="hover:bg-slate-700/50 transition">
+                            <td class="px-5 py-4">
+                                <a href="{% url 'commande_detail' cmd.id %}" class="font-mono text-emerald-400 font-bold hover:underline">{{ cmd.reference }}</a>
+                                {% if cmd.priorite == 'URGENTE' %}
+                                <span class="ml-1 text-[10px] text-red-400">🔴</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4">
+                                <a href="{% url 'client_detail' cmd.client.id %}" class="text-white font-bold hover:text-yellow-400">{{ cmd.client.name }}</a>
+                            </td>
+                            <td class="px-5 py-4 text-xs">{{ cmd.date_commande|date:"d/m/Y" }}</td>
+                            <td class="px-5 py-4 text-yellow-400 font-mono text-xs">{{ cmd.montant_total|floatformat:0 }} DA</td>
+                            <td class="px-5 py-4">
+                                {% if cmd.statut == 'LIVREE' %}
+                                    <span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs border border-green-500/20">{{ cmd.get_statut_display }}</span>
+                                {% elif cmd.statut == 'EN_PRODUCTION' %}
+                                    <span class="bg-yellow-500/10 text-yellow-400 px-2 py-1 rounded text-xs border border-yellow-500/20 animate-pulse">{{ cmd.get_statut_display }}</span>
+                                {% elif cmd.statut == 'CONFIRMEE' %}
+                                    <span class="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/20">{{ cmd.get_statut_display }}</span>
+                                {% elif cmd.statut == 'ANNULEE' %}
+                                    <span class="bg-red-500/10 text-red-400 px-2 py-1 rounded text-xs border border-red-500/20">{{ cmd.get_statut_display }}</span>
+                                {% else %}
+                                    <span class="bg-gray-500/10 text-gray-400 px-2 py-1 rounded text-xs border border-gray-500/20">{{ cmd.get_statut_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4">
+                                {% if cmd.of_lie %}
+                                <a href="{% url 'crm_of_detail' cmd.of_lie.id %}" class="text-neon font-mono text-xs hover:underline">{{ cmd.of_lie.numero_of }}</a>
+                                {% else %}
+                                <span class="text-gray-600 text-xs">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-xs">{{ cmd.date_livraison_prevue|date:"d/m/Y"|default:"—" }}</td>
+                            <td class="px-5 py-4 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <a href="{% url 'commande_detail' cmd.id %}" class="text-emerald-400 hover:text-emerald-300 text-xs">Voir</a>
+                                    <a href="{% url 'edit_commande' cmd.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Édit.</a>
+                                    {% if not cmd.of_lie and cmd.statut == 'CONFIRMEE' %}
+                                    <a href="{% url 'commande_creer_of' cmd.id %}" class="text-yellow-400 hover:text-yellow-300 text-xs font-bold">→ OF</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+                                Aucune commande. <a href="{% url 'add_commande' %}" class="text-emerald-400 hover:underline">Créer la première</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- =================== -->
-    <!-- ONGLET 4 : DEVIS   -->
+    <!-- ONGLET 5 : DEVIS   -->
     <!-- =================== -->
     <div id="tab-quotes" class="tab-content hidden animate-fade-in">
         <div class="flex justify-between items-center mb-4">
@@ -340,8 +548,10 @@
                                         <a href="{{ q.pdf_file.url }}" target="_blank" class="text-red-400 hover:text-red-300 text-xs">PDF</a>
                                     {% endif %}
                                     <a href="{% url 'edit_quote' q.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Éditer</a>
-                                    {% if q.status in 'ACCEPTED,SIGNED' and not q.commande_creee %}
-                                    <a href="{% url 'convert_quote' q.id %}" class="text-green-400 hover:text-green-300 text-xs">→ Commande</a>
+                                    {% if q.status == 'ACCEPTED' or q.status == 'SIGNED' %}
+                                        {% if not q.commande_creee %}
+                                        <a href="{% url 'convert_quote' q.id %}" class="text-green-400 hover:text-green-300 text-xs font-bold">→ Commande</a>
+                                        {% endif %}
                                     {% endif %}
                                 </div>
                             </td>
@@ -349,6 +559,176 @@
                         {% empty %}
                         <tr>
                             <td colspan="7" class="px-6 py-10 text-center text-gray-500">Aucun devis trouvé.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================== -->
+    <!-- ONGLET 6 : DEMANDES PRIX  -->
+    <!-- ========================== -->
+    <div id="tab-demandes" class="tab-content hidden animate-fade-in">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h2 class="text-xl font-bold text-white">Demandes de Prix</h2>
+                <p class="text-xs text-gray-500 mt-1">Avant devis formel</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'demandes_prix_list' %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition text-sm">Voir tout</a>
+                <a href="{% url 'add_demande_prix' %}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded transition">+ Nouvelle DP</a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 mb-5">
+            <div class="bg-slate-800 rounded-xl border border-purple-500/30 p-3 text-center">
+                <div class="text-xl font-bold text-purple-400">{{ demandes_stats.nouvelles }}</div>
+                <div class="text-[10px] text-gray-400">Nouvelles</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-blue-500/30 p-3 text-center">
+                <div class="text-xl font-bold text-blue-400">{{ demandes_stats.en_etude }}</div>
+                <div class="text-[10px] text-gray-400">En étude</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-3 text-center">
+                <div class="text-xl font-bold text-white">{{ demandes_stats.total }}</div>
+                <div class="text-[10px] text-gray-400">Total</div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="px-5 py-4">Réf.</th>
+                            <th class="px-5 py-4">Objet</th>
+                            <th class="px-5 py-4">Client</th>
+                            <th class="px-5 py-4">Qté</th>
+                            <th class="px-5 py-4">Statut</th>
+                            <th class="px-5 py-4">Date</th>
+                            <th class="px-5 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        {% for dp in demandes_prix %}
+                        <tr class="hover:bg-slate-700/50 transition">
+                            <td class="px-5 py-4 font-mono text-purple-400 text-xs font-bold">{{ dp.reference }}</td>
+                            <td class="px-5 py-4 text-white text-sm">{{ dp.objet|truncatechars:40 }}</td>
+                            <td class="px-5 py-4">
+                                <a href="{% url 'client_detail' dp.client.id %}" class="text-blue-400 hover:underline">{{ dp.client.name }}</a>
+                            </td>
+                            <td class="px-5 py-4 font-mono text-xs">{{ dp.quantite_demandee|floatformat:0 }} kg</td>
+                            <td class="px-5 py-4">
+                                {% if dp.statut == 'NOUVELLE' %}
+                                    <span class="bg-purple-500/10 text-purple-400 px-2 py-1 rounded text-xs border border-purple-500/20">{{ dp.get_statut_display }}</span>
+                                {% elif dp.statut == 'ACCEPTEE' %}
+                                    <span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs border border-green-500/20">{{ dp.get_statut_display }}</span>
+                                {% elif dp.statut == 'DEVIS_ENVOYE' %}
+                                    <span class="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/20">{{ dp.get_statut_display }}</span>
+                                {% else %}
+                                    <span class="bg-gray-500/10 text-gray-400 px-2 py-1 rounded text-xs border border-gray-500/20">{{ dp.get_statut_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-xs">{{ dp.date_demande|date:"d/m/Y" }}</td>
+                            <td class="px-5 py-4 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <a href="{% url 'edit_demande_prix' dp.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Édit.</a>
+                                    {% if dp.statut == 'NOUVELLE' or dp.statut == 'EN_ETUDE' %}
+                                    <a href="{% url 'demande_prix_vers_devis' dp.id %}" class="text-yellow-400 hover:text-yellow-300 text-xs">→ Devis</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                                Aucune demande. <a href="{% url 'add_demande_prix' %}" class="text-purple-400 hover:underline">En créer une</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================== -->
+    <!-- ONGLET 7 : OF PRODUCTION  -->
+    <!-- ========================== -->
+    <div id="tab-of" class="tab-content hidden animate-fade-in">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h2 class="text-xl font-bold text-white">Ordres de Fabrication</h2>
+                <p class="text-xs text-gray-500 mt-1">Suivi production depuis le CRM commercial</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'crm_of_list' %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition text-sm">OF Commercial</a>
+                <a href="{% url 'crm_of_create' %}" class="bg-neon hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded transition">+ Nouvel OF (CRM)</a>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-slate-900 text-gray-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="px-5 py-4">N° OF</th>
+                            <th class="px-5 py-4">Lot</th>
+                            <th class="px-5 py-4">Client</th>
+                            <th class="px-5 py-4">Produit</th>
+                            <th class="px-5 py-4">Qté</th>
+                            <th class="px-5 py-4">Progression</th>
+                            <th class="px-5 py-4">Statut</th>
+                            <th class="px-5 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        {% for of in ofs_crm %}
+                        <tr class="hover:bg-slate-700/50 transition {% if of.est_en_retard %}bg-red-900/10{% endif %}">
+                            <td class="px-5 py-4">
+                                <a href="{% url 'crm_of_detail' of.id %}" class="font-mono text-neon font-bold hover:underline">{{ of.numero_of }}</a>
+                            </td>
+                            <td class="px-5 py-4">
+                                {% if of.numero_lot %}
+                                <span class="text-yellow-400 font-mono text-xs">{{ of.numero_lot }}</span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td class="px-5 py-4">
+                                <a href="{% url 'client_detail' of.client.id %}" class="text-white hover:text-yellow-400">{{ of.client.name }}</a>
+                            </td>
+                            <td class="px-5 py-4 text-xs">{{ of.produit.name|truncatechars:30 }}</td>
+                            <td class="px-5 py-4 font-mono text-xs">{{ of.quantite_prevue|floatformat:0 }} kg</td>
+                            <td class="px-5 py-4" style="min-width:100px;">
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1 bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                        <div class="h-1.5 rounded-full {% if of.progression >= 100 %}bg-green-500{% elif of.progression > 50 %}bg-blue-500{% else %}bg-yellow-500{% endif %}" data-width="{{ of.progression }}"></div>
+                                    </div>
+                                    <span class="text-xs text-white">{{ of.progression }}%</span>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4">
+                                {% if of.statut == 'TERMINE' %}
+                                    <span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs border border-green-500/20">✓ Terminé</span>
+                                {% elif of.statut == 'EN_COURS' %}
+                                    <span class="bg-yellow-500/10 text-yellow-400 px-2 py-1 rounded text-xs border border-yellow-500/20 animate-pulse">En cours</span>
+                                {% elif of.statut == 'LANCE' %}
+                                    <span class="bg-cyan-500/10 text-cyan-400 px-2 py-1 rounded text-xs border border-cyan-500/20">Lancé</span>
+                                {% else %}
+                                    <span class="bg-gray-500/10 text-gray-400 px-2 py-1 rounded text-xs border border-gray-500/20">{{ of.get_statut_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-right">
+                                <a href="{% url 'crm_of_detail' of.id %}" class="text-blue-400 hover:text-blue-300 text-xs">Détail</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+                                Aucun OF. <a href="{% url 'crm_of_create' %}" class="text-yellow-400 hover:underline">Créer un OF</a>
+                                ou partez d'une <a href="{% url 'commandes_list' %}" class="text-emerald-400 hover:underline">commande confirmée</a>.
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -374,5 +754,36 @@ function openTab(tabName, btnElement) {
     btnElement.classList.remove("text-gray-400", "border-transparent");
     btnElement.classList.add("text-white", "border-yellow-500");
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('[data-width]').forEach(function(el) {
+        var w = el.getAttribute('data-width');
+        if (w) el.style.width = w + '%';
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab) {
+        const tabMap = {
+            'clients': 'tab-clients',
+            'opportunites': 'tab-opportunites',
+            'commandes': 'tab-commandes',
+            'quotes': 'tab-quotes',
+            'devis': 'tab-quotes',
+            'demandes': 'tab-demandes',
+            'of': 'tab-of',
+            'pipeline': 'tab-pipeline',
+        };
+        const tabId = tabMap[tab];
+        if (tabId) {
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(btn => {
+                if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(tabId)) {
+                    openTab(tabId, btn);
+                }
+            });
+        }
+    }
+});
 </script>
 {% endblock %}

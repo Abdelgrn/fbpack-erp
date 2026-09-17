@@ -1,13 +1,15 @@
 import json
 import datetime
 from datetime import timedelta
+import openpyxl
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Q
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 
 from ..models import (
@@ -17,6 +19,7 @@ from ..models import (
 from ..forms import (
     ProductionOrderForm, OrdreFabricationForm, EtapeProductionFormSet,
     SuiviProductionForm, ProcessTypeForm, OFLancementRapideForm,
+    PlanificationEtapeFormSet,
 )
 
 
@@ -32,8 +35,13 @@ PLANNING_ATELIERS = [
     },
     {
         'code': 'FLEXO', 'nom': 'Flexo / Impression', 'icone': '🎨',
-        'machine_types': ['IMP', 'HELIO'], 'atelier_types': ['IMPRESSION'],
-        'keywords': ['IMP', 'FLEXO', 'HELIO', 'PRINT'],
+        'machine_types': ['IMP'], 'atelier_types': ['IMPRESSION'],
+        'keywords': ['IMP', 'FLEXO', 'PRINT'],
+    },
+    {
+        'code': 'HELIO', 'nom': 'Hélio / Impression', 'icone': '🔄',
+        'machine_types': ['HELIO'], 'atelier_types': ['IMPRESSION'],
+        'keywords': ['HELIO', 'HELI'],
     },
     {
         'code': 'COMPLEXAGE', 'nom': 'Complexage', 'icone': '🧩',
@@ -42,8 +50,8 @@ PLANNING_ATELIERS = [
     },
     {
         'code': 'DECOUPE', 'nom': 'Découpe', 'icone': '✂️',
-        'machine_types': ['DEC', 'DEC2'], 'atelier_types': ['DECOUPE'],
-        'keywords': ['DEC', 'DECOUP', 'CUT'],
+        'machine_types': ['DEC', 'DEC2', 'DCM'], 'atelier_types': ['DECOUPE'],
+        'keywords': ['DEC', 'DECOUP', 'CUT', 'DCM', 'PANTHER'],
     },
     {
         'code': 'FOND_CARRE', 'nom': 'Fond Carré', 'icone': '🛍️',
@@ -54,7 +62,7 @@ PLANNING_ATELIERS = [
 
 ENTRY_PROCESS_TAB = {
     'FLEXO': 'FLEXO',
-    'HELIO': 'FLEXO',
+    'HELIO': 'HELIO',
     'DECOUPE': 'DECOUPE',
     'DECOUPE2': 'DECOUPE',
 }
@@ -63,10 +71,12 @@ JOURS_FR = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANC
 
 
 # ===========================================================================
-# --- HELPERS ---
+# --- HELPERS DE PLANIFICATION ---
 # ===========================================================================
 
 def _jour_fr(d):
+    if not d:
+        return ""
     return JOURS_FR[d.weekday()]
 
 
@@ -91,8 +101,19 @@ def _parse_week(request):
     return week_filter, iso_year, iso_week
 
 
+def _week_date_range(iso_year, iso_week):
+    """
+    Semaine fb.pack = Dimanche → Samedi (ISO week Mon-Sun décalée).
+    Retourne (dimanche_debut, dimanche_fin) pour couvrir TOUTE la semaine.
+    """
+    jan4 = datetime.date(iso_year, 1, 4)
+    iso_monday = jan4 + datetime.timedelta(days=-jan4.isoweekday() + 1, weeks=iso_week - 1)
+    sunday_start = iso_monday - datetime.timedelta(days=1)
+    sunday_end = iso_monday + datetime.timedelta(days=6)
+    return sunday_start, sunday_end
+
+
 def _qte_finale_str(etape):
-    """Format style Excel : 50000ML(891.8KG/3 BOBINES)"""
     kg = etape.quantite_sortie or etape.quantite_entree or 0
     ml = etape.quantite_ml or 0
     nb = etape.nb_bobines or 0
@@ -103,7 +124,7 @@ def _qte_finale_str(etape):
         if nb:
             detail.append(f"{nb} BOBINES")
         if detail:
-            return f"{ml:.0f}ML({'/'.join(detail)})"
+            return f"{ml:.0f}ML({','.join(detail)})"
         return f"{ml:.0f}ML"
     if kg:
         return f"{kg:.1f}KG"
@@ -111,50 +132,77 @@ def _qte_finale_str(etape):
 
 
 def _etape_match_tab(etape, tab):
-    mtype = etape.machine.type if etape.machine else None
+    mtype = (etape.machine.type if etape.machine else None) or ''
+    mname = (etape.machine.name if etape.machine else '') or ''
     atype = None
     if etape.atelier:
         atype = etape.atelier.type_atelier
     elif etape.machine and etape.machine.atelier:
         atype = etape.machine.atelier.type_atelier
     pcode = etape.process_type.code.upper() if etape.process_type else ''
+    mtype_u = mtype.upper() if mtype else ''
+    mname_u = mname.upper()
+    atype_u = (atype or '').upper()
 
-    if mtype in tab['machine_types']:
+    if mtype in tab['machine_types'] or mtype_u in [t.upper() for t in tab['machine_types']]:
         return True
-    if atype in tab['atelier_types']:
+
+    if tab['code'] == 'HELIO':
+        if mtype_u == 'HELIO' or 'HELIO' in pcode or 'HELI' in pcode:
+            return True
+        return False
+
+    if tab['code'] == 'FLEXO':
+        if mtype_u == 'HELIO' or 'HELIO' in pcode or 'HELI' in pcode:
+            return False
+        if mtype in tab['machine_types']:
+            return True
+        if atype in tab['atelier_types']:
+            return True
+        for kw in tab['keywords']:
+            if kw in pcode or kw in mname_u or kw in mtype_u:
+                return True
+        return False
+
+    if atype in tab['atelier_types'] or atype_u in [a.upper() for a in tab.get('atelier_types', [])]:
         return True
+
     for kw in tab['keywords']:
-        if kw in pcode:
+        kw_u = kw.upper()
+        if kw_u in pcode or kw_u in mname_u or kw_u in mtype_u or kw_u in atype_u:
             return True
     return False
 
 
 def _entry_match_tab(entry, tab):
     mtype = entry.machine.type if entry.machine else None
+    mname = (entry.machine.name if entry.machine else '') or ''
     if mtype in tab['machine_types']:
         return True
+    mname_u = mname.upper()
+    for kw in tab.get('keywords', []):
+        if kw.upper() in mname_u:
+            return True
     return ENTRY_PROCESS_TAB.get(entry.type_process) == tab['code']
 
 
 def auto_planifier_etapes(of):
-    """
-    BOOST GANTT : si l'OF a une date de lancement et que des étapes
-    n'ont pas de dates prévues, on les planifie automatiquement
-    (1 jour par étape, 8h → 17h) pour alimenter le Gantt et le Planning.
-    """
     if not of.date_lancement:
         return
     current_date = of.date_lancement
     for etape in of.etapes.order_by('numero_etape'):
         changed = False
-        if not etape.date_prevue_debut:
-            etape.date_prevue_debut = _dt(current_date, 8, 0)
+        if not etape.date_planifiee:
+            etape.date_planifiee = current_date
             changed = True
-        if not etape.date_prevue_fin:
-            etape.date_prevue_fin = _dt(current_date, 17, 0)
+        if not etape.heure_debut_planifiee:
+            etape.heure_debut_planifiee = datetime.time(8, 0)
+            changed = True
+        if not etape.heure_fin_planifiee:
+            etape.heure_fin_planifiee = datetime.time(17, 0)
             changed = True
         if changed:
-            etape.save(update_fields=['date_prevue_debut', 'date_prevue_fin'])
+            etape.save(update_fields=['date_planifiee', 'heure_debut_planifiee', 'heure_fin_planifiee'])
         current_date = current_date + timedelta(days=1)
 
 
@@ -198,7 +246,7 @@ def edit_production(request, id):
 
 
 # ===========================================================================
-# --- LISTE DES OF (MODERNISÉE) ---
+# --- LISTE DES OF (BACKLOG PLANIFICATEUR) ---
 # ===========================================================================
 
 @login_required
@@ -268,7 +316,7 @@ def of_list_view(request):
 
 
 # ===========================================================================
-# --- CRÉATION / ÉDITION OF ---
+# --- CRÉATION / ÉDITION OF (TECHNIQUE / ANCIENNE VUE) ---
 # ===========================================================================
 
 @login_required
@@ -327,7 +375,6 @@ def of_create_view(request):
                     for obj in formset.deleted_objects:
                         obj.delete()
 
-                # 🚀 BOOST : planification automatique des étapes pour le Gantt
                 auto_planifier_etapes(of)
 
                 for msg in warning_messages:
@@ -463,7 +510,7 @@ def of_changer_statut(request, of_id, nouveau_statut):
 
 
 # ===========================================================================
-# --- LANCEMENT RAPIDE (BOOSTÉ : COMPLEXAGE + FOND CARRÉ + SUPPORT + DEV) ---
+# --- LANCEMENT RAPIDE ---
 # ===========================================================================
 
 @login_required
@@ -502,6 +549,9 @@ def of_lancement_rapide(request):
                     support=support or form.cleaned_data.get('support', ''),
                     developpement=dev or 0,
                     statut='PRET' if numero == 1 else 'EN_ATTENTE',
+                    date_planifiee=date_courante,
+                    heure_debut_planifiee=datetime.time(8, 0),
+                    heure_fin_planifiee=datetime.time(17, 0),
                     date_prevue_debut=_dt(date_courante, 8, 0),
                     date_prevue_fin=_dt(date_courante, 17, 0),
                 )
@@ -651,7 +701,7 @@ def etape_terminer(request, etape_id):
         if etape.genere_semi_produit and quantite_sortie > 0:
             type_sp = 'FILM_EXTRUDE'
             if etape.process_type:
-                if 'IMP' in etape.process_type.code.upper():
+                if 'IMP' in etape.process_type.code.upper() or 'HELIO' in etape.process_type.code.upper():
                     type_sp = 'FILM_IMPRIME'
                 elif 'COMP' in etape.process_type.code.upper():
                     type_sp = 'FILM_COMPLEXE'
@@ -794,7 +844,7 @@ def of_stats_api(request):
 
 
 # ===========================================================================
-# --- PLANNING GANTT PAR MACHINE (AMÉLIORÉ + LIÉ OF) ---
+# --- PLANNING GANTT PAR MACHINE ---
 # ===========================================================================
 
 @login_required
@@ -809,13 +859,13 @@ def production_gantt(request):
     ).select_related('machine', 'client', 'of_lie')
 
     etapes_qs = EtapeProduction.objects.filter(
+        Q(date_planifiee__iso_year=iso_year, date_planifiee__week=iso_week) |
         Q(date_debut_reel__iso_year=iso_year, date_debut_reel__week=iso_week) |
-        Q(date_prevue_debut__iso_year=iso_year, date_prevue_debut__week=iso_week) |
         Q(
             of__date_creation__iso_year=iso_year,
             of__date_creation__week=iso_week,
             date_debut_reel__isnull=True,
-            date_prevue_debut__isnull=True
+            date_planifiee__isnull=True
         )
     ).select_related('machine', 'of', 'of__client', 'of__produit', 'process_type')
 
@@ -826,7 +876,6 @@ def production_gantt(request):
     for m in machines:
         m_items = []
 
-        # A. Saisies de production directe
         m_entries = entries_qs.filter(machine=m).order_by('date', 'heure_debut')
         for e in m_entries:
             total_jobs_count += 1
@@ -853,17 +902,17 @@ def production_gantt(request):
                 'is_of': False,
             })
 
-        # B. Étapes d'OF
         m_etapes = etapes_qs.filter(machine=m)
-        m_etapes = sorted(m_etapes, key=lambda x: x.date_debut_reel or x.date_prevue_debut or x.of.date_creation)
+        m_etapes = sorted(m_etapes, key=lambda x: x.date_debut_reel or x.date_planifiee or x.of.date_creation)
 
         for et in m_etapes:
             total_jobs_count += 1
             if et.statut == 'EN_COURS':
                 total_en_cours_count += 1
 
-            dt_start = et.date_debut_reel or et.date_prevue_debut
-            dt_end = et.date_fin_reel or et.date_prevue_fin
+            dt_start_date = et.date_planifiee or (et.date_debut_reel.date() if et.date_debut_reel else et.of.date_creation.date())
+            dt_start_time = et.heure_debut_planifiee or (et.date_debut_reel.time() if et.date_debut_reel else None)
+            dt_end_time = et.heure_fin_planifiee or (et.date_fin_reel.time() if et.date_fin_reel else None)
 
             m_items.append({
                 'id': f"etape_{et.id}",
@@ -871,9 +920,9 @@ def production_gantt(request):
                 'client_name': et.of.client.name if et.of.client else "",
                 'lot_or_of': et.numero_lot_etape or et.of.numero_lot or f"OF #{et.of.numero_of}",
                 'type_process': et.process_type.nom if et.process_type else "Process",
-                'date': dt_start.date() if dt_start else et.of.date_creation.date(),
-                'heure_debut': dt_start.time() if dt_start else None,
-                'heure_fin': dt_end.time() if dt_end else None,
+                'date': dt_start_date,
+                'heure_debut': dt_start_time,
+                'heure_fin': dt_end_time,
                 'quantite_str': _qte_finale_str(et),
                 'support': et.support or et.of.support,
                 'source_type': 'OF_ETAPE',
@@ -882,6 +931,8 @@ def production_gantt(request):
                 'badge_color': 'amber' if et.statut == 'EN_COURS' else ('purple' if et.statut == 'TERMINE' else 'cyan'),
                 'duree_str': f"{et.temps_arret_minutes} min",
                 'is_of': True,
+                'shift': et.get_shift_display(),
+                'equipe': et.get_equipe_display(),
             })
 
         m_items = sorted(m_items, key=lambda x: (x['date'], x['heure_debut'] or datetime.time.min))
@@ -904,35 +955,37 @@ def production_gantt(request):
 
 
 # ===========================================================================
-# --- 🆕 PLANNING PAR ATELIER (STYLE EXCEL fb.pack) ---
+# --- PLANNING PAR ATELIER (TABLEAU EXCEL FB.PACK) ---
 # ===========================================================================
 
 @login_required
 def planning_atelier_view(request):
     week_filter, iso_year, iso_week = _parse_week(request)
+    date_start, date_end = _week_date_range(iso_year, iso_week)
 
     selected_atelier = request.GET.get('atelier', 'EXTRUSION')
     if selected_atelier not in [a['code'] for a in PLANNING_ATELIERS]:
         selected_atelier = 'EXTRUSION'
 
-    # Étapes OF de la semaine (ou actives sans date)
     etapes_qs = EtapeProduction.objects.filter(
-        Q(date_prevue_debut__iso_year=iso_year, date_prevue_debut__week=iso_week) |
+        Q(date_planifiee__iso_year=iso_year, date_planifiee__week=iso_week) |
         Q(date_debut_reel__iso_year=iso_year, date_debut_reel__week=iso_week) |
+        Q(date_planifiee__gte=date_start, date_planifiee__lte=date_end) |
+        Q(date_debut_reel__date__gte=date_start, date_debut_reel__date__lte=date_end) |
         Q(
-            date_prevue_debut__isnull=True,
+            date_planifiee__isnull=True,
             date_debut_reel__isnull=True,
             statut__in=['EN_ATTENTE', 'PRET', 'EN_COURS']
         )
     ).select_related(
         'of', 'of__client', 'of__produit', 'machine', 'machine__atelier',
         'process_type', 'atelier'
-    ).exclude(of__statut='ANNULE')
+    ).exclude(of__statut='ANNULE').distinct()
 
-    # Saisies directes de la semaine
     entries_qs = ProductionEntry.objects.filter(
-        date__iso_year=iso_year, date__week=iso_week
-    ).select_related('machine', 'machine__atelier', 'client', 'of_lie')
+        Q(date__iso_year=iso_year, date__week=iso_week) |
+        Q(date__gte=date_start, date__lte=date_end)
+    ).select_related('machine', 'machine__atelier', 'client', 'of_lie').distinct()
 
     tabs = []
     selected_rows = []
@@ -941,16 +994,22 @@ def planning_atelier_view(request):
     for tab in PLANNING_ATELIERS:
         rows = []
 
-        # --- Étapes OF ---
         for et in etapes_qs:
             if not _etape_match_tab(et, tab):
                 continue
-            dt_start = et.date_prevue_debut or et.date_debut_reel
-            dt = dt_start.date() if dt_start else et.of.date_creation.date()
+            
+            dt = et.date_planifiee or (et.date_debut_reel.date() if et.date_debut_reel else et.of.date_creation.date())
+            
             rows.append({
                 'source': 'OF',
+                'etape_id': et.id,
                 'jour': _jour_fr(dt),
                 'date': dt,
+                'heure_debut': et.heure_debut_planifiee,
+                'heure_fin': et.heure_fin_planifiee,
+                'shift': et.get_shift_display() or '—',
+                'equipe': et.get_equipe_display() or '—',
+                'ordre': et.ordre_passage,
                 'client': et.of.client.name if et.of.client else '—',
                 'produit': et.of.produit.name if et.of.produit else '—',
                 'support': et.support or et.of.support or '',
@@ -966,7 +1025,6 @@ def planning_atelier_view(request):
                 'color': et.get_statut_color(),
             })
 
-        # --- Saisies directes ---
         for e in entries_qs:
             if not _entry_match_tab(e, tab):
                 continue
@@ -975,8 +1033,14 @@ def planning_atelier_view(request):
             qte = f"{ml:.0f}ML({kg:.1f}KG)" if ml else f"{kg:.1f}KG"
             rows.append({
                 'source': 'SAISIE',
+                'etape_id': None,
                 'jour': _jour_fr(e.date),
                 'date': e.date,
+                'heure_debut': e.heure_debut,
+                'heure_fin': e.heure_fin,
+                'shift': '—',
+                'equipe': '—',
+                'ordre': 0,
                 'client': e.client.name if e.client else '—',
                 'produit': e.produit,
                 'support': e.support or '',
@@ -992,7 +1056,7 @@ def planning_atelier_view(request):
                 'color': 'blue',
             })
 
-        rows = sorted(rows, key=lambda r: r['date'])
+        rows = sorted(rows, key=lambda r: (r['date'], r['machine'], r['ordre'] or 0, r['heure_debut'] or datetime.time.min))
 
         tab_data = {
             'code': tab['code'],
@@ -1008,7 +1072,6 @@ def planning_atelier_view(request):
                 est_active=True, type__in=tab['machine_types']
             ).order_by('name')
 
-    # Statistiques de la semaine sélectionnée
     stats = {
         'nb_lignes': len(selected_rows),
         'nb_of': len(set(r['of_numero'] for r in selected_rows if r['of_numero'])),
@@ -1025,3 +1088,414 @@ def planning_atelier_view(request):
         'week_display': f"Semaine {iso_week} ({iso_year})",
     }
     return render(request, 'of/planning_atelier.html', context)
+
+
+# ===========================================================================
+# --- L'ÉCRAN DÉDIÉ AU PLANIFICATEUR (ORDONNANCEMENT) ---
+# ===========================================================================
+
+@login_required
+def planification_ordonnancer(request, of_id):
+    of = get_object_or_404(OrdreFabrication.objects.select_related('client', 'produit'), id=of_id)
+
+    if request.GET.get('generer_etapes'):
+        codes_defaut = ['EXTRUSION', 'IMPRESSION', 'COMPLEXAGE', 'DECOUPE']
+        num = 1
+        for code in codes_defaut:
+            pt = ProcessType.objects.filter(code__icontains=code[:4]).first()
+            EtapeProduction.objects.create(
+                of=of,
+                numero_etape=num,
+                process_type=pt,
+                quantite_entree=of.quantite_prevue or 0,
+                support=of.support or '',
+                statut='PRET' if num == 1 else 'EN_ATTENTE',
+                date_planifiee=of.date_lancement or timezone.now().date(),
+                heure_debut_planifiee=datetime.time(8, 0),
+                heure_fin_planifiee=datetime.time(16, 0),
+                shift='MATIN',
+                equipe='A'
+            )
+            num += 1
+        messages.success(request, f"4 étapes de production créées automatiquement pour l'OF {of.numero_of} ✓")
+        return redirect('planification_ordonnancer', of_id=of.id)
+
+    if request.method == 'POST':
+        nouveau_lot = (request.POST.get('numero_lot') or '').strip()
+        formset = PlanificationEtapeFormSet(request.POST, instance=of, prefix='etapes')
+
+        if formset.is_valid():
+            if nouveau_lot:
+                of.numero_lot = nouveau_lot
+
+            instances = formset.save(commit=False)
+
+            for obj in formset.deleted_objects:
+                obj.delete()
+
+            existing_nums = list(of.etapes.values_list('numero_etape', flat=True))
+            next_num = (max(existing_nums) if existing_nums else 0) + 1
+
+            for instance in instances:
+                instance.of = of
+                if not instance.numero_etape:
+                    instance.numero_etape = next_num
+                    next_num += 1
+                if not instance.statut:
+                    instance.statut = 'EN_ATTENTE'
+                instance.save()
+
+            if of.numero_lot:
+                of.etapes.filter(
+                    Q(numero_lot_etape__isnull=True) | Q(numero_lot_etape='')
+                ).update(numero_lot_etape=of.numero_lot)
+
+            if of.statut == 'BROUILLON':
+                of.statut = 'LANCE'
+                if not of.date_lancement:
+                    of.date_lancement = timezone.now().date()
+
+            of.save()
+            messages.success(request, f"OF {of.numero_of} planifié avec succès ✓ — Lot : {of.numero_lot or '—'}")
+            return redirect('planning_atelier')
+        else:
+            messages.error(request, "Erreur dans les champs de planification. Détails ci-dessous.")
+    else:
+        formset = PlanificationEtapeFormSet(instance=of, prefix='etapes')
+
+    today = datetime.date.today()
+    iso_year, iso_week, _ = today.isocalendar()
+    current_week_str = f"{iso_year}-W{iso_week:02d}"
+
+    return render(request, 'of/planification_ordonnancer.html', {
+        'of': of,
+        'formset': formset,
+        'current_week_str': current_week_str,
+    })
+
+
+# ===========================================================================
+# --- EXPORT EXCEL DU PLANNING (STYLE FB.PACK — Découpe 2 machines) ---
+# ===========================================================================
+
+def _is_grande_decoupe(machine_name):
+    """DCM Panther 1350 = Grande ; le reste = Petite."""
+    if not machine_name:
+        return False
+    name = machine_name.upper()
+    return '1350' in name
+
+
+@login_required
+def export_planning_excel(request):
+    week_filter, iso_year, iso_week = _parse_week(request)
+    date_start, date_end = _week_date_range(iso_year, iso_week)
+
+    etapes_qs = EtapeProduction.objects.filter(
+        Q(date_planifiee__iso_year=iso_year, date_planifiee__week=iso_week) |
+        Q(date_debut_reel__iso_year=iso_year, date_debut_reel__week=iso_week) |
+        Q(date_planifiee__gte=date_start, date_planifiee__lte=date_end) |
+        Q(date_debut_reel__date__gte=date_start, date_debut_reel__date__lte=date_end)
+    ).select_related(
+        'of', 'of__client', 'of__produit', 'machine', 'machine__atelier',
+        'process_type', 'atelier'
+    ).exclude(of__statut='ANNULE').distinct()
+
+    entries_qs = ProductionEntry.objects.filter(
+        Q(date__iso_year=iso_year, date__week=iso_week) |
+        Q(date__gte=date_start, date__lte=date_end)
+    ).select_related('machine', 'machine__atelier', 'client', 'of_lie').distinct()
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    # Styles
+    DARK_BLUE_FILL = PatternFill(start_color='143C5E', end_color='143C5E', fill_type='solid')
+    WHITE_BOLD_FONT = Font(color='FFFFFF', bold=True, name='Calibri', size=11)
+    BIG_TITLE_FONT = Font(color='FFFFFF', bold=True, name='Calibri', size=16)
+    HEADER_FONT = Font(color='FFFFFF', bold=True, name='Calibri', size=11)
+    CENTER_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    LEFT_ALIGN = Alignment(horizontal='left', vertical='center', wrap_text=True)
+    THIN_BORDER = Border(
+        left=Side(style='thin', color='000000'),
+        right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='thin', color='000000')
+    )
+    GREEN_FILL = PatternFill(start_color='E2EFDA', end_color='E2EFDA', fill_type='solid')
+    PURPLE_FILL = PatternFill(start_color='E4DFEC', end_color='E4DFEC', fill_type='solid')
+    WHITE_FILL = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+
+    for tab in PLANNING_ATELIERS:
+        rows_data = []
+
+        for et in etapes_qs:
+            if not _etape_match_tab(et, tab):
+                continue
+            dt = et.date_planifiee or (et.date_debut_reel.date() if et.date_debut_reel else None)
+            if not dt:
+                continue
+            rows_data.append({
+                'date_obj': dt,
+                'machine_name': et.machine.name if et.machine else '—',
+                'ordre': et.ordre_passage or 0,
+                'heure_debut_obj': et.heure_debut_planifiee or datetime.time.min,
+                'jour': _jour_fr(dt),
+                'date_str': dt.strftime('%d/%m/%Y'),
+                'client': et.of.client.name if et.of.client else '',
+                'produit': et.of.produit.name if et.of.produit else '',
+                'support': et.support or et.of.support or '',
+                'qte': _qte_finale_str(et),
+                'dev': et.developpement or '',
+                'lot': et.numero_lot_etape or et.of.numero_lot or '',
+                'obs': et.observation or et.of.observation or '',
+            })
+
+        for e in entries_qs:
+            if not _entry_match_tab(e, tab):
+                continue
+            if not e.date:
+                continue
+            kg = e.prod_kg or e.quantite_lancee or 0
+            ml = e.prod_ml or 0
+            qte = f"{ml:.0f}ML({kg:.1f}KG)" if ml else f"{kg:.1f}KG"
+            rows_data.append({
+                'date_obj': e.date,
+                'machine_name': e.machine.name if e.machine else '—',
+                'ordre': 0,
+                'heure_debut_obj': e.heure_debut or datetime.time.min,
+                'jour': _jour_fr(e.date),
+                'date_str': e.date.strftime('%d/%m/%Y'),
+                'client': e.client.name if e.client else '',
+                'produit': e.produit,
+                'support': e.support or '',
+                'qte': qte,
+                'dev': '',
+                'lot': e.lot or '',
+                'obs': '',
+            })
+
+        if not rows_data:
+            continue
+
+        rows_data = sorted(rows_data, key=lambda r: (r['date_obj'], r['machine_name'], r['ordre'], r['heure_debut_obj']))
+        sheet_title = tab['nom'][:31].replace('/', '-')
+        ws = wb.create_sheet(title=sheet_title)
+
+        # =====================================================================
+        # 🔥 CAS SPÉCIAL : DÉCOUPE = 2 colonnes (Grande 1350 | Petite)
+        # =====================================================================
+        if tab['code'] == 'DECOUPE':
+            # --- Ligne 1 : Titre ---
+            ws.merge_cells('A1:I1')
+            title_cell = ws['A1']
+            title_cell.value = f"  fb.pack          PLANNING PRÉVENTIF — DECOUPE | SEMAINE {iso_week}"
+            title_cell.fill = DARK_BLUE_FILL
+            title_cell.font = BIG_TITLE_FONT
+            title_cell.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+            ws.row_dimensions[1].height = 36
+
+            # --- Ligne 2 : Groupes Grande / Petite / Remarque ---
+            ws.merge_cells('A2:B2')  # zone jour
+            ws.merge_cells('C2:E2')  # Grande découpeuse
+            ws.merge_cells('F2:H2')  # Petite découpeuse
+            # I2 = REMARQUE
+
+            for col in range(1, 10):
+                cell = ws.cell(row=2, column=col)
+                cell.fill = DARK_BLUE_FILL
+                cell.font = HEADER_FONT
+                cell.alignment = CENTER_ALIGN
+                cell.border = THIN_BORDER
+
+            ws['C2'].value = "Grande découpeuse"
+            ws['F2'].value = "Petite découpeuse"
+            ws['I2'].value = "REMARQUE"
+            ws.row_dimensions[2].height = 22
+
+            # --- Ligne 3 : Sous-en-têtes ---
+            sub_headers = ['Jour', '', 'Client', 'Produit', 'N°LOT', 'Client', 'Produit', 'N°LOT', '']
+            for col_num, h in enumerate(sub_headers, 1):
+                cell = ws.cell(row=3, column=col_num, value=h)
+                cell.fill = DARK_BLUE_FILL
+                cell.font = WHITE_BOLD_FONT
+                cell.alignment = CENTER_ALIGN
+                cell.border = THIN_BORDER
+            ws['A3'].value = "Jour"
+            ws.merge_cells('A3:B3')
+            ws.row_dimensions[3].height = 20
+
+            # --- Grouper par date ---
+            from collections import defaultdict
+            by_date = defaultdict(lambda: {'grande': [], 'petite': [], 'jour': '', 'date_str': ''})
+
+            for item in rows_data:
+                key = item['date_obj']
+                by_date[key]['jour'] = item['jour']
+                by_date[key]['date_str'] = item['date_str']
+                if _is_grande_decoupe(item['machine_name']):
+                    by_date[key]['grande'].append(item)
+                else:
+                    by_date[key]['petite'].append(item)
+
+            # Trier les dates
+            sorted_dates = sorted(by_date.keys())
+
+            current_row = 4
+            color_toggle = True
+
+            for dt in sorted_dates:
+                day_data = by_date[dt]
+                grandes = day_data['grande']
+                petites = day_data['petite']
+                n_rows = max(len(grandes), len(petites), 1)
+                color_toggle = not color_toggle
+                row_fill = GREEN_FILL if color_toggle else PURPLE_FILL
+
+                for i in range(n_rows):
+                    g = grandes[i] if i < len(grandes) else None
+                    p = petites[i] if i < len(petites) else None
+
+                    if i == 0:
+                        ws.cell(row=current_row, column=1, value=day_data['jour'])
+                        ws.cell(row=current_row, column=2, value=day_data['date_str'])
+                    else:
+                        ws.cell(row=current_row, column=1, value='')
+                        ws.cell(row=current_row, column=2, value='')
+
+                    if g:
+                        ws.cell(row=current_row, column=3, value=g['client'])
+                        ws.cell(row=current_row, column=4, value=g['produit'])
+                        ws.cell(row=current_row, column=5, value=g['lot'])
+                    else:
+                        ws.cell(row=current_row, column=3, value='')
+                        ws.cell(row=current_row, column=4, value='')
+                        ws.cell(row=current_row, column=5, value='')
+
+                    if p:
+                        ws.cell(row=current_row, column=6, value=p['client'])
+                        ws.cell(row=current_row, column=7, value=p['produit'])
+                        ws.cell(row=current_row, column=8, value=p['lot'])
+                    else:
+                        ws.cell(row=current_row, column=6, value='')
+                        ws.cell(row=current_row, column=7, value='')
+                        ws.cell(row=current_row, column=8, value='')
+
+                    obs = ''
+                    if g and g.get('obs'):
+                        obs = g['obs']
+                    elif p and p.get('obs'):
+                        obs = p['obs']
+                    ws.cell(row=current_row, column=9, value=obs)
+
+                    for col in range(1, 10):
+                        cell = ws.cell(row=current_row, column=col)
+                        cell.fill = row_fill
+                        cell.border = THIN_BORDER
+                        cell.alignment = CENTER_ALIGN if col in (1, 2, 5, 8) else LEFT_ALIGN
+                        if col == 1:
+                            cell.font = Font(bold=True, name='Calibri', size=10)
+
+                    ws.row_dimensions[current_row].height = 18
+                    current_row += 1
+
+            widths = {
+                'A': 12, 'B': 12,
+                'C': 22, 'D': 28, 'E': 12,
+                'F': 22, 'G': 28, 'H': 12,
+                'I': 20,
+            }
+            for col, w in widths.items():
+                ws.column_dimensions[col].width = w
+
+            continue  # Fin Découpe, on passe à l'onglet suivant
+
+        # =====================================================================
+        # AUTRES ATELIERS (layout standard)
+        # =====================================================================
+        if tab['code'] == 'EXTRUSION':
+            headers = ['date', 'client', 'produit', 'support', 'quantité finale', 'N° LOT', 'observation']
+        elif tab['code'] in ['FLEXO', 'HELIO']:
+            headers = ['date', 'client', 'produit', 'support', 'quantité finale (QTE imprime)', 'developpement', 'N° LOT', 'observation']
+        elif tab['code'] == 'COMPLEXAGE':
+            headers = ['Jour', 'Client', 'Produit', 'Quantité finie', 'N° lot', 'observation']
+        elif tab['code'] == 'FOND_CARRE':
+            headers = ['Jour', 'Client', 'Produit', 'Quantité', 'OBS']
+        else:
+            headers = ['Jour', 'Date', 'Client', 'Produit', 'Support', 'Qté', 'Lot', 'Obs']
+
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+        title_cell = ws.cell(row=1, column=1)
+        title_cell.value = f"  fb.pack          PLANNING PRÉVENTIF — {tab['code']} | SEMAINE {iso_week}"
+        title_cell.fill = DARK_BLUE_FILL
+        title_cell.font = BIG_TITLE_FONT
+        title_cell.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+        ws.row_dimensions[1].height = 36
+
+        ws.append(headers)
+        ws.row_dimensions[2].height = 22
+        for col_num in range(1, len(headers) + 1):
+            cell = ws.cell(row=2, column=col_num)
+            cell.fill = DARK_BLUE_FILL
+            cell.font = WHITE_BOLD_FONT
+            cell.alignment = CENTER_ALIGN
+            cell.border = THIN_BORDER
+
+        current_day = None
+        color_toggle = True
+
+        for item in rows_data:
+            if item['jour'] != current_day:
+                current_day = item['jour']
+                color_toggle = not color_toggle
+
+            row_fill = GREEN_FILL if color_toggle else WHITE_FILL
+            jour_date = f"{item['jour']}\n{item['date_str']}"
+
+            if tab['code'] == 'EXTRUSION':
+                row_to_append = [jour_date, item['client'], item['produit'], item['support'], item['qte'], item['lot'], item['obs']]
+            elif tab['code'] in ['FLEXO', 'HELIO']:
+                row_to_append = [jour_date, item['client'], item['produit'], item['support'], item['qte'], item['dev'], item['lot'], item['obs']]
+            elif tab['code'] == 'COMPLEXAGE':
+                row_to_append = [jour_date, item['client'], item['produit'], item['qte'], item['lot'], item['obs']]
+            elif tab['code'] == 'FOND_CARRE':
+                row_to_append = [jour_date, item['client'], item['produit'], item['qte'], item['obs']]
+            else:
+                row_to_append = [item['jour'], item['date_str'], item['client'], item['produit'], item['support'], item['qte'], item['lot'], item['obs']]
+
+            ws.append(row_to_append)
+            current_row = ws.max_row
+
+            for col_num in range(1, len(headers) + 1):
+                cell = ws.cell(row=current_row, column=col_num)
+                cell.fill = row_fill
+                cell.border = THIN_BORDER
+                if col_num == 1 or headers[col_num - 1].lower() in [
+                    'quantité finale', 'quantité', 'quantité finie',
+                    'quantité finale (qte imprime)', 'n° lot', 'n°lot', 'developpement'
+                ]:
+                    cell.alignment = CENTER_ALIGN
+                else:
+                    cell.alignment = LEFT_ALIGN
+
+        for col_num in range(1, len(headers) + 1):
+            column_letter = openpyxl.utils.get_column_letter(col_num)
+            header_text = headers[col_num - 1].lower()
+            if header_text in ['date', 'jour']:
+                ws.column_dimensions[column_letter].width = 14
+            elif header_text in ['client', 'produit', 'observation', 'obs']:
+                ws.column_dimensions[column_letter].width = 28
+            elif 'quantit' in header_text or header_text == 'support':
+                ws.column_dimensions[column_letter].width = 26
+            else:
+                ws.column_dimensions[column_letter].width = 14
+
+    if not wb.sheetnames:
+        ws_vide = wb.create_sheet("Vide")
+        ws_vide['A1'] = f"Aucune planification trouvée pour la Semaine {iso_week} de l'année {iso_year}."
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="fbpack_Planning_Semaine_{iso_week}_{iso_year}.xlsx"'
+    
+    wb.save(response)
+    return response
