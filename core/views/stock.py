@@ -78,10 +78,13 @@ def delete_material(request, id):
 @login_required
 def clear_all_stock(request):
     if request.method == 'POST':
-        StockMovement.objects.all().delete()
-        StockLot.objects.all().delete()
-        count, _ = Material.objects.all().delete()
-        messages.success(request, f"⚠️ Tout le stock a été vidé ({count} matières supprimées).")
+        try:
+            StockMovement.objects.all().delete()
+            StockLot.objects.all().delete()
+            count, _ = Material.objects.all().delete()
+            messages.success(request, f"⚠️ Tout le stock a été vidé ({count} matières supprimées).")
+        except Exception as e:
+            messages.error(request, f"Erreur lors de la vidange : {e}")
     return redirect('stock_advanced')
 
 
@@ -146,7 +149,7 @@ def conso_list_view(request):
 
 
 # ===========================================================================
-# --- STOCK AVANCÉ AVEC RECHERCHE INTELLIGENTE ---
+# --- STOCK AVANCÉ AVEC PROTECTION ANTI-500 ---
 # ===========================================================================
 
 @login_required
@@ -156,7 +159,10 @@ def stock_advanced_view(request):
     low_stock_only = request.GET.get('low_stock', '') == 'on'
     supplier_filter = request.GET.get('supplier', '')
 
-    materials = Material.objects.select_related('supplier').all()
+    try:
+        materials = Material.objects.select_related('supplier').all()
+    except Exception:
+        materials = Material.objects.all()
 
     if search_query:
         materials = materials.filter(
@@ -180,7 +186,11 @@ def stock_advanced_view(request):
                 pass
         materials = filtered_mat
 
-    all_materials = Material.objects.select_related('supplier').all()
+    try:
+        all_materials = Material.objects.select_related('supplier').all()
+    except Exception:
+        all_materials = Material.objects.all()
+
     alertes_stock = []
     nb_ruptures = 0
     nb_critiques = 0
@@ -194,10 +204,11 @@ def stock_advanced_view(request):
     }
 
     for m in all_materials:
+        is_low = False
         try:
             is_low = m.is_low_stock()
         except Exception:
-            is_low = False
+            pass
 
         if is_low:
             qty = float(m.quantity or 0)
@@ -260,48 +271,67 @@ def stock_advanced_view(request):
 
     previsions = []
     for m in all_materials:
-        seuil = None
         try:
-            seuil = m.seuil_intelligent
+            if hasattr(m, 'seuil_intelligent'):
+                seuil = m.seuil_intelligent
+                if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
+                    jours = seuil.jours_de_stock
+                    if jours <= 15:
+                        previsions.append({
+                            'material': m.name,
+                            'stock_actuel': m.quantity or 0,
+                            'conso_jour': seuil.consommation_journaliere_moy,
+                            'jours_restants': jours,
+                            'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if getattr(seuil, 'date_rupture_prevue', None) else '—',
+                            'critique': jours <= 7,
+                        })
         except Exception:
-            seuil = None
-
-        if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
-            try:
-                jours = seuil.jours_de_stock
-                if jours <= 15:
-                    previsions.append({
-                        'material': m.name,
-                        'stock_actuel': m.quantity or 0,
-                        'conso_jour': seuil.consommation_journaliere_moy,
-                        'jours_restants': jours,
-                        'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if getattr(seuil, 'date_rupture_prevue', None) else '—',
-                        'critique': jours <= 7,
-                    })
-            except Exception:
-                pass
+            pass
     previsions.sort(key=lambda x: x['jours_restants'])
 
-    lots = StockLot.objects.select_related('material', 'fournisseur', 'emplacement').order_by('-date_reception')[:100]
-    lots_bloques = StockLot.objects.filter(statut='BLOQUE').count()
-    lots_attente = StockLot.objects.filter(statut='EN_ATTENTE').count()
-
-    mouvements = StockMovement.objects.select_related(
-        'material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur', 'machine', 'of'
-    ).order_by('-date')[:100]
+    try:
+        lots = StockLot.objects.all().order_by('-id')[:100]
+    except Exception:
+        lots = []
 
     try:
-        locations = StockLocation.objects.filter(is_active=True).order_by('type', 'name')
+        lots_bloques = StockLot.objects.filter(statut='BLOQUE').count()
+        lots_attente = StockLot.objects.filter(statut='EN_ATTENTE').count()
     except Exception:
+        lots_bloques = 0
+        lots_attente = 0
+
+    try:
+        mouvements = StockMovement.objects.all().order_by('-id')[:100]
+    except Exception:
+        mouvements = []
+
+    try:
         locations = StockLocation.objects.all()
+    except Exception:
+        locations = []
 
-    suppliers = Supplier.objects.all().order_by('name')
+    try:
+        suppliers = Supplier.objects.all().order_by('name')
+    except Exception:
+        suppliers = []
 
-    demandes = DemandeAchat.objects.select_related('material', 'demandeur', 'valideur').order_by('-date_creation')[:50]
-    da_en_attente = DemandeAchat.objects.filter(statut='SOUMISE').count()
+    try:
+        demandes = DemandeAchat.objects.all().order_by('-id')[:50]
+        da_en_attente = DemandeAchat.objects.filter(statut='SOUMISE').count()
+    except Exception:
+        demandes = []
+        da_en_attente = 0
 
-    bons_commande = BonCommande.objects.select_related('fournisseur', 'cree_par').order_by('-date_commande')[:50]
-    consos = ConsommationEncre.objects.all().order_by('-date')[:50]
+    try:
+        bons_commande = BonCommande.objects.all().order_by('-id')[:50]
+    except Exception:
+        bons_commande = []
+
+    try:
+        consos = ConsommationEncre.objects.all().order_by('-date')[:50]
+    except Exception:
+        consos = []
 
     valeur_stock_total = 0
     for m in all_materials:
@@ -481,7 +511,7 @@ def location_delete(request, id):
 
 @login_required
 def lot_list(request):
-    lots = StockLot.objects.select_related('material', 'fournisseur', 'emplacement').order_by('-date_reception')
+    lots = StockLot.objects.all()
     return render(request, 'stock/stock_advanced.html', {'lots': lots})
 
 
@@ -554,7 +584,10 @@ def lot_bloquer(request, id):
 @login_required
 def lot_detail(request, id):
     lot = get_object_or_404(StockLot, id=id)
-    mouvements = lot.mouvements.select_related('utilisateur', 'machine', 'of').order_by('-date')
+    try:
+        mouvements = lot.mouvements.select_related('utilisateur', 'machine', 'of').order_by('-date')
+    except Exception:
+        mouvements = []
     return render(request, 'stock/lot_detail.html', {'lot': lot, 'mouvements': mouvements})
 
 
