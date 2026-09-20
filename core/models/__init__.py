@@ -72,7 +72,7 @@ from .permissions import UserModulePermission, user_has_module_access
 
 
 def robust_import_local_data():
-    """Importateur ordonné par dépendance pour transférer l'intégralité des 9 machines, clients et stocks sans effacer d'utilisateurs Render"""
+    """Importateur ultra-robuste avec resolution automatique des cles etangeres (Atelier, Machines, Stock)"""
     from django.contrib.auth.models import User
 
     search_paths = [
@@ -103,7 +103,7 @@ def robust_import_local_data():
     if not admin_user:
         admin_user = User.objects.create_superuser('admin', 'admin@fbpack.com', 'admin1234')
 
-    # Ordre de priorité pour créer les dépendances en premier (Atelier avant Machine, Supplier avant Material, etc.)
+    # Ordre strict pour créer d'abord les objets parents
     model_priority = [
         'auth.user',
         'core.atelier',
@@ -125,7 +125,7 @@ def robust_import_local_data():
 
     sorted_data = sorted(data, key=get_priority)
 
-    # 1. Créer les utilisateurs manquants uniquement
+    # PASSE 1 : Créer les utilisateurs manquants sans toucher aux utilisateurs Render
     for item in sorted_data:
         if item.get('model') == 'auth.user':
             pk = item.get('pk')
@@ -144,8 +144,11 @@ def robust_import_local_data():
                 except Exception:
                     pass
 
-    # 2. Importer les objets métier dans l'ordre
-    imported_count = 0
+    # PASSE 2 : Importer les modèles métier avec gestion des erreurs FK
+    count_machines = 0
+    count_clients = 0
+    count_materials = 0
+
     for item in sorted_data:
         model_str = item.get('model')
         if model_str in ['auth.user', 'contenttypes.contenttype', 'auth.permission']:
@@ -159,14 +162,19 @@ def robust_import_local_data():
         except Exception:
             continue
 
-        # Correction des FK vers User
+        # Résolution sécurisée des relations FK
         for fname in list(fields.keys()):
             try:
                 fobj = ModelClass._meta.get_field(fname)
-                if fobj.is_relation and fobj.related_model == User:
+                if fobj.is_relation and not fobj.many_to_many:
+                    related_cls = fobj.related_model
                     val = fields[fname]
-                    if val and not User.objects.filter(pk=val).exists():
-                        fields[fname] = admin_user.pk
+                    if val is not None:
+                        if not related_cls.objects.filter(pk=val).exists():
+                            if related_cls == User:
+                                fields[fname] = admin_user.pk
+                            else:
+                                fields[fname] = None
             except Exception:
                 pass
 
@@ -189,11 +197,17 @@ def robust_import_local_data():
                     getattr(obj, mname).set(mval)
                 except Exception:
                     pass
-            imported_count += 1
+
+            if model_str == 'core.machine':
+                count_machines += 1
+            elif model_str == 'core.client':
+                count_clients += 1
+            elif model_str == 'core.material':
+                count_materials += 1
         except Exception:
             pass
 
-    return True, f"✅ Données importées avec succès ({imported_count} objets dont toutes les machines et clients) !"
+    return True, f"✅ Importation réussie ! {count_machines} machines, {count_clients} clients et {count_materials} matières premières importés !"
 
 
 @receiver(post_migrate)
@@ -203,11 +217,9 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
             from django.contrib.auth.models import User
             from .crm import Client
 
-            # 1. Si aucun client n'existe, tenter le chargement initial
             if not Client.objects.exists():
                 robust_import_local_data()
 
-            # 2. S'assurer qu'au moins un admin existe
             if not User.objects.filter(is_superuser=True).exists():
                 username = os.environ.get('ADMIN_USERNAME', 'admin')
                 password = os.environ.get('ADMIN_PASSWORD', 'admin1234')
@@ -221,7 +233,6 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
                     admin_user.is_staff = True
                     admin_user.save()
 
-            # 3. Accorder les permissions
             all_fields = [
                 'can_access_dashboard', 'can_access_planning', 'can_access_reporting',
                 'can_access_crm', 'can_access_prepress', 'can_access_planification',
