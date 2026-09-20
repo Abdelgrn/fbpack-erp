@@ -1,5 +1,5 @@
-import json
 import openpyxl
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
@@ -171,7 +171,7 @@ def stock_advanced_view(request):
     materials = materials.order_by('name')
 
     if low_stock_only:
-        materials = [m for m in materials if m.is_low_stock()]
+        materials = [m for m in materials if getattr(m, 'is_low_stock', lambda: False)()]
 
     all_materials = Material.objects.select_related('supplier').all()
     alertes_stock = []
@@ -187,9 +187,17 @@ def stock_advanced_view(request):
     }
 
     for m in all_materials:
-        if m.is_low_stock():
-            pct = round((m.quantity / m.min_threshold) * 100, 1) if m.min_threshold > 0 else 0
-            if m.quantity <= 0:
+        try:
+            is_low = m.is_low_stock()
+        except Exception:
+            is_low = False
+
+        if is_low:
+            qty = float(m.quantity or 0)
+            thresh = float(m.min_threshold or 0)
+            pct = round((qty / thresh) * 100, 1) if thresh > 0 else 0
+
+            if qty <= 0:
                 niveau = 'RUPTURE'
                 icone = '🔴'
                 nb_ruptures += 1
@@ -210,8 +218,8 @@ def stock_advanced_view(request):
 
             alertes_stock.append({
                 'id': m.id, 'name': m.name, 'category': m.category,
-                'cat_label': m.get_category_display(), 'quantity': m.quantity,
-                'unit': m.unit, 'min_threshold': m.min_threshold,
+                'cat_label': m.get_category_display() if hasattr(m, 'get_category_display') else m.category,
+                'quantity': qty, 'unit': m.unit, 'min_threshold': thresh,
                 'supplier': m.supplier.name if m.supplier else '—',
                 'pct': min(pct, 100), 'niveau': niveau, 'icone': icone,
             })
@@ -240,16 +248,16 @@ def stock_advanced_view(request):
     previsions = []
     for m in all_materials:
         try:
-            seuil = m.seuil_intelligent
-            if seuil and seuil.consommation_journaliere_moy > 0:
+            seuil = getattr(m, 'seuil_intelligent', None)
+            if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
                 jours = seuil.jours_de_stock
                 if jours <= 15:
                     previsions.append({
                         'material': m.name,
-                        'stock_actuel': m.quantity,
+                        'stock_actuel': m.quantity or 0,
                         'conso_jour': seuil.consommation_journaliere_moy,
                         'jours_restants': jours,
-                        'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if seuil.date_rupture_prevue else '—',
+                        'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if getattr(seuil, 'date_rupture_prevue', None) else '—',
                         'critique': jours <= 7,
                     })
         except Exception:
@@ -264,7 +272,7 @@ def stock_advanced_view(request):
         'material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur', 'machine', 'of'
     ).order_by('-date')[:100]
 
-    locations = StockLocation.objects.filter(is_active=True).order_by('type', 'name')
+    locations = StockLocation.objects.filter(is_active=True).order_by('type', 'name') if hasattr(StockLocation, 'is_active') else StockLocation.objects.all()
     suppliers = Supplier.objects.all().order_by('name')
 
     demandes = DemandeAchat.objects.select_related('material', 'demandeur', 'valideur').order_by('-date_creation')[:50]
@@ -272,12 +280,20 @@ def stock_advanced_view(request):
 
     bons_commande = BonCommande.objects.select_related('fournisseur', 'cree_par').order_by('-date_commande')[:50]
     consos = ConsommationEncre.objects.all().order_by('-date')[:50]
-    valeur_stock_total = sum(float(m.quantity) * float(m.price_per_unit) for m in all_materials if m.price_per_unit)
+
+    valeur_stock_total = 0
+    for m in all_materials:
+        try:
+            q = float(m.quantity or 0)
+            p = float(m.price_per_unit or 0)
+            valeur_stock_total += q * p
+        except (ValueError, TypeError):
+            pass
 
     context = {
         'search_query': search_query, 'category_filter': category_filter,
         'low_stock_only': low_stock_only, 'supplier_filter': supplier_filter,
-        'categories': Material.CAT_CHOICES, 'materials': materials,
+        'categories': getattr(Material, 'CAT_CHOICES', []), 'materials': materials,
         'total_matieres': Material.objects.count(), 'suppliers': suppliers,
         'alertes_stock': alertes_stock, 'nb_alertes': len(alertes_stock),
         'nb_ruptures': nb_ruptures, 'nb_critiques': nb_critiques,
@@ -315,12 +331,12 @@ def material_search_api(request):
         results.append({
             'id': m.id, 'name': m.name,
             'name_html': highlight_search(m.name, query),
-            'category': m.get_category_display(),
-            'quantity': m.quantity, 'unit': m.unit,
-            'min_threshold': m.min_threshold,
+            'category': m.get_category_display() if hasattr(m, 'get_category_display') else m.category,
+            'quantity': m.quantity or 0, 'unit': m.unit,
+            'min_threshold': m.min_threshold or 0,
             'supplier': m.supplier.name if m.supplier else '—',
-            'is_low_stock': m.is_low_stock(),
-            'price': float(m.price_per_unit) if m.price_per_unit else 0,
+            'is_low_stock': getattr(m, 'is_low_stock', lambda: False)(),
+            'price': float(m.price_per_unit) if getattr(m, 'price_per_unit', None) else 0,
         })
     return JsonResponse({'query': query, 'count': len(results), 'results': results})
 
@@ -361,19 +377,21 @@ def export_search_results(request):
         cell.border = thin_border
 
     for row_num, m in enumerate(materials, 2):
-        valeur = float(m.quantity) * float(m.price_per_unit) if m.price_per_unit else 0
-        etat = "⚠️ ALERTE" if m.is_low_stock() else "✓ OK"
+        q = float(m.quantity or 0)
+        p = float(getattr(m, 'price_per_unit', 0) or 0)
+        valeur = q * p
+        is_low = getattr(m, 'is_low_stock', lambda: False)()
+        etat = "⚠️ ALERTE" if is_low else "✓ OK"
         row_data = [
-            m.name, m.get_category_display(), m.quantity, m.unit,
-            m.min_threshold, m.supplier.name if m.supplier else '',
-            float(m.price_per_unit) if m.price_per_unit else 0,
-            round(valeur, 2), etat
+            m.name, m.get_category_display() if hasattr(m, 'get_category_display') else m.category,
+            q, m.unit, m.min_threshold or 0, m.supplier.name if m.supplier else '',
+            p, round(valeur, 2), etat
         ]
         ws.append(row_data)
         for col_num in range(1, len(row_data) + 1):
             cell = ws.cell(row=row_num, column=col_num)
             cell.border = thin_border
-            if m.is_low_stock():
+            if is_low:
                 cell.fill = alert_fill
 
     column_widths = [40, 15, 15, 10, 12, 25, 12, 15, 12]
@@ -660,6 +678,9 @@ def seuil_update(request, material_id):
 def stock_dashboard_data(request):
     critiques = []
     for m in Material.objects.all():
-        if m.is_low_stock():
-            critiques.append({'name': m.name, 'stock': m.quantity, 'seuil': m.min_threshold})
+        try:
+            if m.is_low_stock():
+                critiques.append({'name': m.name, 'stock': m.quantity or 0, 'seuil': m.min_threshold or 0})
+        except Exception:
+            pass
     return JsonResponse({'critiques': critiques})
