@@ -192,7 +192,7 @@ urlpatterns = [
     path('prod/qualite/', prod_views.prod_detail_qualite, name='prod_detail_qualite'),
     path('prod/synthese/', prod_views.prod_synthese_temps, name='prod_synthese_temps'),
     
-    # NOUVEAU: EXPORT EXCEL PRODUCTION SPECIAL
+    # EXPORT EXCEL PRODUCTION SPECIAL
     path('prod/qualite/export/', prod_views.export_qualite_excel, name='export_qualite_excel'),
     path('prod/synthese/export/', prod_views.export_synthese_excel, name='export_synthese_excel'),
     
@@ -223,6 +223,7 @@ urlpatterns = [
     path('administration/user/add/', views.admin_add_user, name='admin_add_user'),
     path('administration/user/<int:user_id>/edit/', views.admin_edit_user, name='admin_edit_user'),
     path('administration/user/<int:user_id>/toggle/', views.admin_toggle_user, name='admin_toggle_user'),
+    path('administration/import-data/', views.admin_import_data_view, name='admin_import_data'),
 
     # ==========================================
     # MODULE DRH

@@ -8,6 +8,7 @@ from django.contrib import messages
 
 from ..models import Client, Opportunite, Quote, OrdreFabrication, ProductionEntry, Material, Machine
 from ..models.permissions import UserModulePermission
+from ..models import robust_import_local_data
 
 
 MODULES_LIST = [
@@ -156,4 +157,16 @@ def admin_toggle_user(request, user_id):
         u.save()
         etat = "activé" if u.is_active else "désactivé"
         messages.success(request, f"✅ Utilisateur '{u.username}' {etat}.")
+    return redirect('admin_view')
+
+
+@login_required
+@staff_member_required
+def admin_import_data_view(request):
+    """Bouton d'importation manuelle en 1 clic"""
+    success, message = robust_import_local_data()
+    if success:
+        messages.success(request, message)
+    else:
+        messages.error(request, message)
     return redirect('admin_view')
