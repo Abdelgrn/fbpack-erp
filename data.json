@@ -1,0 +1,2144 @@
+[
+{
+  "model": "core.client",
+  "pk": 1,
+  "fields": {
+    "name": "Client Divers",
+    "code_client": null,
+    "status": "PROSPECT",
+    "segment": "FLEXO",
+    "size": "",
+    "region": "",
+    "ca_estime": "0.00",
+    "sector": "",
+    "city": "Interne",
+    "address": "",
+    "phone": "000",
+    "email": "",
+    "website": "",
+    "commercial": null,
+    "date_creation": "2026-04-13",
+    "notes": "",
+    "source_prospect": "",
+    "conditions_paiement": "",
+    "delai_livraison_jours": 15,
+    "remise_defaut": "0.00",
+    "limite_credit": "0.00",
+    "ice_nif": "",
+    "date_conversion": null
+  }
+},
+{
+  "model": "core.client",
+  "pk": 2,
+  "fields": {
+    "name": "SARL EMB",
+    "code_client": null,
+    "status": "PROSPECT",
+    "segment": "FLEXO",
+    "size": "",
+    "region": "",
+    "ca_estime": "0.00",
+    "sector": "",
+    "city": "Non renseigné",
+    "address": "",
+    "phone": "000",
+    "email": "",
+    "website": "",
+    "commercial": null,
+    "date_creation": "2026-04-13",
+    "notes": "",
+    "source_prospect": "",
+    "conditions_paiement": "",
+    "delai_livraison_jours": 15,
+    "remise_defaut": "0.00",
+    "limite_credit": "0.00",
+    "ice_nif": "",
+    "date_conversion": null
+  }
+},
+{
+  "model": "core.client",
+  "pk": 3,
+  "fields": {
+    "name": "SIM AIN DEFLA",
+    "code_client": null,
+    "status": "PROSPECT",
+    "segment": "FLEXO",
+    "size": "",
+    "region": "",
+    "ca_estime": "0.00",
+    "sector": "",
+    "city": "Non renseigné",
+    "address": "",
+    "phone": "000",
+    "email": "",
+    "website": "",
+    "commercial": null,
+    "date_creation": "2026-04-13",
+    "notes": "",
+    "source_prospect": "",
+    "conditions_paiement": "",
+    "delai_livraison_jours": 15,
+    "remise_defaut": "0.00",
+    "limite_credit": "0.00",
+    "ice_nif": "",
+    "date_conversion": null
+  }
+},
+{
+  "model": "core.client",
+  "pk": 4,
+  "fields": {
+    "name": "SIM BLIDA",
+    "code_client": null,
+    "status": "PROSPECT",
+    "segment": "FLEXO",
+    "size": "",
+    "region": "",
+    "ca_estime": "0.00",
+    "sector": "",
+    "city": "Non renseigné",
+    "address": "",
+    "phone": "000",
+    "email": "",
+    "website": "",
+    "commercial": null,
+    "date_creation": "2026-04-13",
+    "notes": "",
+    "source_prospect": "",
+    "conditions_paiement": "",
+    "delai_livraison_jours": 15,
+    "remise_defaut": "0.00",
+    "limite_credit": "0.00",
+    "ice_nif": "",
+    "date_conversion": null
+  }
+},
+{
+  "model": "core.client",
+  "pk": 5,
+  "fields": {
+    "name": "SIM",
+    "code_client": null,
+    "status": "PROSPECT",
+    "segment": "FLEXO",
+    "size": "",
+    "region": "",
+    "ca_estime": "0.00",
+    "sector": "",
+    "city": "Non renseigné",
+    "address": "",
+    "phone": "000",
+    "email": "",
+    "website": "",
+    "commercial": null,
+    "date_creation": "2026-04-13",
+    "notes": "",
+    "source_prospect": "",
+    "conditions_paiement": "",
+    "delai_livraison_jours": 15,
+    "remise_defaut": "0.00",
+    "limite_credit": "0.00",
+    "ice_nif": "",
+    "date_conversion": null
+  }
+},
+{
+  "model": "core.client",
+  "pk": 6,
+  "fields": {
+    "name": "SARLE MB",
+    "code_client": null,
+    "status": "PROSPECT",
+    "segment": "FLEXO",
+    "size": "",
+    "region": "",
+    "ca_estime": "0.00",
+    "sector": "",
+    "city": "Non renseigné",
+    "address": "",
+    "phone": "000",
+    "email": "",
+    "website": "",
+    "commercial": null,
+    "date_creation": "2026-04-13",
+    "notes": "",
+    "source_prospect": "",
+    "conditions_paiement": "",
+    "delai_livraison_jours": 15,
+    "remise_defaut": "0.00",
+    "limite_credit": "0.00",
+    "ice_nif": "",
+    "date_conversion": null
+  }
+},
+{
+  "model": "core.client",
+  "pk": 7,
+  "fields": {
+    "name": "SIM MOUZAYA",
+    "code_client": null,
+    "status": "PROSPECT",
+    "segment": "FLEXO",
+    "size": "",
+    "region": "",
+    "ca_estime": "0.00",
+    "sector": "",
+    "city": "Non renseigné",
+    "address": "",
+    "phone": "000",
+    "email": "",
+    "website": "",
+    "commercial": null,
+    "date_creation": "2026-04-13",
+    "notes": "",
+    "source_prospect": "",
+    "conditions_paiement": "",
+    "delai_livraison_jours": 15,
+    "remise_defaut": "0.00",
+    "limite_credit": "0.00",
+    "ice_nif": "",
+    "date_conversion": null
+  }
+},
+{
+  "model": "core.client",
+  "pk": 8,
+  "fields": {
+    "name": "SIM MOUZAIA",
+    "code_client": null,
+    "status": "PROSPECT",
+    "segment": "FLEXO",
+    "size": "",
+    "region": "",
+    "ca_estime": "0.00",
+    "sector": "",
+    "city": "Non renseigné",
+    "address": "",
+    "phone": "000",
+    "email": "",
+    "website": "",
+    "commercial": null,
+    "date_creation": "2026-04-13",
+    "notes": "",
+    "source_prospect": "",
+    "conditions_paiement": "",
+    "delai_livraison_jours": 15,
+    "remise_defaut": "0.00",
+    "limite_credit": "0.00",
+    "ice_nif": "",
+    "date_conversion": null
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 1,
+  "fields": {
+    "client": 1,
+    "ref_internal": "EAU MINERALE 1,5 L",
+    "name": "Produit EAU MINERALE 1,5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 2,
+  "fields": {
+    "client": 1,
+    "ref_internal": "Officiel  30gr",
+    "name": "Produit Officiel  30gr",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 3,
+  "fields": {
+    "client": 1,
+    "ref_internal": "EAU MINERALE 0.5 L",
+    "name": "Produit EAU MINERALE 0.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 4,
+  "fields": {
+    "client": 1,
+    "ref_internal": "EAU MINERALE 1.5 L",
+    "name": "Produit EAU MINERALE 1.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 5,
+  "fields": {
+    "client": 1,
+    "ref_internal": "EAU MINERALE 6 L",
+    "name": "Produit EAU MINERALE 6 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 6,
+  "fields": {
+    "client": 1,
+    "ref_internal": "EAU MINERALE 6.5 L",
+    "name": "Produit EAU MINERALE 6.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 7,
+  "fields": {
+    "client": 1,
+    "ref_internal": "EAU MINERALE  1.5 L",
+    "name": "Produit EAU MINERALE  1.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 8,
+  "fields": {
+    "client": 1,
+    "ref_internal": "EAU MINERALE   5.5 L",
+    "name": "Produit EAU MINERALE   5.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 9,
+  "fields": {
+    "client": 1,
+    "ref_internal": "EAU MINERALE  1.5 L  ( VERNIS TOTAL )",
+    "name": "Produit EAU MINERALE  1.5 L  ( VERNIS TOTAL )",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 10,
+  "fields": {
+    "client": 1,
+    "ref_internal": "CRISTA SUCRE  1 KG",
+    "name": "Produit CRISTA SUCRE  1 KG",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 11,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 12 Gr FROMAGE",
+    "name": "Produit MAMA MIA 12 Gr FROMAGE",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 12,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 12 Gr BARBECUE",
+    "name": "Produit MAMA MIA 12 Gr BARBECUE",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 13,
+  "fields": {
+    "client": 1,
+    "ref_internal": " SEMOULE  FINE  2 Kg",
+    "name": "Produit  SEMOULE  FINE  2 Kg",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 14,
+  "fields": {
+    "client": 1,
+    "ref_internal": " SEMOULE  GROSSE  2 Kg",
+    "name": "Produit  SEMOULE  GROSSE  2 Kg",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 15,
+  "fields": {
+    "client": 1,
+    "ref_internal": " SEMOULE  MOYENNE  2 Kg",
+    "name": "Produit  SEMOULE  MOYENNE  2 Kg",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 16,
+  "fields": {
+    "client": 1,
+    "ref_internal": "  Etiquette Eau (0.5 L )      VERNIS",
+    "name": "Produit   Etiquette Eau (0.5 L )      VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 17,
+  "fields": {
+    "client": 1,
+    "ref_internal": "  Etiquette Eau (1.5 L )      VERNIS",
+    "name": "Produit   Etiquette Eau (1.5 L )      VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 18,
+  "fields": {
+    "client": 1,
+    "ref_internal": "  Etiquette Eau (6 L )         VERNIS",
+    "name": "Produit   Etiquette Eau (6 L )         VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 19,
+  "fields": {
+    "client": 1,
+    "ref_internal": "  Etiquette Eau (0.5 L )         VERNIS",
+    "name": "Produit   Etiquette Eau (0.5 L )         VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 20,
+  "fields": {
+    "client": 1,
+    "ref_internal": "  Etiquette Eau (1.5 L )         VERNIS",
+    "name": "Produit   Etiquette Eau (1.5 L )         VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 21,
+  "fields": {
+    "client": 1,
+    "ref_internal": "Farine 1kg   ( MOUZAIA )",
+    "name": "Produit Farine 1kg   ( MOUZAIA )",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 22,
+  "fields": {
+    "client": 1,
+    "ref_internal": "Farine 1kg   ( AIN DEFLA ) BLEU",
+    "name": "Produit Farine 1kg   ( AIN DEFLA ) BLEU",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 23,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 50 GR BARBECUE",
+    "name": "Produit MAMA MIA 50 GR BARBECUE",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 24,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 50 GR HOT",
+    "name": "Produit MAMA MIA 50 GR HOT",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 25,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 12 GR HOT",
+    "name": "Produit MAMA MIA 12 GR HOT",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 26,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 12 GR VERT",
+    "name": "Produit MAMA MIA 12 GR VERT",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 27,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 50 GR FROMAGE",
+    "name": "Produit MAMA MIA 50 GR FROMAGE",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 28,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 50 GR KETCHUP",
+    "name": "Produit MAMA MIA 50 GR KETCHUP",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 29,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 12 GR KETCHUP",
+    "name": "Produit MAMA MIA 12 GR KETCHUP",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 30,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MAMA MIA 50 GR VERT",
+    "name": "Produit MAMA MIA 50 GR VERT",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 31,
+  "fields": {
+    "client": 1,
+    "ref_internal": "FARINE 1 KG",
+    "name": "Produit FARINE 1 KG",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 32,
+  "fields": {
+    "client": 1,
+    "ref_internal": "CRISTALINE - EAU MINERALE 1,5 L",
+    "name": "Produit CRISTALINE - EAU MINERALE 1,5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 33,
+  "fields": {
+    "client": 1,
+    "ref_internal": "ASSILA - Officiel  30gr",
+    "name": "Produit ASSILA - Officiel  30gr",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 34,
+  "fields": {
+    "client": 1,
+    "ref_internal": "OVITAL - EAU MINERALE 0.5 L",
+    "name": "Produit OVITAL - EAU MINERALE 0.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 35,
+  "fields": {
+    "client": 1,
+    "ref_internal": "OVITAL - EAU MINERALE 1.5 L",
+    "name": "Produit OVITAL - EAU MINERALE 1.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 36,
+  "fields": {
+    "client": 1,
+    "ref_internal": "OVITAL - EAU MINERALE 6 L",
+    "name": "Produit OVITAL - EAU MINERALE 6 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 37,
+  "fields": {
+    "client": 1,
+    "ref_internal": "OVITAL - EAU MINERALE 6.5 L",
+    "name": "Produit OVITAL - EAU MINERALE 6.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 38,
+  "fields": {
+    "client": 1,
+    "ref_internal": "BERRAHAL - EAU MINERALE 1.5 L",
+    "name": "Produit BERRAHAL - EAU MINERALE 1.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 39,
+  "fields": {
+    "client": 1,
+    "ref_internal": "BERRAHAL - EAU MINERALE  1.5 L",
+    "name": "Produit BERRAHAL - EAU MINERALE  1.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 40,
+  "fields": {
+    "client": 1,
+    "ref_internal": "BERRAHAL - EAU MINERALE 0.5 L",
+    "name": "Produit BERRAHAL - EAU MINERALE 0.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 41,
+  "fields": {
+    "client": 1,
+    "ref_internal": "BERRAHAL - EAU MINERALE   5.5 L",
+    "name": "Produit BERRAHAL - EAU MINERALE   5.5 L",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 42,
+  "fields": {
+    "client": 1,
+    "ref_internal": "BERRAHAL - EAU MINERALE  1.5 L  ( VERNIS TOTAL )",
+    "name": "Produit BERRAHAL - EAU MINERALE  1.5 L  ( VERNIS TOTAL )",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 43,
+  "fields": {
+    "client": 1,
+    "ref_internal": "BERRAHAL - CRISTA SUCRE  1 KG",
+    "name": "Produit BERRAHAL - CRISTA SUCRE  1 KG",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 44,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( FME ) - MAMA MIA 12 Gr FROMAGE",
+    "name": "Produit MEDISEC  ( FME ) - MAMA MIA 12 Gr FROMAGE",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 45,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( FME ) - MAMA MIA 12 Gr BARBECUE",
+    "name": "Produit MEDISEC  ( FME ) - MAMA MIA 12 Gr BARBECUE",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 46,
+  "fields": {
+    "client": 1,
+    "ref_internal": "HAMAMA ( ICR ) -  SEMOULE  FINE  2 Kg",
+    "name": "Produit HAMAMA ( ICR ) -  SEMOULE  FINE  2 Kg",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 47,
+  "fields": {
+    "client": 1,
+    "ref_internal": "HAMAMA  ( ICR ) -  SEMOULE  GROSSE  2 Kg",
+    "name": "Produit HAMAMA  ( ICR ) -  SEMOULE  GROSSE  2 Kg",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 48,
+  "fields": {
+    "client": 1,
+    "ref_internal": "HAMAMA  ( ICR ) -  SEMOULE  MOYENNE  2 Kg",
+    "name": "Produit HAMAMA  ( ICR ) -  SEMOULE  MOYENNE  2 Kg",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 49,
+  "fields": {
+    "client": 1,
+    "ref_internal": "OVITAL   ( ICR ) -   Etiquette Eau (0.5 L )      VERNIS",
+    "name": "Produit OVITAL   ( ICR ) -   Etiquette Eau (0.5 L )      VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 50,
+  "fields": {
+    "client": 1,
+    "ref_internal": "OVITAL   ( ICR ) -   Etiquette Eau (1.5 L )      VERNIS",
+    "name": "Produit OVITAL   ( ICR ) -   Etiquette Eau (1.5 L )      VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 51,
+  "fields": {
+    "client": 1,
+    "ref_internal": "OVITAL   ( ICR ) -   Etiquette Eau (6 L )         VERNIS",
+    "name": "Produit OVITAL   ( ICR ) -   Etiquette Eau (6 L )         VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 52,
+  "fields": {
+    "client": 1,
+    "ref_internal": "GUEDILA   ( ICR ) -   Etiquette Eau (0.5 L )         VERNIS",
+    "name": "Produit GUEDILA   ( ICR ) -   Etiquette Eau (0.5 L )         VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 53,
+  "fields": {
+    "client": 1,
+    "ref_internal": "GUEDILA   ( ICR ) -   Etiquette Eau (1.5 L )         VERNIS",
+    "name": "Produit GUEDILA   ( ICR ) -   Etiquette Eau (1.5 L )         VERNIS",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 54,
+  "fields": {
+    "client": 1,
+    "ref_internal": "SIM - Farine 1kg   ( MOUZAIA )",
+    "name": "Produit SIM - Farine 1kg   ( MOUZAIA )",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 55,
+  "fields": {
+    "client": 1,
+    "ref_internal": "SIM - Farine 1kg   ( AIN DEFLA ) BLEU",
+    "name": "Produit SIM - Farine 1kg   ( AIN DEFLA ) BLEU",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 56,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( ICR ) - MAMA MIA 50 GR BARBECUE",
+    "name": "Produit MEDISEC  ( ICR ) - MAMA MIA 50 GR BARBECUE",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 57,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( ICR ) - MAMA MIA 50 GR HOT",
+    "name": "Produit MEDISEC  ( ICR ) - MAMA MIA 50 GR HOT",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 58,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( ICR ) - MAMA MIA 12 GR HOT",
+    "name": "Produit MEDISEC  ( ICR ) - MAMA MIA 12 GR HOT",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 59,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( ICR ) - MAMA MIA 12 GR VERT",
+    "name": "Produit MEDISEC  ( ICR ) - MAMA MIA 12 GR VERT",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 60,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( ICR ) - MAMA MIA 50 GR FROMAGE",
+    "name": "Produit MEDISEC  ( ICR ) - MAMA MIA 50 GR FROMAGE",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 61,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( ICR ) - MAMA MIA 50 GR KETCHUP",
+    "name": "Produit MEDISEC  ( ICR ) - MAMA MIA 50 GR KETCHUP",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 62,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( ICR ) - MAMA MIA 12 GR KETCHUP",
+    "name": "Produit MEDISEC  ( ICR ) - MAMA MIA 12 GR KETCHUP",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 63,
+  "fields": {
+    "client": 1,
+    "ref_internal": "MEDISEC  ( ICR ) - MAMA MIA 50 GR VERT",
+    "name": "Produit MEDISEC  ( ICR ) - MAMA MIA 50 GR VERT",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.technicalproduct",
+  "pk": 64,
+  "fields": {
+    "client": 1,
+    "ref_internal": "HAMAMA - FARINE 1 KG",
+    "name": "Produit HAMAMA - FARINE 1 KG",
+    "structure_type": "MONO",
+    "width_mm": 100.0,
+    "cut_length_mm": 0.0,
+    "num_colors": 0,
+    "artwork_file": "",
+    "artwork_version": 1
+  }
+},
+{
+  "model": "core.tooling",
+  "pk": 1,
+  "fields": {
+    "product": 64,
+    "tool_type": "CYL",
+    "serial_number": "0.0",
+    "max_impressions": 200000,
+    "current_impressions": 0
+  }
+},
+{
+  "model": "core.material",
+  "pk": 644,
+  "fields": {
+    "name": "SOLVAPRINT TF EP CYAN JPR1",
+    "category": "INK",
+    "quantity": 7354.0,
+    "unit": "Kg",
+    "min_threshold": 2000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 645,
+  "fields": {
+    "name": "SOLVAPRINT TF EP MAGENTA:JPR1",
+    "category": "INK",
+    "quantity": 12226.0,
+    "unit": "Kg",
+    "min_threshold": 4000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 646,
+  "fields": {
+    "name": "SOLVAPRINT TF EP YELLOW:JPR1",
+    "category": "INK",
+    "quantity": 14143.0,
+    "unit": "Kg",
+    "min_threshold": 4000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 647,
+  "fields": {
+    "name": "SOLVAPRINT TF NOIR QUADRI",
+    "category": "INK",
+    "quantity": 10914.0,
+    "unit": "Kg",
+    "min_threshold": 2000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 648,
+  "fields": {
+    "name": "SOLVAPRINT TF EP BLUE (CRISTA)",
+    "category": "INK",
+    "quantity": 1258.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 649,
+  "fields": {
+    "name": "SOLVAPRINTE TF EP RHODAMINE",
+    "category": "INK",
+    "quantity": 1435.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 650,
+  "fields": {
+    "name": "SOLVAPRINT TF ORANGE JPN1",
+    "category": "INK",
+    "quantity": 1069.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 651,
+  "fields": {
+    "name": "SOLVAPRINT TF VIOLET  -JPN1",
+    "category": "INK",
+    "quantity": 1080.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 652,
+  "fields": {
+    "name": "SOLVAPRINT  TF EP GOLD 2S:FJE2",
+    "category": "INK",
+    "quantity": 60.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 653,
+  "fields": {
+    "name": "ENCRE SOLIMAX P SILVER 2S",
+    "category": "INK",
+    "quantity": 1280.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 654,
+  "fields": {
+    "name": "SOLIPRO VAPCYAN JPR1",
+    "category": "INK",
+    "quantity": 4121.0,
+    "unit": "Kg",
+    "min_threshold": 2000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 655,
+  "fields": {
+    "name": "SOLIPRO VAP MAGENTA JPR1",
+    "category": "INK",
+    "quantity": 4142.0,
+    "unit": "Kg",
+    "min_threshold": 4000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 656,
+  "fields": {
+    "name": "SOLIPROP V AP YELLOW (HELIO)",
+    "category": "INK",
+    "quantity": 10695.0,
+    "unit": "Kg",
+    "min_threshold": 4000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 657,
+  "fields": {
+    "name": "SOLIPROP V AP BLACK PB7",
+    "category": "INK",
+    "quantity": 4850.0,
+    "unit": "Kg",
+    "min_threshold": 2000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 658,
+  "fields": {
+    "name": "HSAN-00001-SOLIPROP VAP  EXT LT31",
+    "category": "INK",
+    "quantity": 9831.0,
+    "unit": "Kg",
+    "min_threshold": 2000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 659,
+  "fields": {
+    "name": "VALLOLUBE LABEL LOCOF:LT30 VERNIS ANTISTATIQUE",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 2000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 660,
+  "fields": {
+    "name": "SOLIPROP V AP WHITE:LT30",
+    "category": "INK",
+    "quantity": 28000.0,
+    "unit": "Kg",
+    "min_threshold": 10000.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 661,
+  "fields": {
+    "name": "HDUD-10485E-DURALAM TF HOWHITE :LT31",
+    "category": "INK",
+    "quantity": 1000.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 662,
+  "fields": {
+    "name": "SOLVAPLAST TP EP B REF D:JPR1",
+    "category": "INK",
+    "quantity": 1029.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 663,
+  "fields": {
+    "name": "SOLVARES P YELLOW QUAD",
+    "category": "INK",
+    "quantity": 900.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 664,
+  "fields": {
+    "name": "SOLVARES P BLACK QUAD",
+    "category": "INK",
+    "quantity": 180.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 665,
+  "fields": {
+    "name": "SOLVARES P MAGENTA",
+    "category": "INK",
+    "quantity": 360.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 666,
+  "fields": {
+    "name": "SOLVARES P CYAN  QUAD -JPN1",
+    "category": "INK",
+    "quantity": 180.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 667,
+  "fields": {
+    "name": "SOLVARES P GOLD KENZA:FJB1",
+    "category": "INK",
+    "quantity": 215.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 668,
+  "fields": {
+    "name": "ENCRE ROSE CONCENTREE SUPERBASE",
+    "category": "INK",
+    "quantity": 180.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 669,
+  "fields": {
+    "name": "ROTO/FLEXO  CRISTAL PLUS WHITE",
+    "category": "INK",
+    "quantity": 1000.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 670,
+  "fields": {
+    "name": "ROTO/FLEXO  HI-PROCESS  MAGENTA",
+    "category": "INK",
+    "quantity": 7200.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 671,
+  "fields": {
+    "name": "ROTO/FLEXO   HI-PROCESS  CYAN",
+    "category": "INK",
+    "quantity": 4200.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 672,
+  "fields": {
+    "name": "ROTO/FLEXO   HI-PROCESS  YELLOW",
+    "category": "INK",
+    "quantity": 6600.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 673,
+  "fields": {
+    "name": "ROTO/FLEXO   HI-PROCESS  BLACK",
+    "category": "INK",
+    "quantity": 4520.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 674,
+  "fields": {
+    "name": "UX WHITE CT P/FLEXO",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 675,
+  "fields": {
+    "name": "UX WHITE FL P/HELIO",
+    "category": "INK",
+    "quantity": 1000.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 676,
+  "fields": {
+    "name": "UX F CONC MAGENTA SF P/FLEXO",
+    "category": "INK",
+    "quantity": 320.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 677,
+  "fields": {
+    "name": "UX F CONC CYAN SF P/FLEXO",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 678,
+  "fields": {
+    "name": "UX F CONC YELLOW SF P/FLEXO",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 679,
+  "fields": {
+    "name": "UX F  DARK GREY SF P/FLEXO",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 680,
+  "fields": {
+    "name": "UX-F REFLEX BLEU P/FLEXO",
+    "category": "INK",
+    "quantity": 160.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 681,
+  "fields": {
+    "name": "UX PROCESS CYAN FL-2P/HELIO",
+    "category": "INK",
+    "quantity": 1120.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 682,
+  "fields": {
+    "name": "UX PROCESS YELLOW  AO-2P/HELIO",
+    "category": "INK",
+    "quantity": 3680.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 683,
+  "fields": {
+    "name": "UX PROCESS MAGENTA AL-4P/HELIO",
+    "category": "INK",
+    "quantity": 1280.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 684,
+  "fields": {
+    "name": "UX F  DARK GREY FL P/HELIO",
+    "category": "INK",
+    "quantity": 1280.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 685,
+  "fields": {
+    "name": "REFLEX BLEU P/HELIO",
+    "category": "INK",
+    "quantity": 1120.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 686,
+  "fields": {
+    "name": "SUNLYS SOLV BLANC COMPLEXAGE",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 687,
+  "fields": {
+    "name": "SUNLYS SOLV PROCESS MAGENTA Q-INT 2",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 688,
+  "fields": {
+    "name": "SUNLYS SOLV CYAN INT",
+    "category": "INK",
+    "quantity": 25.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 689,
+  "fields": {
+    "name": "SUNLYS SOLV PROCESS BLACK Q-INT 2",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 690,
+  "fields": {
+    "name": "SUNLYS SOLV VERNIS D'ALLONGEMENT",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 691,
+  "fields": {
+    "name": "SUNLYS SOLV PROCESS YELLOW-INT 2",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 692,
+  "fields": {
+    "name": "SUNLYS SOLV VIOLET INT 1",
+    "category": "INK",
+    "quantity": 25.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 693,
+  "fields": {
+    "name": "SUNLYS SOLV ORANGE 021 INT2",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 694,
+  "fields": {
+    "name": "SUNLYS SOLV VERNIS ANTISTATIQUE",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 695,
+  "fields": {
+    "name": "INK FC GOLD KENZA T107",
+    "category": "INK",
+    "quantity": 30.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 696,
+  "fields": {
+    "name": "INK FC MARRON KENZA T106",
+    "category": "INK",
+    "quantity": 0.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 697,
+  "fields": {
+    "name": "ROSE P-RHODAMINE",
+    "category": "INK",
+    "quantity": 20.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 698,
+  "fields": {
+    "name": "ENCRE MAGENTA HP RG",
+    "category": "INK",
+    "quantity": 20.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 699,
+  "fields": {
+    "name": "ENCRE BLUE CYAN HP RG",
+    "category": "INK",
+    "quantity": 20.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 700,
+  "fields": {
+    "name": "HDLX ENCRE MAGENTA HP",
+    "category": "INK",
+    "quantity": 60.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 701,
+  "fields": {
+    "name": "ENCRE HDLX  JAUNE HP                      HYDROLUX",
+    "category": "INK",
+    "quantity": 20.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 702,
+  "fields": {
+    "name": "ENCRE HDLX NOIR  HP                        HYDROLUX",
+    "category": "INK",
+    "quantity": 20.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 703,
+  "fields": {
+    "name": "HDLX ENCRE VERT P-357 HP",
+    "category": "INK",
+    "quantity": 20.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 704,
+  "fields": {
+    "name": "HDLX ENCRE VERT P-7731 HP",
+    "category": "INK",
+    "quantity": 20.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 705,
+  "fields": {
+    "name": "PDA600003-PC9  BLANC (FRANTAL)",
+    "category": "INK",
+    "quantity": 800.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 706,
+  "fields": {
+    "name": "ENCRE VERT P-2270",
+    "category": "INK",
+    "quantity": 20.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 707,
+  "fields": {
+    "name": "NETTOYANT CLICHE QUICK WASH",
+    "category": "SOLV",
+    "quantity": 140.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 708,
+  "fields": {
+    "name": "ACETATE D'ÉTHYLE",
+    "category": "SOLV",
+    "quantity": 25200.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 709,
+  "fields": {
+    "name": "METHOXY-PROPANOL",
+    "category": "SOLV",
+    "quantity": 40480.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.material",
+  "pk": 710,
+  "fields": {
+    "name": "MELANGE ACETATE D'ETHYLE ALCOOL ISOPROPYLIQUE",
+    "category": "SOLV",
+    "quantity": 49896.0,
+    "unit": "Kg",
+    "min_threshold": 0.0,
+    "supplier": null,
+    "price_per_unit": "0.00"
+  }
+},
+{
+  "model": "core.stocklocation",
+  "pk": 1,
+  "fields": {
+    "name": "magasin general",
+    "type": "GENERAL",
+    "description": "",
+    "is_active": true
+  }
+},
+{
+  "model": "core.stocklocation",
+  "pk": 2,
+  "fields": {
+    "name": "Stock tampon flexo",
+    "type": "TAMPON",
+    "description": "",
+    "is_active": true
+  }
+},
+{
+  "model": "core.stocklocation",
+  "pk": 3,
+  "fields": {
+    "name": "Stock tampon Helio",
+    "type": "TAMPON",
+    "description": "",
+    "is_active": true
+  }
+},
+{
+  "model": "core.stocklocation",
+  "pk": 4,
+  "fields": {
+    "name": "dechet flexo",
+    "type": "DECHET",
+    "description": "",
+    "is_active": true
+  }
+},
+{
+  "model": "core.stockmovement",
+  "pk": 1,
+  "fields": {
+    "date": "2026-09-14T15:52:54.411Z",
+    "type": "SORTIE",
+    "material": 645,
+    "lot": null,
+    "quantite": 180.0,
+    "emplacement_source": 1,
+    "emplacement_destination": 2,
+    "of": null,
+    "machine": null,
+    "utilisateur": 1,
+    "motif": "",
+    "notes": ""
+  }
+},
+{
+  "model": "core.atelier",
+  "pk": 1,
+  "fields": {
+    "nom": "Atelier Extrusion",
+    "code": "EXT",
+    "type_atelier": "EXTRUSION",
+    "description": "",
+    "responsable": null,
+    "ordre_affichage": 1,
+    "icone": 
