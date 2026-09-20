@@ -2,6 +2,7 @@ import os
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 from django.db.models import Q
+from django.core.management import call_command
 
 # CRM
 from .crm import (
@@ -92,27 +93,34 @@ def corriger_base_machines_post_migrate(sender, **kwargs):
             pass
 
 
-# --- CRÉATION AUTOMATIQUE SUPERADMIN & PERMISSIONS APRES MIGRATE ---
+# --- CRÉATION AUTOMATIQUE SUPERADMIN & CHARGEMENT DATA.JSON ---
 @receiver(post_migrate)
 def auto_init_super_admin_et_permissions(sender, **kwargs):
     if sender.name == 'core':
         try:
             from django.contrib.auth.models import User
 
-            # 1. Créer le compte admin par défaut s'il n'existe pas
-            username = os.environ.get('ADMIN_USERNAME', 'admin')
-            password = os.environ.get('ADMIN_PASSWORD', 'admin1234')
-            email = os.environ.get('ADMIN_EMAIL', 'admin@fbpack.com')
+            # 1. Importer data.json s'il existe (Restauration des données locales)
+            if os.path.exists('data.json'):
+                try:
+                    call_command('loaddata', 'data.json')
+                except Exception:
+                    pass
 
-            admin_user, created = User.objects.get_or_create(username=username)
-            if created or not admin_user.is_superuser:
+            # 2. S'assurer qu'au moins un admin existe
+            if not User.objects.filter(is_superuser=True).exists():
+                username = os.environ.get('ADMIN_USERNAME', 'admin')
+                password = os.environ.get('ADMIN_PASSWORD', 'admin1234')
+                email = os.environ.get('ADMIN_EMAIL', 'admin@fbpack.com')
+
+                admin_user, created = User.objects.get_or_create(username=username)
                 admin_user.set_password(password)
                 admin_user.email = email
                 admin_user.is_superuser = True
                 admin_user.is_staff = True
                 admin_user.save()
 
-            # 2. Initialiser les permissions de tous les utilisateurs
+            # 3. Initialiser les permissions de tous les utilisateurs
             all_fields = [
                 'can_access_dashboard', 'can_access_planning', 'can_access_reporting',
                 'can_access_crm', 'can_access_prepress', 'can_access_planification',
