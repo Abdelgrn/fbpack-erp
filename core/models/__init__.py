@@ -5,6 +5,7 @@ from django.dispatch import receiver
 from django.db.models import Q
 from django.apps import apps
 from django.conf import settings
+from django.db import transaction
 
 # CRM
 from .crm import (
@@ -72,7 +73,7 @@ from .permissions import UserModulePermission, user_has_module_access
 
 
 def robust_import_local_data():
-    """Importateur ultra-robuste avec resolution automatique des cles etangeres (Atelier, Machines, Stock)"""
+    """Importateur PostgreSQL sécurisé avec Savepoints atomiques et résolution intelligente des ateliers et machines"""
     from django.contrib.auth.models import User
 
     search_paths = [
@@ -103,7 +104,7 @@ def robust_import_local_data():
     if not admin_user:
         admin_user = User.objects.create_superuser('admin', 'admin@fbpack.com', 'admin1234')
 
-    # Ordre strict pour créer d'abord les objets parents
+    # Ordre strict de chargement des dépendances
     model_priority = [
         'auth.user',
         'core.atelier',
@@ -125,7 +126,7 @@ def robust_import_local_data():
 
     sorted_data = sorted(data, key=get_priority)
 
-    # PASSE 1 : Créer les utilisateurs manquants sans toucher aux utilisateurs Render
+    # 1. Importation des utilisateurs manquants
     for item in sorted_data:
         if item.get('model') == 'auth.user':
             pk = item.get('pk')
@@ -133,18 +134,25 @@ def robust_import_local_data():
             username = fields.get('username')
             if username and not User.objects.filter(username=username).exists():
                 try:
-                    u = User(
-                        pk=pk, username=username, email=fields.get('email', ''),
-                        first_name=fields.get('first_name', ''), last_name=fields.get('last_name', ''),
-                        is_staff=fields.get('is_staff', False), is_active=fields.get('is_active', True),
-                        is_superuser=fields.get('is_superuser', False)
-                    )
-                    u.password = fields.get('password', '')
-                    u.save()
+                    with transaction.atomic():
+                        u = User(
+                            pk=pk, username=username, email=fields.get('email', ''),
+                            first_name=fields.get('first_name', ''), last_name=fields.get('last_name', ''),
+                            is_staff=fields.get('is_staff', False), is_active=fields.get('is_active', True),
+                            is_superuser=fields.get('is_superuser', False)
+                        )
+                        u.password = fields.get('password', '')
+                        u.save()
                 except Exception:
                     pass
 
-    # PASSE 2 : Importer les modèles métier avec gestion des erreurs FK
+    # S'assurer qu'au moins un Atelier par défaut existe pour les machines
+    default_atelier, _ = Atelier.objects.get_or_create(
+        nom="Atelier Principal",
+        defaults={'code': 'AT1', 'type_atelier': 'AUTRE', 'est_actif': True}
+    )
+
+    # 2. Importation isolée avec atomic savepoints
     count_machines = 0
     count_clients = 0
     count_materials = 0
@@ -162,7 +170,7 @@ def robust_import_local_data():
         except Exception:
             continue
 
-        # Résolution sécurisée des relations FK
+        # Résolution sécurisée des Foreign Keys
         for fname in list(fields.keys()):
             try:
                 fobj = ModelClass._meta.get_field(fname)
@@ -173,8 +181,18 @@ def robust_import_local_data():
                         if not related_cls.objects.filter(pk=val).exists():
                             if related_cls == User:
                                 fields[fname] = admin_user.pk
+                            elif related_cls == Atelier:
+                                fields[fname] = default_atelier.pk
                             else:
-                                fields[fname] = None
+                                if fobj.null:
+                                    fields[fname] = None
+                                else:
+                                    # Prendre le premier existant ou créer un défaut
+                                    first_obj = related_cls.objects.first()
+                                    if first_obj:
+                                        fields[fname] = first_obj.pk
+                                    else:
+                                        fields[fname] = None
             except Exception:
                 pass
 
@@ -191,23 +209,44 @@ def robust_import_local_data():
                 clean_fields[fname] = val
 
         try:
-            obj, _ = ModelClass.objects.update_or_create(pk=pk, defaults=clean_fields)
-            for mname, mval in m2m.items():
-                try:
-                    getattr(obj, mname).set(mval)
-                except Exception:
-                    pass
+            with transaction.atomic():
+                obj, _ = ModelClass.objects.update_or_create(pk=pk, defaults=clean_fields)
+                for mname, mval in m2m.items():
+                    try:
+                        getattr(obj, mname).set(mval)
+                    except Exception:
+                        pass
 
-            if model_str == 'core.machine':
-                count_machines += 1
-            elif model_str == 'core.client':
-                count_clients += 1
-            elif model_str == 'core.material':
-                count_materials += 1
+                if model_str == 'core.machine':
+                    count_machines += 1
+                elif model_str == 'core.client':
+                    count_clients += 1
+                elif model_str == 'core.material':
+                    count_materials += 1
         except Exception:
             pass
 
-    return True, f"✅ Importation réussie ! {count_machines} machines, {count_clients} clients et {count_materials} matières premières importés !"
+    total_m = Machine.objects.count()
+    return True, f"✅ Données importées ! {total_m} machines au total, {count_clients} clients et {count_materials} matières premières en base !"
+
+
+@receiver(post_migrate)
+def corriger_base_machines_post_migrate(sender, **kwargs):
+    """Mise à jour sécurisée des machines SANS SUPPRESSION"""
+    if sender.name == 'core':
+        try:
+            Machine.objects.filter(name__icontains='1350').update(
+                type='DEC',
+                name='DCM Panther 1350'
+            )
+            Machine.objects.filter(Q(name__icontains='DCM panther 1') | Q(name__icontains='DCM Panther 1')).exclude(
+                name__icontains='1350'
+            ).update(
+                type='DEC2',
+                name='DCM Panther 1'
+            )
+        except Exception:
+            pass
 
 
 @receiver(post_migrate)
