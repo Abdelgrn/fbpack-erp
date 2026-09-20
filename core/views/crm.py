@@ -11,7 +11,7 @@ from ..models import (
     CommandeClient, LigneCommandeClient, DemandePrix, ProcessType, Machine,
 )
 from ..forms import (
-    ClientForm, ClientContactForm, InteractionLogForm, OpportuniteForm, QuoteForm,
+    ClientForm, ClientContactForm, ClientContactFormSet, InteractionLogForm, OpportuniteForm, QuoteForm,
     CommandeClientForm, LigneCommandeClientFormSet, DemandePrixForm,
     OrdreFabricationForm, EtapeProductionFormSet,
 )
@@ -148,13 +148,24 @@ def client_detail(request, id):
 def add_client(request):
     if request.method == 'POST':
         form = ClientForm(request.POST)
-        if form.is_valid():
+        formset = ClientContactFormSet(request.POST, prefix='contacts')
+        if form.is_valid() and formset.is_valid():
             client = form.save()
-            messages.success(request, f"Client « {client.name} » créé.")
+            contacts = formset.save(commit=False)
+            for contact in contacts:
+                contact.client = client
+                contact.save()
+            formset.save_m2m()
+            messages.success(request, f"Client « {client.name} » créé avec ses interlocuteurs.")
             return redirect('client_detail', id=client.id)
     else:
         form = ClientForm()
-    return render(request, 'crm/client_form.html', {'form': form, 'titre': 'Nouveau Client'})
+        formset = ClientContactFormSet(prefix='contacts')
+    return render(request, 'crm/client_form.html', {
+        'form': form,
+        'formset': formset,
+        'titre': 'Nouveau Client'
+    })
 
 
 @login_required
@@ -162,14 +173,18 @@ def edit_client(request, id):
     client = get_object_or_404(Client, id=id)
     if request.method == 'POST':
         form = ClientForm(request.POST, instance=client)
-        if form.is_valid():
+        formset = ClientContactFormSet(request.POST, instance=client, prefix='contacts')
+        if form.is_valid() and formset.is_valid():
             form.save()
-            messages.success(request, "Client mis à jour.")
+            formset.save()
+            messages.success(request, "Fiche client et interlocuteurs mis à jour.")
             return redirect('client_detail', id=client.id)
     else:
         form = ClientForm(instance=client)
+        formset = ClientContactFormSet(instance=client, prefix='contacts')
     return render(request, 'crm/client_form.html', {
         'form': form,
+        'formset': formset,
         'titre': f'Modifier {client.name}',
         'client': client
     })

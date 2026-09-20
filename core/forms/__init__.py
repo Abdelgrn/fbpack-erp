@@ -1,6 +1,6 @@
 # CRM
 from .crm import (
-    ClientForm, ClientContactForm, InteractionLogForm, OpportuniteForm, QuoteForm,
+    ClientForm, ClientContactForm, ClientContactFormSet, InteractionLogForm, OpportuniteForm, QuoteForm,
     CommandeClientForm, LigneCommandeClientForm, LigneCommandeClientFormSet,
     DemandePrixForm,
 )
@@ -57,7 +57,7 @@ from .drh import (
 
 __all__ = [
     # CRM
-    "ClientForm", "ClientContactForm", "InteractionLogForm", "OpportuniteForm", "QuoteForm",
+    "ClientForm", "ClientContactForm", "ClientContactFormSet", "InteractionLogForm", "OpportuniteForm", "QuoteForm",
     "CommandeClientForm", "LigneCommandeClientForm", "LigneCommandeClientFormSet",
     "DemandePrixForm",
     # Prepress

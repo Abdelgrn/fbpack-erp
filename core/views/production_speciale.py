@@ -1,11 +1,13 @@
 import json
 import datetime
+import openpyxl
 from collections import defaultdict
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Q
 from django.contrib import messages
+from django.http import HttpResponse
 
 from ..models import (
     Machine, ProductionEntry, CalculTempsProduction, OrdreFabrication,
@@ -329,12 +331,20 @@ def _get_filter_context(request):
 
 
 # ===========================================================================
-# 🚀 NOUVELLE VUE DE SAISIE MULTI-FICHES (MODERNISÉE)
+# 🚀 NOUVELLE VUE DE SAISIE MULTI-FICHES (MODERNISÉE) — VERSION CORRIGÉE
 # ===========================================================================
 
 @login_required
 def prod_saisie(request):
-    """Nouvelle vue de saisie qui gère la fiche unifiée et ses sous-tableaux (FormSets)"""
+    """
+    Nouvelle vue de saisie qui gère la fiche unifiée et ses sous-tableaux (FormSets).
+    
+    ✅ CORRECTIONS APPLIQUÉES :
+    - Les formsets sont re-bindés au POST pour conserver les données en cas d'erreur
+    - Ne redirige plus si les formsets échouent (la fiche orpheline est supprimée)
+    - Logs console pour debug
+    - Le champ type_fiche est correctement synchronisé avec le JS (id_type_fiche)
+    """
     causes_decoupe_init = [{'cause': c} for c in [
         'CHANGEMENT DE FORMAT', 'DEMARAGE', 'ESSAI', 'PREPARATION BOBINES MERE',
         'PREPARATION BOBINES FILLES', 'NETTOYAGE MACHINE', 'PREVENTIF',
@@ -342,21 +352,65 @@ def prod_saisie(request):
         'PROBLEMES MANDRIN', 'PANNE MAINTENANCE', 'COUPURE ELECTRIQUE', 'AUTRES (OBSERVATION)'
     ]]
 
+    # Initialisation formsets vides (mode GET par défaut)
+    fs_ext_mat = FicheExtrusionMatiereFormSet(prefix='matieres_extrusion')
+    fs_ext_arr = FicheExtrusionArretFormSet(prefix='arrets_extrusion')
+    fs_flx_ent = FicheFlexoBobineEntreeFormSet(prefix='bobines_entrees')
+    fs_flx_imp = FicheFlexoBobineImprimeeFormSet(prefix='bobines_imprimees')
+    fs_flx_enc = FicheFlexoEncreGroupeFormSet(
+        prefix='encres_groupes',
+        initial=[{'groupe_numero': i} for i in range(1, 9)]
+    )
+    fs_cpx_dr1 = FicheComplexageDerouleur1FormSet(prefix='derouleur1_items')
+    fs_cpx_dr2 = FicheComplexageDerouleur2FormSet(prefix='derouleur2_items')
+    fs_cpx_enr = FicheComplexageEnrouleurFormSet(prefix='enrouleur_items')
+    fs_fc = FicheFondCarreEquipeFormSet(
+        prefix='fonds_carres_equipes',
+        initial=[
+            {'equipe_num': 1, 'shift_code': '08_16'},
+            {'equipe_num': 2, 'shift_code': '16_00'},
+            {'equipe_num': 3, 'shift_code': '00_08'},
+        ]
+    )
+    fs_dec_bm = FicheDecoupeBobineMereFormSet(prefix='bobines_meres_decoupe')
+    fs_dec_bf = FicheDecoupeBobineFilleFormSet(prefix='bobines_filles_decoupe')
+    fs_dec_arr = FicheDecoupeArretFormSet(prefix='arrets_decoupe', initial=causes_decoupe_init)
+    form_dec_ctrl = FicheDecoupeControleForm(prefix='controle_decoupe')
+
     if request.method == 'POST':
         form = FicheProductionJournaliereForm(request.POST)
+
+        # ⚠️ TOUJOURS binder les formsets au POST (sans instance pour l'instant)
+        # Ils seront re-bindés avec instance après le save de la fiche
+        fs_ext_mat = FicheExtrusionMatiereFormSet(request.POST, prefix='matieres_extrusion')
+        fs_ext_arr = FicheExtrusionArretFormSet(request.POST, prefix='arrets_extrusion')
+        fs_flx_ent = FicheFlexoBobineEntreeFormSet(request.POST, prefix='bobines_entrees')
+        fs_flx_imp = FicheFlexoBobineImprimeeFormSet(request.POST, prefix='bobines_imprimees')
+        fs_flx_enc = FicheFlexoEncreGroupeFormSet(request.POST, prefix='encres_groupes')
+        fs_cpx_dr1 = FicheComplexageDerouleur1FormSet(request.POST, prefix='derouleur1_items')
+        fs_cpx_dr2 = FicheComplexageDerouleur2FormSet(request.POST, prefix='derouleur2_items')
+        fs_cpx_enr = FicheComplexageEnrouleurFormSet(request.POST, prefix='enrouleur_items')
+        fs_fc = FicheFondCarreEquipeFormSet(request.POST, prefix='fonds_carres_equipes')
+        fs_dec_bm = FicheDecoupeBobineMereFormSet(request.POST, prefix='bobines_meres_decoupe')
+        fs_dec_bf = FicheDecoupeBobineFilleFormSet(request.POST, prefix='bobines_filles_decoupe')
+        fs_dec_arr = FicheDecoupeArretFormSet(request.POST, prefix='arrets_decoupe')
+        form_dec_ctrl = FicheDecoupeControleForm(request.POST, prefix='controle_decoupe')
+
         if form.is_valid():
             fiche = form.save(commit=False)
             fiche.cree_par = request.user
             # Si numero_doc rempli mais pas numero_lot → copier pour la traçabilité
             if fiche.numero_doc and not fiche.numero_lot:
                 fiche.numero_lot = fiche.numero_doc
+            # On sauve d'abord la fiche pour avoir un PK (nécessaire pour les FK des formsets)
             fiche.save()
 
             type_f = fiche.type_fiche
             formsets_ok = True
             erreurs_fs = []
+            formsets_to_save = []
 
-            # --- Enregistrement dynamique des FormSets (préfixes = related_name) ---
+            # --- Validation et préparation des FormSets par type ---
             if type_f == 'EXTRUSION':
                 fs_mat = FicheExtrusionMatiereFormSet(
                     request.POST, instance=fiche, prefix='matieres_extrusion'
@@ -364,16 +418,17 @@ def prod_saisie(request):
                 fs_arr = FicheExtrusionArretFormSet(
                     request.POST, instance=fiche, prefix='arrets_extrusion'
                 )
+                fs_ext_mat, fs_ext_arr = fs_mat, fs_arr
                 if fs_mat.is_valid():
-                    fs_mat.save()
+                    formsets_to_save.append(fs_mat)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Matières Extrusion')
+                    erreurs_fs.append(f'Matières Extrusion: {fs_mat.errors}')
                 if fs_arr.is_valid():
-                    fs_arr.save()
+                    formsets_to_save.append(fs_arr)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Arrêts Extrusion')
+                    erreurs_fs.append(f'Arrêts Extrusion: {fs_arr.errors}')
 
             elif type_f in ['FLEXO', 'HELIO']:
                 fs_ent = FicheFlexoBobineEntreeFormSet(
@@ -385,21 +440,22 @@ def prod_saisie(request):
                 fs_enc = FicheFlexoEncreGroupeFormSet(
                     request.POST, instance=fiche, prefix='encres_groupes'
                 )
+                fs_flx_ent, fs_flx_imp, fs_flx_enc = fs_ent, fs_imp, fs_enc
                 if fs_ent.is_valid():
-                    fs_ent.save()
+                    formsets_to_save.append(fs_ent)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Bobines Entrées')
+                    erreurs_fs.append(f'Bobines Entrées: {fs_ent.errors}')
                 if fs_imp.is_valid():
-                    fs_imp.save()
+                    formsets_to_save.append(fs_imp)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Bobines Imprimées')
+                    erreurs_fs.append(f'Bobines Imprimées: {fs_imp.errors}')
                 if fs_enc.is_valid():
-                    fs_enc.save()
+                    formsets_to_save.append(fs_enc)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Groupes Encres')
+                    erreurs_fs.append(f'Groupes Encres: {fs_enc.errors}')
 
             elif type_f == 'COMPLEXAGE':
                 fs_dr1 = FicheComplexageDerouleur1FormSet(
@@ -411,31 +467,33 @@ def prod_saisie(request):
                 fs_enr = FicheComplexageEnrouleurFormSet(
                     request.POST, instance=fiche, prefix='enrouleur_items'
                 )
+                fs_cpx_dr1, fs_cpx_dr2, fs_cpx_enr = fs_dr1, fs_dr2, fs_enr
                 if fs_dr1.is_valid():
-                    fs_dr1.save()
+                    formsets_to_save.append(fs_dr1)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Dérouleur 1')
+                    erreurs_fs.append(f'Dérouleur 1: {fs_dr1.errors}')
                 if fs_dr2.is_valid():
-                    fs_dr2.save()
+                    formsets_to_save.append(fs_dr2)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Dérouleur 2')
+                    erreurs_fs.append(f'Dérouleur 2: {fs_dr2.errors}')
                 if fs_enr.is_valid():
-                    fs_enr.save()
+                    formsets_to_save.append(fs_enr)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Enrouleur')
+                    erreurs_fs.append(f'Enrouleur: {fs_enr.errors}')
 
             elif type_f == 'FONDS_CARRES':
-                fs_fc = FicheFondCarreEquipeFormSet(
+                fs = FicheFondCarreEquipeFormSet(
                     request.POST, instance=fiche, prefix='fonds_carres_equipes'
                 )
-                if fs_fc.is_valid():
-                    fs_fc.save()
+                fs_fc = fs
+                if fs.is_valid():
+                    formsets_to_save.append(fs)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Équipes Fonds Carrés')
+                    erreurs_fs.append(f'Équipes Fonds Carrés: {fs.errors}')
 
             elif type_f in ['DECOUPE', 'DECOUPE2']:
                 fs_bm = FicheDecoupeBobineMereFormSet(
@@ -447,55 +505,79 @@ def prod_saisie(request):
                 fs_arr = FicheDecoupeArretFormSet(
                     request.POST, instance=fiche, prefix='arrets_decoupe'
                 )
-                form_ctrl = FicheDecoupeControleForm(
-                    request.POST, prefix='controle_decoupe'
-                )
+                fs_dec_bm, fs_dec_bf, fs_dec_arr = fs_bm, fs_bf, fs_arr
 
                 if fs_bm.is_valid():
-                    fs_bm.save()
+                    formsets_to_save.append(fs_bm)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Bobines Mères')
+                    erreurs_fs.append(f'Bobines Mères: {fs_bm.errors}')
                 if fs_bf.is_valid():
-                    fs_bf.save()
+                    formsets_to_save.append(fs_bf)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Bobines Filles')
+                    erreurs_fs.append(f'Bobines Filles: {fs_bf.errors}')
                 if fs_arr.is_valid():
-                    fs_arr.save()
+                    formsets_to_save.append(fs_arr)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Arrêts Découpe')
-                if form_ctrl.is_valid():
-                    ctrl = form_ctrl.save(commit=False)
+                    erreurs_fs.append(f'Arrêts Découpe: {fs_arr.errors}')
+
+                # Contrôle qualité optionnel
+                if form_dec_ctrl.is_valid():
+                    ctrl = form_dec_ctrl.save(commit=False)
                     ctrl.fiche = fiche
                     ctrl.save()
 
-            # Consolider les totaux (poids, rebuts, métrage) sur la fiche
-            _consolider_fiche(fiche)
-
+            # --- Décision finale : tout OK ou rollback ---
             if formsets_ok:
+                # Sauvegarder tous les formsets validés
+                for fs in formsets_to_save:
+                    fs.save()
+
+                # Consolider les totaux (poids, rebuts, métrage) sur la fiche
+                _consolider_fiche(fiche)
+
                 messages.success(
                     request,
                     f"✅ Fiche {fiche.get_type_fiche_display()} enregistrée "
                     f"(Prod: {fiche.total_poids_produit_kg or 0:.1f} kg — "
                     f"Rebuts: {fiche.total_dechets_kg or 0:.1f} kg) !"
                 )
+
+                if fiche.numero_lot or fiche.of_lie:
+                    lot = fiche.numero_lot or (fiche.of_lie.numero_lot if fiche.of_lie else None)
+                    if lot:
+                        return redirect('prod_tracabilite_lot', numero_lot=lot)
+
+                return redirect('prod_dashboard')
             else:
-                messages.warning(
+                # ⚠️ ROLLBACK : on supprime la fiche orpheline
+                fiche.delete()
+
+                # Log console pour debug
+                print("=" * 70)
+                print(f"[SAISIE] ❌ ERREURS FORMSETS pour type={type_f}")
+                for err in erreurs_fs:
+                    print(f"  → {err}")
+                print("=" * 70)
+
+                messages.error(
                     request,
-                    f"⚠️ Fiche enregistrée mais erreurs dans : {', '.join(erreurs_fs)}. "
-                    f"Vérifiez les sous-tableaux."
+                    f"❌ Erreurs dans les sous-tableaux : "
+                    f"{' | '.join(str(e)[:100] for e in erreurs_fs)}. "
+                    f"La fiche n'a PAS été enregistrée. Corrigez et resoumettez."
                 )
-
-            if fiche.numero_lot or fiche.of_lie:
-                lot = fiche.numero_lot or (fiche.of_lie.numero_lot if fiche.of_lie else None)
-                if lot:
-                    return redirect('prod_tracabilite_lot', numero_lot=lot)
-
-            return redirect('prod_dashboard')
+                # NB: form et formsets restent bound → l'utilisateur revoit sa saisie
         else:
-            messages.error(request, "❌ Erreur dans la saisie principale de la fiche. Vérifiez les champs.")
+            print("=" * 70)
+            print("[SAISIE] ❌ ERREURS FORMULAIRE PRINCIPAL:")
+            print(form.errors.as_json())
+            print("=" * 70)
+            messages.error(
+                request,
+                f"❌ Erreur dans la saisie principale : {form.errors.as_text()[:300]}"
+            )
     else:
         form = FicheProductionJournaliereForm(initial={'type_fiche': 'FLEXO'})
 
@@ -509,29 +591,19 @@ def prod_saisie(request):
         'recent_fiches': recent_fiches,
 
         # ⚠️ prefix = related_name (doit matcher le JS addFormsetRow)
-        'fs_ext_mat': FicheExtrusionMatiereFormSet(prefix='matieres_extrusion'),
-        'fs_ext_arr': FicheExtrusionArretFormSet(prefix='arrets_extrusion'),
-        'fs_flx_ent': FicheFlexoBobineEntreeFormSet(prefix='bobines_entrees'),
-        'fs_flx_imp': FicheFlexoBobineImprimeeFormSet(prefix='bobines_imprimees'),
-        'fs_flx_enc': FicheFlexoEncreGroupeFormSet(
-            prefix='encres_groupes',
-            initial=[{'groupe_numero': i} for i in range(1, 9)]
-        ),
-        'fs_cpx_dr1': FicheComplexageDerouleur1FormSet(prefix='derouleur1_items'),
-        'fs_cpx_dr2': FicheComplexageDerouleur2FormSet(prefix='derouleur2_items'),
-        'fs_cpx_enr': FicheComplexageEnrouleurFormSet(prefix='enrouleur_items'),
-        'fs_fc': FicheFondCarreEquipeFormSet(
-            prefix='fonds_carres_equipes',
-            initial=[
-                {'equipe_num': 1, 'shift_code': '08_16'},
-                {'equipe_num': 2, 'shift_code': '16_00'},
-                {'equipe_num': 3, 'shift_code': '00_08'},
-            ]
-        ),
-        'fs_dec_bm': FicheDecoupeBobineMereFormSet(prefix='bobines_meres_decoupe'),
-        'fs_dec_bf': FicheDecoupeBobineFilleFormSet(prefix='bobines_filles_decoupe'),
-        'fs_dec_arr': FicheDecoupeArretFormSet(prefix='arrets_decoupe', initial=causes_decoupe_init),
-        'form_dec_ctrl': FicheDecoupeControleForm(prefix='controle_decoupe'),
+        'fs_ext_mat': fs_ext_mat,
+        'fs_ext_arr': fs_ext_arr,
+        'fs_flx_ent': fs_flx_ent,
+        'fs_flx_imp': fs_flx_imp,
+        'fs_flx_enc': fs_flx_enc,
+        'fs_cpx_dr1': fs_cpx_dr1,
+        'fs_cpx_dr2': fs_cpx_dr2,
+        'fs_cpx_enr': fs_cpx_enr,
+        'fs_fc': fs_fc,
+        'fs_dec_bm': fs_dec_bm,
+        'fs_dec_bf': fs_dec_bf,
+        'fs_dec_arr': fs_dec_arr,
+        'form_dec_ctrl': form_dec_ctrl,
     }
     return render(request, 'production_special/saisie.html', context)
 
@@ -557,7 +629,13 @@ def prod_delete_fiche(request, id):
 
 @login_required
 def prod_edit_fiche(request, id):
-    """Édition d'une FicheProductionJournaliere existante + ses sous-tableaux"""
+    """
+    Édition d'une FicheProductionJournaliere existante + ses sous-tableaux.
+    
+    ✅ CORRECTIONS APPLIQUÉES :
+    - Ne redirige plus si les formsets échouent
+    - Les formsets restent bindés au POST en cas d'erreur
+    """
     fiche = get_object_or_404(FicheProductionJournaliere, id=id)
     type_f = fiche.type_fiche
 
@@ -567,6 +645,21 @@ def prod_edit_fiche(request, id):
         'MANQUE MATIERE PREMIERE', 'JONCTION NON CONFORME', 'PROBLEMES REGLAGE',
         'PROBLEMES MANDRIN', 'PANNE MAINTENANCE', 'COUPURE ELECTRIQUE', 'AUTRES (OBSERVATION)'
     ]]
+
+    # Initialisation par défaut (mode GET)
+    fs_ext_mat = FicheExtrusionMatiereFormSet(instance=fiche, prefix='matieres_extrusion')
+    fs_ext_arr = FicheExtrusionArretFormSet(instance=fiche, prefix='arrets_extrusion')
+    fs_flx_ent = FicheFlexoBobineEntreeFormSet(instance=fiche, prefix='bobines_entrees')
+    fs_flx_imp = FicheFlexoBobineImprimeeFormSet(instance=fiche, prefix='bobines_imprimees')
+    fs_flx_enc = FicheFlexoEncreGroupeFormSet(instance=fiche, prefix='encres_groupes')
+    fs_cpx_dr1 = FicheComplexageDerouleur1FormSet(instance=fiche, prefix='derouleur1_items')
+    fs_cpx_dr2 = FicheComplexageDerouleur2FormSet(instance=fiche, prefix='derouleur2_items')
+    fs_cpx_enr = FicheComplexageEnrouleurFormSet(instance=fiche, prefix='enrouleur_items')
+    fs_fc = FicheFondCarreEquipeFormSet(instance=fiche, prefix='fonds_carres_equipes')
+    fs_dec_bm = FicheDecoupeBobineMereFormSet(instance=fiche, prefix='bobines_meres_decoupe')
+    fs_dec_bf = FicheDecoupeBobineFilleFormSet(instance=fiche, prefix='bobines_filles_decoupe')
+    fs_dec_arr = FicheDecoupeArretFormSet(instance=fiche, prefix='arrets_decoupe')
+    form_dec_ctrl = FicheDecoupeControleForm(prefix='controle_decoupe')
 
     if request.method == 'POST':
         form = FicheProductionJournaliereForm(request.POST, instance=fiche)
@@ -578,110 +671,131 @@ def prod_edit_fiche(request, id):
 
             formsets_ok = True
             erreurs_fs = []
+            formsets_to_save = []
 
             if type_f == 'EXTRUSION':
                 fs_mat = FicheExtrusionMatiereFormSet(request.POST, instance=fiche, prefix='matieres_extrusion')
                 fs_arr = FicheExtrusionArretFormSet(request.POST, instance=fiche, prefix='arrets_extrusion')
+                fs_ext_mat, fs_ext_arr = fs_mat, fs_arr
                 if fs_mat.is_valid():
-                    fs_mat.save()
+                    formsets_to_save.append(fs_mat)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Matières Extrusion')
+                    erreurs_fs.append(f'Matières Extrusion: {fs_mat.errors}')
                 if fs_arr.is_valid():
-                    fs_arr.save()
+                    formsets_to_save.append(fs_arr)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Arrêts Extrusion')
+                    erreurs_fs.append(f'Arrêts Extrusion: {fs_arr.errors}')
 
             elif type_f in ['FLEXO', 'HELIO']:
                 fs_ent = FicheFlexoBobineEntreeFormSet(request.POST, instance=fiche, prefix='bobines_entrees')
                 fs_imp = FicheFlexoBobineImprimeeFormSet(request.POST, instance=fiche, prefix='bobines_imprimees')
                 fs_enc = FicheFlexoEncreGroupeFormSet(request.POST, instance=fiche, prefix='encres_groupes')
+                fs_flx_ent, fs_flx_imp, fs_flx_enc = fs_ent, fs_imp, fs_enc
                 if fs_ent.is_valid():
-                    fs_ent.save()
+                    formsets_to_save.append(fs_ent)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Bobines Entrées')
+                    erreurs_fs.append(f'Bobines Entrées: {fs_ent.errors}')
                 if fs_imp.is_valid():
-                    fs_imp.save()
+                    formsets_to_save.append(fs_imp)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Bobines Imprimées')
+                    erreurs_fs.append(f'Bobines Imprimées: {fs_imp.errors}')
                 if fs_enc.is_valid():
-                    fs_enc.save()
+                    formsets_to_save.append(fs_enc)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Groupes Encres')
+                    erreurs_fs.append(f'Groupes Encres: {fs_enc.errors}')
 
             elif type_f == 'COMPLEXAGE':
                 fs_dr1 = FicheComplexageDerouleur1FormSet(request.POST, instance=fiche, prefix='derouleur1_items')
                 fs_dr2 = FicheComplexageDerouleur2FormSet(request.POST, instance=fiche, prefix='derouleur2_items')
                 fs_enr = FicheComplexageEnrouleurFormSet(request.POST, instance=fiche, prefix='enrouleur_items')
+                fs_cpx_dr1, fs_cpx_dr2, fs_cpx_enr = fs_dr1, fs_dr2, fs_enr
                 if fs_dr1.is_valid():
-                    fs_dr1.save()
+                    formsets_to_save.append(fs_dr1)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Dérouleur 1')
+                    erreurs_fs.append(f'Dérouleur 1: {fs_dr1.errors}')
                 if fs_dr2.is_valid():
-                    fs_dr2.save()
+                    formsets_to_save.append(fs_dr2)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Dérouleur 2')
+                    erreurs_fs.append(f'Dérouleur 2: {fs_dr2.errors}')
                 if fs_enr.is_valid():
-                    fs_enr.save()
+                    formsets_to_save.append(fs_enr)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Enrouleur')
+                    erreurs_fs.append(f'Enrouleur: {fs_enr.errors}')
 
             elif type_f == 'FONDS_CARRES':
-                fs_fc = FicheFondCarreEquipeFormSet(request.POST, instance=fiche, prefix='fonds_carres_equipes')
-                if fs_fc.is_valid():
-                    fs_fc.save()
+                fs = FicheFondCarreEquipeFormSet(request.POST, instance=fiche, prefix='fonds_carres_equipes')
+                fs_fc = fs
+                if fs.is_valid():
+                    formsets_to_save.append(fs)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Équipes Fonds Carrés')
+                    erreurs_fs.append(f'Équipes Fonds Carrés: {fs.errors}')
 
             elif type_f in ['DECOUPE', 'DECOUPE2']:
                 fs_bm = FicheDecoupeBobineMereFormSet(request.POST, instance=fiche, prefix='bobines_meres_decoupe')
                 fs_bf = FicheDecoupeBobineFilleFormSet(request.POST, instance=fiche, prefix='bobines_filles_decoupe')
                 fs_arr = FicheDecoupeArretFormSet(request.POST, instance=fiche, prefix='arrets_decoupe')
+                fs_dec_bm, fs_dec_bf, fs_dec_arr = fs_bm, fs_bf, fs_arr
                 if fs_bm.is_valid():
-                    fs_bm.save()
+                    formsets_to_save.append(fs_bm)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Bobines Mères')
+                    erreurs_fs.append(f'Bobines Mères: {fs_bm.errors}')
                 if fs_bf.is_valid():
-                    fs_bf.save()
+                    formsets_to_save.append(fs_bf)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Bobines Filles')
+                    erreurs_fs.append(f'Bobines Filles: {fs_bf.errors}')
                 if fs_arr.is_valid():
-                    fs_arr.save()
+                    formsets_to_save.append(fs_arr)
                 else:
                     formsets_ok = False
-                    erreurs_fs.append('Arrêts Découpe')
-
-            _consolider_fiche(fiche)
+                    erreurs_fs.append(f'Arrêts Découpe: {fs_arr.errors}')
 
             if formsets_ok:
+                for fs in formsets_to_save:
+                    fs.save()
+
+                _consolider_fiche(fiche)
+
                 messages.success(
                     request,
                     f"✅ Fiche {fiche.numero_fiche} mise à jour "
                     f"(Prod: {fiche.total_poids_produit_kg or 0:.1f} kg — "
                     f"Rebuts: {fiche.total_dechets_kg or 0:.1f} kg) !"
                 )
+                return redirect('prod_base')
             else:
-                messages.warning(
+                # Log console pour debug (pas de rollback en édition car données déjà existantes)
+                print("=" * 70)
+                print(f"[EDIT] ❌ ERREURS FORMSETS pour type={type_f}")
+                for err in erreurs_fs:
+                    print(f"  → {err}")
+                print("=" * 70)
+
+                messages.error(
                     request,
-                    f"⚠️ Fiche mise à jour mais erreurs dans : {', '.join(erreurs_fs)}."
+                    f"❌ Erreurs dans les sous-tableaux : "
+                    f"{' | '.join(str(e)[:100] for e in erreurs_fs)}. "
+                    f"Les changements des sous-tableaux n'ont PAS été enregistrés."
                 )
-            return redirect('prod_base')
         else:
+            print("=" * 70)
+            print("[EDIT] ❌ ERREURS FORMULAIRE PRINCIPAL:")
+            print(form.errors.as_json())
+            print("=" * 70)
             messages.error(request, "❌ Erreur dans le formulaire principal. Vérifiez les champs.")
     else:
         form = FicheProductionJournaliereForm(instance=fiche)
 
-    # Formsets pré-remplis avec les données existantes
     context = {
         'form': form,
         'titre': f'Modifier Fiche — {fiche.numero_fiche or fiche.id}',
@@ -691,19 +805,19 @@ def prod_edit_fiche(request, id):
             '-date_fabrication', '-heure_debut'
         )[:10],
 
-        'fs_ext_mat': FicheExtrusionMatiereFormSet(instance=fiche, prefix='matieres_extrusion'),
-        'fs_ext_arr': FicheExtrusionArretFormSet(instance=fiche, prefix='arrets_extrusion'),
-        'fs_flx_ent': FicheFlexoBobineEntreeFormSet(instance=fiche, prefix='bobines_entrees'),
-        'fs_flx_imp': FicheFlexoBobineImprimeeFormSet(instance=fiche, prefix='bobines_imprimees'),
-        'fs_flx_enc': FicheFlexoEncreGroupeFormSet(instance=fiche, prefix='encres_groupes'),
-        'fs_cpx_dr1': FicheComplexageDerouleur1FormSet(instance=fiche, prefix='derouleur1_items'),
-        'fs_cpx_dr2': FicheComplexageDerouleur2FormSet(instance=fiche, prefix='derouleur2_items'),
-        'fs_cpx_enr': FicheComplexageEnrouleurFormSet(instance=fiche, prefix='enrouleur_items'),
-        'fs_fc': FicheFondCarreEquipeFormSet(instance=fiche, prefix='fonds_carres_equipes'),
-        'fs_dec_bm': FicheDecoupeBobineMereFormSet(instance=fiche, prefix='bobines_meres_decoupe'),
-        'fs_dec_bf': FicheDecoupeBobineFilleFormSet(instance=fiche, prefix='bobines_filles_decoupe'),
-        'fs_dec_arr': FicheDecoupeArretFormSet(instance=fiche, prefix='arrets_decoupe'),
-        'form_dec_ctrl': FicheDecoupeControleForm(prefix='controle_decoupe'),
+        'fs_ext_mat': fs_ext_mat,
+        'fs_ext_arr': fs_ext_arr,
+        'fs_flx_ent': fs_flx_ent,
+        'fs_flx_imp': fs_flx_imp,
+        'fs_flx_enc': fs_flx_enc,
+        'fs_cpx_dr1': fs_cpx_dr1,
+        'fs_cpx_dr2': fs_cpx_dr2,
+        'fs_cpx_enr': fs_cpx_enr,
+        'fs_fc': fs_fc,
+        'fs_dec_bm': fs_dec_bm,
+        'fs_dec_bf': fs_dec_bf,
+        'fs_dec_arr': fs_dec_arr,
+        'form_dec_ctrl': form_dec_ctrl,
     }
     return render(request, 'production_special/saisie.html', context)
 
@@ -1274,3 +1388,111 @@ def prod_calculer_temps_delete(request, id):
         calcul.delete()
         messages.success(request, "🗑️ Calcul prévisionnel supprimé.")
     return redirect('prod_synthese_temps')
+
+
+# ===========================================================================
+# --- NOUVEAU : EXPORTS EXCEL POUR LES DASHBOARDS ---
+# ===========================================================================
+
+@login_required
+def export_qualite_excel(request):
+    """
+    Exporte les données filtrées de l'onglet 'Détail Qualité & Déchets' en format Excel (.xlsx)
+    """
+    entries = _get_all_production_items(request)
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Export_Qualite_Dechets.xlsx"'
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Détail Qualité"
+    
+    # En-têtes Excel
+    headers = [
+        "Date", "Lot / N°", "Produit", "Client", "Machine", "Type Processus", "Equipe", 
+        "Prod Effectuée (KG)", "Déchets Démarrage (KG)", "Déchets Lisière (KG)", 
+        "Déchets Jonction (KG)", "Déchets Transport (KG)", "Total Déchets (KG)", "Taux Rebuts (%)"
+    ]
+    ws.append(headers)
+    
+    # Remplissage des données
+    for e in entries:
+        client_name = ""
+        if e.client:
+            client_name = e.client.name if hasattr(e.client, 'name') else str(e.client)
+            
+        ws.append([
+            e.date.strftime("%d/%m/%Y") if e.date else "",
+            e.lot or "",
+            e.produit or "",
+            client_name,
+            e.machine.name if e.machine else "—",
+            e.get_type_process_display() if hasattr(e, 'get_type_process_display') else getattr(e, 'type_process', ''),
+            e.equipe or "—",
+            round(e.prod_kg, 2) if e.prod_kg else 0,
+            round(e.dechets_demarrage, 2) if getattr(e, 'dechets_demarrage', None) else 0,
+            round(e.dechets_lisiere, 2) if getattr(e, 'dechets_lisiere', None) else 0,
+            round(e.dechets_jonction, 2) if getattr(e, 'dechets_jonction', None) else 0,
+            round(e.dechets_transport, 2) if getattr(e, 'dechets_transport', None) else 0,
+            round(e.total_dechets_kg, 2) if getattr(e, 'total_dechets_kg', None) else 0,
+            round(e.taux_dechets, 2) if hasattr(e, 'taux_dechets') else 0
+        ])
+        
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_synthese_excel(request):
+    """
+    Exporte les données filtrées de l'onglet 'Synthèse Temps & Performance' en format Excel (.xlsx)
+    """
+    entries = _get_all_production_items(request)
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Export_Synthese_Temps.xlsx"'
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Synthèse des Temps"
+    
+    # En-têtes Excel
+    headers = [
+        "Date", "Lot / N°", "Produit", "Client", "Machine", "Equipe", 
+        "Heure Début", "Heure Fin", "Temps Ouverture (min)", 
+        "Temps Calage (min)", "Temps Roulage (min)", "Vitesse Mach. (tr/min)",
+        "Qté Lancée (KG)", "Prod Finie (KG)", "Décalage IN/OUT (KG)"
+    ]
+    ws.append(headers)
+    
+    # Remplissage des données
+    for e in entries:
+        client_name = ""
+        if e.client:
+            client_name = e.client.name if hasattr(e.client, 'name') else str(e.client)
+            
+        dur_min = e.temps_ouverture_minutes or 0
+        cal_min = getattr(e, 'temps_calage_min', 30) or 30
+        rou_min = max(0, dur_min - cal_min)
+            
+        ws.append([
+            e.date.strftime("%d/%m/%Y") if e.date else "",
+            e.lot or "",
+            e.produit or "",
+            client_name,
+            e.machine.name if e.machine else "—",
+            e.equipe or "—",
+            e.heure_debut.strftime("%H:%M") if e.heure_debut else "",
+            e.heure_fin.strftime("%H:%M") if e.heure_fin else "",
+            dur_min,
+            cal_min,
+            rou_min,
+            getattr(e, 'vitesse_machine_trmin', 0),
+            round(e.quantite_lancee, 2) if getattr(e, 'quantite_lancee', None) else 0,
+            round(e.prod_kg, 2) if getattr(e, 'prod_kg', None) else 0,
+            round(e.decalage, 2) if hasattr(e, 'decalage') else 0
+        ])
+        
+    wb.save(response)
+    return response

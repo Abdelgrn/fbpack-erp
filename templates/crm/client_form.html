@@ -5,8 +5,10 @@
         <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-3">
             <span>🤝</span> {{ titre }}
         </h2>
-        <form method="post" class="django-form-container">
+        <form method="post" class="django-form-container space-y-8">
             {% csrf_token %}
+            
+            <!-- SECTION CLIENT -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
                 <!-- COLONNE 1 : IDENTITÉ -->
@@ -64,7 +66,7 @@
                     {{ form.sector }}
                 </div>
 
-                <!-- NOUVEAU : CONDITIONS COMMERCIALES -->
+                <!-- CONDITIONS COMMERCIALES -->
                 <div class="md:col-span-2 mt-4">
                     <h3 class="text-emerald-400 font-bold text-xs uppercase tracking-widest bg-slate-900/50 py-2 px-3 rounded-lg border-l-4 border-emerald-500">Conditions Commerciales</h3>
                 </div>
@@ -87,7 +89,7 @@
 
                 <!-- COORDONNÉES -->
                 <div class="md:col-span-2 mt-4">
-                    <h3 class="text-neon font-bold text-xs uppercase tracking-widest bg-slate-900/50 py-2 px-3 rounded-lg border-l-4 border-neon">Coordonnées</h3>
+                    <h3 class="text-neon font-bold text-xs uppercase tracking-widest bg-slate-900/50 py-2 px-3 rounded-lg border-l-4 border-neon">Coordonnées Client</h3>
                 </div>
                 <div>
                     <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ form.city.label }}</label>
@@ -115,6 +117,68 @@
                 </div>
             </div>
 
+            <!-- SECTION CONTACTS INTERLOCUTEURS (Formset) -->
+            <div class="border-t border-slate-700 pt-6">
+                <div class="flex justify-between items-center mb-4 bg-slate-900/50 py-2.5 px-3 rounded-lg border-l-4 border-cyan-500">
+                    <h3 class="text-cyan-400 font-bold text-xs uppercase tracking-widest">👤 Interlocuteurs / Contacts direct</h3>
+                    <button type="button" id="add-contact-row" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs py-1 px-3 rounded-lg transition uppercase tracking-wider">
+                        + Ajouter un interlocuteur
+                    </button>
+                </div>
+                
+                {{ formset.management_form }}
+                <div id="contacts-formset-container" class="space-y-4">
+                    {% for contact_form in formset %}
+                    <div class="contact-form-row bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 space-y-4 relative">
+                        {% for hidden in contact_form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-gray-400 text-[10px] font-bold mb-1 uppercase tracking-wider">Nom & Prénom *</label>
+                                {{ contact_form.name }}
+                                {% if contact_form.name.errors %}<p class="text-red-400 text-[9px] mt-1">{{ contact_form.name.errors }}</p>{% endif %}
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-[10px] font-bold mb-1 uppercase tracking-wider">Fonction / Poste</label>
+                                {{ contact_form.role }}
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-[10px] font-bold mb-1 uppercase tracking-wider">Fonction (si autre)</label>
+                                {{ contact_form.role_custom }}
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-[10px] font-bold mb-1 uppercase tracking-wider">Téléphone Direct</label>
+                                {{ contact_form.phone }}
+                            </div>
+                            <div>
+                                <label class="block text-gray-400 text-[10px] font-bold mb-1 uppercase tracking-wider">Email Direct</label>
+                                {{ contact_form.email }}
+                            </div>
+                            <div class="flex items-center gap-2 pt-5">
+                                {{ contact_form.is_primary }}
+                                <label class="text-gray-400 text-[10px] font-bold uppercase tracking-wider cursor-pointer" for="{{ contact_form.is_primary.id_for_label }}">Contact Principal</label>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-400 text-[10px] font-bold mb-1 uppercase tracking-wider">Notes / Observations</label>
+                                {{ contact_form.notes }}
+                            </div>
+                            <div class="flex items-center justify-end md:col-span-1 pt-4">
+                                {% if formset.can_delete %}
+                                <div class="flex items-center gap-2 bg-red-500/10 border border-red-500/30 py-1.5 px-3 rounded-lg text-red-400 text-xs">
+                                    {{ contact_form.DELETE }}
+                                    <span class="font-bold uppercase text-[10px] tracking-wider">Supprimer l'interlocuteur</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- ACTIONS -->
             <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
                 {% if client %}
                 <a href="{% url 'client_detail' client.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
@@ -128,4 +192,61 @@
         </form>
     </div>
 </div>
+
+<!-- SCRIPT DYNAMIQUE DE GESTION DU FORMSET -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const container = document.getElementById("contacts-formset-container");
+        const addButton = document.getElementById("add-contact-row");
+        const totalFormsInput = document.getElementById("id_contacts-TOTAL_FORMS");
+
+        addButton.addEventListener("click", function() {
+            const rows = container.getElementsByClassName("contact-form-row");
+            const formCount = rows.length;
+
+            // Cloner la dernière ligne du formset
+            if (formCount > 0) {
+                const targetRow = rows[formCount - 1];
+                const newRow = targetRow.cloneNode(true);
+
+                // Réinitialiser les champs et mettre à jour les identifiants/index (ex: contacts-0-name -> contacts-1-name)
+                const inputs = newRow.querySelectorAll("input, select, textarea");
+                inputs.forEach(input => {
+                    if (input.type !== "hidden") {
+                        if (input.type === "checkbox") {
+                            input.checked = false;
+                        } else {
+                            input.value = "";
+                        }
+                    }
+                    
+                    // Mettre à jour les attributs name et id
+                    if (input.name) {
+                        input.name = input.name.replace(`-${formCount - 1}-`, `-${formCount}-`);
+                    }
+                    if (input.id) {
+                        input.id = input.id.replace(`-${formCount - 1}-`, `-${formCount}-`);
+                    }
+                });
+
+                // Mettre à jour les labels liés
+                const labels = newRow.querySelectorAll("label");
+                labels.forEach(label => {
+                    if (label.getAttribute("for")) {
+                        const newFor = label.getAttribute("for").replace(`-${formCount - 1}-`, `-${formCount}-`);
+                        label.setAttribute("for", newFor);
+                    }
+                });
+
+                // Supprimer les erreurs Django éventuellement clonées
+                const errors = newRow.querySelectorAll(".text-red-400");
+                errors.forEach(err => err.remove());
+
+                // Mettre à jour le compteur d'enregistrement Django
+                container.appendChild(newRow);
+                totalFormsInput.value = formCount + 1;
+            }
+        });
+    });
+</script>
 {% endblock %}

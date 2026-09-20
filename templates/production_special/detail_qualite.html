@@ -21,6 +21,10 @@
         </p>
     </div>
     <div class="flex items-center gap-3">
+        <!-- NOUVEAU: BOUTON EXPORT EXCEL -->
+        <a href="{% url 'export_qualite_excel' %}?{{ request.GET.urlencode }}" class="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+            <span>📊</span> Exporter Excel
+        </a>
         <a href="{% url 'prod_saisie' %}" class="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-red-500/20 flex items-center gap-2">
             <span>➕</span> Nouvelle Saisie
         </a>

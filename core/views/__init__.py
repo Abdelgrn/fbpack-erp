@@ -85,4 +85,3 @@ from .maintenance import (
     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
 )
-

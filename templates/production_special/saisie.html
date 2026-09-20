@@ -120,7 +120,8 @@
                 </div>
             </div>
             
-            <form method="POST" class="django-form-container" id="prodForm">
+            {# ⚠️ novalidate = laisse Django gérer la validation (pas le navigateur) #}
+            <form method="POST" class="django-form-container" id="prodForm" novalidate>
                 {% csrf_token %}
 
                 {% if form.errors %}
@@ -129,6 +130,78 @@
                     {{ form.errors }}
                 </div>
                 {% endif %}
+
+                {# ============ AFFICHAGE DES ERREURS FORMSETS (DEBUG + PROD) ============ #}
+                {% if fs_dec_bm.errors or fs_dec_bm.non_form_errors %}
+                    {% for err in fs_dec_bm.non_form_errors %}
+                        <div class="p-3 mb-2 rounded-lg bg-orange-950/50 border border-orange-500/40 text-orange-300 text-xs">
+                            <strong>Bobines Mères :</strong> {{ err }}
+                        </div>
+                    {% endfor %}
+                    {% for form_err in fs_dec_bm.errors %}
+                        {% if form_err %}
+                            <div class="p-3 mb-2 rounded-lg bg-orange-950/50 border border-orange-500/40 text-orange-300 text-xs">
+                                <strong>Bobines Mères (ligne) :</strong> {{ form_err }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+
+                {% if fs_dec_bf.errors or fs_dec_bf.non_form_errors %}
+                    {% for err in fs_dec_bf.non_form_errors %}
+                        <div class="p-3 mb-2 rounded-lg bg-orange-950/50 border border-orange-500/40 text-orange-300 text-xs">
+                            <strong>Bobines Filles :</strong> {{ err }}
+                        </div>
+                    {% endfor %}
+                    {% for form_err in fs_dec_bf.errors %}
+                        {% if form_err %}
+                            <div class="p-3 mb-2 rounded-lg bg-orange-950/50 border border-orange-500/40 text-orange-300 text-xs">
+                                <strong>Bobines Filles (ligne) :</strong> {{ form_err }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+
+                {% if fs_dec_arr.errors %}
+                    {% for form_err in fs_dec_arr.errors %}
+                        {% if form_err %}
+                            <div class="p-3 mb-2 rounded-lg bg-orange-950/50 border border-orange-500/40 text-orange-300 text-xs">
+                                <strong>Arrêts Découpe :</strong> {{ form_err }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+
+                {% if fs_flx_ent.errors %}
+                    {% for form_err in fs_flx_ent.errors %}
+                        {% if form_err %}
+                            <div class="p-3 mb-2 rounded-lg bg-orange-950/50 border border-orange-500/40 text-orange-300 text-xs">
+                                <strong>Bobines Entrées Flexo :</strong> {{ form_err }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+
+                {% if fs_flx_imp.errors %}
+                    {% for form_err in fs_flx_imp.errors %}
+                        {% if form_err %}
+                            <div class="p-3 mb-2 rounded-lg bg-orange-950/50 border border-orange-500/40 text-orange-300 text-xs">
+                                <strong>Bobines Imprimées Flexo :</strong> {{ form_err }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+
+                {% if fs_flx_enc.errors %}
+                    {% for form_err in fs_flx_enc.errors %}
+                        {% if form_err %}
+                            <div class="p-3 mb-2 rounded-lg bg-orange-950/50 border border-orange-500/40 text-orange-300 text-xs">
+                                <strong>Encres Flexo :</strong> {{ form_err }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+                {# ============ FIN AFFICHAGE ERREURS FORMSETS ============ #}
                 
                 <div class="hidden">{{ form.type_fiche }}</div>
                 <div class="hidden">{{ form.machine }}</div>
@@ -651,8 +724,14 @@
 <!-- SCRIPT GESTION DYNAMIQUE -->
 <script>
 function changerTypeFiche(typeCode) {
-    const typeFicheField = document.getElementById('select_type_fiche');
-    if(typeFicheField) typeFicheField.value = typeCode;
+    // ⚠️ CORRECTION : Django génère automatiquement id="id_type_fiche" (pas "select_type_fiche")
+    const typeFicheField = document.getElementById('id_type_fiche');
+    if(typeFicheField) {
+        typeFicheField.value = typeCode;
+        console.log('✅ Type de fiche mis à jour :', typeCode);
+    } else {
+        console.warn('⚠️ Champ id_type_fiche introuvable !');
+    }
     
     document.querySelectorAll('.fiche-tab-btn').forEach(b => b.classList.remove('active'));
     const activeTab = document.getElementById('tab_' + typeCode);
@@ -720,6 +799,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     changerTypeFiche(typeInit || 'FLEXO');
     attachAutoClearZero();
+
+    // 🔍 Debug : vérifier que le type_fiche est bien envoyé au submit
+    const form = document.getElementById('prodForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const typeField = document.getElementById('id_type_fiche');
+            console.log('📤 Soumission avec type_fiche =', typeField ? typeField.value : 'INTROUVABLE');
+        });
+    }
 });
 </script>
 
