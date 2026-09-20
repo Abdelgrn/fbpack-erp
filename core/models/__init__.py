@@ -1,3 +1,4 @@
+import os
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 from django.db.models import Q
@@ -67,7 +68,7 @@ from .chat import ChatRoom, ChatMessage, UserPresence
 from .permissions import UserModulePermission, user_has_module_access
 
 
-# --- CORRECTION AUTOMATIQUE DES MACHINES DANS LA BASE DE DONNÉES APRES MIGRATE ---
+# --- CORRECTION AUTOMATIQUE DES MACHINES APRES MIGRATE ---
 @receiver(post_migrate)
 def corriger_base_machines_post_migrate(sender, **kwargs):
     if sender.name == 'core':
@@ -87,6 +88,44 @@ def corriger_base_machines_post_migrate(sender, **kwargs):
                 type='DEC2',
                 name='DCM Panther 1'
             )
+        except Exception:
+            pass
+
+
+# --- CRÉATION AUTOMATIQUE SUPERADMIN & PERMISSIONS APRES MIGRATE ---
+@receiver(post_migrate)
+def auto_init_super_admin_et_permissions(sender, **kwargs):
+    if sender.name == 'core':
+        try:
+            from django.contrib.auth.models import User
+
+            # 1. Créer le compte admin par défaut s'il n'existe pas
+            username = os.environ.get('ADMIN_USERNAME', 'admin')
+            password = os.environ.get('ADMIN_PASSWORD', 'admin1234')
+            email = os.environ.get('ADMIN_EMAIL', 'admin@fbpack.com')
+
+            admin_user, created = User.objects.get_or_create(username=username)
+            if created or not admin_user.is_superuser:
+                admin_user.set_password(password)
+                admin_user.email = email
+                admin_user.is_superuser = True
+                admin_user.is_staff = True
+                admin_user.save()
+
+            # 2. Initialiser les permissions de tous les utilisateurs
+            all_fields = [
+                'can_access_dashboard', 'can_access_planning', 'can_access_reporting',
+                'can_access_crm', 'can_access_prepress', 'can_access_planification',
+                'can_access_production', 'can_access_stock', 'can_access_maintenance',
+                'can_access_drh', 'can_access_chat', 'can_access_import', 'can_access_admin'
+            ]
+
+            for u in User.objects.all():
+                p, _ = UserModulePermission.objects.get_or_create(user=u)
+                if u.is_superuser:
+                    for field in all_fields:
+                        setattr(p, field, True)
+                    p.save()
         except Exception:
             pass
 
