@@ -6,6 +6,7 @@ class ChatRoom(models.Model):
         ('GENERAL', 'Général'), ('PRODUCTION', 'Production'),
         ('COMMERCIAL', 'Commercial'), ('TECHNIQUE', 'Technique'),
         ('URGENCE', 'Urgences'),
+        ('DIRECT', 'Message Direct'),
     ]
 
     name = models.CharField("Nom du salon", max_length=100)
@@ -37,6 +38,11 @@ class ChatMessage(models.Model):
     lu_par = models.ManyToManyField(User, related_name='messages_lus', blank=True, verbose_name="Lu par")
     fichier = models.FileField("Fichier joint", upload_to='chat_files/', blank=True, null=True)
     of_lie = models.ForeignKey('core.OrdreFabrication', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="OF lié")
+
+    def get_time_display(self):
+        if self.date_envoi:
+            return self.date_envoi.strftime("%H:%M")
+        return ""
 
     class Meta:
         app_label = 'core'

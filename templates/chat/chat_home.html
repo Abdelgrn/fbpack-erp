@@ -1,46 +1,103 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
+<div class="max-w-6xl mx-auto px-4 py-6">
     <div class="flex justify-between items-center mb-8">
         <div>
             <h1 class="text-3xl font-bold text-white">💬 Chat d'Équipe</h1>
-            <p class="text-gray-400 mt-1">Communication en temps réel</p>
+            <p class="text-gray-400 mt-1">Salons publics et messages privés</p>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {% for room in rooms %}
-        <a href="{% url 'chat_room' room.slug %}" 
-           class="bg-slate-800 rounded-xl border border-slate-700 p-6 hover:border-neon/50 hover:bg-slate-700/50 transition group">
-            <div class="text-4xl mb-3">{{ room.icone }}</div>
-            <h3 class="text-white font-bold text-lg group-hover:text-neon transition">{{ room.name }}</h3>
-            <p class="text-gray-400 text-sm mt-1">{{ room.description|default:"Rejoindre le salon" }}</p>
-            <div class="mt-4 text-xs text-gray-500">
-                {{ room.messages.count }} messages
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Colonne Salons Publics (2/3 de largeur sur grand écran) -->
+        <div class="lg:col-span-2 space-y-6">
+            <h2 class="text-xl font-bold text-white border-b border-slate-700 pb-2">📢 Salons de discussion</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for room in rooms %}
+                <a href="{% url 'chat_room' room.slug %}" 
+                   class="bg-slate-800 rounded-xl border border-slate-700 p-6 hover:border-neon/50 hover:bg-slate-700/50 transition group">
+                    <div class="text-4xl mb-3">{{ room.icone }}</div>
+                    <h3 class="text-white font-bold text-lg group-hover:text-neon transition">{{ room.name }}</h3>
+                    <p class="text-gray-400 text-sm mt-1">{{ room.description|default:"Rejoindre le salon" }}</p>
+                    <div class="mt-4 text-xs text-gray-500">
+                        {{ room.messages.count }} messages
+                    </div>
+                </a>
+                {% endfor %}
             </div>
-        </a>
-        {% endfor %}
-    </div>
 
-    <!-- Utilisateurs en ligne -->
-    <div class="mt-8 bg-slate-800 rounded-xl border border-slate-700 p-6">
-        <h3 class="text-white font-bold mb-4">🟢 Utilisateurs en ligne</h3>
-        <div class="flex flex-wrap gap-3">
-            {% for presence in online_users %}
-            <div class="flex items-center gap-2 bg-slate-700 px-3 py-2 rounded-lg">
-                <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-                <span class="text-gray-300">{{ presence.user.username }}</span>
-                {% if presence.current_room %}
-                <span class="text-xs text-gray-500">dans {{ presence.current_room.name }}</span>
-                {% endif %}
+            <!-- Historique des Chats Privés de l'utilisateur -->
+            {% if private_rooms %}
+            <h2 class="text-xl font-bold text-white border-b border-slate-700 pb-2 pt-6">💬 Vos messages privés récents</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for p_room in private_rooms %}
+                <a href="{% url 'chat_room' p_room.slug %}" 
+                   class="bg-slate-800/80 rounded-xl border border-slate-700 p-4 hover:border-blue-400 hover:bg-slate-700/50 transition flex items-center gap-4">
+                    <div class="text-3xl">👤</div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="text-white font-bold truncate">
+                            {% for membre in p_room.membres.all %}
+                                {% if membre != request.user %}{{ membre.username }}{% endif %}
+                            {% endfor %}
+                        </h4>
+                        <p class="text-xs text-gray-400 truncate">{{ p_room.messages.last.contenu|default:"Commencer la discussion" }}</p>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        {{ p_room.messages.count }} msgs
+                    </div>
+                </a>
+                {% endfor %}
             </div>
-            {% empty %}
-            <p class="text-gray-500">Aucun utilisateur en ligne actuellement</p>
-            {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Colonne Droite : Utilisateurs et statuts -->
+        <div class="space-y-6">
+            <!-- Utilisateurs en ligne -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+                <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    Utilisateurs en ligne
+                </h3>
+                <div class="space-y-3 max-h-60 overflow-y-auto">
+                    {% for presence in online_users %}
+                    <div class="flex items-center justify-between bg-slate-700/50 px-3 py-2 rounded-lg">
+                        <span class="text-gray-300 font-medium">{{ presence.user.username }}</span>
+                        {% if presence.user != request.user %}
+                        <a href="{% url 'chat_private_init' presence.user.id %}" class="text-xs bg-neon/20 hover:bg-neon hover:text-slate-900 text-neon px-2 py-1 rounded transition">
+                            Discuter ✉️
+                        </a>
+                        {% else %}
+                        <span class="text-xs text-gray-500 italic">Vous</span>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-500 text-sm">Aucun utilisateur en ligne actuellement</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Annuaire complet des collaborateurs -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+                <h3 class="text-white font-bold mb-4">👥 Membres de l'équipe</h3>
+                <div class="space-y-3 max-h-96 overflow-y-auto pr-1">
+                    {% for u in tous_utilisateurs %}
+                    <div class="flex items-center justify-between border-b border-slate-700/50 pb-2 last:border-0 last:pb-0">
+                        <div>
+                            <p class="text-gray-200 font-medium text-sm">{{ u.username }}</p>
+                            <p class="text-xs text-gray-500">{% if u.is_staff %}Staff{% else %}Utilisateur{% endif %}</p>
+                        </div>
+                        <a href="{% url 'chat_private_init' u.id %}" class="bg-slate-700 hover:bg-blue-600 hover:text-white text-gray-300 text-xs px-3 py-1.5 rounded-lg transition">
+                            Message
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

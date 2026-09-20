@@ -1,26 +1,58 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="flex h-[calc(100vh-120px)] gap-4">
+<div id="chat-container" 
+     data-room-slug="{{ room.slug }}" 
+     data-user-id="{{ request.user.id }}" 
+     data-username="{{ request.user.username }}"
+     class="flex h-[calc(100vh-120px)] gap-4 px-2">
     
-    <!-- Sidebar des salons -->
-    <div class="w-64 bg-slate-800 rounded-xl border border-slate-700 flex flex-col shrink-0 overflow-hidden">
-        <div class="p-4 border-b border-slate-700 bg-slate-900">
-            <h3 class="text-white font-bold">💬 Salons</h3>
-        </div>
-        <div class="flex-1 overflow-y-auto p-2 space-y-1">
-            {% for r in rooms %}
-            <a href="{% url 'chat_room' r.slug %}" 
-               class="flex items-center gap-2 px-3 py-2 rounded-lg transition {% if r.slug == room.slug %}bg-neon/20 text-neon border border-neon/30{% else %}text-gray-300 hover:bg-slate-700{% endif %}">
-                <span>{{ r.icone }}</span>
-                <span class="truncate">{{ r.name }}</span>
-            </a>
-            {% endfor %}
+    <!-- Sidebar des salons et chats privés -->
+    <div class="w-72 bg-slate-800 rounded-xl border border-slate-700 flex flex-col shrink-0 overflow-hidden">
+        <div class="p-4 border-b border-slate-700 bg-slate-900 flex justify-between items-center">
+            <h3 class="text-white font-bold">💬 Navigation Chat</h3>
+            <a href="{% url 'chat_home' %}" class="text-xs text-neon hover:underline">Accueil</a>
         </div>
         
-        <!-- Utilisateurs en ligne -->
+        <div class="flex-1 overflow-y-auto p-2 space-y-4">
+            <!-- Salons Publics -->
+            <div>
+                <span class="text-xs text-gray-400 font-bold px-3 uppercase tracking-wider block mb-2">📢 Groupes</span>
+                <div class="space-y-1">
+                    {% for r in rooms %}
+                    <a href="{% url 'chat_room' r.slug %}" 
+                       class="flex items-center gap-2 px-3 py-2 rounded-lg transition {% if r.slug == room.slug %}bg-neon/20 text-neon border border-neon/30{% else %}text-gray-300 hover:bg-slate-700{% endif %}">
+                        <span>{{ r.icone }}</span>
+                        <span class="truncate text-sm">{{ r.name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Messages Privés -->
+            <div>
+                <span class="text-xs text-gray-400 font-bold px-3 uppercase tracking-wider block mb-2">👤 Messages Privés</span>
+                <div class="space-y-1">
+                    {% for p_room in private_rooms %}
+                    <a href="{% url 'chat_room' p_room.slug %}" 
+                       class="flex items-center gap-2 px-3 py-2 rounded-lg transition {% if p_room.slug == room.slug %}bg-blue-500/20 text-blue-400 border border-blue-500/30{% else %}text-gray-300 hover:bg-slate-700{% endif %}">
+                        <span>👤</span>
+                        <span class="truncate text-sm">
+                            {% for membre in p_room.membres.all %}
+                                {% if membre != request.user %}{{ membre.username }}{% endif %}
+                            {% endfor %}
+                        </span>
+                    </a>
+                    {% empty %}
+                    <span class="text-xs text-gray-500 px-3 italic">Aucun chat privé actif</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Utilisateurs en ligne dans ce salon -->
         <div class="border-t border-slate-700 p-4 bg-slate-900">
-            <h4 class="text-gray-400 text-xs uppercase mb-2">En ligne ({{ online_users.count }})</h4>
+            <h4 class="text-gray-400 text-xs uppercase mb-2 font-bold">Ici en ligne ({{ online_users.count }})</h4>
             <div class="space-y-1 max-h-32 overflow-y-auto">
                 {% for presence in online_users %}
                 <div class="flex items-center gap-2 text-sm">
@@ -80,50 +112,53 @@
 
         <!-- Zone de saisie -->
         <div class="p-4 border-t border-slate-700 bg-slate-900">
-    <form id="chat-form" class="flex gap-3">
-        {% csrf_token %}
-        <input type="text" id="chat-input" 
-               placeholder="Tapez votre message..." 
-               autocomplete="off"
-               class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-neon focus:outline-none focus:ring-1 focus:ring-neon">
-        <button type="submit" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold px-6 py-3 rounded-lg transition flex items-center gap-2">
-            <span>Envoyer</span>
-            <span>➤</span>
-        </button>
-    </form>
+            <form id="chat-form" class="flex gap-3">
+                {% csrf_token %}
+                <input type="text" id="chat-input" 
+                       placeholder="Tapez votre message..." 
+                       autocomplete="off"
+                       class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-neon focus:outline-none focus:ring-1 focus:ring-neon">
+                <button type="submit" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold px-6 py-3 rounded-lg transition flex items-center gap-2">
+                    <span>Envoyer</span>
+                    <span>➤</span>
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
 
 <script>
-    const roomSlug = '{{ room.slug }}';
-    const currentUserId = {{ request.user.id }};
-    const currentUsername = '{{ request.user.username }}';
+    const chatContainer = document.getElementById('chat-container');
+    const roomSlug = chatContainer.dataset.roomSlug;
+    const currentUserId = parseInt(chatContainer.dataset.userId, 10);
+    const currentUsername = chatContainer.dataset.username;
     
     const messagesContainer = document.getElementById('chat-messages');
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
     
-    // Scroll en bas au chargement
+    // Scroll automatique en bas
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     
     let lastMessageId = 0;
     let useWebSocket = false;
     let chatSocket = null;
     
-    // Trouver le dernier message ID
+    // Récupérer l'ID du dernier message présent
     const allMessages = document.querySelectorAll('[data-message-id]');
     if (allMessages.length > 0) {
-        lastMessageId = parseInt(allMessages[allMessages.length - 1].dataset.messageId) || 0;
+        lastMessageId = parseInt(allMessages[allMessages.length - 1].dataset.messageId, 10) || 0;
     }
     
     // ==========================================
-    // Essayer WebSocket d'abord
+    // Tentative de connexion WebSocket
     // ==========================================
     try {
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         chatSocket = new WebSocket(wsProtocol + '//' + window.location.host + '/ws/chat/' + roomSlug + '/');
         
         chatSocket.onopen = function() {
-            console.log('✅ WebSocket connecté');
+            console.log("WebSocket connecte");
             useWebSocket = true;
         };
         
@@ -136,29 +171,29 @@
             } else if (data.type === 'user_join') {
                 addSystemMessage(data.username + ' a rejoint le salon');
             } else if (data.type === 'user_leave') {
-                addSystemMessage(data.username + ' a quitté le salon');
+                addSystemMessage(data.username + ' a quitte le salon');
             }
         };
         
         chatSocket.onclose = function() {
-            console.log('⚠️ WebSocket fermé, passage en mode polling');
+            console.log("WebSocket ferme, passage en mode polling actif");
             useWebSocket = false;
             startPolling();
         };
         
         chatSocket.onerror = function() {
-            console.log('⚠️ WebSocket erreur, passage en mode polling');
+            console.log("Erreur WebSocket, activation du mode polling de secours");
             useWebSocket = false;
             startPolling();
         };
     } catch (e) {
-        console.log('⚠️ WebSocket non disponible, mode polling activé');
+        console.log("WebSocket non disponible, utilisation du polling");
         useWebSocket = false;
         startPolling();
     }
     
     // ==========================================
-    // Mode Polling (fallback sans WebSocket)
+    // Mode Polling Actif (mise à jour fluide sans websocket)
     // ==========================================
     function startPolling() {
         setInterval(function() {
@@ -167,6 +202,10 @@
                 .then(data => {
                     if (data.messages && data.messages.length > 0) {
                         data.messages.forEach(function(msg) {
+                            // Éviter de rajouter son propre message deux fois
+                            if (document.querySelector('[data-message-id="' + msg.id + '"]')) {
+                                return;
+                            }
                             addMessage({
                                 message: msg.contenu,
                                 username: msg.auteur,
@@ -178,8 +217,8 @@
                         });
                     }
                 })
-                .catch(err => console.log('Polling error:', err));
-        }, 2000); // Vérifier toutes les 2 secondes
+                .catch(err => console.log("Erreur polling:", err));
+        }, 1500); // Polling toutes les 1.5 secondes
     }
     
     // ==========================================
@@ -192,16 +231,15 @@
         if (!message) return;
         
         if (useWebSocket && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-            // Envoyer via WebSocket
             chatSocket.send(JSON.stringify({
                 'type': 'message',
                 'message': message
             }));
             chatInput.value = '';
         } else {
-            // Envoyer via HTTP (fallback)
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value 
-                || '{{ csrf_token }}';
+            // Envoi HTTP POST standard (très stable)
+            const csrfInputElement = document.querySelector('[name=csrfmiddlewaretoken]');
+            const csrfToken = csrfInputElement ? csrfInputElement.value : '';
             
             fetch('/chat/api/send/', {
                 method: 'POST',
@@ -214,7 +252,6 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Ajouter le message localement
                     addMessage({
                         message: message,
                         username: currentUsername,
@@ -224,16 +261,23 @@
                     });
                     lastMessageId = data.message_id;
                     chatInput.value = '';
+                } else if (data.error) {
+                    alert('Erreur: ' + data.error);
                 }
             })
-            .catch(err => console.error('Send error:', err));
+            .catch(err => console.error("Erreur d'envoi:", err));
         }
     });
     
     // ==========================================
-    // Fonctions d'affichage
+    // Fonctions d'affichage d'interface
     // ==========================================
     function addMessage(data) {
+        // Ne pas insérer si le message est déjà affiché
+        if (document.querySelector('[data-message-id="' + data.message_id + '"]')) {
+            return;
+        }
+
         const isMe = data.user_id === currentUserId;
         const messageDiv = document.createElement('div');
         messageDiv.className = 'flex items-start gap-3 ' + (isMe ? 'flex-row-reverse' : '');
