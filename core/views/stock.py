@@ -23,7 +23,7 @@ def stock_view(request):
     materials = Material.objects.all()
     suppliers = Supplier.objects.all()
     consos = ConsommationEncre.objects.all().order_by('-date')
-    return render(request, 'stock_list.html', {
+    return render(request, ['stock_list.html', 'stock/stock_advanced.html'], {
         'materials': materials,
         'suppliers': suppliers,
         'consos': consos
@@ -139,17 +139,17 @@ def add_consommation(request):
             return redirect('conso_list')
     else:
         form = ConsommationEncreForm()
-    return render(request, 'stock_list.html', {'form': form, 'titre': 'Nouvelle Consommation'})
+    return render(request, ['stock_list.html', 'stock/stock_advanced.html'], {'form': form, 'titre': 'Nouvelle Consommation'})
 
 
 @login_required
 def conso_list_view(request):
     consos = ConsommationEncre.objects.all().order_by('-date')
-    return render(request, 'stock_list.html', {'consos': consos})
+    return render(request, ['stock_list.html', 'stock/stock_advanced.html'], {'consos': consos})
 
 
 # ===========================================================================
-# --- STOCK AVANCÉ AVEC PROTECTION ANTI-500 ---
+# --- STOCK AVANCÉ SÉCURISÉ ---
 # ===========================================================================
 
 @login_required
@@ -208,11 +208,13 @@ def stock_advanced_view(request):
         try:
             is_low = m.is_low_stock()
         except Exception:
-            pass
+            qty = float(m.quantity or 0)
+            thresh = float(getattr(m, 'min_threshold', 0) or 0)
+            is_low = qty <= thresh
 
         if is_low:
             qty = float(m.quantity or 0)
-            thresh = float(m.min_threshold or 0)
+            thresh = float(getattr(m, 'min_threshold', 0) or 0)
             pct = round((qty / thresh) * 100, 1) if thresh > 0 else 0
 
             if qty <= 0:
@@ -272,19 +274,19 @@ def stock_advanced_view(request):
     previsions = []
     for m in all_materials:
         try:
-            if hasattr(m, 'seuil_intelligent'):
-                seuil = m.seuil_intelligent
-                if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
-                    jours = seuil.jours_de_stock
-                    if jours <= 15:
-                        previsions.append({
-                            'material': m.name,
-                            'stock_actuel': m.quantity or 0,
-                            'conso_jour': seuil.consommation_journaliere_moy,
-                            'jours_restants': jours,
-                            'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if getattr(seuil, 'date_rupture_prevue', None) else '—',
-                            'critique': jours <= 7,
-                        })
+            # Recherche sécurisée du seuil sans exception RelatedObjectDoesNotExist
+            seuil = StockSeuil.objects.filter(material=m).first()
+            if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
+                jours = seuil.jours_de_stock
+                if jours <= 15:
+                    previsions.append({
+                        'material': m.name,
+                        'stock_actuel': m.quantity or 0,
+                        'conso_jour': seuil.consommation_journaliere_moy,
+                        'jours_restants': jours,
+                        'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if getattr(seuil, 'date_rupture_prevue', None) else '—',
+                        'critique': jours <= 7,
+                    })
         except Exception:
             pass
     previsions.sort(key=lambda x: x['jours_restants'])
@@ -365,7 +367,14 @@ def stock_advanced_view(request):
         'bons_commande': bons_commande, 'consos': consos,
         'valeur_stock_total': valeur_stock_total,
     }
-    return render(request, 'stock/stock_advanced.html', context)
+
+    # Utilisation d'une liste de templates pour garantir le chargement sans 500
+    template_candidates = [
+        'stock/stock_advanced.html',
+        'stock_advanced.html',
+        'stock_list.html'
+    ]
+    return render(request, template_candidates, context)
 
 
 @login_required
@@ -485,7 +494,7 @@ def export_search_results(request):
 @login_required
 def location_list(request):
     locations = StockLocation.objects.all()
-    return render(request, 'stock/stock_advanced.html', {'locations': locations})
+    return render(request, ['stock/stock_advanced.html', 'stock_advanced.html'], {'locations': locations})
 
 
 @login_required
@@ -512,7 +521,7 @@ def location_delete(request, id):
 @login_required
 def lot_list(request):
     lots = StockLot.objects.all()
-    return render(request, 'stock/stock_advanced.html', {'lots': lots})
+    return render(request, ['stock/stock_advanced.html', 'stock_advanced.html'], {'lots': lots})
 
 
 @login_required
@@ -588,7 +597,7 @@ def lot_detail(request, id):
         mouvements = lot.mouvements.select_related('utilisateur', 'machine', 'of').order_by('-date')
     except Exception:
         mouvements = []
-    return render(request, 'stock/lot_detail.html', {'lot': lot, 'mouvements': mouvements})
+    return render(request, ['stock/lot_detail.html', 'lot_detail.html'], {'lot': lot, 'mouvements': mouvements})
 
 
 @login_required
