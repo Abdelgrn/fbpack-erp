@@ -2,6 +2,7 @@ import os
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 from django.db.models import Q
+from django.core.management import call_command
 
 # CRM
 from .crm import (
@@ -92,14 +93,22 @@ def corriger_base_machines_post_migrate(sender, **kwargs):
             pass
 
 
-# --- INITIALISATION SÉCURISÉE DES PERMISSIONS & ADMIN ---
+# --- IMPORTATION AUTOMATIQUE DES DONNÉES SI LA BASE EST VIDE ---
 @receiver(post_migrate)
 def auto_init_super_admin_et_permissions(sender, **kwargs):
     if sender.name == 'core':
         try:
             from django.contrib.auth.models import User
+            from .crm import Client
 
-            # 1. Créer l'admin uniquement s'il n'existe AUCUN superutilisateur
+            # 1. Si la base est vide (0 clients), charger le fichier de donnees locales
+            if not Client.objects.exists() and os.path.exists('data_import.json'):
+                try:
+                    call_command('loaddata', 'data_import.json')
+                except Exception:
+                    pass
+
+            # 2. S'assurer qu'au moins un admin existe
             if not User.objects.filter(is_superuser=True).exists():
                 username = os.environ.get('ADMIN_USERNAME', 'admin')
                 password = os.environ.get('ADMIN_PASSWORD', 'admin1234')
@@ -113,7 +122,7 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
                     admin_user.is_staff = True
                     admin_user.save()
 
-            # 2. S'assurer que tous les utilisateurs existants ont leur fiche de permissions
+            # 3. S'assurer que tous les utilisateurs ont leurs permissions configurées
             all_fields = [
                 'can_access_dashboard', 'can_access_planning', 'can_access_reporting',
                 'can_access_crm', 'can_access_prepress', 'can_access_planification',
