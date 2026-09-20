@@ -1,3 +1,4 @@
+# core/views/encre.py
 import json
 from collections import defaultdict
 from django.shortcuts import render, redirect, get_object_or_404
@@ -5,8 +6,121 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.contrib import messages
 
-from ..models import ConsommationEncre
+from ..models import (
+    ConsommationEncre,
+    # 🆕 Fusion avec les fiches de production Flexo/Hélio
+    FicheProductionJournaliere, FicheImpressionEncreGroupe,
+)
 from ..forms import ConsommationEncreForm
+
+
+# ===========================================================================
+# ADAPTATEUR : Fiche moderne (Groupe d'encre) → interface ConsommationEncre
+# ===========================================================================
+
+# Mapping automatique : mots-clés couleur → attribut du dashboard
+_COLOR_MAPPING = {
+    'noir': 'encre_noir', 'black': 'encre_noir', 'k': 'encre_noir',
+    'magenta': 'encre_magenta', 'rose': 'encre_magenta', 'pink': 'encre_magenta', 'm': 'encre_magenta',
+    'jaune': 'encre_jaune', 'yellow': 'encre_jaune', 'y': 'encre_jaune',
+    'cyan': 'encre_cyan', 'bleu': 'encre_cyan', 'blue': 'encre_cyan', 'c': 'encre_cyan',
+    'dor': 'encre_dore', 'gold': 'encre_dore', 'or': 'encre_dore',
+    'silver': 'encre_silver', 'argent': 'encre_silver',
+    'orange': 'encre_orange',
+    'blanc': 'encre_blanc', 'white': 'encre_blanc',
+    'vernis': 'encre_vernis', 'varnish': 'encre_vernis',
+}
+
+
+def _detect_color_field(designation):
+    """Retourne le champ encre_* correspondant à la désignation."""
+    if not designation:
+        return None
+    d = designation.lower().strip()
+    for kw, field in _COLOR_MAPPING.items():
+        if kw in d:
+            return field
+    return None
+
+
+class FicheEncreAsConso:
+    """
+    Adapte une FicheProductionJournaliere (Flexo/Hélio) pour qu'elle expose
+    la même interface qu'une ConsommationEncre → utilisée par le dashboard.
+    """
+
+    PROCESS_MAP = {'FLEXO': 'FLEXO', 'HELIO': 'HELIO'}
+
+    def __init__(self, fiche):
+        self.id = f"fiche_{fiche.id}"          # ID préfixé pour éviter collision
+        self._fiche = fiche
+        self.date = fiche.date_fabrication
+        self.job_name = fiche.designation_produit or fiche.numero_doc or "—"
+        self.support = fiche.support or "—"
+        self.process_type = self.PROCESS_MAP.get(fiche.type_fiche, 'FLEXO')
+
+        # Init couleurs à 0
+        self.encre_noir = 0.0
+        self.encre_magenta = 0.0
+        self.encre_jaune = 0.0
+        self.encre_cyan = 0.0
+        self.encre_dore = 0.0
+        self.encre_silver = 0.0
+        self.encre_orange = 0.0
+        self.encre_blanc = 0.0
+        self.encre_vernis = 0.0
+
+        # Totaux calculés depuis les 8 groupes
+        self.total_encre = 0.0
+        self.total_solvant = 0.0
+
+        for g in fiche.encres_groupes.all():
+            encre_kg = float(g.conso_encre_kg or 0)
+            solvant_kg = float(g.conso_solvant_kg or 0)
+            self.total_encre += encre_kg
+            self.total_solvant += solvant_kg
+
+            # Ventilation par couleur (auto-détection sur le nom saisi)
+            field = _detect_color_field(g.designation_encre)
+            if field:
+                setattr(self, field, getattr(self, field) + encre_kg)
+
+        # Métrage (venant des bobines imprimées)
+        self.metrage = 0.0
+        for b in fiche.bobines_imprimees.all():
+            self.metrage += float(b.metrage_m or 0)
+
+        # Grammage moyen : si laize et poids dispos → g/m²
+        self.grammage = 0.0
+        try:
+            laize_m = float(fiche.laize_mm or 0) / 1000.0
+            poids_prod = float(fiche.total_poids_produit_kg or 0)
+            if self.metrage > 0 and laize_m > 0 and poids_prod > 0:
+                # g/m² = (poids kg * 1000) / (metrage * laize)
+                self.grammage = round((poids_prod * 1000) / (self.metrage * laize_m), 2)
+        except Exception:
+            self.grammage = 0.0
+
+        # Bilan matière — on considère qu'il n'y a pas d'évaporé mesuré
+        # (à activer si tu ajoutes ces champs dans la fiche)
+        self.matiere_evaporee_kg = 0.0
+        self.gain_de_masse_kg = 0.0
+
+    def get_process_type_display(self):
+        return dict(ConsommationEncre.PROCESS_CHOICES).get(self.process_type, self.process_type)
+
+
+def _get_all_encre_items(request):
+    """Fusionne anciennes ConsommationEncre + Fiches Flexo/Hélio → 1 seule liste."""
+    consos = list(_get_filtered_encre(request))
+    fiches = _get_filtered_fiches_encre(request)
+    adapted = [FicheEncreAsConso(f) for f in fiches if f.encres_groupes.exists()]
+    return consos + adapted
+
+
+# ===========================================================================
+# FILTRES
+# ===========================================================================
 
 def _get_filtered_encre(request):
     consos = ConsommationEncre.objects.all().order_by('-date')
@@ -29,12 +143,49 @@ def _get_filtered_encre(request):
     return consos
 
 
+def _get_filtered_fiches_encre(request):
+    """Fiches Flexo/Hélio filtrées (les seules qui ont des groupes d'encre)."""
+    fiches = FicheProductionJournaliere.objects.filter(
+        type_fiche__in=['FLEXO', 'HELIO']
+    ).prefetch_related('encres_groupes', 'bobines_imprimees').order_by('-date_fabrication')
+
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    process = request.GET.get('process_type', '')
+    support = request.GET.get('support', '')
+    job = request.GET.get('job', '')
+
+    if date_from:
+        fiches = fiches.filter(date_fabrication__gte=date_from)
+    if date_to:
+        fiches = fiches.filter(date_fabrication__lte=date_to)
+    if process:
+        fiches = fiches.filter(type_fiche=process)
+    if support:
+        fiches = fiches.filter(support__icontains=support)
+    if job:
+        fiches = fiches.filter(designation_produit__icontains=job)
+    return fiches
+
+
 def _get_encre_filter_context(request):
-    all_supports = ConsommationEncre.objects.values_list('support', flat=True).distinct().order_by('support')
-    all_jobs = ConsommationEncre.objects.values_list('job_name', flat=True).distinct().order_by('job_name')
+    # Supports : ancien + nouveau
+    old_supports = ConsommationEncre.objects.values_list('support', flat=True).distinct()
+    new_supports = FicheProductionJournaliere.objects.filter(
+        type_fiche__in=['FLEXO', 'HELIO']
+    ).exclude(support='').values_list('support', flat=True).distinct()
+    all_supports = sorted(set(list(old_supports) + list(new_supports)))
+
+    # Jobs : ancien + nouveau
+    old_jobs = ConsommationEncre.objects.values_list('job_name', flat=True).distinct()
+    new_jobs = FicheProductionJournaliere.objects.filter(
+        type_fiche__in=['FLEXO', 'HELIO']
+    ).exclude(designation_produit='').values_list('designation_produit', flat=True).distinct()
+    all_jobs = sorted(set(list(old_jobs) + list(new_jobs)))
+
     return {
         'all_supports_encre': all_supports,
-        'all_jobs_encre': list(all_jobs),
+        'all_jobs_encre': all_jobs,
         'process_choices': ConsommationEncre.PROCESS_CHOICES,
         'sel_date_from': request.GET.get('date_from', ''),
         'sel_date_to': request.GET.get('date_to', ''),
@@ -44,37 +195,39 @@ def _get_encre_filter_context(request):
     }
 
 
+# ===========================================================================
+# DASHBOARD ENCRE — FUSION AUTOMATIQUE
+# ===========================================================================
+
 @login_required
 def encre_dashboard(request):
-    consos = _get_filtered_encre(request)
-    count = consos.count()
+    # 🔥 Fusion anciennes saisies + fiches Flexo/Hélio
+    all_items = _get_all_encre_items(request)
+    count = len(all_items)
 
-    total_encre = sum(c.total_encre for c in consos)
-    total_solvant = sum(c.total_solvant for c in consos)
+    total_encre = sum(c.total_encre for c in all_items)
+    total_solvant = sum(c.total_solvant for c in all_items)
     total_injecte = total_encre + total_solvant
 
-    total_gain_masse = sum(c.gain_de_masse_kg for c in consos)
-    total_evaporee = sum(c.matiere_evaporee_kg for c in consos)
+    total_gain_masse = sum(c.gain_de_masse_kg for c in all_items)
+    total_evaporee = sum(c.matiere_evaporee_kg for c in all_items)
 
     taux_gain_global = round((total_gain_masse / total_injecte * 100), 2) if total_injecte else 0
     taux_evap_global = round((total_evaporee / total_injecte * 100), 2) if total_injecte else 0
 
-    total_metrage = sum(c.metrage for c in consos)
+    total_metrage = sum(c.metrage for c in all_items)
 
-    grammages = [c.grammage for c in consos if c.grammage > 0]
+    grammages = [c.grammage for c in all_items if c.grammage > 0]
     grammage_moyen = round(sum(grammages) / len(grammages), 2) if grammages else 0
 
     couleurs_noms = ['Noir', 'Magenta', 'Jaune', 'Cyan', 'Doré', 'Silver', 'Orange', 'Blanc', 'Vernis']
+    couleur_attrs = [
+        'encre_noir', 'encre_magenta', 'encre_jaune', 'encre_cyan',
+        'encre_dore', 'encre_silver', 'encre_orange', 'encre_blanc', 'encre_vernis',
+    ]
     couleurs_vals = [
-        round(consos.aggregate(t=Sum('encre_noir'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_magenta'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_jaune'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_cyan'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_dore'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_silver'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_orange'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_blanc'))['t'] or 0, 2),
-        round(consos.aggregate(t=Sum('encre_vernis'))['t'] or 0, 2),
+        round(sum(getattr(c, attr, 0) or 0 for c in all_items), 2)
+        for attr in couleur_attrs
     ]
     couleurs_colors = [
         '#1a1a1a', '#e91e8c', '#ffd600', '#00b8d9',
@@ -82,7 +235,7 @@ def encre_dashboard(request):
     ]
 
     data_dates = defaultdict(lambda: {'encre': 0, 'solvant': 0, 'gain': 0, 'evap': 0, 'metrage': 0})
-    for c in consos:
+    for c in all_items:
         d = str(c.date)
         data_dates[d]['encre'] += c.total_encre
         data_dates[d]['solvant'] += c.total_solvant
@@ -101,17 +254,24 @@ def encre_dashboard(request):
     pie2_colors = ['#22c55e', '#ef4444']
 
     job_data = defaultdict(float)
-    for c in consos:
+    for c in all_items:
         job_data[c.job_name[:30]] += c.total_encre + c.total_solvant
     top_jobs = sorted(job_data.items(), key=lambda x: x[1], reverse=True)[:8]
 
-    flexo_count = consos.filter(process_type='FLEXO').count()
-    helio_count = consos.filter(process_type='HELIO').count()
+    flexo_count = sum(1 for c in all_items if c.process_type == 'FLEXO')
+    helio_count = sum(1 for c in all_items if c.process_type == 'HELIO')
 
     couleurs_table = [
         {'nom': n, 'val': v, 'color': c}
         for n, v, c in zip(couleurs_noms, couleurs_vals, couleurs_colors) if v > 0
     ]
+
+    # Tri des saisies récentes (fiches + anciennes) par date desc
+    consos_recentes = sorted(
+        all_items,
+        key=lambda x: x.date or __import__('datetime').date.min,
+        reverse=True
+    )[:15]
 
     context = {
         'count': count,
@@ -127,7 +287,7 @@ def encre_dashboard(request):
         'flexo_count': flexo_count,
         'helio_count': helio_count,
         'couleurs_table': couleurs_table,
-        'consos_recentes': consos[:15],
+        'consos_recentes': consos_recentes,
         'chart_couleurs_labels': json.dumps(couleurs_noms),
         'chart_couleurs_vals': json.dumps(couleurs_vals),
         'chart_couleurs_colors': json.dumps(couleurs_colors),
@@ -151,6 +311,10 @@ def encre_dashboard(request):
     context.update(_get_encre_filter_context(request))
     return render(request, 'production_special/encre_dashboard.html', context)
 
+
+# ===========================================================================
+# ANCIENNES VUES (Saisie manuelle) — conservées telles quelles
+# ===========================================================================
 
 @login_required
 def encre_saisie(request):
@@ -235,20 +399,26 @@ def encre_detail(request, id):
     return render(request, 'production_special/encre_detail.html', context)
 
 
+# ===========================================================================
+# ANALYSE AVANCÉE — Fusion aussi
+# ===========================================================================
+
 @login_required
 def encre_analyse(request):
-    consos = _get_filtered_encre(request)
-    count = consos.count()
+    # 🔥 Fusion aussi ici
+    all_items = _get_all_encre_items(request)
+    count = len(all_items)
 
     dechet_dates = defaultdict(float)
     dechet_flexo = defaultdict(float)
     dechet_helio = defaultdict(float)
     grammage_dates = defaultdict(list)
 
-    for c in consos:
+    for c in all_items:
         d = str(c.date)
         dechet_dates[d] += c.matiere_evaporee_kg
-        grammage_dates[d].append(c.grammage)
+        if c.grammage > 0:
+            grammage_dates[d].append(c.grammage)
         if c.process_type == 'FLEXO':
             dechet_flexo[d] += c.matiere_evaporee_kg
         else:
@@ -256,16 +426,16 @@ def encre_analyse(request):
 
     dates_sorted = sorted(dechet_dates.keys())
 
-    flexo_qs = consos.filter(process_type='FLEXO')
-    helio_qs = consos.filter(process_type='HELIO')
+    flexo_items = [c for c in all_items if c.process_type == 'FLEXO']
+    helio_items = [c for c in all_items if c.process_type == 'HELIO']
 
-    def _stats(qs):
-        total_inj = sum(c.total_encre + c.total_solvant for c in qs)
-        total_evp = sum(c.matiere_evaporee_kg for c in qs)
-        total_gai = sum(c.gain_de_masse_kg for c in qs)
-        gram_list = [c.grammage for c in qs if c.grammage > 0]
+    def _stats(items):
+        total_inj = sum(c.total_encre + c.total_solvant for c in items)
+        total_evp = sum(c.matiere_evaporee_kg for c in items)
+        total_gai = sum(c.gain_de_masse_kg for c in items)
+        gram_list = [c.grammage for c in items if c.grammage > 0]
         return {
-            'count': qs.count(),
+            'count': len(items),
             'total_inj': round(total_inj, 2),
             'total_evp': round(total_evp, 2),
             'total_gai': round(total_gai, 2),
@@ -273,8 +443,8 @@ def encre_analyse(request):
             'gram_moy': round(sum(gram_list) / len(gram_list), 2) if gram_list else 0,
         }
 
-    stats_flexo = _stats(flexo_qs)
-    stats_helio = _stats(helio_qs)
+    stats_flexo = _stats(flexo_items)
+    stats_helio = _stats(helio_items)
 
     radar_labels = ['Total Injecté', 'Total Évaporé', 'Gain Masse', 'Taux Évap %', 'Grammage moy.']
     radar_flexo = [
@@ -289,20 +459,20 @@ def encre_analyse(request):
     ]
 
     support_data = defaultdict(float)
-    for c in consos:
-        support_data[c.support[:25]] += c.total_encre
+    for c in all_items:
+        support_data[(c.support or '—')[:25]] += c.total_encre
 
     top_support = sorted(support_data.items(), key=lambda x: x[1], reverse=True)[:10]
 
-    job_evap = []
     job_seen = {}
-    for c in consos:
-        key = c.job_name[:30]
+    for c in all_items:
+        key = (c.job_name or '—')[:30]
         if key not in job_seen:
             job_seen[key] = {'evap': 0, 'inj': 0}
         job_seen[key]['evap'] += c.matiere_evaporee_kg
         job_seen[key]['inj'] += c.total_encre + c.total_solvant
 
+    job_evap = []
     for job, vals in sorted(job_seen.items(), key=lambda x: x[1]['evap'], reverse=True)[:8]:
         taux = round(vals['evap'] / vals['inj'] * 100, 1) if vals['inj'] else 0
         job_evap.append({'job': job, 'evap': round(vals['evap'], 2), 'taux': taux})

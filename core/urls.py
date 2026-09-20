@@ -87,7 +87,7 @@ urlpatterns = [
     path('planification/backlog/', of_views.of_list_view, name='of_list'),
     path('planification/gantt/', of_views.production_gantt, name='planning'),
     path('planification/ordonnancer/<int:of_id>/', of_views.planification_ordonnancer, name='planification_ordonnancer'),
-    path('planification/export-excel/', of_views.export_planning_excel, name='export_planning_excel'), # 🔥 NOUVELLE LIGNE AJOUTÉE ICI
+    path('planification/export-excel/', of_views.export_planning_excel, name='export_planning_excel'),
 
     # Alias de compatibilité
     path('crm/of/alias-list/', views.crm_of_list, name='of_list_alias'),
@@ -191,6 +191,10 @@ urlpatterns = [
     path('prod/base/', prod_views.prod_base, name='prod_base'),
     path('prod/qualite/', prod_views.prod_detail_qualite, name='prod_detail_qualite'),
     path('prod/synthese/', prod_views.prod_synthese_temps, name='prod_synthese_temps'),
+    
+    # NOUVEAU: EXPORT EXCEL PRODUCTION SPECIAL
+    path('prod/qualite/export/', prod_views.export_qualite_excel, name='export_qualite_excel'),
+    path('prod/synthese/export/', prod_views.export_synthese_excel, name='export_synthese_excel'),
     
     # TRAÇABILITÉ PAR LOT
     path('prod/tracabilite/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_search'),

@@ -4,25 +4,101 @@
     <div class="glass rounded-2xl border border-slate-700 shadow-2xl p-8">
         <div class="mb-4">
             <a href="{% url 'client_detail' client.id %}" class="text-gray-500 hover:text-white text-sm transition flex items-center gap-2">
-                <span>←</span> Retour à {{ client.name }}
+                <span>←</span> Retour à la fiche de <strong class="text-white">{{ client.name }}</strong>
             </a>
         </div>
+        
         <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-3">
             <span>👤</span> {{ titre }}
         </h2>
-        <form method="post" class="django-form-container">
+
+        <form method="post" class="django-form-container space-y-5">
             {% csrf_token %}
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {% for field in form %}
-                <div class="{% if field.name in 'notes' %}md:col-span-2{% else %}md:col-span-1{% endif %}">
-                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.errors %}<p class="text-red-400 text-[10px] mt-1">{{ field.errors }}</p>{% endif %}
+                <!-- NOM COMPLET -->
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">
+                        {{ form.name.label }} *
+                    </label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                        <p class="text-red-400 text-[10px] mt-1">{{ form.name.errors }}</p>
+                    {% endif %}
                 </div>
-                {% endfor %}
+
+                <!-- RÔLE / FONCTION -->
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">
+                        {{ form.role.label }}
+                    </label>
+                    {{ form.role }}
+                    {% if form.role.errors %}
+                        <p class="text-red-400 text-[10px] mt-1">{{ form.role.errors }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- RÔLE PERSONNALISÉ (SI AUTRE) -->
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">
+                        {{ form.role_custom.label }}
+                    </label>
+                    {{ form.role_custom }}
+                    {% if form.role_custom.errors %}
+                        <p class="text-red-400 text-[10px] mt-1">{{ form.role_custom.errors }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- TÉLÉPHONE DIRECT -->
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">
+                        {{ form.phone.label }}
+                    </label>
+                    {{ form.phone }}
+                    {% if form.phone.errors %}
+                        <p class="text-red-400 text-[10px] mt-1">{{ form.phone.errors }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- EMAIL DIRECT -->
+                <div>
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">
+                        {{ form.email.label }}
+                    </label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <p class="text-red-400 text-[10px] mt-1">{{ form.email.errors }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- CONTACT PRINCIPAL -->
+                <div class="md:col-span-2 flex items-center gap-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/60">
+                    {{ form.is_primary }}
+                    <label for="{{ form.is_primary.id_for_label }}" class="text-gray-300 text-xs font-bold uppercase tracking-wider cursor-pointer select-none">
+                        ⭐ Définir comme interlocuteur principal
+                    </label>
+                    {% if form.is_primary.errors %}
+                        <p class="text-red-400 text-[10px]">{{ form.is_primary.errors }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- NOTES & OBSERVATIONS -->
+                <div class="md:col-span-2">
+                    <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">
+                        {{ form.notes.label }}
+                    </label>
+                    {{ form.notes }}
+                    {% if form.notes.errors %}
+                        <p class="text-red-400 text-[10px] mt-1">{{ form.notes.errors }}</p>
+                    {% endif %}
+                </div>
             </div>
+
+            <!-- BOUTONS D'ACTION -->
             <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
-                <a href="{% url 'client_detail' client.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
+                <a href="{% url 'client_detail' client.id %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">
+                    Annuler
+                </a>
                 <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-yellow-500/20 transition uppercase tracking-wider text-sm">
                     💾 Enregistrer
                 </button>

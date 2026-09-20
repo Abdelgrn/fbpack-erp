@@ -40,7 +40,7 @@
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
             <div class="text-2xl font-bold text-white">{{ contacts.count }}</div>
-            <div class="text-xs text-gray-400 mt-1">Contacts</div>
+            <div class="text-xs text-gray-400 mt-1">Interlocuteurs</div>
         </div>
         <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
             <div class="text-2xl font-bold text-white">{{ opportunites.count }}</div>
@@ -109,10 +109,10 @@
                 {% endif %}
             </div>
 
-            <!-- CONTACTS -->
+            <!-- CONTACTS / INTERLOCUTEURS -->
             <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                    <h3 class="text-white font-bold">👥 Contacts ({{ contacts.count }})</h3>
+                    <h3 class="text-white font-bold">👥 Interlocuteurs ({{ contacts.count }})</h3>
                     <a href="{% url 'add_contact' client.id %}" class="text-xs text-blue-400 hover:text-blue-300">+ Ajouter</a>
                 </div>
                 {% if contacts %}
@@ -121,15 +121,35 @@
                     <div class="bg-slate-700/50 rounded-lg p-3">
                         <div class="flex justify-between items-start">
                             <div>
-                                <div class="font-bold text-white text-sm flex items-center gap-2">
+                                <div class="font-bold text-white text-sm flex items-center gap-2 flex-wrap">
                                     {{ contact.name }}
-                                    {% if contact.is_primary %}<span class="text-xs bg-yellow-500/20 text-yellow-400 px-1 rounded">Principal</span>{% endif %}
+                                    {% if contact.is_primary %}<span class="text-[9px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded border border-yellow-500/30 uppercase font-semibold">Principal</span>{% endif %}
                                 </div>
-                                <div class="text-xs text-gray-400">{{ contact.get_role_display_full }}</div>
-                                {% if contact.phone %}<div class="text-xs text-gray-500 mt-1">📞 {{ contact.phone }}</div>{% endif %}
-                                {% if contact.email %}<div class="text-xs text-gray-500">✉ <a href="mailto:{{ contact.email }}" class="text-blue-400 hover:underline">{{ contact.email }}</a></div>{% endif %}
+                                <div class="text-xs text-gray-400 mt-1">
+                                    <!-- BADGES DE COULEUR EN FONCTION DES RÔLES -->
+                                    {% if contact.role == 'ACHAT' %}
+                                        <span class="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded text-[10px] border border-blue-500/20">{{ contact.get_role_display_full }}</span>
+                                    {% elif contact.role == 'APPRO' %}
+                                        <span class="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] border border-amber-500/20">{{ contact.get_role_display_full }}</span>
+                                    {% elif contact.role == 'COMM' %}
+                                        <span class="bg-teal-500/20 text-teal-300 px-1.5 py-0.5 rounded text-[10px] border border-teal-500/20">{{ contact.get_role_display_full }}</span>
+                                    {% elif contact.role == 'DIR' %}
+                                        <span class="bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded text-[10px] border border-purple-500/20 font-bold">{{ contact.get_role_display_full }}</span>
+                                    {% elif contact.role == 'TECH' %}
+                                        <span class="bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded text-[10px] border border-indigo-500/20">{{ contact.get_role_display_full }}</span>
+                                    {% elif contact.role == 'COMPTA' %}
+                                        <span class="bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded text-[10px] border border-rose-500/20">{{ contact.get_role_display_full }}</span>
+                                    {% else %}
+                                        <span class="bg-slate-600/30 text-gray-300 px-1.5 py-0.5 rounded text-[10px] border border-slate-600/30">{{ contact.get_role_display_full }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if contact.phone %}<div class="text-xs text-gray-400 mt-2">📞 {{ contact.phone }}</div>{% endif %}
+                                {% if contact.email %}<div class="text-xs text-gray-400">✉ <a href="mailto:{{ contact.email }}" class="text-blue-400 hover:underline">{{ contact.email }}</a></div>{% endif %}
+                                {% if contact.notes %}
+                                    <p class="text-[10px] text-gray-500 italic mt-1.5 bg-slate-900/30 p-1.5 rounded">{{ contact.notes }}</p>
+                                {% endif %}
                             </div>
-                            <div class="flex gap-1 flex-shrink-0">
+                            <div class="flex gap-2 flex-shrink-0">
                                 <a href="{% url 'edit_contact' contact.id %}" class="text-xs text-blue-400 hover:text-blue-300">Édit.</a>
                                 <form method="post" action="{% url 'delete_contact' contact.id %}" onsubmit="return confirm('Supprimer ce contact ?')" class="inline">
                                     {% csrf_token %}
@@ -141,11 +161,11 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-gray-500 text-sm text-center py-4">Aucun contact. <a href="{% url 'add_contact' client.id %}" class="text-blue-400 hover:underline">En ajouter un</a></p>
+                <p class="text-gray-500 text-sm text-center py-4">Aucun contact interlocuteur enregistré. <a href="{% url 'add_contact' client.id %}" class="text-blue-400 hover:underline">En ajouter un</a></p>
                 {% endif %}
             </div>
             
-            <!-- HISTORIQUE INTERACTIONS (Tiré de l'original) -->
+            <!-- HISTORIQUE INTERACTIONS -->
             <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
                     <h3 class="text-white font-bold">📋 Historique Interactions</h3>
@@ -187,7 +207,7 @@
         <!-- COLONNE DROITE : Opportunités + Commandes + Devis + Production -->
         <div class="lg:col-span-2 space-y-5">
             
-            <!-- NOUVEAU: COMMANDES CLIENTS -->
+            <!-- COMMANDES CLIENTS -->
             <div class="bg-slate-800 rounded-xl border border-emerald-500/30 p-5 shadow-lg shadow-emerald-500/5">
                 <div class="flex justify-between items-center mb-4 border-b border-emerald-500/30 pb-2">
                     <h3 class="text-emerald-400 font-bold">🛒 Commandes ({{ commandes.count }})</h3>
@@ -275,7 +295,7 @@
                 {% endif %}
             </div>
 
-            <!-- NOUVEAU: DEMANDES DE PRIX -->
+            <!-- DEMANDES DE PRIX -->
             <div class="bg-slate-800 rounded-xl border border-purple-500/30 p-5 shadow-lg shadow-purple-500/5">
                 <div class="flex justify-between items-center mb-4 border-b border-purple-500/30 pb-2">
                     <h3 class="text-purple-400 font-bold">💰 Demandes de Prix ({{ demandes_prix.count }})</h3>

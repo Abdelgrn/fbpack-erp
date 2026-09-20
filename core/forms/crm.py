@@ -48,14 +48,24 @@ class ClientContactForm(forms.ModelForm):
         model = ClientContact
         fields = ['name', 'role', 'role_custom', 'phone', 'email', 'is_primary', 'notes']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom et Prénom'}),
             'role': forms.Select(attrs={'class': 'form-select'}),
-            'role_custom': forms.TextInput(attrs={'class': 'form-control'}),
-            'phone': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'role_custom': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Si rôle "Autre"'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Téléphone direct'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email direct'}),
             'is_primary': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Observations...'}),
         }
+
+
+# FORMSET POUR LES INTERLOCUTEURS DU CLIENT
+ClientContactFormSet = inlineformset_factory(
+    Client,
+    ClientContact,
+    form=ClientContactForm,
+    extra=1,          # Proposer au moins une ligne vide
+    can_delete=True,  # Permettre la suppression d'une ligne
+)
 
 
 class InteractionLogForm(forms.ModelForm):

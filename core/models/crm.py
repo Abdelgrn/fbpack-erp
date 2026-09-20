@@ -140,12 +140,13 @@ class Client(models.Model):
 
 class ClientContact(models.Model):
     ROLE_CHOICES = [
-        ('ACHAT', 'Directeur Achat'),
-        ('TECH', 'Responsable Technique'),
-        ('COMM', 'Commercial'),
-        ('LOGI', 'Responsable Logistique'),
-        ('DIR', 'Directeur Général'),
-        ('COMPTA', 'Comptabilité'),
+        ('ACHAT', 'Attaché d\'achat / Acheteur'),
+        ('APPRO', 'Responsable Approvisionnement'),
+        ('COMM', 'Commercial / Ventes'),
+        ('TECH', 'Responsable Technique / Qualité'),
+        ('LOGI', 'Responsable Logistique / Transport'),
+        ('DIR', 'Directeur Général / Gérant'),
+        ('COMPTA', 'Comptabilité / Finance'),
         ('AUTRE', 'Autre'),
     ]
 
