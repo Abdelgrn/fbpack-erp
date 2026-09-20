@@ -1,9 +1,10 @@
 from pathlib import Path
 import os
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-ultimate-erp-secret-key'
-DEBUG = True
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-ultimate-erp-secret-key')
+DEBUG = 'RENDER' not in os.environ
 ALLOWED_HOSTS = ['*']
 
 IS_RENDER = os.environ.get('RENDER', False)
@@ -70,12 +71,22 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fbpack.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# CONFIGURATION BASE DE DONNÉES (PostgreSQL sur Render, SQLite en local)
+if IS_RENDER and os.environ.get('DATABASE_URL'):
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 LANGUAGE_CODE = 'fr-fr'
 TIME_ZONE = 'Europe/Paris'
