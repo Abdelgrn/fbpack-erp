@@ -72,7 +72,7 @@ from .permissions import UserModulePermission, user_has_module_access
 
 
 def robust_import_local_data():
-    """Importateur intelligent pour transférer les données métier locales vers Render sans supprimer d'utilisateurs existants"""
+    """Importateur ordonné par dépendance pour transférer l'intégralité des 9 machines, clients et stocks sans effacer d'utilisateurs Render"""
     from django.contrib.auth.models import User
 
     search_paths = [
@@ -103,8 +103,30 @@ def robust_import_local_data():
     if not admin_user:
         admin_user = User.objects.create_superuser('admin', 'admin@fbpack.com', 'admin1234')
 
-    # Étape 1 : Créer uniquement les utilisateurs manquants (SANS toucher aux utilisateurs existants)
-    for item in data:
+    # Ordre de priorité pour créer les dépendances en premier (Atelier avant Machine, Supplier avant Material, etc.)
+    model_priority = [
+        'auth.user',
+        'core.atelier',
+        'core.supplier',
+        'core.department',
+        'core.position',
+        'core.stocklocation',
+        'core.material',
+        'core.machine',
+        'core.client',
+    ]
+
+    def get_priority(item):
+        m = item.get('model', '')
+        try:
+            return model_priority.index(m)
+        except ValueError:
+            return 99
+
+    sorted_data = sorted(data, key=get_priority)
+
+    # 1. Créer les utilisateurs manquants uniquement
+    for item in sorted_data:
         if item.get('model') == 'auth.user':
             pk = item.get('pk')
             fields = item.get('fields', {})
@@ -122,9 +144,9 @@ def robust_import_local_data():
                 except Exception:
                     pass
 
-    # Étape 2 : Importer les données métier (Clients, Stocks, Machines, DRH, Maintenance...)
+    # 2. Importer les objets métier dans l'ordre
     imported_count = 0
-    for item in data:
+    for item in sorted_data:
         model_str = item.get('model')
         if model_str in ['auth.user', 'contenttypes.contenttype', 'auth.permission']:
             continue
@@ -137,7 +159,7 @@ def robust_import_local_data():
         except Exception:
             continue
 
-        # Correction des liaisons vers User si l'ID n'existe pas
+        # Correction des FK vers User
         for fname in list(fields.keys()):
             try:
                 fobj = ModelClass._meta.get_field(fname)
@@ -148,7 +170,6 @@ def robust_import_local_data():
             except Exception:
                 pass
 
-        # Traitement M2M et Champs simples
         m2m = {}
         clean_fields = {}
         for fname, val in fields.items():
@@ -172,34 +193,9 @@ def robust_import_local_data():
         except Exception:
             pass
 
-    return True, f"✅ {imported_count} éléments (Clients, Machines, Stock...) importés avec succès depuis {os.path.basename(filepath)} !"
+    return True, f"✅ Données importées avec succès ({imported_count} objets dont toutes les machines et clients) !"
 
 
-# --- CORRECTION AUTOMATIQUE DES MACHINES APRES MIGRATE ---
-@receiver(post_migrate)
-def corriger_base_machines_post_migrate(sender, **kwargs):
-    if sender.name == 'core':
-        try:
-            Machine.objects.filter(Q(name__icontains='1.3M') | Q(name__icontains='1M')).exclude(
-                Q(name__icontains='1350') | Q(name__icontains='Panther')
-            ).delete()
-
-            Machine.objects.filter(name__icontains='1350').update(
-                type='DEC',
-                name='DCM Panther 1350'
-            )
-
-            Machine.objects.filter(Q(name__icontains='DCM panther 1') | Q(name__icontains='DCM Panther 1')).exclude(
-                name__icontains='1350'
-            ).update(
-                type='DEC2',
-                name='DCM Panther 1'
-            )
-        except Exception:
-            pass
-
-
-# --- INITIALISATION ET PERMISSIONS APRES MIGRATE ---
 @receiver(post_migrate)
 def auto_init_super_admin_et_permissions(sender, **kwargs):
     if sender.name == 'core':
@@ -207,7 +203,7 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
             from django.contrib.auth.models import User
             from .crm import Client
 
-            # 1. Si la base Render est vide (aucun client), importer les données métier
+            # 1. Si aucun client n'existe, tenter le chargement initial
             if not Client.objects.exists():
                 robust_import_local_data()
 
@@ -225,7 +221,7 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
                     admin_user.is_staff = True
                     admin_user.save()
 
-            # 3. Attribuer la fiche de permissions à tous les utilisateurs
+            # 3. Accorder les permissions
             all_fields = [
                 'can_access_dashboard', 'can_access_planning', 'can_access_reporting',
                 'can_access_crm', 'can_access_prepress', 'can_access_planification',
@@ -243,7 +239,6 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
             pass
 
 
-# --- EXPORT DE TOUS LES MODÈLES ---
 __all__ = [
     # CRM
     'Client', 'ClientContact', 'InteractionLog', 'Opportunite',

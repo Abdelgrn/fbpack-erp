@@ -171,7 +171,14 @@ def stock_advanced_view(request):
     materials = materials.order_by('name')
 
     if low_stock_only:
-        materials = [m for m in materials if getattr(m, 'is_low_stock', lambda: False)()]
+        filtered_mat = []
+        for m in materials:
+            try:
+                if m.is_low_stock():
+                    filtered_mat.append(m)
+            except Exception:
+                pass
+        materials = filtered_mat
 
     all_materials = Material.objects.select_related('supplier').all()
     alertes_stock = []
@@ -216,9 +223,15 @@ def stock_advanced_view(request):
                 if m.category in cat_stats:
                     cat_stats[m.category]['alerte'] += 1
 
+            cat_lbl = m.category
+            try:
+                cat_lbl = m.get_category_display()
+            except Exception:
+                pass
+
             alertes_stock.append({
                 'id': m.id, 'name': m.name, 'category': m.category,
-                'cat_label': m.get_category_display() if hasattr(m, 'get_category_display') else m.category,
+                'cat_label': cat_lbl,
                 'quantity': qty, 'unit': m.unit, 'min_threshold': thresh,
                 'supplier': m.supplier.name if m.supplier else '—',
                 'pct': min(pct, 100), 'niveau': niveau, 'icone': icone,
@@ -247,9 +260,14 @@ def stock_advanced_view(request):
 
     previsions = []
     for m in all_materials:
+        seuil = None
         try:
-            seuil = getattr(m, 'seuil_intelligent', None)
-            if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
+            seuil = m.seuil_intelligent
+        except Exception:
+            seuil = None
+
+        if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
+            try:
                 jours = seuil.jours_de_stock
                 if jours <= 15:
                     previsions.append({
@@ -260,8 +278,8 @@ def stock_advanced_view(request):
                         'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if getattr(seuil, 'date_rupture_prevue', None) else '—',
                         'critique': jours <= 7,
                     })
-        except Exception:
-            pass
+            except Exception:
+                pass
     previsions.sort(key=lambda x: x['jours_restants'])
 
     lots = StockLot.objects.select_related('material', 'fournisseur', 'emplacement').order_by('-date_reception')[:100]
@@ -272,7 +290,11 @@ def stock_advanced_view(request):
         'material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur', 'machine', 'of'
     ).order_by('-date')[:100]
 
-    locations = StockLocation.objects.filter(is_active=True).order_by('type', 'name') if hasattr(StockLocation, 'is_active') else StockLocation.objects.all()
+    try:
+        locations = StockLocation.objects.filter(is_active=True).order_by('type', 'name')
+    except Exception:
+        locations = StockLocation.objects.all()
+
     suppliers = Supplier.objects.all().order_by('name')
 
     demandes = DemandeAchat.objects.select_related('material', 'demandeur', 'valideur').order_by('-date_creation')[:50]
@@ -285,9 +307,9 @@ def stock_advanced_view(request):
     for m in all_materials:
         try:
             q = float(m.quantity or 0)
-            p = float(m.price_per_unit or 0)
+            p = float(getattr(m, 'price_per_unit', 0) or 0)
             valeur_stock_total += q * p
-        except (ValueError, TypeError):
+        except Exception:
             pass
 
     context = {
@@ -328,15 +350,27 @@ def material_search_api(request):
 
     results = []
     for m in materials:
+        is_low = False
+        try:
+            is_low = m.is_low_stock()
+        except Exception:
+            pass
+
+        cat_lbl = m.category
+        try:
+            cat_lbl = m.get_category_display()
+        except Exception:
+            pass
+
         results.append({
             'id': m.id, 'name': m.name,
             'name_html': highlight_search(m.name, query),
-            'category': m.get_category_display() if hasattr(m, 'get_category_display') else m.category,
+            'category': cat_lbl,
             'quantity': m.quantity or 0, 'unit': m.unit,
             'min_threshold': m.min_threshold or 0,
             'supplier': m.supplier.name if m.supplier else '—',
-            'is_low_stock': getattr(m, 'is_low_stock', lambda: False)(),
-            'price': float(m.price_per_unit) if getattr(m, 'price_per_unit', None) else 0,
+            'is_low_stock': is_low,
+            'price': float(getattr(m, 'price_per_unit', 0) or 0),
         })
     return JsonResponse({'query': query, 'count': len(results), 'results': results})
 
@@ -380,12 +414,21 @@ def export_search_results(request):
         q = float(m.quantity or 0)
         p = float(getattr(m, 'price_per_unit', 0) or 0)
         valeur = q * p
-        is_low = getattr(m, 'is_low_stock', lambda: False)()
+        is_low = False
+        try:
+            is_low = m.is_low_stock()
+        except Exception:
+            pass
         etat = "⚠️ ALERTE" if is_low else "✓ OK"
+        cat_lbl = m.category
+        try:
+            cat_lbl = m.get_category_display()
+        except Exception:
+            pass
+
         row_data = [
-            m.name, m.get_category_display() if hasattr(m, 'get_category_display') else m.category,
-            q, m.unit, m.min_threshold or 0, m.supplier.name if m.supplier else '',
-            p, round(valeur, 2), etat
+            m.name, cat_lbl, q, m.unit, m.min_threshold or 0,
+            m.supplier.name if m.supplier else '', p, round(valeur, 2), etat
         ]
         ws.append(row_data)
         for col_num in range(1, len(row_data) + 1):
