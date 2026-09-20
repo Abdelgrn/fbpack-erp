@@ -63,6 +63,9 @@ from .drh import (
 # Chat
 from .chat import ChatRoom, ChatMessage, UserPresence
 
+# Permissions
+from .permissions import UserModulePermission, user_has_module_access
+
 
 # --- CORRECTION AUTOMATIQUE DES MACHINES DANS LA BASE DE DONNÉES APRES MIGRATE ---
 @receiver(post_migrate)
@@ -123,4 +126,6 @@ __all__ = [
     'Payslip', 'WorkSchedule', 'ShiftAssignment', 'MedicalVisit', 'WorkIncident', 'ProtectiveEquipment',
     # Chat
     'ChatRoom', 'ChatMessage', 'UserPresence',
+    # Permissions
+    'UserModulePermission', 'user_has_module_access',
 ]
