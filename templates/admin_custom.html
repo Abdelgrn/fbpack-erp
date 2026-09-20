@@ -1,0 +1,382 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    
+    <!-- HEADER -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+            ⚙️ Administration ERP
+        </h1>
+        <p class="text-gray-400 mt-2">Gestion des utilisateurs et des permissions par module</p>
+    </div>
+
+    <!-- STATS RAPIDES -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="glass p-5 rounded-xl border border-slate-700">
+            <div class="text-xs text-gray-400 uppercase">Total Utilisateurs</div>
+            <div class="text-3xl font-bold text-white mt-2">{{ total_users }}</div>
+        </div>
+        <div class="glass p-5 rounded-xl border border-emerald-500/30">
+            <div class="text-xs text-emerald-400 uppercase">Actifs</div>
+            <div class="text-3xl font-bold text-emerald-400 mt-2">{{ active_users }}</div>
+        </div>
+        <div class="glass p-5 rounded-xl border border-yellow-500/30">
+            <div class="text-xs text-yellow-400 uppercase">Staff</div>
+            <div class="text-3xl font-bold text-yellow-400 mt-2">{{ staff_users }}</div>
+        </div>
+        <div class="glass p-5 rounded-xl border border-blue-500/30">
+            <div class="text-xs text-blue-400 uppercase">Groupes</div>
+            <div class="text-3xl font-bold text-blue-400 mt-2">{{ groups.count }}</div>
+        </div>
+    </div>
+
+    <!-- BOUTON AJOUTER -->
+    <div class="mb-6">
+        <button onclick="openAddModal()" 
+                class="bg-neon hover:bg-yellow-500 text-black font-bold py-3 px-6 rounded-lg shadow-lg transition">
+            ➕ Créer un Nouvel Utilisateur
+        </button>
+    </div>
+
+    <!-- LISTE UTILISATEURS -->
+    <div class="glass rounded-xl border border-slate-700 overflow-hidden mb-8">
+        <div class="p-4 border-b border-slate-700 bg-slate-800/50">
+            <h2 class="text-lg font-bold text-white">👥 Utilisateurs & Permissions</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-800/50 text-xs uppercase text-gray-400">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Utilisateur</th>
+                        <th class="px-4 py-3 text-left">Email</th>
+                        <th class="px-4 py-3 text-center">Statut</th>
+                        <th class="px-4 py-3 text-center">Modules Autorisés</th>
+                        <th class="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for item in users_with_perms %}
+                    <tr class="hover:bg-slate-800/30 transition user-row"
+                        data-user-id="{{ item.user.id }}"
+                        data-username="{{ item.user.username }}"
+                        data-email="{{ item.user.email|default:'' }}"
+                        data-is-staff="{{ item.user.is_staff|yesno:'1,0' }}"
+                        data-is-active="{{ item.user.is_active|yesno:'1,0' }}"
+                        data-modules="{{ item.modules_actifs|join:',' }}">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-3">
+                                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold">
+                                    {{ item.user.username|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <div class="text-white font-medium">{{ item.user.username }}</div>
+                                    {% if item.user.is_superuser %}
+                                        <span class="text-[10px] text-purple-400">SUPER ADMIN</span>
+                                    {% elif item.user.is_staff %}
+                                        <span class="text-[10px] text-yellow-400">STAFF</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-300">{{ item.user.email|default:"-" }}</td>
+                        <td class="px-4 py-3 text-center">
+                            {% if item.user.is_active %}
+                                <span class="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded">✅ Actif</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded">❌ Inactif</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if item.user.is_superuser %}
+                                <span class="px-3 py-1 text-xs bg-purple-500/20 text-purple-400 rounded">🌟 TOUS</span>
+                            {% else %}
+                                <span class="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 rounded">
+                                    {{ item.nb_modules }} module{{ item.nb_modules|pluralize }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center justify-center gap-2">
+                                <button class="btn-edit-user p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded transition" title="Modifier">
+                                    ✏️
+                                </button>
+                                {% if not item.user.is_superuser %}
+                                <a href="{% url 'admin_toggle_user' item.user.id %}" 
+                                   class="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded transition" title="Activer/Désactiver">
+                                    🔄
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- STATS MODULES -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {% for module in stats_modules %}
+        <div class="glass p-5 rounded-xl border border-slate-700">
+            <h3 class="text-white font-bold mb-3 flex items-center gap-2">
+                <span class="text-2xl">{{ module.icone }}</span>
+                {{ module.nom }}
+            </h3>
+            <div class="space-y-2">
+                {% for item in module.items %}
+                <div class="flex justify-between items-center py-2 border-b border-slate-700/50">
+                    <span class="text-sm text-gray-300">{{ item.label }}</span>
+                    <span class="text-lg font-bold text-neon">{{ item.count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- LOG ACTIONS RÉCENTES -->
+    <div class="glass rounded-xl border border-slate-700 overflow-hidden">
+        <div class="p-4 border-b border-slate-700 bg-slate-800/50">
+            <h2 class="text-lg font-bold text-white">📋 Actions Récentes</h2>
+        </div>
+        <div class="max-h-96 overflow-y-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-800/50 text-xs uppercase text-gray-400 sticky top-0">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Date</th>
+                        <th class="px-4 py-3 text-left">Utilisateur</th>
+                        <th class="px-4 py-3 text-left">Action</th>
+                        <th class="px-4 py-3 text-left">Objet</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for action in recent_actions %}
+                    <tr class="hover:bg-slate-800/30">
+                        <td class="px-4 py-3 text-gray-400 text-xs">{{ action.action_time|date:"d/m/Y H:i" }}</td>
+                        <td class="px-4 py-3 text-white">{{ action.user.username }}</td>
+                        <td class="px-4 py-3">
+                            {% if action.action_flag == 1 %}
+                                <span class="text-emerald-400">➕ Ajout</span>
+                            {% elif action.action_flag == 2 %}
+                                <span class="text-yellow-400">✏️ Modification</span>
+                            {% elif action.action_flag == 3 %}
+                                <span class="text-red-400">🗑️ Suppression</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-gray-300">{{ action.object_repr|truncatechars:50 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-6 text-center text-gray-500">Aucune action récente</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AJOUTER UTILISATEUR -->
+<div id="modal-add-user" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-900 z-10">
+            <h2 class="text-xl font-bold text-white">➕ Créer un Nouvel Utilisateur</h2>
+            <button onclick="closeAddModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        
+        <form method="post" action="{% url 'admin_add_user' %}" class="p-6 django-form-container">
+            {% csrf_token %}
+            
+            <div class="mb-6">
+                <h3 class="text-sm font-bold text-neon uppercase mb-3">Informations de Connexion</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Nom d'utilisateur *</label>
+                        <input type="text" name="username" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Email</label>
+                        <input type="email" name="email">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm text-gray-300 mb-2">Mot de passe *</label>
+                        <input type="password" name="password" required>
+                    </div>
+                </div>
+                <div class="flex gap-4 mt-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="is_active" checked>
+                        Compte Actif
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="is_staff">
+                        Accès Staff (Admin Django)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-bold text-neon uppercase">🔐 Modules Autorisés</h3>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="toggleAllAdd(true)" class="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded hover:bg-emerald-500/30">
+                            ✅ Tout Cocher
+                        </button>
+                        <button type="button" onclick="toggleAllAdd(false)" class="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded hover:bg-red-500/30">
+                            ❌ Tout Décocher
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-800/50 p-4 rounded-lg">
+                    {% for module_code, module_label in modules_list %}
+                    <label class="flex items-center gap-2 p-2 hover:bg-slate-700/50 rounded cursor-pointer transition">
+                        <input type="checkbox" name="module_{{ module_code }}" class="add-module-cb">
+                        <span class="text-sm text-gray-300">{{ module_label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-neon hover:bg-yellow-500 text-black font-bold py-3 rounded-lg transition">
+                    ✅ Créer l'Utilisateur
+                </button>
+                <button type="button" onclick="closeAddModal()" 
+                        class="px-6 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition">
+                    Annuler
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL MODIFIER UTILISATEUR -->
+<div id="modal-edit-user" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-900 z-10">
+            <h2 class="text-xl font-bold text-white">✏️ Modifier Utilisateur</h2>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        
+        <form id="edit-user-form" method="post" class="p-6 django-form-container">
+            {% csrf_token %}
+            
+            <div class="mb-6">
+                <h3 class="text-sm font-bold text-neon uppercase mb-3">Informations</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Nom d'utilisateur</label>
+                        <input type="text" name="username" id="edit-username">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Email</label>
+                        <input type="email" name="email" id="edit-email">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm text-gray-300 mb-2">Nouveau mot de passe (laisser vide pour ne pas changer)</label>
+                        <input type="password" name="password">
+                    </div>
+                </div>
+                <div class="flex gap-4 mt-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="is_active" id="edit-is-active">
+                        Compte Actif
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="is_staff" id="edit-is-staff">
+                        Accès Staff
+                    </label>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-bold text-neon uppercase">🔐 Modules Autorisés</h3>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="toggleAllEdit(true)" class="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded hover:bg-emerald-500/30">
+                            ✅ Tout Cocher
+                        </button>
+                        <button type="button" onclick="toggleAllEdit(false)" class="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded hover:bg-red-500/30">
+                            ❌ Tout Décocher
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-800/50 p-4 rounded-lg">
+                    {% for module_code, module_label in modules_list %}
+                    <label class="flex items-center gap-2 p-2 hover:bg-slate-700/50 rounded cursor-pointer transition">
+                        <input type="checkbox" name="module_{{ module_code }}" 
+                               data-module="{{ module_code }}" class="edit-module-cb">
+                        <span class="text-sm text-gray-300">{{ module_label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-neon hover:bg-yellow-500 text-black font-bold py-3 rounded-lg transition">
+                    ✅ Enregistrer
+                </button>
+                <button type="button" onclick="closeEditModal()" 
+                        class="px-6 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition">
+                    Annuler
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openAddModal() {
+    document.getElementById('modal-add-user').classList.remove('hidden');
+}
+function closeAddModal() {
+    document.getElementById('modal-add-user').classList.add('hidden');
+}
+function closeEditModal() {
+    document.getElementById('modal-edit-user').classList.add('hidden');
+}
+function toggleAllAdd(val) {
+    var cbs = document.querySelectorAll('.add-module-cb');
+    for (var i = 0; i < cbs.length; i++) { cbs[i].checked = val; }
+}
+function toggleAllEdit(val) {
+    var cbs = document.querySelectorAll('.edit-module-cb');
+    for (var i = 0; i < cbs.length; i++) { cbs[i].checked = val; }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var btns = document.querySelectorAll('.btn-edit-user');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].addEventListener('click', function() {
+            var row = this.closest('.user-row');
+            if (!row) return;
+
+            var userId = row.getAttribute('data-user-id');
+            var username = row.getAttribute('data-username');
+            var email = row.getAttribute('data-email');
+            var isStaff = row.getAttribute('data-is-staff') === '1';
+            var isActive = row.getAttribute('data-is-active') === '1';
+            var modulesStr = row.getAttribute('data-modules') || '';
+            var modulesActifs = modulesStr ? modulesStr.split(',') : [];
+
+            document.getElementById('edit-username').value = username;
+            document.getElementById('edit-email').value = email;
+            document.getElementById('edit-is-staff').checked = isStaff;
+            document.getElementById('edit-is-active').checked = isActive;
+
+            var cbs = document.querySelectorAll('.edit-module-cb');
+            for (var j = 0; j < cbs.length; j++) {
+                var mod = cbs[j].getAttribute('data-module');
+                cbs[j].checked = modulesActifs.indexOf(mod) !== -1;
+            }
+
+            document.getElementById('edit-user-form').action = '/administration/user/' + userId + '/edit/';
+            document.getElementById('modal-edit-user').classList.remove('hidden');
+        });
+    }
+});
+</script>
+{% endblock %}

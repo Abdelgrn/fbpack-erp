@@ -90,49 +90,68 @@
         <nav class="flex-1 py-4 overflow-y-auto space-y-1">
 
             <!-- TABLEAU DE BORD -->
+            {% if 'dashboard' in user_modules %}
             <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                 <span class="mr-3 text-lg">📊</span> Dashboard
             </a>
+            {% endif %}
 
+            {% if 'planning' in user_modules %}
             <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}">
                 <span class="mr-3 text-lg">📅</span> Planning Gantt
             </a>
+            {% endif %}
 
+            {% if 'reporting' in user_modules %}
             <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}">
                 <span class="mr-3 text-lg">📈</span> Reporting
             </a>
+            {% endif %}
             
             <!-- GESTION OPÉRATIONNELLE -->
+            {% if 'crm' in user_modules or 'prepress' in user_modules or 'planification' in user_modules or 'production' in user_modules or 'stock' in user_modules %}
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                 Gestion Opérationnelle
             </div>
+            {% endif %}
             
             <!-- CRM & DEVIS -->
+            {% if 'crm' in user_modules %}
             <a href="{% url 'crm_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'crm' in request.path %}active{% endif %}">
                 <span class="mr-3">🤝</span> CRM & Devis
             </a>
+            {% endif %}
 
             <!-- PRÉPRESSE -->
+            {% if 'prepress' in user_modules %}
             <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'prepress' in request.path %}active{% endif %}">
                 <span class="mr-3">🎨</span> Prépresse & Outils
             </a>
+            {% endif %}
 
             <!-- NOUVEAU MODULE PLANIFICATION (REMPLACE VISUELLEMENT OF) -->
+            {% if 'planification' in user_modules %}
             <a href="{% url 'planning_atelier' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'planification' in request.path or 'planning-atelier' in request.path or '/of/' in request.path and 'crm' not in request.path %}active{% endif %}">
                 <span class="mr-3">📅</span> Planification
             </a>
+            {% endif %}
 
             <!-- PRODUCTION SPÉCIALE -->
+            {% if 'production' in user_modules %}
             <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/prod/' in request.path and '/encre/' not in request.path %}active{% endif %}">
                 <span class="mr-3">⚙️</span> Production Spécial
             </a>
+            {% endif %}
 
             <!-- STOCKS & ACHATS -->
+            {% if 'stock' in user_modules %}
             <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/stock/' in request.path %}active{% endif %}">
                 <span class="mr-3">📦</span> Stocks & Achats
             </a>
+            {% endif %}
 
             <!-- MODULE MAINTENANCE -->
+            {% if 'maintenance' in user_modules %}
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-orange-500/60 uppercase tracking-widest">
                 Maintenance
             </div>
@@ -147,8 +166,10 @@
                 </span>
                 {% endif %}
             </a>
+            {% endif %}
 
             <!-- MODULE DRH -->
+            {% if 'drh' in user_modules %}
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-emerald-500/60 uppercase tracking-widest">
                 Ressources Humaines
             </div>
@@ -157,19 +178,26 @@
                 <span class="mr-3">👥</span>
                 <span>DRH</span>
             </a>
+            {% endif %}
 
             <!-- OUTILS -->
+            {% if 'chat' in user_modules or 'import' in user_modules %}
             <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                 Outils
             </div>
+            {% endif %}
             
+            {% if 'chat' in user_modules %}
             <a href="{% url 'chat_home' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}">
                 <span class="mr-3">💬</span> Chat d'Équipe
             </a>
+            {% endif %}
 
+            {% if 'import' in user_modules %}
             <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300 {% if 'import' in request.path %}active{% endif %}">
                 <span class="mr-3">📥</span> Importer Excel
             </a>
+            {% endif %}
 
         </nav>
 
@@ -198,9 +226,13 @@
 
             <div class="grid grid-cols-2 gap-2">
 
+                {% if 'admin' in user_modules or is_super_admin %}
                 <a href="{% url 'admin_view' %}" class="flex items-center justify-center gap-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg border border-slate-600 transition duration-200">
                     ⚙️ Admin
                 </a>
+                {% else %}
+                <div></div>
+                {% endif %}
 
                 <form action="{% url 'logout' %}" method="post" class="w-full">
                     {% csrf_token %}
