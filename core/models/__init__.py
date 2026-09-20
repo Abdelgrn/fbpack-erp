@@ -93,7 +93,7 @@ def corriger_base_machines_post_migrate(sender, **kwargs):
             pass
 
 
-# --- IMPORTATION AUTOMATIQUE DES DONNÉES SI LA BASE EST VIDE ---
+# --- IMPORTATION ET INITIALISATION AUTOMATIQUE SUR RENDER (SANS TOUCHER AUX USERS) ---
 @receiver(post_migrate)
 def auto_init_super_admin_et_permissions(sender, **kwargs):
     if sender.name == 'core':
@@ -101,28 +101,30 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
             from django.contrib.auth.models import User
             from .crm import Client
 
-            # 1. Si la base est vide (0 clients), charger le fichier de donnees locales
-            if not Client.objects.exists() and os.path.exists('data_import.json'):
+            # 1. Si aucun client n'existe encore sur Render, importer les donnees métier
+            if not Client.objects.exists() and os.path.exists('data_core.json'):
+                print("🔄 Importation des clients, machines et stocks vers Render...")
                 try:
-                    call_command('loaddata', 'data_import.json')
-                except Exception:
-                    pass
+                    call_command('loaddata', 'data_core.json')
+                    print("✅ Donnees métier importees avec succes !")
+                except Exception as e:
+                    print(f"⚠️ Erreur lors de l'importation: {e}")
 
-            # 2. S'assurer qu'au moins un admin existe
+            # 2. S'assurer qu'au moins un administrateur existe
             if not User.objects.filter(is_superuser=True).exists():
                 username = os.environ.get('ADMIN_USERNAME', 'admin')
                 password = os.environ.get('ADMIN_PASSWORD', 'admin1234')
                 email = os.environ.get('ADMIN_EMAIL', 'admin@fbpack.com')
 
                 admin_user, created = User.objects.get_or_create(username=username)
-                if created:
+                if created or not admin_user.is_superuser:
                     admin_user.set_password(password)
                     admin_user.email = email
                     admin_user.is_superuser = True
                     admin_user.is_staff = True
                     admin_user.save()
 
-            # 3. S'assurer que tous les utilisateurs ont leurs permissions configurées
+            # 3. Attribuer la fiche de permissions a TOUS les utilisateurs existants sur Render
             all_fields = [
                 'can_access_dashboard', 'can_access_planning', 'can_access_reporting',
                 'can_access_crm', 'can_access_prepress', 'can_access_planification',
@@ -136,8 +138,8 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
                     for field in all_fields:
                         setattr(p, field, True)
                     p.save()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"⚠️ Erreur permissions: {e}")
 
 
 # --- EXPORT DE TOUS LES MODÈLES ---
