@@ -7,7 +7,13 @@
             <h1 class="text-3xl font-bold text-white">💬 Chat d'Équipe</h1>
             <p class="text-gray-400 mt-1">Salons publics et messages privés</p>
         </div>
+        <button type="button" id="btn-enable-notif" onclick="activerNotificationsChat()"
+                class="bg-slate-700 hover:bg-neon hover:text-slate-900 text-gray-200 text-sm font-bold px-4 py-2 rounded-lg transition border border-slate-600">
+            🔔 Activer les notifications
+        </button>
     </div>
+
+    <div id="notif-status" class="hidden mb-4 rounded-xl px-4 py-3 text-sm border"></div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Colonne Salons Publics (2/3 de largeur sur grand écran) -->
@@ -101,4 +107,50 @@
         </div>
     </div>
 </div>
+
+<script>
+function majStatutNotif() {
+    const el = document.getElementById('notif-status');
+    const btn = document.getElementById('btn-enable-notif');
+    if (!el || !('Notification' in window)) {
+        if (btn) btn.classList.add('hidden');
+        return;
+    }
+    if (Notification.permission === 'granted') {
+        el.className = 'mb-4 rounded-xl px-4 py-3 text-sm border bg-emerald-500/10 border-emerald-500/30 text-emerald-300';
+        el.textContent = '✅ Notifications activées — vous serez alerté des nouveaux messages (avec son).';
+        el.classList.remove('hidden');
+        if (btn) btn.classList.add('hidden');
+    } else if (Notification.permission === 'denied') {
+        el.className = 'mb-4 rounded-xl px-4 py-3 text-sm border bg-red-500/10 border-red-500/30 text-red-300';
+        el.textContent = '❌ Notifications bloquées par le navigateur. Autorisez-les dans les paramètres du site.';
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+        if (btn) btn.classList.remove('hidden');
+    }
+}
+
+async function activerNotificationsChat() {
+    if (!('Notification' in window)) {
+        alert('Votre navigateur ne supporte pas les notifications.');
+        return;
+    }
+    try {
+        const perm = await Notification.requestPermission();
+        majStatutNotif();
+        if (perm === 'granted') {
+            new Notification('Chat FB Pack', {
+                body: 'Notifications activées ✓',
+                icon: '/static/img/logo.png',
+                silent: false
+            });
+        }
+    } catch (e) {
+        console.log(e);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', majStatutNotif);
+</script>
 {% endblock %}

@@ -39,6 +39,22 @@ class OrdreFabrication(models.Model):
         ('BASSE', 'Basse'), ('NORMALE', 'Normale'),
         ('HAUTE', 'Haute'), ('URGENTE', 'Urgente'),
     ]
+    BOBINE_FILLE_UNITE_CHOICES = [
+        ('MM', 'mm'),
+        ('KG', 'Kg'),
+    ]
+    SENS_DEFILEMENT_CHOICES = [
+        ('1', 'Sens 1 (Tête en avant)'),
+        ('2', 'Sens 2 (Pied en avant)'),
+        ('3', 'Sens 3 (Droite en avant)'),
+        ('4', 'Sens 4 (Gauche en avant)'),
+    ]
+    PLACEMENT_SPOT_CHOICES = [
+        ('1', 'En bas à gauche'),
+        ('2', 'En bas au centre'),
+        ('3', 'En bas à droite'),
+        ('4', 'En haut à droite'),
+    ]
 
     numero_of = models.CharField("N° OF", max_length=50, unique=True, blank=True)
     numero_lot = models.CharField("N° Lot", max_length=100, blank=True, db_index=True)
@@ -53,9 +69,14 @@ class OrdreFabrication(models.Model):
 
     support = models.CharField("Support global (ex: OPP 20 TRS)", max_length=100, blank=True)
     dimension_mandrin = models.FloatField("Dimension mandrin (mm)", default=76, null=True, blank=True)
-    diametre_bobine_fille = models.FloatField("Diamètre bobine fille (mm)", default=0, null=True, blank=True)
+    diametre_bobine_fille = models.FloatField("Bobine fille (Valeur)", default=0, null=True, blank=True)
+    diametre_bobine_fille_unite = models.CharField("Unité Bobine fille", max_length=10, choices=BOBINE_FILLE_UNITE_CHOICES, default='MM')
+    developpement = models.FloatField("Développement global (mm)", default=0, null=True, blank=True)
     laize = models.FloatField("Laize (mm)", default=0, null=True, blank=True)
     epaisseur = models.FloatField("Épaisseur (μm)", default=0, null=True, blank=True)
+
+    sens_defilement = models.CharField("Sens de défilement", max_length=2, choices=SENS_DEFILEMENT_CHOICES, blank=True, null=True)
+    placement_spot = models.CharField("Placement spot", max_length=2, choices=PLACEMENT_SPOT_CHOICES, blank=True, null=True)
 
     date_creation = models.DateTimeField("Date création", auto_now_add=True)
     date_lancement = models.DateField("Date lancement", null=True, blank=True)
@@ -287,6 +308,12 @@ class EtapeProduction(models.Model):
         ('B', 'Équipe B'),
         ('C', 'Équipe C'),
     ]
+    UNITE_SORTIE_CHOICES = [
+        ('KG', 'KG'),
+        ('ML', 'ML'),
+        ('NB_ETIQUETTES', 'NB étiquettes'),
+        ('NB_SACS', 'NB sacs'),
+    ]
 
     SHIFT_HOURS = {
         'MATIN': (datetime.time(8, 0), datetime.time(16, 0)),
@@ -303,12 +330,51 @@ class EtapeProduction(models.Model):
     numero_etape = models.IntegerField("N° Étape", default=1)
     nom_etape = models.CharField("Nom étape", max_length=100, blank=True)
 
-    support = models.CharField("Support (ex: OPP 20 TRS 920MM)", max_length=200, blank=True)
+    # Variables globales cachées du formulaire CRM (Utiles pour la logique de prod)
+    support = models.CharField("Support global", max_length=200, blank=True)
     developpement = models.FloatField("Développement (mm)", default=0, null=True, blank=True)
-    quantite_ml = models.FloatField("Quantité ML (mètres linéaires)", default=0, null=True, blank=True)
+    quantite_ml = models.FloatField("Quantité sortie valeur", default=0, null=True, blank=True)
+    unite_sortie = models.CharField("Unité de sortie", max_length=20, choices=UNITE_SORTIE_CHOICES, default='ML')
     nb_bobines = models.IntegerField("Nombre de bobines", default=0, null=True, blank=True)
-    numero_lot_etape = models.CharField("N° Lot étape (ex: 90PE440-8)", max_length=100, blank=True)
+    numero_lot_etape = models.CharField("N° Lot étape", max_length=100, blank=True)
     observation = models.TextField("Observation (RELIQUAT, BAT+PROD...)", blank=True)
+
+    # Nouveaux champs spécifiques par atelier (Excel)
+    
+    # Extrusion
+    ext_support = models.CharField("Support Extrusion", max_length=100, blank=True, null=True)
+    ext_laize = models.FloatField("Laize Extrusion", default=0, null=True, blank=True)
+    ext_epaisseur = models.FloatField("Épaisseur Extrusion", default=0, null=True, blank=True)
+
+    # Impression
+    imp_support = models.CharField("Support d'impression", max_length=100, blank=True, null=True)
+    imp_epaisseur = models.FloatField("Épaisseur du support", default=0, null=True, blank=True)
+    imp_laize = models.FloatField("Laize Bobine", default=0, null=True, blank=True)
+    imp_mandrin = models.FloatField("Ø INT Mandrin", default=0, null=True, blank=True)
+
+    # Complexage
+    comp_mp1 = models.CharField("Qté MP support1 (Contre collage)", max_length=100, blank=True, null=True)
+    comp_ep1 = models.FloatField("Épaisseur 1", default=0, null=True, blank=True)
+    comp_laize1 = models.FloatField("Laize 1", default=0, null=True, blank=True)
+
+    comp_mp2 = models.CharField("Qté MP support2 (Triplex)", max_length=100, blank=True, null=True)
+    comp_ep2 = models.FloatField("Épaisseur 2", default=0, null=True, blank=True)
+    comp_laize2 = models.FloatField("Laize 2", default=0, null=True, blank=True)
+
+    comp_mp3 = models.CharField("Qté MP support3 (Quadriplex)", max_length=100, blank=True, null=True)
+    comp_ep3 = models.FloatField("Épaisseur 3", default=0, null=True, blank=True)
+    comp_laize3 = models.FloatField("Laize 3", default=0, null=True, blank=True)
+
+    # Découpe
+    dec_qte_bobines = models.IntegerField("Qté Bobines Fille", default=0, null=True, blank=True)
+    dec_type_mandrin = models.CharField("Type Mandrin", max_length=100, blank=True, null=True)
+    dec_mandrin_int = models.FloatField("Ø INT Mandrin (Dec)", default=0, null=True, blank=True)
+    dec_diametre_ext = models.FloatField("Ø EXT Bobine", default=0, null=True, blank=True)
+    dec_poids_moyen = models.FloatField("Poids Moyen Bobine", default=0, null=True, blank=True)
+    dec_jonctions = models.IntegerField("Nombre de jonction/bob", default=0, null=True, blank=True)
+
+    # Fond Carré
+    fc_type_paquet = models.CharField("Type de paquet", max_length=100, blank=True, null=True)
 
     quantite_entree = models.FloatField("Quantité entrée (kg)", default=0)
     quantite_sortie = models.FloatField("Quantité sortie (kg)", default=0)
@@ -343,7 +409,6 @@ class EtapeProduction(models.Model):
         return f"Étape {self.numero_etape} - {self.get_nom_display()} - {self.of.numero_of}"
 
     def get_statut_color(self):
-        """Résout l'erreur AttributeError sur les étapes dans le tableau de planification"""
         return {
             'EN_ATTENTE': 'gray',
             'PRET': 'cyan',

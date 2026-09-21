@@ -72,7 +72,7 @@ from .drh import (
 )
 
 from .chat import (
-    chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification, chat_private_init
+    chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification, chat_private_init, chat_notifications_api
 )
 
 from .maintenance import (
