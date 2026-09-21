@@ -73,26 +73,18 @@ from .permissions import UserModulePermission, user_has_module_access
 
 
 def robust_import_local_data():
-    """Importateur universel : importe 100% des 9 machines, clients, OFs, stocks et fiches depuis data_import.json sans toucher aux utilisateurs de Render"""
+    """Importateur universel complet : importe 100% des 9 machines, clients, OFs et stocks depuis data_import.json"""
     from django.contrib.auth.models import User
 
-    search_paths = [
-        'data_import.json',
-        'data_core.json',
-        'data.json',
-        os.path.join(getattr(settings, 'BASE_DIR', ''), 'data_import.json'),
-        os.path.join(getattr(settings, 'BASE_DIR', ''), 'data_core.json'),
-        os.path.join(getattr(settings, 'BASE_DIR', ''), 'data.json'),
-    ]
+    filepath = 'data_import.json'
+    if not os.path.exists(filepath):
+        for fp in ['data_core.json', 'data.json']:
+            if os.path.exists(fp):
+                filepath = fp
+                break
 
-    filepath = None
-    for fp in search_paths:
-        if fp and os.path.exists(fp):
-            filepath = fp
-            break
-
-    if not filepath:
-        return False, "❌ Fichier de données introuvable (data_import.json)."
+    if not os.path.exists(filepath):
+        return False, "❌ Fichier data_import.json introuvable sur le serveur."
 
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -108,12 +100,12 @@ def robust_import_local_data():
         'auth.user',
         'core.atelier',
         'core.supplier',
+        'core.client',
         'core.department',
         'core.position',
         'core.stocklocation',
         'core.material',
         'core.machine',
-        'core.client',
         'core.technicalproduct',
         'core.tooling',
         'core.processtype',
@@ -121,6 +113,7 @@ def robust_import_local_data():
         'core.productionorder',
         'core.etapeproduction',
         'core.ficheproductionjournaliere',
+        'core.productionentry',
     ]
 
     def get_priority(item):
@@ -132,7 +125,7 @@ def robust_import_local_data():
 
     sorted_data = sorted(data, key=get_priority)
 
-    # 1. Créer uniquement les utilisateurs du fichier JSON s'ils n'existent pas sur Render
+    # 1. Ne créer que les utilisateurs manquants
     for item in sorted_data:
         if item.get('model') == 'auth.user':
             pk = item.get('pk')
@@ -152,8 +145,9 @@ def robust_import_local_data():
                 except Exception:
                     pass
 
-    # 2. Importer les objets métier
+    # 2. Importer tous les objets métier
     counts = {}
+    errors = []
 
     for item in sorted_data:
         model_str = item.get('model')
@@ -208,7 +202,7 @@ def robust_import_local_data():
                     except Exception:
                         pass
                 success = True
-        except Exception:
+        except Exception as err1:
             try:
                 with transaction.atomic():
                     obj = ModelClass.objects.create(**clean_fields)
@@ -218,13 +212,12 @@ def robust_import_local_data():
                         except Exception:
                             pass
                     success = True
-            except Exception:
-                pass
+            except Exception as err2:
+                errors.append(f"{model_str} (pk={pk}): {err2}")
 
         if success:
             counts[model_str] = counts.get(model_str, 0) + 1
 
-    # Réinitialisation des séquences PostgreSQL
     if connection.vendor == 'postgresql':
         try:
             with connection.cursor() as cursor:
@@ -243,7 +236,29 @@ def robust_import_local_data():
     nb_of = OrdreFabrication.objects.count() + ProductionOrder.objects.count()
     nb_mat = Material.objects.count()
 
-    return True, f"✅ Importation réussie ! {nb_m} machines, {nb_c} clients, {nb_of} OF(s) et {nb_mat} matières premières sont maintenant en ligne !"
+    msg = f"✅ Importation réussie depuis {os.path.basename(filepath)} ! En base : {nb_m} machines, {nb_c} clients, {nb_of} OF(s), {nb_mat} matières premières."
+    if errors:
+        msg += f" (⚠️ {len(errors)} éléments ignorés)"
+
+    return True, msg
+
+
+@receiver(post_migrate)
+def corriger_base_machines_post_migrate(sender, **kwargs):
+    if sender.name == 'core':
+        try:
+            Machine.objects.filter(name__icontains='1350').update(
+                type='DEC',
+                name='DCM Panther 1350'
+            )
+            Machine.objects.filter(Q(name__icontains='DCM panther 1') | Q(name__icontains='DCM Panther 1')).exclude(
+                name__icontains='1350'
+            ).update(
+                type='DEC2',
+                name='DCM Panther 1'
+            )
+        except Exception:
+            pass
 
 
 @receiver(post_migrate)
