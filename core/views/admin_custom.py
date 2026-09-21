@@ -5,6 +5,7 @@ from django.contrib.auth.models import User, Group
 from django.contrib.admin.models import LogEntry
 from django.db.models import Count
 from django.contrib import messages
+import traceback
 
 from ..models import Client, Opportunite, Quote, OrdreFabrication, ProductionEntry, Material, Machine
 from ..models.permissions import UserModulePermission
@@ -163,10 +164,15 @@ def admin_toggle_user(request, user_id):
 @login_required
 @staff_member_required
 def admin_import_data_view(request):
-    """Bouton d'importation manuelle en 1 clic"""
-    success, message = robust_import_local_data()
-    if success:
-        messages.success(request, message)
-    else:
-        messages.error(request, message)
+    """Bouton d'importation manuelle en 1 clic protégé contre les 500"""
+    try:
+        success, message = robust_import_local_data()
+        if success:
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+    except Exception as e:
+        print("=== ERREUR IMPORT DATA ===")
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Erreur critique lors de l'importation: {type(e).__name__} - {str(e)}")
     return redirect('admin_view')
