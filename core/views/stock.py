@@ -1,5 +1,6 @@
 import openpyxl
 import json
+import traceback
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
@@ -149,232 +150,238 @@ def conso_list_view(request):
 
 
 # ===========================================================================
-# --- STOCK AVANCÉ SÉCURISÉ ---
+# --- STOCK AVANCÉ AVEC PROTECTION ANTI-500 ---
 # ===========================================================================
 
 @login_required
 def stock_advanced_view(request):
-    search_query = request.GET.get('q', '').strip()
-    category_filter = request.GET.get('category', '')
-    low_stock_only = request.GET.get('low_stock', '') == 'on'
-    supplier_filter = request.GET.get('supplier', '')
-
     try:
-        materials = Material.objects.select_related('supplier').all()
-    except Exception:
-        materials = Material.objects.all()
+        search_query = request.GET.get('q', '').strip()
+        category_filter = request.GET.get('category', '')
+        low_stock_only = request.GET.get('low_stock', '') == 'on'
+        supplier_filter = request.GET.get('supplier', '')
 
-    if search_query:
-        materials = materials.filter(
-            Q(name__icontains=search_query) |
-            Q(supplier__name__icontains=search_query)
-        )
-    if category_filter:
-        materials = materials.filter(category=category_filter)
-    if supplier_filter:
-        materials = materials.filter(supplier_id=supplier_filter)
-
-    materials = materials.order_by('name')
-
-    if low_stock_only:
-        filtered_mat = []
-        for m in materials:
-            try:
-                if m.is_low_stock():
-                    filtered_mat.append(m)
-            except Exception:
-                pass
-        materials = filtered_mat
-
-    try:
-        all_materials = Material.objects.select_related('supplier').all()
-    except Exception:
-        all_materials = Material.objects.all()
-
-    alertes_stock = []
-    nb_ruptures = 0
-    nb_critiques = 0
-    nb_alertes_simples = 0
-
-    cat_stats = {
-        'FILM': {'rupture': 0, 'critique': 0, 'alerte': 0},
-        'INK': {'rupture': 0, 'critique': 0, 'alerte': 0},
-        'GLUE': {'rupture': 0, 'critique': 0, 'alerte': 0},
-        'SOLV': {'rupture': 0, 'critique': 0, 'alerte': 0},
-    }
-
-    for m in all_materials:
-        is_low = False
         try:
-            is_low = m.is_low_stock()
+            materials = Material.objects.select_related('supplier').all()
         except Exception:
-            qty = float(m.quantity or 0)
-            thresh = float(getattr(m, 'min_threshold', 0) or 0)
-            is_low = qty <= thresh
+            materials = Material.objects.all()
 
-        if is_low:
-            qty = float(m.quantity or 0)
-            thresh = float(getattr(m, 'min_threshold', 0) or 0)
-            pct = round((qty / thresh) * 100, 1) if thresh > 0 else 0
+        if search_query:
+            materials = materials.filter(
+                Q(name__icontains=search_query) |
+                Q(supplier__name__icontains=search_query)
+            )
+        if category_filter:
+            materials = materials.filter(category=category_filter)
+        if supplier_filter:
+            materials = materials.filter(supplier_id=supplier_filter)
 
-            if qty <= 0:
-                niveau = 'RUPTURE'
-                icone = '🔴'
-                nb_ruptures += 1
-                if m.category in cat_stats:
-                    cat_stats[m.category]['rupture'] += 1
-            elif pct < 50:
-                niveau = 'CRITIQUE'
-                icone = '🟠'
-                nb_critiques += 1
-                if m.category in cat_stats:
-                    cat_stats[m.category]['critique'] += 1
+        materials = materials.order_by('name')
+
+        if low_stock_only:
+            filtered_mat = []
+            for m in materials:
+                try:
+                    if m.is_low_stock():
+                        filtered_mat.append(m)
+                except Exception:
+                    pass
+            materials = filtered_mat
+
+        try:
+            all_materials = Material.objects.select_related('supplier').all()
+        except Exception:
+            all_materials = Material.objects.all()
+
+        alertes_stock = []
+        nb_ruptures = 0
+        nb_critiques = 0
+        nb_alertes_simples = 0
+
+        cat_stats = {
+            'FILM': {'rupture': 0, 'critique': 0, 'alerte': 0},
+            'INK': {'rupture': 0, 'critique': 0, 'alerte': 0},
+            'GLUE': {'rupture': 0, 'critique': 0, 'alerte': 0},
+            'SOLV': {'rupture': 0, 'critique': 0, 'alerte': 0},
+        }
+
+        for m in all_materials:
+            is_low = False
+            try:
+                is_low = m.is_low_stock()
+            except Exception:
+                qty = float(m.quantity or 0)
+                thresh = float(getattr(m, 'min_threshold', 0) or 0)
+                is_low = qty <= thresh
+
+            if is_low:
+                qty = float(m.quantity or 0)
+                thresh = float(getattr(m, 'min_threshold', 0) or 0)
+                pct = round((qty / thresh) * 100, 1) if thresh > 0 else 0
+
+                if qty <= 0:
+                    niveau = 'RUPTURE'
+                    icone = '🔴'
+                    nb_ruptures += 1
+                    if m.category in cat_stats:
+                        cat_stats[m.category]['rupture'] += 1
+                elif pct < 50:
+                    niveau = 'CRITIQUE'
+                    icone = '🟠'
+                    nb_critiques += 1
+                    if m.category in cat_stats:
+                        cat_stats[m.category]['critique'] += 1
+                else:
+                    niveau = 'ALERTE'
+                    icone = '🟡'
+                    nb_alertes_simples += 1
+                    if m.category in cat_stats:
+                        cat_stats[m.category]['alerte'] += 1
+
+                cat_lbl = m.category
+                try:
+                    cat_lbl = m.get_category_display()
+                except Exception:
+                    pass
+
+                alertes_stock.append({
+                    'id': m.id, 'name': m.name, 'category': m.category,
+                    'cat_label': cat_lbl,
+                    'quantity': qty, 'unit': m.unit, 'min_threshold': thresh,
+                    'supplier': m.supplier.name if m.supplier else '—',
+                    'pct': min(pct, 100), 'niveau': niveau, 'icone': icone,
+                })
+
+        ordre_priorite = {'RUPTURE': 0, 'CRITIQUE': 1, 'ALERTE': 2}
+        alertes_stock.sort(key=lambda x: (ordre_priorite.get(x['niveau'], 3), -x['pct']))
+
+        top_alertes = alertes_stock[:10]
+        top_alertes_noms = [a['name'][:25] + '...' if len(a['name']) > 25 else a['name'] for a in top_alertes]
+        top_alertes_stock = [a['quantity'] for a in top_alertes]
+        top_alertes_seuil = [a['min_threshold'] for a in top_alertes]
+        top_alertes_couleurs = []
+        for a in top_alertes:
+            if a['niveau'] == 'RUPTURE':
+                top_alertes_couleurs.append('#dc2626')
+            elif a['niveau'] == 'CRITIQUE':
+                top_alertes_couleurs.append('#ea580c')
             else:
-                niveau = 'ALERTE'
-                icone = '🟡'
-                nb_alertes_simples += 1
-                if m.category in cat_stats:
-                    cat_stats[m.category]['alerte'] += 1
+                top_alertes_couleurs.append('#ca8a04')
 
-            cat_lbl = m.category
+        cat_labels = ['Film/Papier', 'Encre', 'Colle', 'Solvant']
+        cat_rupture = [cat_stats['FILM']['rupture'], cat_stats['INK']['rupture'], cat_stats['GLUE']['rupture'], cat_stats['SOLV']['rupture']]
+        cat_critique = [cat_stats['FILM']['critique'], cat_stats['INK']['critique'], cat_stats['GLUE']['critique'], cat_stats['SOLV']['critique']]
+        cat_alerte = [cat_stats['FILM']['alerte'], cat_stats['INK']['alerte'], cat_stats['GLUE']['alerte'], cat_stats['SOLV']['alerte']]
+
+        previsions = []
+        for m in all_materials:
             try:
-                cat_lbl = m.get_category_display()
+                seuil = StockSeuil.objects.filter(material=m).first()
+                if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
+                    jours = seuil.jours_de_stock
+                    if jours <= 15:
+                        previsions.append({
+                            'material': m.name,
+                            'stock_actuel': m.quantity or 0,
+                            'conso_jour': seuil.consommation_journaliere_moy,
+                            'jours_restants': jours,
+                            'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if getattr(seuil, 'date_rupture_prevue', None) else '—',
+                            'critique': jours <= 7,
+                        })
+            except Exception:
+                pass
+        previsions.sort(key=lambda x: x['jours_restants'])
+
+        try:
+            lots = StockLot.objects.all().order_by('-id')[:100]
+        except Exception:
+            lots = []
+
+        try:
+            lots_bloques = StockLot.objects.filter(statut='BLOQUE').count()
+            lots_attente = StockLot.objects.filter(statut='EN_ATTENTE').count()
+        except Exception:
+            lots_bloques = 0
+            lots_attente = 0
+
+        try:
+            mouvements = StockMovement.objects.all().order_by('-id')[:100]
+        except Exception:
+            mouvements = []
+
+        try:
+            locations = StockLocation.objects.all()
+        except Exception:
+            locations = []
+
+        try:
+            suppliers = Supplier.objects.all().order_by('name')
+        except Exception:
+            suppliers = []
+
+        try:
+            demandes = DemandeAchat.objects.all().order_by('-id')[:50]
+            da_en_attente = DemandeAchat.objects.filter(statut='SOUMISE').count()
+        except Exception:
+            demandes = []
+            da_en_attente = 0
+
+        try:
+            bons_commande = BonCommande.objects.all().order_by('-id')[:50]
+        except Exception:
+            bons_commande = []
+
+        try:
+            consos = ConsommationEncre.objects.all().order_by('-date')[:50]
+        except Exception:
+            consos = []
+
+        valeur_stock_total = 0
+        for m in all_materials:
+            try:
+                q = float(m.quantity or 0)
+                p = float(getattr(m, 'price_per_unit', 0) or 0)
+                valeur_stock_total += q * p
             except Exception:
                 pass
 
-            alertes_stock.append({
-                'id': m.id, 'name': m.name, 'category': m.category,
-                'cat_label': cat_lbl,
-                'quantity': qty, 'unit': m.unit, 'min_threshold': thresh,
-                'supplier': m.supplier.name if m.supplier else '—',
-                'pct': min(pct, 100), 'niveau': niveau, 'icone': icone,
-            })
+        context = {
+            'search_query': search_query, 'category_filter': category_filter,
+            'low_stock_only': low_stock_only, 'supplier_filter': supplier_filter,
+            'categories': getattr(Material, 'CAT_CHOICES', []), 'materials': materials,
+            'total_matieres': Material.objects.count(), 'suppliers': suppliers,
+            'alertes_stock': alertes_stock, 'nb_alertes': len(alertes_stock),
+            'nb_ruptures': nb_ruptures, 'nb_critiques': nb_critiques,
+            'nb_alertes_simples': nb_alertes_simples,
+            'top_alertes_noms': json.dumps(top_alertes_noms),
+            'top_alertes_stock': json.dumps(top_alertes_stock),
+            'top_alertes_seuil': json.dumps(top_alertes_seuil),
+            'top_alertes_couleurs': json.dumps(top_alertes_couleurs),
+            'cat_labels_json': json.dumps(cat_labels),
+            'cat_rupture_json': json.dumps(cat_rupture),
+            'cat_critique_json': json.dumps(cat_critique),
+            'cat_alerte_json': json.dumps(cat_alerte),
+            'previsions': previsions[:6],
+            'lots': lots, 'lots_bloques': lots_bloques, 'lots_attente': lots_attente,
+            'mouvements': mouvements, 'locations': locations,
+            'demandes': demandes, 'da_en_attente': da_en_attente,
+            'bons_commande': bons_commande, 'consos': consos,
+            'valeur_stock_total': valeur_stock_total,
+        }
 
-    ordre_priorite = {'RUPTURE': 0, 'CRITIQUE': 1, 'ALERTE': 2}
-    alertes_stock.sort(key=lambda x: (ordre_priorite.get(x['niveau'], 3), -x['pct']))
+        template_candidates = [
+            'stock/stock_advanced.html',
+            'stock_advanced.html',
+            'stock_list.html'
+        ]
+        return render(request, template_candidates, context)
 
-    top_alertes = alertes_stock[:10]
-    top_alertes_noms = [a['name'][:25] + '...' if len(a['name']) > 25 else a['name'] for a in top_alertes]
-    top_alertes_stock = [a['quantity'] for a in top_alertes]
-    top_alertes_seuil = [a['min_threshold'] for a in top_alertes]
-    top_alertes_couleurs = []
-    for a in top_alertes:
-        if a['niveau'] == 'RUPTURE':
-            top_alertes_couleurs.append('#dc2626')
-        elif a['niveau'] == 'CRITIQUE':
-            top_alertes_couleurs.append('#ea580c')
-        else:
-            top_alertes_couleurs.append('#ca8a04')
-
-    cat_labels = ['Film/Papier', 'Encre', 'Colle', 'Solvant']
-    cat_rupture = [cat_stats['FILM']['rupture'], cat_stats['INK']['rupture'], cat_stats['GLUE']['rupture'], cat_stats['SOLV']['rupture']]
-    cat_critique = [cat_stats['FILM']['critique'], cat_stats['INK']['critique'], cat_stats['GLUE']['critique'], cat_stats['SOLV']['critique']]
-    cat_alerte = [cat_stats['FILM']['alerte'], cat_stats['INK']['alerte'], cat_stats['GLUE']['alerte'], cat_stats['SOLV']['alerte']]
-
-    previsions = []
-    for m in all_materials:
-        try:
-            # Recherche sécurisée du seuil sans exception RelatedObjectDoesNotExist
-            seuil = StockSeuil.objects.filter(material=m).first()
-            if seuil and getattr(seuil, 'consommation_journaliere_moy', 0) > 0:
-                jours = seuil.jours_de_stock
-                if jours <= 15:
-                    previsions.append({
-                        'material': m.name,
-                        'stock_actuel': m.quantity or 0,
-                        'conso_jour': seuil.consommation_journaliere_moy,
-                        'jours_restants': jours,
-                        'date_rupture': seuil.date_rupture_prevue.strftime('%d/%m/%Y') if getattr(seuil, 'date_rupture_prevue', None) else '—',
-                        'critique': jours <= 7,
-                    })
-        except Exception:
-            pass
-    previsions.sort(key=lambda x: x['jours_restants'])
-
-    try:
-        lots = StockLot.objects.all().order_by('-id')[:100]
-    except Exception:
-        lots = []
-
-    try:
-        lots_bloques = StockLot.objects.filter(statut='BLOQUE').count()
-        lots_attente = StockLot.objects.filter(statut='EN_ATTENTE').count()
-    except Exception:
-        lots_bloques = 0
-        lots_attente = 0
-
-    try:
-        mouvements = StockMovement.objects.all().order_by('-id')[:100]
-    except Exception:
-        mouvements = []
-
-    try:
-        locations = StockLocation.objects.all()
-    except Exception:
-        locations = []
-
-    try:
-        suppliers = Supplier.objects.all().order_by('name')
-    except Exception:
-        suppliers = []
-
-    try:
-        demandes = DemandeAchat.objects.all().order_by('-id')[:50]
-        da_en_attente = DemandeAchat.objects.filter(statut='SOUMISE').count()
-    except Exception:
-        demandes = []
-        da_en_attente = 0
-
-    try:
-        bons_commande = BonCommande.objects.all().order_by('-id')[:50]
-    except Exception:
-        bons_commande = []
-
-    try:
-        consos = ConsommationEncre.objects.all().order_by('-date')[:50]
-    except Exception:
-        consos = []
-
-    valeur_stock_total = 0
-    for m in all_materials:
-        try:
-            q = float(m.quantity or 0)
-            p = float(getattr(m, 'price_per_unit', 0) or 0)
-            valeur_stock_total += q * p
-        except Exception:
-            pass
-
-    context = {
-        'search_query': search_query, 'category_filter': category_filter,
-        'low_stock_only': low_stock_only, 'supplier_filter': supplier_filter,
-        'categories': getattr(Material, 'CAT_CHOICES', []), 'materials': materials,
-        'total_matieres': Material.objects.count(), 'suppliers': suppliers,
-        'alertes_stock': alertes_stock, 'nb_alertes': len(alertes_stock),
-        'nb_ruptures': nb_ruptures, 'nb_critiques': nb_critiques,
-        'nb_alertes_simples': nb_alertes_simples,
-        'top_alertes_noms': json.dumps(top_alertes_noms),
-        'top_alertes_stock': json.dumps(top_alertes_stock),
-        'top_alertes_seuil': json.dumps(top_alertes_seuil),
-        'top_alertes_couleurs': json.dumps(top_alertes_couleurs),
-        'cat_labels_json': json.dumps(cat_labels),
-        'cat_rupture_json': json.dumps(cat_rupture),
-        'cat_critique_json': json.dumps(cat_critique),
-        'cat_alerte_json': json.dumps(cat_alerte),
-        'previsions': previsions[:6],
-        'lots': lots, 'lots_bloques': lots_bloques, 'lots_attente': lots_attente,
-        'mouvements': mouvements, 'locations': locations,
-        'demandes': demandes, 'da_en_attente': da_en_attente,
-        'bons_commande': bons_commande, 'consos': consos,
-        'valeur_stock_total': valeur_stock_total,
-    }
-
-    # Utilisation d'une liste de templates pour garantir le chargement sans 500
-    template_candidates = [
-        'stock/stock_advanced.html',
-        'stock_advanced.html',
-        'stock_list.html'
-    ]
-    return render(request, template_candidates, context)
+    except Exception as e:
+        print("=== ERREUR CRITIQUE STOCK ADVANCED ===")
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Erreur module Stock : {type(e).__name__} - {str(e)}")
+        # Affichage d'une page de secours si le calcul plante, on revient sur le dashboard
+        return redirect('dashboard')
 
 
 @login_required
