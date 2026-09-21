@@ -143,11 +143,12 @@ urlpatterns = [
     path('stock/list/', views.stock_view, name='stock_view'),
     path('stock/material/add/', views.add_material, name='add_material'),
     path('stock/supplier/add/', views.add_supplier, name='add_supplier'),
+    path('stock/supplier/<int:id>/edit/', views.edit_supplier, name='edit_supplier'),
+    path('stock/supplier/<int:id>/delete/', views.delete_supplier, name='delete_supplier'),
     path('stock/consommation/add/', views.add_consommation, name='add_consommation'),
     path('stock/consommation/list/', views.conso_list_view, name='conso_list'),
     path('stock/material/<int:id>/edit/', views.edit_material, name='edit_material'),
     path('stock/material/<int:id>/delete/', views.delete_material, name='delete_material'),
-    path('stock/supplier/<int:id>/edit/', views.edit_supplier, name='edit_supplier'),
     path('stock/search/api/', views.material_search_api, name='material_search_api'),
     path('stock/export/', views.export_search_results, name='export_search_results'),
 
@@ -192,15 +193,12 @@ urlpatterns = [
     path('prod/qualite/', prod_views.prod_detail_qualite, name='prod_detail_qualite'),
     path('prod/synthese/', prod_views.prod_synthese_temps, name='prod_synthese_temps'),
     
-    # EXPORT EXCEL PRODUCTION SPECIAL
     path('prod/qualite/export/', prod_views.export_qualite_excel, name='export_qualite_excel'),
     path('prod/synthese/export/', prod_views.export_synthese_excel, name='export_synthese_excel'),
     
-    # TRAÇABILITÉ PAR LOT
     path('prod/tracabilite/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_search'),
     path('prod/tracabilite/<str:numero_lot>/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_lot'),
     
-    # CALCULATEUR PRÉVISIONNEL
     path('prod/synthese/calculer/', prod_views.prod_calculer_temps, name='prod_calculer_temps'),
     path('prod/synthese/calculer/save/', prod_views.prod_calculer_temps_save, name='prod_calculer_temps_save'),
     path('prod/synthese/calculer/<int:id>/delete/', prod_views.prod_calculer_temps_delete, name='prod_calculer_temps_delete'),
