@@ -5,7 +5,7 @@ from django.dispatch import receiver
 from django.db.models import Q
 from django.apps import apps
 from django.conf import settings
-from django.db import transaction
+from django.db import transaction, connection
 
 # CRM
 from .crm import (
@@ -73,7 +73,7 @@ from .permissions import UserModulePermission, user_has_module_access
 
 
 def robust_import_local_data():
-    """Importateur PostgreSQL sécurisé avec Savepoints atomiques et résolution intelligente des ateliers et machines"""
+    """Importateur atomique sur-mesure résolvant les conflits de clés primaires sur PostgreSQL sans planter"""
     from django.contrib.auth.models import User
 
     search_paths = [
@@ -104,7 +104,6 @@ def robust_import_local_data():
     if not admin_user:
         admin_user = User.objects.create_superuser('admin', 'admin@fbpack.com', 'admin1234')
 
-    # Ordre strict de chargement des dépendances
     model_priority = [
         'auth.user',
         'core.atelier',
@@ -146,17 +145,11 @@ def robust_import_local_data():
                 except Exception:
                     pass
 
-    # S'assurer qu'au moins un Atelier par défaut existe pour les machines
-    default_atelier, _ = Atelier.objects.get_or_create(
-        nom="Atelier Principal",
-        defaults={'code': 'AT1', 'type_atelier': 'AUTRE', 'est_actif': True}
-    )
-
-    # 2. Importation isolée avec atomic savepoints
     count_machines = 0
     count_clients = 0
     count_materials = 0
 
+    # 2. Importation isolée avec gestion des conflits PK
     for item in sorted_data:
         model_str = item.get('model')
         if model_str in ['auth.user', 'contenttypes.contenttype', 'auth.permission']:
@@ -170,7 +163,7 @@ def robust_import_local_data():
         except Exception:
             continue
 
-        # Résolution sécurisée des Foreign Keys
+        # Résolution des clés étrangères
         for fname in list(fields.keys()):
             try:
                 fobj = ModelClass._meta.get_field(fname)
@@ -181,18 +174,9 @@ def robust_import_local_data():
                         if not related_cls.objects.filter(pk=val).exists():
                             if related_cls == User:
                                 fields[fname] = admin_user.pk
-                            elif related_cls == Atelier:
-                                fields[fname] = default_atelier.pk
                             else:
-                                if fobj.null:
-                                    fields[fname] = None
-                                else:
-                                    # Prendre le premier existant ou créer un défaut
-                                    first_obj = related_cls.objects.first()
-                                    if first_obj:
-                                        fields[fname] = first_obj.pk
-                                    else:
-                                        fields[fname] = None
+                                first_obj = related_cls.objects.first()
+                                fields[fname] = first_obj.pk if first_obj else None
             except Exception:
                 pass
 
@@ -208,6 +192,8 @@ def robust_import_local_data():
             except Exception:
                 clean_fields[fname] = val
 
+        # Essai avec PK explicite
+        success = False
         try:
             with transaction.atomic():
                 obj, _ = ModelClass.objects.update_or_create(pk=pk, defaults=clean_fields)
@@ -216,23 +202,45 @@ def robust_import_local_data():
                         getattr(obj, mname).set(mval)
                     except Exception:
                         pass
+                success = True
+        except Exception:
+            # En cas de conflit d'ID (ex: Atelier déjà existant sur Render), création sans forcer l'ID
+            try:
+                with transaction.atomic():
+                    obj = ModelClass.objects.create(**clean_fields)
+                    for mname, mval in m2m.items():
+                        try:
+                            getattr(obj, mname).set(mval)
+                        except Exception:
+                            pass
+                    success = True
+            except Exception:
+                pass
 
-                if model_str == 'core.machine':
-                    count_machines += 1
-                elif model_str == 'core.client':
-                    count_clients += 1
-                elif model_str == 'core.material':
-                    count_materials += 1
+        if success:
+            if model_str == 'core.machine':
+                count_machines += 1
+            elif model_str == 'core.client':
+                count_clients += 1
+            elif model_str == 'core.material':
+                count_materials += 1
+
+    # Réinitialisation des séquences d'ID pour PostgreSQL
+    if connection.vendor == 'postgresql':
+        try:
+            with connection.cursor() as cursor:
+                for cls in [Machine, Client, Material, Atelier, Supplier, StockLocation]:
+                    table = cls._meta.db_table
+                    cursor.execute(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table};")
         except Exception:
             pass
 
     total_m = Machine.objects.count()
-    return True, f"✅ Données importées ! {total_m} machines au total, {count_clients} clients et {count_materials} matières premières en base !"
+    return True, f"✅ Données importées ! {total_m} machines, {count_clients} clients et {count_materials} matières premières désormais disponibles !"
 
 
 @receiver(post_migrate)
 def corriger_base_machines_post_migrate(sender, **kwargs):
-    """Mise à jour sécurisée des machines SANS SUPPRESSION"""
     if sender.name == 'core':
         try:
             Machine.objects.filter(name__icontains='1350').update(
