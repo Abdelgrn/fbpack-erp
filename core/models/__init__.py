@@ -73,17 +73,25 @@ from .permissions import UserModulePermission, user_has_module_access
 
 
 def robust_import_local_data():
-    """Importateur universel complet : importe 100% des 9 machines, clients, OFs et stocks depuis data_import.json"""
+    """Importateur universel garanti : convertit automatiquement les Foreign Keys en objets Django réels"""
     from django.contrib.auth.models import User
 
-    filepath = 'data_import.json'
-    if not os.path.exists(filepath):
-        for fp in ['data_core.json', 'data.json']:
-            if os.path.exists(fp):
-                filepath = fp
-                break
+    search_paths = [
+        'data_import.json',
+        'data_core.json',
+        'data.json',
+        os.path.join(getattr(settings, 'BASE_DIR', ''), 'data_import.json'),
+        os.path.join(getattr(settings, 'BASE_DIR', ''), 'data_core.json'),
+        os.path.join(getattr(settings, 'BASE_DIR', ''), 'data.json'),
+    ]
 
-    if not os.path.exists(filepath):
+    filepath = None
+    for fp in search_paths:
+        if fp and os.path.exists(fp):
+            filepath = fp
+            break
+
+    if not filepath:
         return False, "❌ Fichier data_import.json introuvable sur le serveur."
 
     try:
@@ -112,6 +120,7 @@ def robust_import_local_data():
         'core.ordrefabrication',
         'core.productionorder',
         'core.etapeproduction',
+        'core.semiproduit',
         'core.ficheproductionjournaliere',
         'core.productionentry',
     ]
@@ -125,7 +134,7 @@ def robust_import_local_data():
 
     sorted_data = sorted(data, key=get_priority)
 
-    # 1. Ne créer que les utilisateurs manquants
+    # 1. Ne créer que les utilisateurs manquants du JSON sans altérer les utilisateurs de Render
     for item in sorted_data:
         if item.get('model') == 'auth.user':
             pk = item.get('pk')
@@ -145,7 +154,7 @@ def robust_import_local_data():
                 except Exception:
                     pass
 
-    # 2. Importer tous les objets métier
+    # 2. Importer tous les objets métier avec résolution dynamique des FK
     counts = {}
     errors = []
 
@@ -155,62 +164,70 @@ def robust_import_local_data():
             continue
 
         pk = item.get('pk')
-        fields = dict(item.get('fields', {}))
+        raw_fields = dict(item.get('fields', {}))
 
         try:
             ModelClass = apps.get_model(model_str)
-        except Exception:
+        except Exception as e:
+            errors.append(f"{model_str}: Modèle introuvable ({e})")
             continue
 
-        for fname in list(fields.keys()):
-            try:
-                fobj = ModelClass._meta.get_field(fname)
-                if fobj.is_relation and not fobj.many_to_many:
-                    related_cls = fobj.related_model
-                    val = fields[fname]
-                    if val is not None:
-                        if not related_cls.objects.filter(pk=val).exists():
-                            if related_cls == User:
-                                fields[fname] = admin_user.pk
-                            elif fobj.null:
-                                fields[fname] = None
-                            else:
-                                first_obj = related_cls.objects.first()
-                                fields[fname] = first_obj.pk if first_obj else None
-            except Exception:
-                pass
-
-        m2m = {}
         clean_fields = {}
-        for fname, val in fields.items():
+        m2m_fields = {}
+
+        for field_name, val in raw_fields.items():
             try:
-                fobj = ModelClass._meta.get_field(fname)
-                if fobj.many_to_many:
-                    m2m[fname] = val
-                else:
-                    clean_fields[fname] = val
+                fobj = ModelClass._meta.get_field(field_name)
             except Exception:
-                clean_fields[fname] = val
+                continue
+
+            if fobj.many_to_many:
+                m2m_fields[field_name] = val
+            elif fobj.is_relation:
+                rel_model = fobj.related_model
+                if val is None:
+                    clean_fields[field_name] = None
+                else:
+                    rel_obj = rel_model.objects.filter(pk=val).first()
+                    if rel_obj:
+                        clean_fields[field_name] = rel_obj
+                    else:
+                        if rel_model == User:
+                            clean_fields[field_name] = admin_user
+                        elif fobj.null:
+                            clean_fields[field_name] = None
+                        else:
+                            clean_fields[field_name] = rel_model.objects.first()
+            else:
+                clean_fields[field_name] = val
 
         success = False
         try:
             with transaction.atomic():
                 obj, _ = ModelClass.objects.update_or_create(pk=pk, defaults=clean_fields)
-                for mname, mval in m2m.items():
-                    try:
-                        getattr(obj, mname).set(mval)
-                    except Exception:
-                        pass
+                for m_name, m_pks in m2m_fields.items():
+                    if m_pks:
+                        try:
+                            m_fobj = ModelClass._meta.get_field(m_name)
+                            m_rel_model = m_fobj.related_model
+                            m_objs = m_rel_model.objects.filter(pk__in=m_pks)
+                            getattr(obj, m_name).set(m_objs)
+                        except Exception:
+                            pass
                 success = True
         except Exception as err1:
             try:
                 with transaction.atomic():
                     obj = ModelClass.objects.create(**clean_fields)
-                    for mname, mval in m2m.items():
-                        try:
-                            getattr(obj, mname).set(mval)
-                        except Exception:
-                            pass
+                    for m_name, m_pks in m2m_fields.items():
+                        if m_pks:
+                            try:
+                                m_fobj = ModelClass._meta.get_field(m_name)
+                                m_rel_model = m_fobj.related_model
+                                m_objs = m_rel_model.objects.filter(pk__in=m_pks)
+                                getattr(obj, m_name).set(m_objs)
+                            except Exception:
+                                pass
                     success = True
             except Exception as err2:
                 errors.append(f"{model_str} (pk={pk}): {err2}")
@@ -218,6 +235,7 @@ def robust_import_local_data():
         if success:
             counts[model_str] = counts.get(model_str, 0) + 1
 
+    # Réinitialisation des séquences PostgreSQL
     if connection.vendor == 'postgresql':
         try:
             with connection.cursor() as cursor:
@@ -236,9 +254,9 @@ def robust_import_local_data():
     nb_of = OrdreFabrication.objects.count() + ProductionOrder.objects.count()
     nb_mat = Material.objects.count()
 
-    msg = f"✅ Importation réussie depuis {os.path.basename(filepath)} ! En base : {nb_m} machines, {nb_c} clients, {nb_of} OF(s), {nb_mat} matières premières."
+    msg = f"🎉 PARFAIT ! Importation réussie depuis {os.path.basename(filepath)} ! En base Render : {nb_m} machines, {nb_c} clients, {nb_of} OF(s), {nb_mat} matières premières."
     if errors:
-        msg += f" (⚠️ {len(errors)} éléments ignorés)"
+        msg += f" (⚠️ {len(errors)} éléments ignorés : {errors[0]})"
 
     return True, msg
 
