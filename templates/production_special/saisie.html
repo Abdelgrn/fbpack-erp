@@ -249,10 +249,23 @@
                         <div><label class="block text-gray-400 font-bold mb-1">Heure Début</label>{{ form.heure_debut }}</div>
                         <div><label class="block text-gray-400 font-bold mb-1">Heure Fin</label>{{ form.heure_fin }}</div>
                     </div>
+                    
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[10px]">
-                        <div><label class="block text-gray-400 font-bold mb-1">Client</label>{{ form.client }}</div>
+                        <!-- REMPLACEMENT DU CLIENT PAR UNE RECHERCHE TEXTE -->
+                        <div>
+                            <label class="block text-gray-400 font-bold mb-1">Client</label>
+                            <!-- Input visible pour l'utilisateur (Recherche) -->
+                            <input type="text" id="client_text_input" list="client_datalist" class="form-control" placeholder="Taper pour chercher un client..." autocomplete="off">
+                            <datalist id="client_datalist"></datalist>
+                            <!-- Select caché pour Django -->
+                            <div class="hidden">
+                                {{ form.client }}
+                            </div>
+                        </div>
+                        <!-- FIN REMPLACEMENT -->
                         <div><label class="block text-gray-400 font-bold mb-1">Désignation Produit / Motif</label>{{ form.designation_produit }}</div>
                     </div>
+                    
                     <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-[10px]">
                         <div><label class="block text-gray-400 font-bold mb-1">Poste</label>{{ form.poste }}</div>
                         <div><label class="block text-gray-400 font-bold mb-1">Équipe</label>{{ form.equipe }}</div>
@@ -724,13 +737,9 @@
 <!-- SCRIPT GESTION DYNAMIQUE -->
 <script>
 function changerTypeFiche(typeCode) {
-    // ⚠️ CORRECTION : Django génère automatiquement id="id_type_fiche" (pas "select_type_fiche")
     const typeFicheField = document.getElementById('id_type_fiche');
     if(typeFicheField) {
         typeFicheField.value = typeCode;
-        console.log('✅ Type de fiche mis à jour :', typeCode);
-    } else {
-        console.warn('⚠️ Champ id_type_fiche introuvable !');
     }
     
     document.querySelectorAll('.fiche-tab-btn').forEach(b => b.classList.remove('active'));
@@ -793,19 +802,51 @@ function addFormsetRow(prefix, containerId) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // En mode édition, ouvrir l'onglet du type de la fiche
+    // 1. Initialisation de l'onglet
     const typeField = document.querySelector('[name="type_fiche"]');
     const typeInit = typeField ? typeField.value : 'FLEXO';
-
     changerTypeFiche(typeInit || 'FLEXO');
     attachAutoClearZero();
 
-    // 🔍 Debug : vérifier que le type_fiche est bien envoyé au submit
-    const form = document.getElementById('prodForm');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            const typeField = document.getElementById('id_type_fiche');
-            console.log('📤 Soumission avec type_fiche =', typeField ? typeField.value : 'INTROUVABLE');
+    // 2. Transformation du Select Client en Autocomplete (Barre de recherche texte)
+    const selectClient = document.getElementById('id_client');
+    const inputClient = document.getElementById('client_text_input');
+    const datalistClient = document.getElementById('client_datalist');
+
+    if (selectClient && inputClient && datalistClient) {
+        // A. Remplir le datalist avec les clients existants
+        Array.from(selectClient.options).forEach(opt => {
+            if (opt.value && opt.text && opt.text !== '---------') {
+                const option = document.createElement('option');
+                option.value = opt.text;
+                option.dataset.id = opt.value;
+                datalistClient.appendChild(option);
+            }
+        });
+
+        // B. Afficher la valeur actuelle si on est en mode édition
+        if (selectClient.value) {
+            const selectedOpt = selectClient.options[selectClient.selectedIndex];
+            if (selectedOpt) inputClient.value = selectedOpt.text;
+        }
+
+        // C. Mettre à jour l'ID du client caché quand l'utilisateur tape
+        inputClient.addEventListener('input', function() {
+            const val = this.value;
+            let foundId = "";
+            Array.from(datalistClient.options).forEach(opt => {
+                if (opt.value === val) {
+                    foundId = opt.dataset.id;
+                }
+            });
+            selectClient.value = foundId; // Envoie l'ID à Django (ou vide si aucun client ne correspond)
+        });
+        
+        // Empêcher la soumission du formulaire si on appuie sur Entrée dans la barre de recherche
+        inputClient.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
         });
     }
 });
