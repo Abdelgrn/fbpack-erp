@@ -64,6 +64,22 @@
         .stock-ok { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
         .stock-ko { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
         .stock-na { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+
+        /* Badge chat menu */
+        #chat-menu-badge {
+            min-width: 1.15rem;
+            height: 1.15rem;
+            line-height: 1.15rem;
+            font-size: 10px;
+            font-weight: 800;
+        }
+        #chat-menu-badge.pulse {
+            animation: chatBadgePulse 1.2s ease-in-out infinite;
+        }
+        @keyframes chatBadgePulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+            50% { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+        }
     </style>
 </head>
 
@@ -188,8 +204,14 @@
             {% endif %}
             
             {% if 'chat' in user_modules %}
-            <a href="{% url 'chat_home' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}">
-                <span class="mr-3">💬</span> Chat d'Équipe
+            <a href="{% url 'chat_home' %}" id="chat-menu-link"
+               class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}">
+                <span class="mr-3">💬</span>
+                <span>Chat d'Équipe</span>
+                <span id="chat-menu-badge"
+                      class="ml-auto hidden bg-red-500 text-white text-center rounded-full px-1.5">
+                    0
+                </span>
             </a>
             {% endif %}
 
@@ -290,6 +312,19 @@
 
     </main>
 
+    <!-- TOAST CHAT GLOBAL -->
+    <div id="global-chat-toast" class="fixed bottom-6 right-6 z-[9999] hidden max-w-sm w-full sm:w-96">
+        <div class="bg-slate-900 border border-neon/40 shadow-2xl rounded-xl px-4 py-3 text-white flex items-start gap-3">
+            <span class="text-2xl shrink-0" id="global-chat-toast-icon">💬</span>
+            <div class="min-w-0 flex-1">
+                <p id="global-chat-toast-title" class="font-bold text-neon text-sm"></p>
+                <p id="global-chat-toast-body" class="text-gray-300 text-sm mt-0.5 break-words"></p>
+                <a id="global-chat-toast-link" href="{% url 'chat_home' %}" class="inline-block mt-2 text-xs text-cyan-400 hover:underline">Ouvrir le chat →</a>
+            </div>
+            <button type="button" onclick="window.FBChatNotif && window.FBChatNotif.closeToast()" class="text-gray-500 hover:text-white text-lg leading-none shrink-0">&times;</button>
+        </div>
+    </div>
+
     <!-- AUTO-HIDE MESSAGES -->
     <script>
         setTimeout(function() {
@@ -312,6 +347,247 @@
             });
         }, 5000);
     </script>
+
+    {% if 'chat' in user_modules %}
+    <!-- NOTIFICATIONS CHAT GLOBALES (menu + son + toast sur toutes les pages) -->
+    <script>
+    (function () {
+        const STORAGE_KEY = 'fbpack_chat_last_id';
+        const UNREAD_KEY = 'fbpack_chat_unread';
+        const POLL_MS = 4000;
+        const isOnChatPage = window.location.pathname.indexOf('/chat') !== -1;
+
+        let audioCtx = null;
+        let toastTimer = null;
+        let unread = parseInt(localStorage.getItem(UNREAD_KEY) || '0', 10) || 0;
+        let lastId = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
+        let polling = false;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (AC) audioCtx = new AC();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(function () {});
+            }
+            return audioCtx;
+        }
+
+        function playSound() {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+
+                const o1 = ctx.createOscillator();
+                const g1 = ctx.createGain();
+                o1.type = 'sine';
+                o1.frequency.setValueAtTime(880, now);
+                g1.gain.setValueAtTime(0.0001, now);
+                g1.gain.exponentialRampToValueAtTime(0.16, now + 0.02);
+                g1.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+                o1.connect(g1); g1.connect(ctx.destination);
+                o1.start(now); o1.stop(now + 0.18);
+
+                const o2 = ctx.createOscillator();
+                const g2 = ctx.createGain();
+                o2.type = 'sine';
+                o2.frequency.setValueAtTime(1175, now + 0.14);
+                g2.gain.setValueAtTime(0.0001, now + 0.14);
+                g2.gain.exponentialRampToValueAtTime(0.14, now + 0.16);
+                g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+                o2.connect(g2); g2.connect(ctx.destination);
+                o2.start(now + 0.14); o2.stop(now + 0.36);
+            } catch (e) {}
+        }
+
+        function updateBadge() {
+            const badge = document.getElementById('chat-menu-badge');
+            if (!badge) return;
+            if (unread > 0 && !isOnChatPage) {
+                badge.textContent = unread > 99 ? '99+' : String(unread);
+                badge.classList.remove('hidden');
+                badge.classList.add('pulse');
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('pulse');
+            }
+            localStorage.setItem(UNREAD_KEY, String(unread));
+        }
+
+        function showToast(msg) {
+            const box = document.getElementById('global-chat-toast');
+            const title = document.getElementById('global-chat-toast-title');
+            const body = document.getElementById('global-chat-toast-body');
+            const icon = document.getElementById('global-chat-toast-icon');
+            const link = document.getElementById('global-chat-toast-link');
+            if (!box || !title || !body) return;
+
+            const roomName = msg.room_name || 'Chat';
+            const preview = (msg.contenu || '').toString();
+            title.textContent = (msg.auteur || 'Quelqu\'un') + ' · ' + roomName;
+            body.textContent = preview.length > 120 ? preview.slice(0, 120) + '…' : preview;
+            if (icon) icon.textContent = msg.room_icone || '💬';
+            if (link && msg.room_slug) {
+                link.href = '/chat/' + encodeURIComponent(msg.room_slug) + '/';
+            } else if (link) {
+                link.href = '{% url "chat_home" %}';
+            }
+
+            box.classList.remove('hidden');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(closeToast, 6000);
+        }
+
+        function closeToast() {
+            const box = document.getElementById('global-chat-toast');
+            if (box) box.classList.add('hidden');
+        }
+
+        function browserNotify(msg) {
+            if (!('Notification' in window)) return;
+            if (Notification.permission !== 'granted') return;
+            if (!document.hidden && isOnChatPage) return;
+            try {
+                const preview = (msg.contenu || '').toString();
+                const n = new Notification((msg.auteur || 'Chat') + ' — ' + (msg.room_name || 'Équipe'), {
+                    body: preview.length > 100 ? preview.slice(0, 100) + '…' : preview,
+                    tag: 'fbpack-chat-global',
+                    renotify: true
+                });
+                n.onclick = function () {
+                    window.focus();
+                    if (msg.room_slug) {
+                        window.location.href = '/chat/' + encodeURIComponent(msg.room_slug) + '/';
+                    } else {
+                        window.location.href = '{% url "chat_home" %}';
+                    }
+                    n.close();
+                };
+                setTimeout(function () { try { n.close(); } catch (e) {} }, 7000);
+            } catch (e) {}
+        }
+
+        function onNewMessages(list) {
+            if (!list || !list.length) return;
+
+            // Si on est déjà dans le chat, on met juste à jour le curseur (les pages chat gèrent l'UI)
+            if (isOnChatPage) {
+                list.forEach(function (m) {
+                    if (m.id > lastId) lastId = m.id;
+                });
+                localStorage.setItem(STORAGE_KEY, String(lastId));
+                unread = 0;
+                updateBadge();
+                return;
+            }
+
+            list.forEach(function (m) {
+                if (m.id > lastId) lastId = m.id;
+            });
+            localStorage.setItem(STORAGE_KEY, String(lastId));
+
+            unread += list.length;
+            updateBadge();
+            playSound();
+
+            // Toast du dernier message
+            showToast(list[list.length - 1]);
+            browserNotify(list[list.length - 1]);
+        }
+
+        function poll(init) {
+            if (polling) return;
+            polling = true;
+
+            let url = '/chat/api/notifications/?last_id=' + encodeURIComponent(lastId || 0);
+            if (init) url += '&init=1';
+
+            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (init) {
+                        // Initialise le curseur sans notif d'historique
+                        const mid = parseInt(data.max_id || data.latest_id || 0, 10) || 0;
+                        if (mid > 0) {
+                            lastId = mid;
+                            localStorage.setItem(STORAGE_KEY, String(lastId));
+                        }
+                        // Sur page chat : reset badge
+                        if (isOnChatPage) {
+                            unread = 0;
+                            updateBadge();
+                        } else {
+                            updateBadge();
+                        }
+                        return;
+                    }
+                    if (data.messages && data.messages.length) {
+                        onNewMessages(data.messages);
+                    }
+                    if (data.max_id && parseInt(data.max_id, 10) > lastId && !(data.messages && data.messages.length)) {
+                        // garde le curseur cohérent
+                        lastId = parseInt(data.max_id, 10);
+                        localStorage.setItem(STORAGE_KEY, String(lastId));
+                    }
+                })
+                .catch(function () {})
+                .finally(function () { polling = false; });
+        }
+
+        // Expose helpers
+        window.FBChatNotif = {
+            closeToast: closeToast,
+            resetUnread: function () {
+                unread = 0;
+                updateBadge();
+            },
+            markSeenUpTo: function (id) {
+                id = parseInt(id, 10) || 0;
+                if (id > lastId) {
+                    lastId = id;
+                    localStorage.setItem(STORAGE_KEY, String(lastId));
+                }
+                unread = 0;
+                updateBadge();
+            },
+            playSound: playSound,
+            requestPermission: async function () {
+                getAudioContext();
+                if ('Notification' in window && Notification.permission === 'default') {
+                    try { await Notification.requestPermission(); } catch (e) {}
+                }
+                playSound();
+            }
+        };
+
+        // Clic menu chat => reset badge
+        const link = document.getElementById('chat-menu-link');
+        if (link) {
+            link.addEventListener('click', function () {
+                unread = 0;
+                updateBadge();
+            });
+        }
+
+        // Débloquer audio après 1er geste
+        document.addEventListener('click', function () { getAudioContext(); }, { once: true });
+        document.addEventListener('keydown', function () { getAudioContext(); }, { once: true });
+
+        // Init badge + curseur puis polling
+        updateBadge();
+        poll(true);
+        setInterval(function () { poll(false); }, POLL_MS);
+
+        // Si on est sur une page chat, reset unread
+        if (isOnChatPage) {
+            unread = 0;
+            updateBadge();
+        }
+    })();
+    </script>
+    {% endif %}
 
 </body>
 </html>

@@ -276,6 +276,7 @@ urlpatterns = [
     path('chat/api/send/', views.chat_send_message, name='chat_send_message'),
     path('chat/api/messages/<slug:room_slug>/', views.chat_get_messages, name='chat_get_messages'),
     path('chat/api/notify/', views.send_system_notification, name='send_system_notification'),
+    path('chat/api/notifications/', views.chat_notifications_api, name='chat_notifications_api'),
 
     # ==========================================
     # MAINTENANCE AVANCÉE

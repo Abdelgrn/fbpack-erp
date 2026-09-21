@@ -55,11 +55,6 @@
                             <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Priorité</label>
                             {{ form.priorite }}
                         </div>
-                        <div>
-                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">N° OF</label>
-                            {{ form.numero_of }}
-                            <p class="text-[10px] text-gray-500 mt-1">Auto si vide</p>
-                        </div>
                     </div>
                     <div>
                         <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Opportunité</label>
@@ -98,8 +93,18 @@
                             {{ form.dimension_mandrin }}
                         </div>
                         <div>
-                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Ø Bobine fille</label>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Dév global (mm)</label>
+                            {{ form.developpement }}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Bobine fille</label>
                             {{ form.diametre_bobine_fille }}
+                        </div>
+                        <div>
+                            <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Unité Bobine fille</label>
+                            {{ form.diametre_bobine_fille_unite }}
                         </div>
                     </div>
                     <div>
@@ -111,6 +116,110 @@
                         {{ form.fiche_technique }}
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- DONNÉES TECHNIQUES PRÉPRESSE (Visuels Excel) -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 mt-6 shadow-xl">
+            <h2 class="text-white font-bold mb-6 text-lg flex items-center gap-2">
+                <span>🎨</span> Données Techniques (Impression / Prépresse)
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <!-- SENS DE DÉFILEMENT -->
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-4">Sens de défilement</label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.sens_defilement.html_name }}" value="1" class="peer hidden" {% if form.sens_defilement.value == '1' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center">
+                                <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M 5,10 C 5,4 35,4 35,10 C 35,16 5,16 5,10 Z" fill="#cbd5e1" stroke="#64748b"/>
+                                    <circle cx="20" cy="10" r="3" fill="#64748b"/>
+                                    <rect x="8" y="10" width="24" height="40" fill="#ef4444" stroke="#dc2626"/>
+                                    <text x="20" y="38" fill="white" font-size="20" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle" transform="rotate(180 20 32)">A</text>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.sens_defilement.html_name }}" value="2" class="peer hidden" {% if form.sens_defilement.value == '2' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center">
+                                <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M 5,10 C 5,4 35,4 35,10 C 35,16 5,16 5,10 Z" fill="#cbd5e1" stroke="#64748b"/>
+                                    <circle cx="20" cy="10" r="3" fill="#64748b"/>
+                                    <rect x="8" y="10" width="24" height="40" fill="#ef4444" stroke="#dc2626"/>
+                                    <text x="20" y="40" fill="white" font-size="20" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.sens_defilement.html_name }}" value="3" class="peer hidden" {% if form.sens_defilement.value == '3' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center">
+                                <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M 5,10 C 5,4 35,4 35,10 C 35,16 5,16 5,10 Z" fill="#cbd5e1" stroke="#64748b"/>
+                                    <circle cx="20" cy="10" r="3" fill="#64748b"/>
+                                    <rect x="8" y="10" width="24" height="40" fill="#ef4444" stroke="#dc2626"/>
+                                    <text x="20" y="37" fill="white" font-size="20" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle" transform="rotate(90 20 30)">A</text>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.sens_defilement.html_name }}" value="4" class="peer hidden" {% if form.sens_defilement.value == '4' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center">
+                                <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M 5,10 C 5,4 35,4 35,10 C 35,16 5,16 5,10 Z" fill="#cbd5e1" stroke="#64748b"/>
+                                    <circle cx="20" cy="10" r="3" fill="#64748b"/>
+                                    <rect x="8" y="10" width="24" height="40" fill="#ef4444" stroke="#dc2626"/>
+                                    <text x="20" y="37" fill="white" font-size="20" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle" transform="rotate(-90 20 30)">A</text>
+                                </svg>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- PLACEMENT SPOT -->
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-4">Placement Spot</label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.placement_spot.html_name }}" value="1" class="peer hidden" {% if form.placement_spot.value == '1' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center w-[68px] h-[88px]">
+                                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                                    <text x="20" y="35" fill="#f8fafc" font-size="36" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                    <rect x="0" y="42" width="10" height="6" fill="#f8fafc"/>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.placement_spot.html_name }}" value="2" class="peer hidden" {% if form.placement_spot.value == '2' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center w-[68px] h-[88px]">
+                                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                                    <text x="20" y="35" fill="#f8fafc" font-size="36" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                    <rect x="15" y="42" width="10" height="6" fill="#f8fafc"/>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.placement_spot.html_name }}" value="3" class="peer hidden" {% if form.placement_spot.value == '3' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center w-[68px] h-[88px]">
+                                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                                    <text x="20" y="35" fill="#f8fafc" font-size="36" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                    <rect x="30" y="42" width="10" height="6" fill="#f8fafc"/>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.placement_spot.html_name }}" value="4" class="peer hidden" {% if form.placement_spot.value == '4' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center w-[68px] h-[88px]">
+                                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                                    <text x="20" y="35" fill="#f8fafc" font-size="36" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                    <rect x="30" y="0" width="10" height="6" fill="#f8fafc"/>
+                                </svg>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -129,15 +238,14 @@
             <div id="etapes-container" class="space-y-4">
                 {% for etape_form in formset %}
                 <div class="etape-row bg-slate-900/50 border border-slate-700 rounded-lg p-5">
+                    
                     {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                    
+                    <!-- Ligne Principale (N°, Atelier, Machine) -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                         <div>
                             <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">N°</label>
                             {{ etape_form.numero_etape }}
-                        </div>
-                        <div>
-                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Processus</label>
-                            {{ etape_form.process_type }}
                         </div>
                         <div>
                             <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Atelier</label>
@@ -148,29 +256,93 @@
                             {{ etape_form.machine }}
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 bg-slate-800/50 p-3 rounded border border-slate-700/50">
-                        <div>
-                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support</label>
-                            {{ etape_form.support }}
-                        </div>
-                        <div>
-                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté IN (kg)</label>
-                            {{ etape_form.quantite_entree }}
-                        </div>
-                        <div>
-                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté OUT (ML)</label>
-                            {{ etape_form.quantite_ml }}
-                        </div>
-                        <div>
-                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Nb Bobines</label>
-                            {{ etape_form.nb_bobines }}
-                        </div>
-                        <div>
-                            <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Dév (mm)</label>
-                            {{ etape_form.developpement }}
+
+                    <!-- BLOCS DYNAMIQUES SELON L'ATELIER -->
+                    
+                    <!-- 1. Extrusion -->
+                    <div class="block-extrusion hidden mb-4 bg-purple-900/20 p-4 rounded-lg border border-purple-500/30">
+                        <h4 class="text-purple-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">🌀 Données Extrusion</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support d'impression</label>{{ etape_form.ext_support }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur du support</label>{{ etape_form.ext_epaisseur }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize Bobine</label>{{ etape_form.ext_laize }}</div>
                         </div>
                     </div>
-                    <div class="hidden">{{ etape_form.numero_lot_etape }}</div>
+
+                    <!-- 2. Impression -->
+                    <div class="block-impression hidden mb-4 bg-blue-900/20 p-4 rounded-lg border border-blue-500/30">
+                        <h4 class="text-blue-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">🖨️ Données Impression</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support d'impression</label>{{ etape_form.imp_support }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur du support</label>{{ etape_form.imp_epaisseur }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize Bobine</label>{{ etape_form.imp_laize }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Diametre INT Mandrin</label>{{ etape_form.imp_mandrin }}</div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Complexage -->
+                    <div class="block-complexage hidden mb-4 bg-pink-900/20 p-4 rounded-lg border border-pink-500/30">
+                        <h4 class="text-pink-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">🔗 Données Complexage</h4>
+                        <div class="grid grid-cols-3 gap-4 mb-2">
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Contre collage (Qté MP)</label>{{ etape_form.comp_mp1 }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur</label>{{ etape_form.comp_ep1 }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize</label>{{ etape_form.comp_laize1 }}</div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 mb-2">
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Triplex (Qté MP)</label>{{ etape_form.comp_mp2 }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur</label>{{ etape_form.comp_ep2 }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize</label>{{ etape_form.comp_laize2 }}</div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Quadriplex (Qté MP)</label>{{ etape_form.comp_mp3 }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur</label>{{ etape_form.comp_ep3 }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize</label>{{ etape_form.comp_laize3 }}</div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Découpe -->
+                    <div class="block-decoupe hidden mb-4 bg-orange-900/20 p-4 rounded-lg border border-orange-500/30">
+                        <h4 class="text-orange-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">✂️ Données Découpe</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté Bobines Fille</label>{{ etape_form.dec_qte_bobines }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Type Mandrin</label>{{ etape_form.dec_type_mandrin }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Diametre INT Mandrin</label>{{ etape_form.dec_mandrin_int }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Diametre EXT Bobine</label>{{ etape_form.dec_diametre_ext }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Poids Moyen Bobine (KG)</label>{{ etape_form.dec_poids_moyen }}</div>
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Nombre Jonction/Bob</label>{{ etape_form.dec_jonctions }}</div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Fond Carré -->
+                    <div class="block-fond-carre hidden mb-4 bg-yellow-900/20 p-4 rounded-lg border border-yellow-500/30">
+                        <h4 class="text-yellow-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">🛍️ Données Fond Carré</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Type de paquet</label>{{ etape_form.fc_type_paquet }}</div>
+                        </div>
+                    </div>
+                    <!-- FIN BLOCS DYNAMIQUES -->
+
+                    <!-- ANCIENS CHAMPS GLOBAUX CACHÉS (Pour conserver la logique Django) -->
+                    <div class="hidden">
+                        {{ etape_form.support }}
+                        {{ etape_form.quantite_entree }}
+                        {{ etape_form.quantite_ml }}
+                        {{ etape_form.unite_sortie }}
+                        {{ etape_form.nb_bobines }}
+                        {{ etape_form.developpement }}
+                        
+                        {{ etape_form.numero_lot_etape }}
+                        {{ etape_form.date_planifiee }}
+                        {{ etape_form.heure_debut_planifiee }}
+                        {{ etape_form.heure_fin_planifiee }}
+                        {{ etape_form.shift }}
+                        {{ etape_form.equipe }}
+                        {{ etape_form.ordre_passage }}
+                        {{ etape_form.operateur }}
+                        {{ etape_form.notes }}
+                        {{ etape_form.nom_etape }}
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Observation</label>
@@ -189,17 +361,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="hidden">
-                        {{ etape_form.date_planifiee }}
-                        {{ etape_form.heure_debut_planifiee }}
-                        {{ etape_form.heure_fin_planifiee }}
-                        {{ etape_form.shift }}
-                        {{ etape_form.equipe }}
-                        {{ etape_form.ordre_passage }}
-                        {{ etape_form.operateur }}
-                        {{ etape_form.notes }}
-                        {{ etape_form.nom_etape }}
-                    </div>
+
                 </div>
                 {% endfor %}
             </div>
@@ -223,14 +385,10 @@
 <div id="empty-form-template" class="hidden">
     <div class="etape-row bg-slate-900/50 border border-slate-700 rounded-lg p-5">
         {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
                 <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">N°</label>
                 {{ formset.empty_form.numero_etape }}
-            </div>
-            <div>
-                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Processus</label>
-                {{ formset.empty_form.process_type }}
             </div>
             <div>
                 <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Atelier</label>
@@ -241,29 +399,82 @@
                 {{ formset.empty_form.machine }}
             </div>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 bg-slate-800/50 p-3 rounded border border-slate-700/50">
-            <div>
-                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support</label>
-                {{ formset.empty_form.support }}
-            </div>
-            <div>
-                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté IN (kg)</label>
-                {{ formset.empty_form.quantite_entree }}
-            </div>
-            <div>
-                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté OUT (ML)</label>
-                {{ formset.empty_form.quantite_ml }}
-            </div>
-            <div>
-                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Nb Bobines</label>
-                {{ formset.empty_form.nb_bobines }}
-            </div>
-            <div>
-                <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Dév (mm)</label>
-                {{ formset.empty_form.developpement }}
+
+        <!-- BLOCS DYNAMIQUES SELON L'ATELIER (Cachés par défaut) -->
+        <div class="block-extrusion hidden mb-4 bg-purple-900/20 p-4 rounded-lg border border-purple-500/30">
+            <h4 class="text-purple-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">🌀 Données Extrusion</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support d'impression</label>{{ formset.empty_form.ext_support }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur du support</label>{{ formset.empty_form.ext_epaisseur }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize Bobine</label>{{ formset.empty_form.ext_laize }}</div>
             </div>
         </div>
-        <div class="hidden">{{ formset.empty_form.numero_lot_etape }}</div>
+        <div class="block-impression hidden mb-4 bg-blue-900/20 p-4 rounded-lg border border-blue-500/30">
+            <h4 class="text-blue-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">🖨️ Données Impression</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Support d'impression</label>{{ formset.empty_form.imp_support }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur du support</label>{{ formset.empty_form.imp_epaisseur }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize Bobine</label>{{ formset.empty_form.imp_laize }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Diametre INT Mandrin</label>{{ formset.empty_form.imp_mandrin }}</div>
+            </div>
+        </div>
+        <div class="block-complexage hidden mb-4 bg-pink-900/20 p-4 rounded-lg border border-pink-500/30">
+            <h4 class="text-pink-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">🔗 Données Complexage</h4>
+            <div class="grid grid-cols-3 gap-4 mb-2">
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Contre collage (Qté MP)</label>{{ formset.empty_form.comp_mp1 }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur</label>{{ formset.empty_form.comp_ep1 }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize</label>{{ formset.empty_form.comp_laize1 }}</div>
+            </div>
+            <div class="grid grid-cols-3 gap-4 mb-2">
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Triplex (Qté MP)</label>{{ formset.empty_form.comp_mp2 }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur</label>{{ formset.empty_form.comp_ep2 }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize</label>{{ formset.empty_form.comp_laize2 }}</div>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Quadriplex (Qté MP)</label>{{ formset.empty_form.comp_mp3 }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Épaisseur</label>{{ formset.empty_form.comp_ep3 }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Laize</label>{{ formset.empty_form.comp_laize3 }}</div>
+            </div>
+        </div>
+        <div class="block-decoupe hidden mb-4 bg-orange-900/20 p-4 rounded-lg border border-orange-500/30">
+            <h4 class="text-orange-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">✂️ Données Découpe</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Qté Bobines Fille</label>{{ formset.empty_form.dec_qte_bobines }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Type Mandrin</label>{{ formset.empty_form.dec_type_mandrin }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Diametre INT Mandrin</label>{{ formset.empty_form.dec_mandrin_int }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Diametre EXT Bobine</label>{{ formset.empty_form.dec_diametre_ext }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Poids Moyen Bobine (KG)</label>{{ formset.empty_form.dec_poids_moyen }}</div>
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Nombre Jonction/Bob</label>{{ formset.empty_form.dec_jonctions }}</div>
+            </div>
+        </div>
+        <div class="block-fond-carre hidden mb-4 bg-yellow-900/20 p-4 rounded-lg border border-yellow-500/30">
+            <h4 class="text-yellow-400 font-bold mb-3 text-xs uppercase flex items-center gap-2">🛍️ Données Fond Carré</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Type de paquet</label>{{ formset.empty_form.fc_type_paquet }}</div>
+            </div>
+        </div>
+        <!-- FIN BLOCS DYNAMIQUES -->
+
+        <div class="hidden">
+            {{ formset.empty_form.support }}
+            {{ formset.empty_form.quantite_entree }}
+            {{ formset.empty_form.quantite_ml }}
+            {{ formset.empty_form.unite_sortie }}
+            {{ formset.empty_form.nb_bobines }}
+            {{ formset.empty_form.developpement }}
+
+            {{ formset.empty_form.numero_lot_etape }}
+            {{ formset.empty_form.date_planifiee }}
+            {{ formset.empty_form.heure_debut_planifiee }}
+            {{ formset.empty_form.heure_fin_planifiee }}
+            {{ formset.empty_form.shift }}
+            {{ formset.empty_form.equipe }}
+            {{ formset.empty_form.ordre_passage }}
+            {{ formset.empty_form.operateur }}
+            {{ formset.empty_form.notes }}
+            {{ formset.empty_form.nom_etape }}
+        </div>
+        
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="text-gray-400 text-[10px] uppercase font-bold block mb-1">Observation</label>
@@ -280,21 +491,48 @@
                 </div>
             </div>
         </div>
-        <div class="hidden">
-            {{ formset.empty_form.date_planifiee }}
-            {{ formset.empty_form.heure_debut_planifiee }}
-            {{ formset.empty_form.heure_fin_planifiee }}
-            {{ formset.empty_form.shift }}
-            {{ formset.empty_form.equipe }}
-            {{ formset.empty_form.ordre_passage }}
-            {{ formset.empty_form.operateur }}
-            {{ formset.empty_form.notes }}
-            {{ formset.empty_form.nom_etape }}
-        </div>
     </div>
 </div>
 
 <script>
+function updateAtelierFields(selectElement) {
+    if (!selectElement) return;
+    const row = selectElement.closest('.etape-row');
+    if (!row) return;
+
+    let text = "";
+    if (selectElement.selectedIndex >= 0) {
+        text = selectElement.options[selectElement.selectedIndex].text.toLowerCase();
+    }
+    
+    // Cacher tous les blocs
+    const blocks = ['extrusion', 'impression', 'complexage', 'decoupe', 'fond-carre'];
+    blocks.forEach(b => {
+        const el = row.querySelector(`.block-${b}`);
+        if (el) el.classList.add('hidden');
+    });
+
+    // Afficher le bloc pertinent
+    if (text.includes('extrusion')) {
+        row.querySelector('.block-extrusion')?.classList.remove('hidden');
+    } else if (text.includes('impression') || text.includes('flexo') || text.includes('helio')) {
+        row.querySelector('.block-impression')?.classList.remove('hidden');
+    } else if (text.includes('complexage')) {
+        row.querySelector('.block-complexage')?.classList.remove('hidden');
+    } else if (text.includes('découpe') || text.includes('decoupe')) {
+        row.querySelector('.block-decoupe')?.classList.remove('hidden');
+    } else if (text.includes('fond carré') || text.includes('fond carre') || text.includes('sac')) {
+        row.querySelector('.block-fond-carre')?.classList.remove('hidden');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.atelier-select').forEach(sel => {
+        sel.addEventListener('change', function() { updateAtelierFields(this); });
+        updateAtelierFields(sel);
+    });
+});
+
 function ajouterEtape() {
     const container = document.getElementById('etapes-container');
     const totalForms = document.querySelector('[name="etapes-TOTAL_FORMS"]');
@@ -309,10 +547,15 @@ function ajouterEtape() {
     wrapper.innerHTML = newHtml.trim();
     const newRow = wrapper.firstElementChild;
 
-    // Attribuer automatiquement le numéro d'étape
     const numInput = newRow.querySelector('input[name$="-numero_etape"]');
     if (numInput) {
         numInput.value = formIdx + 1;
+    }
+
+    const newSelect = newRow.querySelector('.atelier-select');
+    if (newSelect) {
+        newSelect.addEventListener('change', function() { updateAtelierFields(this); });
+        updateAtelierFields(newSelect);
     }
 
     container.appendChild(newRow);
