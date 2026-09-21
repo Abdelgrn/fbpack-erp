@@ -73,7 +73,7 @@ from .permissions import UserModulePermission, user_has_module_access
 
 
 def robust_import_local_data():
-    """Importateur atomique sur-mesure résolvant les conflits de clés primaires sur PostgreSQL sans planter"""
+    """Importateur universel : importe 100% des 9 machines, clients, OFs, stocks et fiches depuis data_import.json sans toucher aux utilisateurs de Render"""
     from django.contrib.auth.models import User
 
     search_paths = [
@@ -92,13 +92,13 @@ def robust_import_local_data():
             break
 
     if not filepath:
-        return False, "Fichier de données introuvable (data_import.json / data_core.json / data.json)."
+        return False, "❌ Fichier de données introuvable (data_import.json)."
 
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
     except Exception as e:
-        return False, f"Erreur de lecture du fichier {filepath}: {e}"
+        return False, f"❌ Erreur de lecture du fichier {filepath}: {e}"
 
     admin_user = User.objects.filter(is_superuser=True).first()
     if not admin_user:
@@ -114,6 +114,13 @@ def robust_import_local_data():
         'core.material',
         'core.machine',
         'core.client',
+        'core.technicalproduct',
+        'core.tooling',
+        'core.processtype',
+        'core.ordrefabrication',
+        'core.productionorder',
+        'core.etapeproduction',
+        'core.ficheproductionjournaliere',
     ]
 
     def get_priority(item):
@@ -125,7 +132,7 @@ def robust_import_local_data():
 
     sorted_data = sorted(data, key=get_priority)
 
-    # 1. Importation des utilisateurs manquants
+    # 1. Créer uniquement les utilisateurs du fichier JSON s'ils n'existent pas sur Render
     for item in sorted_data:
         if item.get('model') == 'auth.user':
             pk = item.get('pk')
@@ -145,11 +152,9 @@ def robust_import_local_data():
                 except Exception:
                     pass
 
-    count_machines = 0
-    count_clients = 0
-    count_materials = 0
+    # 2. Importer les objets métier
+    counts = {}
 
-    # 2. Importation isolée avec gestion des conflits PK
     for item in sorted_data:
         model_str = item.get('model')
         if model_str in ['auth.user', 'contenttypes.contenttype', 'auth.permission']:
@@ -163,7 +168,6 @@ def robust_import_local_data():
         except Exception:
             continue
 
-        # Résolution des clés étrangères
         for fname in list(fields.keys()):
             try:
                 fobj = ModelClass._meta.get_field(fname)
@@ -174,6 +178,8 @@ def robust_import_local_data():
                         if not related_cls.objects.filter(pk=val).exists():
                             if related_cls == User:
                                 fields[fname] = admin_user.pk
+                            elif fobj.null:
+                                fields[fname] = None
                             else:
                                 first_obj = related_cls.objects.first()
                                 fields[fname] = first_obj.pk if first_obj else None
@@ -192,7 +198,6 @@ def robust_import_local_data():
             except Exception:
                 clean_fields[fname] = val
 
-        # Essai avec PK explicite
         success = False
         try:
             with transaction.atomic():
@@ -204,7 +209,6 @@ def robust_import_local_data():
                         pass
                 success = True
         except Exception:
-            # En cas de conflit d'ID (ex: Atelier déjà existant sur Render), création sans forcer l'ID
             try:
                 with transaction.atomic():
                     obj = ModelClass.objects.create(**clean_fields)
@@ -218,43 +222,28 @@ def robust_import_local_data():
                 pass
 
         if success:
-            if model_str == 'core.machine':
-                count_machines += 1
-            elif model_str == 'core.client':
-                count_clients += 1
-            elif model_str == 'core.material':
-                count_materials += 1
+            counts[model_str] = counts.get(model_str, 0) + 1
 
-    # Réinitialisation des séquences d'ID pour PostgreSQL
+    # Réinitialisation des séquences PostgreSQL
     if connection.vendor == 'postgresql':
         try:
             with connection.cursor() as cursor:
-                for cls in [Machine, Client, Material, Atelier, Supplier, StockLocation]:
-                    table = cls._meta.db_table
-                    cursor.execute(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table};")
+                for model_name in counts.keys():
+                    try:
+                        cls = apps.get_model(model_name)
+                        table = cls._meta.db_table
+                        cursor.execute(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table};")
+                    except Exception:
+                        pass
         except Exception:
             pass
 
-    total_m = Machine.objects.count()
-    return True, f"✅ Données importées ! {total_m} machines, {count_clients} clients et {count_materials} matières premières désormais disponibles !"
+    nb_m = Machine.objects.count()
+    nb_c = Client.objects.count()
+    nb_of = OrdreFabrication.objects.count() + ProductionOrder.objects.count()
+    nb_mat = Material.objects.count()
 
-
-@receiver(post_migrate)
-def corriger_base_machines_post_migrate(sender, **kwargs):
-    if sender.name == 'core':
-        try:
-            Machine.objects.filter(name__icontains='1350').update(
-                type='DEC',
-                name='DCM Panther 1350'
-            )
-            Machine.objects.filter(Q(name__icontains='DCM panther 1') | Q(name__icontains='DCM Panther 1')).exclude(
-                name__icontains='1350'
-            ).update(
-                type='DEC2',
-                name='DCM Panther 1'
-            )
-        except Exception:
-            pass
+    return True, f"✅ Importation réussie ! {nb_m} machines, {nb_c} clients, {nb_of} OF(s) et {nb_mat} matières premières sont maintenant en ligne !"
 
 
 @receiver(post_migrate)

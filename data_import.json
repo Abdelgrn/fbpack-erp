@@ -3215,25 +3215,7 @@
     "can_access_import": true,
     "can_access_admin": true,
     "date_creation": "2026-09-20T10:01:33.391Z",
-    "date_modification": "2026-09-20T13:26:10.264Z"
-  }
-},
-{
-  "model": "auth.user",
-  "pk": 1,
-  "fields": {
-    "password": "pbkdf2_sha256$600000$SCDPXg5BkBGpITss6iIEi2$X3PLYGspls2F5BxfDNOH8aqMrKHcjofQY2GMzmTmwNo=",
-    "last_login": "2026-09-20T10:02:14.573Z",
-    "is_superuser": true,
-    "username": "admin",
-    "first_name": "",
-    "last_name": "",
-    "email": "",
-    "is_staff": true,
-    "is_active": true,
-    "date_joined": "2026-04-12T15:48:00.061Z",
-    "groups": [],
-    "user_permissions": []
+    "date_modification": "2026-09-21T07:58:50.645Z"
   }
 }
 ]
