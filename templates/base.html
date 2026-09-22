@@ -6,14 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fb pack ERP Ultimate</title>
 
-    <!-- PWA / RACCOURCI APPLICATION -->
+    <!-- METATAGS ET RACCOURCI APPLICATION (PWA SÉCURISÉ) -->
     <meta name="theme-color" content="#0f172a">
     <meta name="application-name" content="FB PACK ERP">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FB PACK ERP">
-    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="{% static 'logo.png' %}">
     <link rel="icon" type="image/png" href="{% static 'logo.png' %}">
 
@@ -400,16 +400,15 @@
         }, 5000);
     </script>
 
-    <!-- INSTALLATION APP / RACCOURCI PWA -->
+    <!-- INSTALLATION APP / RACCOURCI PWA SÉCURISÉ -->
     <script>
     (function () {
         let deferredPrompt = null;
         const btn = document.getElementById('btn-install-app');
         const modal = document.getElementById('modal-install-help');
 
-        // Enregistre un service worker minimal pour permettre l'installation PWA
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('{% static "sw.js" %}').catch(function () {});
+            navigator.serviceWorker.register('/static/sw.js').catch(function () {});
         }
 
         window.addEventListener('beforeinstallprompt', function (e) {
@@ -432,7 +431,6 @@
 
         if (btn) {
             btn.addEventListener('click', async function () {
-                // Si le navigateur propose l'installation native
                 if (deferredPrompt) {
                     deferredPrompt.prompt();
                     try {
@@ -446,7 +444,6 @@
                     return;
                 }
 
-                // Sinon afficher le guide (iPhone / certains navigateurs)
                 if (modal) modal.classList.remove('hidden');
             });
         }
