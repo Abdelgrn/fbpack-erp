@@ -56,7 +56,8 @@ from .encre import (
 )
 
 from .admin_custom import (
-    admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view, export_database_backup
+    admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+    admin_restore_backup_view, export_database_backup
 )
 
 from .drh import (

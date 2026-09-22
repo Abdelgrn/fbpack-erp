@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.conf import settings
 import traceback
 import io
+import os
 
 from ..models import Client, Opportunite, Quote, OrdreFabrication, ProductionEntry, Material, Machine
 from ..models.permissions import UserModulePermission
@@ -169,7 +170,7 @@ def admin_toggle_user(request, user_id):
 @login_required
 @staff_member_required
 def admin_import_data_view(request):
-    """Bouton d'importation manuelle en 1 clic protégé contre les 500"""
+    """Bouton d'importation manuelle des données du PC en 1 clic"""
     try:
         success, message = robust_import_local_data()
         if success:
@@ -183,8 +184,37 @@ def admin_import_data_view(request):
     return redirect('admin_view')
 
 
+@login_required
+@staff_member_required
+def admin_restore_backup_view(request):
+    """Permet de charger n'importe quel fichier JSON de sauvegarde TOTALE téléchargé par l'utilisateur"""
+    if request.method == 'POST' and request.FILES.get('backup_file'):
+        backup_file = request.FILES['backup_file']
+        if not backup_file.name.endswith('.json'):
+            messages.error(request, "❌ Veuillez sélectionner un fichier au format .json")
+            return redirect('admin_view')
+
+        try:
+            target_path = os.path.join(getattr(settings, 'BASE_DIR', ''), 'FULL_BACKUP_FBPACK.json')
+            with open(target_path, 'wb+') as destination:
+                for chunk in backup_file.chunks():
+                    destination.write(chunk)
+
+            success, message = robust_import_local_data(specific_file=target_path)
+            if success:
+                messages.success(request, f"🎉 RESTAURATION TOTALE RÉUSSIE ! {message}")
+            else:
+                messages.error(request, f"❌ Erreur lors de la restauration: {message}")
+        except Exception as e:
+            messages.error(request, f"❌ Erreur lors de la lecture du fichier: {e}")
+    else:
+        messages.error(request, "❌ Aucun fichier de sauvegarde sélectionné.")
+
+    return redirect('admin_view')
+
+
 def export_database_backup(request):
-    """Génère un fichier JSON de sauvegarde complète de l'ERP."""
+    """Génère un fichier JSON de sauvegarde TOTALE ET ABSOLUE de l'ERP."""
     token = request.GET.get('token', '')
     secret_key = getattr(settings, 'SECRET_KEY', 'django-ultimate-erp-secret-key')
     
@@ -194,13 +224,13 @@ def export_database_backup(request):
     try:
         buf = io.StringIO()
         call_command(
-            'dumpdata', 'core', 'auth.user', 'core.usermodulepermission',
+            'dumpdata', 'core', 'auth.user', 'auth.group', 'core.usermodulepermission', 'admin.logentry',
             exclude=['contenttypes', 'auth.permission'], indent=2, stdout=buf
         )
         buf.seek(0)
 
         timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"backup_fbpack_erp_{timestamp}.json"
+        filename = f"FULL_BACKUP_FBPACK_{timestamp}.json"
 
         response = HttpResponse(buf.getvalue(), content_type='application/json')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'

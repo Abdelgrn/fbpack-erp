@@ -10,20 +10,26 @@
             <h1 class="text-3xl font-bold text-white flex items-center gap-3">
                 ⚙️ Administration ERP
             </h1>
-            <p class="text-gray-400 mt-2">Gestion des utilisateurs et des permissions par module</p>
+            <p class="text-gray-400 mt-2">Gestion des utilisateurs, sauvegardes et permissions par module</p>
         </div>
 
         <div class="flex flex-wrap gap-2">
             <!-- BOUTON DE TÉLÉCHARGEMENT BACKUP MANUEL -->
             <a href="{% url 'admin_export_backup' %}" 
-               class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-5 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
-                💾 Télécharger Backup Sécurisé (JSON)
+               class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                💾 Télécharger Sauvegarde (JSON)
             </a>
 
-            <!-- BOUTON D'IMPORTATION DIRECTE -->
+            <!-- BOUTON RESTAURER FICHIER BACKUP -->
+            <button onclick="openRestoreModal()" 
+                    class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                📤 Restaurer un Fichier Backup
+            </button>
+
+            <!-- BOUTON D'IMPORTATION DIRECTE PC -->
             <a href="{% url 'admin_import_data' %}" 
                onclick="return confirm('Voulez-vous importer vos clients, machines et stocks de votre PC vers Render ? (Aucun utilisateur existant ne sera effacé)')"
-               class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-5 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+               class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
                 📥 Importer Données PC
             </a>
         </div>
@@ -345,16 +351,46 @@
     </div>
 </div>
 
+<!-- MODAL RESTAURER BACKUP (JSON) -->
+<div id="modal-restore-backup" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <span>📤</span> Restaurer une Sauvegarde ERP
+            </h2>
+            <button onclick="closeRestoreModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        
+        <form method="post" action="{% url 'admin_restore_backup' %}" enctype="multipart/form-data" class="p-6 space-y-4">
+            {% csrf_token %}
+            <p class="text-xs text-gray-300">
+                Sélectionnez un fichier de sauvegarde au format <strong>.json</strong> (téléchargé préalablement de votre ERP).
+            </p>
+            <div class="p-4 border-2 border-dashed border-slate-700 rounded-xl text-center hover:border-amber-500 transition">
+                <input type="file" name="backup_file" accept=".json" required class="block w-full text-xs text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer">
+            </div>
+            <div class="p-3 bg-amber-950/40 border border-amber-500/30 rounded-lg text-[11px] text-amber-300">
+                🛡️ <strong>Sécurité :</strong> Les utilisateurs existants sur cet ERP ne seront pas effacés. Les données du fichier de sauvegarde seront réintégrées en sécurité.
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition text-xs uppercase tracking-wider">
+                    🔄 Lancer la Restauration
+                </button>
+                <button type="button" onclick="closeRestoreModal()" class="px-5 bg-slate-800 hover:bg-slate-700 text-gray-300 font-bold py-3 rounded-lg transition text-xs">
+                    Annuler
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-function openAddModal() {
-    document.getElementById('modal-add-user').classList.remove('hidden');
-}
-function closeAddModal() {
-    document.getElementById('modal-add-user').classList.add('hidden');
-}
-function closeEditModal() {
-    document.getElementById('modal-edit-user').classList.add('hidden');
-}
+function openAddModal() { document.getElementById('modal-add-user').classList.remove('hidden'); }
+function closeAddModal() { document.getElementById('modal-add-user').classList.add('hidden'); }
+function closeEditModal() { document.getElementById('modal-edit-user').classList.add('hidden'); }
+function openRestoreModal() { document.getElementById('modal-restore-backup').classList.remove('hidden'); }
+function closeRestoreModal() { document.getElementById('modal-restore-backup').classList.add('hidden'); }
+
 function toggleAllAdd(val) {
     var cbs = document.querySelectorAll('.add-module-cb');
     for (var i = 0; i < cbs.length; i++) { cbs[i].checked = val; }
