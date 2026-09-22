@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FB PACK ERP">
-    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <link rel="manifest" href="{% url 'manifest_view' %}">
     <link rel="apple-touch-icon" href="{% static 'logo1.png' %}">
     <link rel="icon" type="image/png" href="{% static 'logo1.png' %}">
 
@@ -128,7 +128,7 @@
         <!-- SIDEBAR -->
         <aside class="w-64 bg-slate-900 border-r border-slate-700 flex flex-col shrink-0 transition-all duration-300">
             
-            <!-- LOGO SÉCURISÉ AVEC FALLBACK EN DONNÉE HTML -->
+            <!-- LOGO SÉCURISÉ -->
             <div class="h-16 flex items-center justify-center border-b border-slate-700 p-2 shadow-lg bg-slate-800/50">
                 <img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="Logo FB PACK" class="h-12 w-auto object-contain">
             </div>
