@@ -3,7 +3,20 @@
 <html lang="fr" class="dark">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fb pack ERP Ultimate</title>
+
+    <!-- PWA / RACCOURCI APPLICATION -->
+    <meta name="theme-color" content="#0f172a">
+    <meta name="application-name" content="FB PACK ERP">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FB PACK ERP">
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <link rel="apple-touch-icon" href="{% static 'logo.png' %}">
+    <link rel="icon" type="image/png" href="{% static 'logo.png' %}">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -246,6 +259,12 @@
                 </div>
             </div>
 
+            <!-- BOUTON INSTALLER L'APPLICATION / RACCOURCI -->
+            <button id="btn-install-app" type="button"
+                    class="w-full mb-2 flex items-center justify-center gap-2 text-xs font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 py-2 rounded-lg transition duration-200">
+                📲 Installer l'App FB PACK
+            </button>
+
             <div class="grid grid-cols-2 gap-2">
 
                 {% if 'admin' in user_modules or is_super_admin %}
@@ -325,6 +344,39 @@
         </div>
     </div>
 
+    <!-- MODAL AIDE INSTALLATION APP -->
+    <div id="modal-install-help" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div class="flex items-center gap-3 mb-4">
+                <img src="{% static 'logo.png' %}" alt="FB PACK" class="h-10 w-auto object-contain">
+                <div>
+                    <h3 class="text-lg font-bold text-white">Installer FB PACK ERP</h3>
+                    <p class="text-xs text-gray-400">Créez un raccourci avec le logo de l'entreprise</p>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-sm text-gray-300">
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                    <p class="font-bold text-cyan-300 mb-1">💻 PC (Chrome / Edge)</p>
+                    <p class="text-xs">Cliquez sur l’icône <strong>Installer</strong> dans la barre d’adresse, ou menu ⋮ → <strong>Installer FB PACK ERP</strong>.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                    <p class="font-bold text-emerald-300 mb-1">🤖 Android (Chrome)</p>
+                    <p class="text-xs">Menu ⋮ → <strong>Ajouter à l’écran d’accueil</strong> / <strong>Installer l’application</strong>.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                    <p class="font-bold text-blue-300 mb-1">🍎 iPhone / iPad (Safari)</p>
+                    <p class="text-xs">Bouton Partager ⎋ → <strong>Sur l’écran d’accueil</strong> → Ajouter.</p>
+                </div>
+            </div>
+
+            <button type="button" onclick="document.getElementById('modal-install-help').classList.add('hidden')"
+                    class="mt-5 w-full bg-neon hover:bg-yellow-400 text-black font-bold py-3 rounded-xl transition">
+                ✅ Compris
+            </button>
+        </div>
+    </div>
+
     <!-- AUTO-HIDE MESSAGES -->
     <script>
         setTimeout(function() {
@@ -346,6 +398,59 @@
                 }
             });
         }, 5000);
+    </script>
+
+    <!-- INSTALLATION APP / RACCOURCI PWA -->
+    <script>
+    (function () {
+        let deferredPrompt = null;
+        const btn = document.getElementById('btn-install-app');
+        const modal = document.getElementById('modal-install-help');
+
+        // Enregistre un service worker minimal pour permettre l'installation PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('{% static "sw.js" %}').catch(function () {});
+        }
+
+        window.addEventListener('beforeinstallprompt', function (e) {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (btn) {
+                btn.classList.remove('opacity-60');
+                btn.innerHTML = '📲 Installer l\'App FB PACK';
+            }
+        });
+
+        window.addEventListener('appinstalled', function () {
+            deferredPrompt = null;
+            if (btn) {
+                btn.innerHTML = '✅ App installée';
+                btn.disabled = true;
+                btn.classList.add('opacity-60');
+            }
+        });
+
+        if (btn) {
+            btn.addEventListener('click', async function () {
+                // Si le navigateur propose l'installation native
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    try {
+                        const choice = await deferredPrompt.userChoice;
+                        if (choice && choice.outcome === 'accepted') {
+                            btn.innerHTML = '✅ App installée';
+                            btn.disabled = true;
+                        }
+                    } catch (e) {}
+                    deferredPrompt = null;
+                    return;
+                }
+
+                // Sinon afficher le guide (iPhone / certains navigateurs)
+                if (modal) modal.classList.remove('hidden');
+            });
+        }
+    })();
     </script>
 
     {% if 'chat' in user_modules %}
@@ -472,7 +577,6 @@
         function onNewMessages(list) {
             if (!list || !list.length) return;
 
-            // Si on est déjà dans le chat, on met juste à jour le curseur (les pages chat gèrent l'UI)
             if (isOnChatPage) {
                 list.forEach(function (m) {
                     if (m.id > lastId) lastId = m.id;
@@ -492,7 +596,6 @@
             updateBadge();
             playSound();
 
-            // Toast du dernier message
             showToast(list[list.length - 1]);
             browserNotify(list[list.length - 1]);
         }
@@ -508,13 +611,11 @@
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (init) {
-                        // Initialise le curseur sans notif d'historique
                         const mid = parseInt(data.max_id || data.latest_id || 0, 10) || 0;
                         if (mid > 0) {
                             lastId = mid;
                             localStorage.setItem(STORAGE_KEY, String(lastId));
                         }
-                        // Sur page chat : reset badge
                         if (isOnChatPage) {
                             unread = 0;
                             updateBadge();
@@ -527,7 +628,6 @@
                         onNewMessages(data.messages);
                     }
                     if (data.max_id && parseInt(data.max_id, 10) > lastId && !(data.messages && data.messages.length)) {
-                        // garde le curseur cohérent
                         lastId = parseInt(data.max_id, 10);
                         localStorage.setItem(STORAGE_KEY, String(lastId));
                     }
@@ -536,7 +636,6 @@
                 .finally(function () { polling = false; });
         }
 
-        // Expose helpers
         window.FBChatNotif = {
             closeToast: closeToast,
             resetUnread: function () {
@@ -562,7 +661,6 @@
             }
         };
 
-        // Clic menu chat => reset badge
         const link = document.getElementById('chat-menu-link');
         if (link) {
             link.addEventListener('click', function () {
@@ -571,16 +669,13 @@
             });
         }
 
-        // Débloquer audio après 1er geste
         document.addEventListener('click', function () { getAudioContext(); }, { once: true });
         document.addEventListener('keydown', function () { getAudioContext(); }, { once: true });
 
-        // Init badge + curseur puis polling
         updateBadge();
         poll(true);
         setInterval(function () { poll(false); }, POLL_MS);
 
-        // Si on est sur une page chat, reset unread
         if (isOnChatPage) {
             unread = 0;
             updateBadge();
