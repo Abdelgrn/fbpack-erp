@@ -259,13 +259,13 @@ def manifest_view(request):
                 "src": logo_url,
                 "sizes": "192x192",
                 "type": "image/png",
-                "purpose": "any maskable"
+                "purpose": "any"
             },
             {
                 "src": logo_url,
                 "sizes": "512x512",
                 "type": "image/png",
-                "purpose": "any maskable"
+                "purpose": "any"
             }
         ]
     }
