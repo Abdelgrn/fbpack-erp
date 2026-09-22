@@ -71,7 +71,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fbpack.wsgi.application'
 
-# CONFIGURATION BASE DE DONNÉES (PostgreSQL sur Render, SQLite en local)
 if IS_RENDER and os.environ.get('DATABASE_URL'):
     DATABASES = {
         'default': dj_database_url.config(
@@ -95,8 +94,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Mode de stockage tolérant qui n'envoie JAMAIS d'erreur 500
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
