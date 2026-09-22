@@ -72,17 +72,21 @@ from .chat import ChatRoom, ChatMessage, UserPresence
 from .permissions import UserModulePermission, user_has_module_access
 
 
-def robust_import_local_data():
-    """Importateur universel garanti : convertit automatiquement les Foreign Keys en objets Django réels"""
+def robust_import_local_data(specific_file=None):
+    """Importateur universel garanti : convertit automatiquement les Foreign Keys en objets Django réels
+    et accepte un fichier spécifique lors d'une restauration manuelle.
+    """
     from django.contrib.auth.models import User
 
     search_paths = [
+        specific_file,
+        'FULL_BACKUP_FBPACK.json',
+        'FULL_BACKUP_RENDER_OFFICIEL.json',
         'data_import.json',
         'data_core.json',
         'data.json',
+        os.path.join(getattr(settings, 'BASE_DIR', ''), 'FULL_BACKUP_FBPACK.json'),
         os.path.join(getattr(settings, 'BASE_DIR', ''), 'data_import.json'),
-        os.path.join(getattr(settings, 'BASE_DIR', ''), 'data_core.json'),
-        os.path.join(getattr(settings, 'BASE_DIR', ''), 'data.json'),
     ]
 
     filepath = None
@@ -92,7 +96,7 @@ def robust_import_local_data():
             break
 
     if not filepath:
-        return False, "❌ Fichier data_import.json introuvable sur le serveur."
+        return False, "❌ Fichier de données ou de sauvegarde introuvable."
 
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -106,6 +110,8 @@ def robust_import_local_data():
 
     model_priority = [
         'auth.user',
+        'auth.group',
+        'core.usermodulepermission',
         'core.atelier',
         'core.supplier',
         'core.client',
@@ -160,7 +166,7 @@ def robust_import_local_data():
 
     for item in sorted_data:
         model_str = item.get('model')
-        if model_str in ['auth.user', 'contenttypes.contenttype', 'auth.permission']:
+        if model_str in ['auth.user', 'auth.group', 'contenttypes.contenttype', 'auth.permission']:
             continue
 
         pk = item.get('pk')
@@ -254,9 +260,9 @@ def robust_import_local_data():
     nb_of = OrdreFabrication.objects.count() + ProductionOrder.objects.count()
     nb_mat = Material.objects.count()
 
-    msg = f"🎉 PARFAIT ! Importation réussie depuis {os.path.basename(filepath)} ! En base Render : {nb_m} machines, {nb_c} clients, {nb_of} OF(s), {nb_mat} matières premières."
+    msg = f"🎉 PARFAIT ! Importation/Restauration réussie depuis {os.path.basename(filepath)} ! En base Render : {nb_m} machines, {nb_c} clients, {nb_of} OF(s), {nb_mat} matières premières."
     if errors:
-        msg += f" (⚠️ {len(errors)} éléments ignorés : {errors[0]})"
+        msg += f" (⚠️ {len(errors)} éléments ignorés)"
 
     return True, msg
 
