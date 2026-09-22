@@ -3,20 +3,23 @@ import datetime
 import urllib.request
 import ssl
 
-# Configuration de votre ERP en ligne
+# URL officielle de votre ERP Render pour le backup
 ERP_URL = "https://fbpack-erp-cxdf.onrender.com/administration/backup/download/"
 TOKEN = "django-ultimate-erp-secret-key"
 
-# Dossier où enregistrer les sauvegardes sur votre PC (sur le Bureau)
-DESKTOP_PATH = os.path.join(os.path.expanduser("~"), "Desktop")
-BACKUP_DIR = os.path.join(DESKTOP_PATH, "ERP_Backups")
+# Chemin exact et absolu du dossier de votre ERP sur votre PC
+BASE_DIR = r"C:\Users\ACER ASPIRE\Documents\fbpack_erp beta - Copie"
+BACKUP_DIR = os.path.join(BASE_DIR, "backups")
+
+# Création forcée du sous-dossier "backups" s'il n'existe pas
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
+# Nom du fichier avec la date et l'heure exactes
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 filename = f"backup_fbpack_{timestamp}.json"
 filepath = os.path.join(BACKUP_DIR, filename)
 
-print(f"🔄 Connexion à Render pour télécharger la sauvegarde ERP...")
+print("🔄 Connexion à Render pour télécharger la sauvegarde TOTALE de l'ERP...")
 
 full_url = f"{ERP_URL}?token={TOKEN}"
 
@@ -31,7 +34,11 @@ try:
             data = response.read()
             with open(filepath, 'wb') as f:
                 f.write(data)
-            print(f"✅ SAUVEGARDE RÉUSSIE ! Fichier enregistré dans :\n👉 {filepath}")
+            print("\n==================================================")
+            print("✅ SAUVEGARDE RÉUSSIE AVEC SUCCÈS !")
+            print(f"📁 Fichier créé : {filename}")
+            print(f"👉 Emplacement : {filepath}")
+            print("==================================================\n")
         else:
             print(f"❌ Erreur HTTP : {response.status}")
 except Exception as e:

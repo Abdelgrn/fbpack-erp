@@ -2913,7 +2913,7 @@
   "fields": {
     "user": 1,
     "is_online": true,
-    "last_seen": "2026-09-22T07:57:57.055Z",
+    "last_seen": "2026-09-22T08:29:23.684Z",
     "current_room": null
   }
 },
@@ -2966,7 +2966,7 @@
     "can_access_import": true,
     "can_access_admin": true,
     "date_creation": "2026-09-20T10:01:33.391Z",
-    "date_modification": "2026-09-22T07:54:37.955Z"
+    "date_modification": "2026-09-22T08:09:50.860Z"
   }
 },
 {
