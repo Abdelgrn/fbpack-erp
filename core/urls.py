@@ -8,6 +8,11 @@ from .views import production_speciale as prod_views
 
 urlpatterns = [
     # ==========================================
+    # MANIFEST PWA DYNAMIQUE (LOGO AUTOMATIQUE)
+    # ==========================================
+    path('manifest.json', views.manifest_view, name='manifest_view'),
+
+    # ==========================================
     # DASHBOARD & REPORTING
     # ==========================================
     path('', views.dashboard, name='dashboard'),
