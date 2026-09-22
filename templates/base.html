@@ -96,240 +96,259 @@
     </style>
 </head>
 
-<body class="bg-darkbg text-gray-200 font-sans h-screen flex overflow-hidden">
-    
-    <!-- SIDEBAR -->
-    <aside class="w-64 bg-slate-900 border-r border-slate-700 flex flex-col shrink-0 transition-all duration-300">
-        
-        <!-- LOGO -->
-        <div class="h-16 flex items-center justify-center border-b border-slate-700 p-2 shadow-lg bg-slate-800/50">
-            <img src="{% static 'logo.png' %}" alt="Logo FB PACK" class="h-12 w-auto object-contain">
+<body class="bg-darkbg text-gray-200 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- 🌟 BANNIÈRE PROMINENTE AUTOMATIQUE D'INSTALLATION DE L'APPLICATION -->
+    <div id="pwa-install-banner" class="hidden bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black px-4 py-3 flex items-center justify-between shadow-2xl z-[99999] border-b-2 border-yellow-300">
+        <div class="flex items-center gap-3">
+            <img src="{% static 'logo.png' %}" alt="FB PACK" class="h-8 w-auto object-contain">
+            <div>
+                <span class="text-xs md:text-sm font-black uppercase tracking-wider block">📲 Installer l'application FB PACK ERP sur votre écran</span>
+                <span class="text-[10px] text-slate-900 font-bold block">Cliquez ci-contre pour ajouter le raccourci directement sur votre Bureau ou Téléphone</span>
+            </div>
         </div>
-
-        <!-- 🚀 RECHERCHE GLOBALE LOT -->
-        <div class="p-3 border-b border-slate-800">
-            <form action="{% url 'prod_tracabilite_search' %}" method="GET" class="relative">
-                <input type="text" name="q" placeholder="Chercher un Lot / OF..." 
-                       class="w-full bg-slate-950 text-gray-200 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
-            </form>
-        </div>
-
-        <!-- MENU NAVIGATION -->
-        <nav class="flex-1 py-4 overflow-y-auto space-y-1">
-
-            <!-- TABLEAU DE BORD -->
-            {% if 'dashboard' in user_modules %}
-            <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                <span class="mr-3 text-lg">📊</span> Dashboard
-            </a>
-            {% endif %}
-
-            {% if 'planning' in user_modules %}
-            <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}">
-                <span class="mr-3 text-lg">📅</span> Planning Gantt
-            </a>
-            {% endif %}
-
-            {% if 'reporting' in user_modules %}
-            <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}">
-                <span class="mr-3 text-lg">📈</span> Reporting
-            </a>
-            {% endif %}
-            
-            <!-- GESTION OPÉRATIONNELLE -->
-            {% if 'crm' in user_modules or 'prepress' in user_modules or 'planification' in user_modules or 'production' in user_modules or 'stock' in user_modules %}
-            <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
-                Gestion Opérationnelle
-            </div>
-            {% endif %}
-            
-            <!-- CRM & DEVIS -->
-            {% if 'crm' in user_modules %}
-            <a href="{% url 'crm_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'crm' in request.path %}active{% endif %}">
-                <span class="mr-3">🤝</span> CRM & Devis
-            </a>
-            {% endif %}
-
-            <!-- PRÉPRESSE -->
-            {% if 'prepress' in user_modules %}
-            <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'prepress' in request.path %}active{% endif %}">
-                <span class="mr-3">🎨</span> Prépresse & Outils
-            </a>
-            {% endif %}
-
-            <!-- NOUVEAU MODULE PLANIFICATION (REMPLACE VISUELLEMENT OF) -->
-            {% if 'planification' in user_modules %}
-            <a href="{% url 'planning_atelier' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'planification' in request.path or 'planning-atelier' in request.path or '/of/' in request.path and 'crm' not in request.path %}active{% endif %}">
-                <span class="mr-3">📅</span> Planification
-            </a>
-            {% endif %}
-
-            <!-- PRODUCTION SPÉCIALE -->
-            {% if 'production' in user_modules %}
-            <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/prod/' in request.path and '/encre/' not in request.path %}active{% endif %}">
-                <span class="mr-3">⚙️</span> Production Spécial
-            </a>
-            {% endif %}
-
-            <!-- STOCKS & ACHATS -->
-            {% if 'stock' in user_modules %}
-            <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/stock/' in request.path %}active{% endif %}">
-                <span class="mr-3">📦</span> Stocks & Achats
-            </a>
-            {% endif %}
-
-            <!-- MODULE MAINTENANCE -->
-            {% if 'maintenance' in user_modules %}
-            <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-orange-500/60 uppercase tracking-widest">
-                Maintenance
-            </div>
-
-            <a href="{% url 'maintenance_dashboard' %}" class="nav-link-maint flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/maintenance/' in request.path %}active{% endif %}">
-                <span class="mr-3">🔧</span>
-                <span>Maintenance</span>
-
-                {% if alertes_maintenance_count > 0 %}
-                <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                    {{ alertes_maintenance_count }}
-                </span>
-                {% endif %}
-            </a>
-            {% endif %}
-
-            <!-- MODULE DRH -->
-            {% if 'drh' in user_modules %}
-            <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-emerald-500/60 uppercase tracking-widest">
-                Ressources Humaines
-            </div>
-
-            <a href="{% url 'drh_dashboard' %}" class="nav-link-drh flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/drh/' in request.path %}active{% endif %}">
-                <span class="mr-3">👥</span>
-                <span>DRH</span>
-            </a>
-            {% endif %}
-
-            <!-- OUTILS -->
-            {% if 'chat' in user_modules or 'import' in user_modules %}
-            <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
-                Outils
-            </div>
-            {% endif %}
-            
-            {% if 'chat' in user_modules %}
-            <a href="{% url 'chat_home' %}" id="chat-menu-link"
-               class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}">
-                <span class="mr-3">💬</span>
-                <span>Chat d'Équipe</span>
-                <span id="chat-menu-badge"
-                      class="ml-auto hidden bg-red-500 text-white text-center rounded-full px-1.5">
-                    0
-                </span>
-            </a>
-            {% endif %}
-
-            {% if 'import' in user_modules %}
-            <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300 {% if 'import' in request.path %}active{% endif %}">
-                <span class="mr-3">📥</span> Importer Excel
-            </a>
-            {% endif %}
-
-        </nav>
-
-        <!-- ZONE UTILISATEUR -->
-        <div class="mt-auto border-t border-slate-700 p-4 bg-slate-900/80 backdrop-blur-sm">
-
-            <div class="flex items-center gap-3 mb-4">
-                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold shadow-lg shadow-orange-500/20">
-                    {{ user.username|slice:":1"|upper }}
-                </div>
-
-                <div class="overflow-hidden">
-                    <p class="text-sm font-bold text-white truncate w-32">
-                        {{ user.username|default:"Utilisateur" }}
-                    </p>
-
-                    <p class="text-[10px] text-emerald-400 flex items-center gap-1">
-                        <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        En ligne
-                    </p>
-                </div>
-            </div>
-
-            <!-- BOUTON INSTALLER L'APPLICATION / RACCOURCI -->
-            <button id="btn-install-app" type="button"
-                    class="w-full mb-2 flex items-center justify-center gap-2 text-xs font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 py-2 rounded-lg transition duration-200">
-                📲 Installer l'App FB PACK
+        <div class="flex items-center gap-3 shrink-0">
+            <button id="pwa-banner-install-btn" type="button" class="bg-slate-950 hover:bg-slate-900 text-yellow-400 px-5 py-2.5 rounded-xl text-xs uppercase font-extrabold shadow-lg transition transform active:scale-95 flex items-center gap-2">
+                <span>👉</span> INSTALLER MAINTENANT
             </button>
-
-            <div class="grid grid-cols-2 gap-2">
-
-                {% if 'admin' in user_modules or is_super_admin %}
-                <a href="{% url 'admin_view' %}" class="flex items-center justify-center gap-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg border border-slate-600 transition duration-200">
-                    ⚙️ Admin
-                </a>
-                {% else %}
-                <div></div>
-                {% endif %}
-
-                <form action="{% url 'logout' %}" method="post" class="w-full">
-                    {% csrf_token %}
-                    <button type="submit" class="w-full flex items-center justify-center gap-1 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2 rounded-lg transition duration-200">
-                        🚪 Sortir
-                    </button>
-                </form>
-
-            </div>
+            <button type="button" onclick="document.getElementById('pwa-install-banner').classList.add('hidden')" class="text-slate-950 hover:text-white font-black text-xl px-2">✕</button>
         </div>
-    </aside>
+    </div>
 
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 overflow-auto bg-darkbg relative w-full h-full">
-        
-        <!-- MESSAGES DJANGO -->
-        {% if messages %}
-        <div class="px-8 pt-4">
+    <div class="flex-1 flex overflow-hidden w-full h-full">
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-slate-900 border-r border-slate-700 flex flex-col shrink-0 transition-all duration-300">
+            
+            <!-- LOGO -->
+            <div class="h-16 flex items-center justify-center border-b border-slate-700 p-2 shadow-lg bg-slate-800/50">
+                <img src="{% static 'logo.png' %}" alt="Logo FB PACK" class="h-12 w-auto object-contain">
+            </div>
 
-            {% for message in messages %}
+            <!-- 🚀 RECHERCHE GLOBALE LOT -->
+            <div class="p-3 border-b border-slate-800">
+                <form action="{% url 'prod_tracabilite_search' %}" method="GET" class="relative">
+                    <input type="text" name="q" placeholder="Chercher un Lot / OF..." 
+                           class="w-full bg-slate-950 text-gray-200 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+                </form>
+            </div>
 
-            <div class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
-                {% if message.tags == 'success' %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
-                {% elif message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400
-                {% elif message.tags == 'warning' %}bg-yellow-500/10 border border-yellow-500/30 text-yellow-400
-                {% else %}bg-blue-500/10 border border-blue-500/30 text-blue-400{% endif %}">
+            <!-- MENU NAVIGATION -->
+            <nav class="flex-1 py-4 overflow-y-auto space-y-1">
 
-                {% if message.tags == 'success' %}
-                    ✅
-                {% elif message.tags == 'error' %}
-                    ❌
-                {% elif message.tags == 'warning' %}
-                    ⚠️
-                {% else %}
-                    ℹ️
+                <!-- TABLEAU DE BORD -->
+                {% if 'dashboard' in user_modules %}
+                <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <span class="mr-3 text-lg">📊</span> Dashboard
+                </a>
                 {% endif %}
 
-                {{ message }}
+                {% if 'planning' in user_modules %}
+                <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}">
+                    <span class="mr-3 text-lg">📅</span> Planning Gantt
+                </a>
+                {% endif %}
 
-                <button onclick="this.parentElement.remove()" class="ml-auto text-gray-500 hover:text-white">
-                    ✕
+                {% if 'reporting' in user_modules %}
+                <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}">
+                    <span class="mr-3 text-lg">📈</span> Reporting
+                </a>
+                {% endif %}
+                
+                <!-- GESTION OPÉRATIONNELLE -->
+                {% if 'crm' in user_modules or 'prepress' in user_modules or 'planification' in user_modules or 'production' in user_modules or 'stock' in user_modules %}
+                <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
+                    Gestion Opérationnelle
+                </div>
+                {% endif %}
+                
+                <!-- CRM & DEVIS -->
+                {% if 'crm' in user_modules %}
+                <a href="{% url 'crm_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'crm' in request.path %}active{% endif %}">
+                    <span class="mr-3">🤝</span> CRM & Devis
+                </a>
+                {% endif %}
+
+                <!-- PRÉPRESSE -->
+                {% if 'prepress' in user_modules %}
+                <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'prepress' in request.path %}active{% endif %}">
+                    <span class="mr-3">🎨</span> Prépresse & Outils
+                </a>
+                {% endif %}
+
+                <!-- NOUVEAU MODULE PLANIFICATION (REMPLACE VISUELLEMENT OF) -->
+                {% if 'planification' in user_modules %}
+                <a href="{% url 'planning_atelier' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'planification' in request.path or 'planning-atelier' in request.path or '/of/' in request.path and 'crm' not in request.path %}active{% endif %}">
+                    <span class="mr-3">📅</span> Planification
+                </a>
+                {% endif %}
+
+                <!-- PRODUCTION SPÉCIALE -->
+                {% if 'production' in user_modules %}
+                <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/prod/' in request.path and '/encre/' not in request.path %}active{% endif %}">
+                    <span class="mr-3">⚙️</span> Production Spécial
+                </a>
+                {% endif %}
+
+                <!-- STOCKS & ACHATS -->
+                {% if 'stock' in user_modules %}
+                <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/stock/' in request.path %}active{% endif %}">
+                    <span class="mr-3">📦</span> Stocks & Achats
+                </a>
+                {% endif %}
+
+                <!-- MODULE MAINTENANCE -->
+                {% if 'maintenance' in user_modules %}
+                <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-orange-500/60 uppercase tracking-widest">
+                    Maintenance
+                </div>
+
+                <a href="{% url 'maintenance_dashboard' %}" class="nav-link-maint flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/maintenance/' in request.path %}active{% endif %}">
+                    <span class="mr-3">🔧</span>
+                    <span>Maintenance</span>
+
+                    {% if alertes_maintenance_count > 0 %}
+                    <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                        {{ alertes_maintenance_count }}
+                    </span>
+                    {% endif %}
+                </a>
+                {% endif %}
+
+                <!-- MODULE DRH -->
+                {% if 'drh' in user_modules %}
+                <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-emerald-500/60 uppercase tracking-widest">
+                    Ressources Humaines
+                </div>
+
+                <a href="{% url 'drh_dashboard' %}" class="nav-link-drh flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/drh/' in request.path %}active{% endif %}">
+                    <span class="mr-3">👥</span>
+                    <span>DRH</span>
+                </a>
+                {% endif %}
+
+                <!-- OUTILS -->
+                {% if 'chat' in user_modules or 'import' in user_modules %}
+                <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
+                    Outils
+                </div>
+                {% endif %}
+                
+                {% if 'chat' in user_modules %}
+                <a href="{% url 'chat_home' %}" id="chat-menu-link"
+                   class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}">
+                    <span class="mr-3">💬</span>
+                    <span>Chat d'Équipe</span>
+                    <span id="chat-menu-badge"
+                          class="ml-auto hidden bg-red-500 text-white text-center rounded-full px-1.5">
+                        0
+                    </span>
+                </a>
+                {% endif %}
+
+                {% if 'import' in user_modules %}
+                <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300 {% if 'import' in request.path %}active{% endif %}">
+                    <span class="mr-3">📥</span> Importer Excel
+                </a>
+                {% endif %}
+
+            </nav>
+
+            <!-- ZONE UTILISATEUR -->
+            <div class="mt-auto border-t border-slate-700 p-4 bg-slate-900/80 backdrop-blur-sm">
+
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold shadow-lg shadow-orange-500/20">
+                        {{ user.username|slice:":1"|upper }}
+                    </div>
+
+                    <div class="overflow-hidden">
+                        <p class="text-sm font-bold text-white truncate w-32">
+                            {{ user.username|default:"Utilisateur" }}
+                        </p>
+
+                        <p class="text-[10px] text-emerald-400 flex items-center gap-1">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            En ligne
+                        </p>
+                    </div>
+                </div>
+
+                <!-- BOUTON INSTALLER L'APPLICATION EN BAS DE SIDEBAR -->
+                <button id="btn-install-app" type="button"
+                        class="w-full mb-2 flex items-center justify-center gap-2 text-xs font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 py-2 rounded-lg transition duration-200">
+                    📲 Installer l'App FB PACK
                 </button>
 
+                <div class="grid grid-cols-2 gap-2">
+
+                    {% if 'admin' in user_modules or is_super_admin %}
+                    <a href="{% url 'admin_view' %}" class="flex items-center justify-center gap-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg border border-slate-600 transition duration-200">
+                        ⚙️ Admin
+                    </a>
+                    {% else %}
+                    <div></div>
+                    {% endif %}
+
+                    <form action="{% url 'logout' %}" method="post" class="w-full">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full flex items-center justify-center gap-1 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2 rounded-lg transition duration-200">
+                            🚪 Sortir
+                        </button>
+                    </form>
+
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 overflow-auto bg-darkbg relative w-full h-full">
+            
+            <!-- MESSAGES DJANGO -->
+            {% if messages %}
+            <div class="px-8 pt-4">
+
+                {% for message in messages %}
+
+                <div class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
+                    {% if message.tags == 'success' %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
+                    {% elif message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400
+                    {% elif message.tags == 'warning' %}bg-yellow-500/10 border border-yellow-500/30 text-yellow-400
+                    {% else %}bg-blue-500/10 border border-blue-500/30 text-blue-400{% endif %}">
+
+                    {% if message.tags == 'success' %}
+                        ✅
+                    {% elif message.tags == 'error' %}
+                        ❌
+                    {% elif message.tags == 'warning' %}
+                        ⚠️
+                    {% else %}
+                        ℹ️
+                    {% endif %}
+
+                    {{ message }}
+
+                    <button onclick="this.parentElement.remove()" class="ml-auto text-gray-500 hover:text-white">
+                        ✕
+                    </button>
+
+                </div>
+
+                {% endfor %}
+
+            </div>
+            {% endif %}
+            
+            <div class="p-8">
+                {% block content %}
+                {% endblock %}
             </div>
 
-            {% endfor %}
-
-        </div>
-        {% endif %}
-        
-        <div class="p-8">
-            {% block content %}
-            {% endblock %}
-        </div>
-
-    </main>
+        </main>
+    </div>
 
     <!-- TOAST CHAT GLOBAL -->
     <div id="global-chat-toast" class="fixed bottom-6 right-6 z-[9999] hidden max-w-sm w-full sm:w-96">
@@ -344,7 +363,7 @@
         </div>
     </div>
 
-    <!-- MODAL AIDE INSTALLATION APP -->
+    <!-- MODAL AIDE INSTALLATION APP (S'AFICHE POUR IPHONE OU NAVIGATEURS SANS PROMPT DIRECT) -->
     <div id="modal-install-help" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <div class="flex items-center gap-3 mb-4">
@@ -400,11 +419,13 @@
         }, 5000);
     </script>
 
-    <!-- INSTALLATION APP / RACCOURCI PWA SÉCURISÉ -->
+    <!-- GESTION AUTOMATIQUE INSTALLATION APP (PWA BANNER) -->
     <script>
     (function () {
         let deferredPrompt = null;
-        const btn = document.getElementById('btn-install-app');
+        const btnSidebar = document.getElementById('btn-install-app');
+        const btnBanner = document.getElementById('pwa-banner-install-btn');
+        const banner = document.getElementById('pwa-install-banner');
         const modal = document.getElementById('modal-install-help');
 
         if ('serviceWorker' in navigator) {
@@ -414,39 +435,44 @@
         window.addEventListener('beforeinstallprompt', function (e) {
             e.preventDefault();
             deferredPrompt = e;
-            if (btn) {
-                btn.classList.remove('opacity-60');
-                btn.innerHTML = '📲 Installer l\'App FB PACK';
+            
+            // Afficher la grande bannière jaune automatiquement
+            if (banner) {
+                banner.classList.remove('hidden');
             }
         });
 
         window.addEventListener('appinstalled', function () {
             deferredPrompt = null;
-            if (btn) {
-                btn.innerHTML = '✅ App installée';
-                btn.disabled = true;
-                btn.classList.add('opacity-60');
+            if (banner) banner.classList.add('hidden');
+            if (btnSidebar) {
+                btnSidebar.innerHTML = '✅ App installée';
+                btnSidebar.disabled = true;
+                btnSidebar.classList.add('opacity-60');
             }
         });
 
-        if (btn) {
-            btn.addEventListener('click', async function () {
-                if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    try {
-                        const choice = await deferredPrompt.userChoice;
-                        if (choice && choice.outcome === 'accepted') {
-                            btn.innerHTML = '✅ App installée';
-                            btn.disabled = true;
+        async function triggerInstall() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                try {
+                    const choice = await deferredPrompt.userChoice;
+                    if (choice && choice.outcome === 'accepted') {
+                        if (banner) banner.classList.add('hidden');
+                        if (btnSidebar) {
+                            btnSidebar.innerHTML = '✅ App installée';
+                            btnSidebar.disabled = true;
                         }
-                    } catch (e) {}
-                    deferredPrompt = null;
-                    return;
-                }
-
+                    }
+                } catch (err) {}
+                deferredPrompt = null;
+            } else {
                 if (modal) modal.classList.remove('hidden');
-            });
+            }
         }
+
+        if (btnBanner) btnBanner.addEventListener('click', triggerInstall);
+        if (btnSidebar) btnSidebar.addEventListener('click', triggerInstall);
     })();
     </script>
 
