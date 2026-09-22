@@ -3,26 +3,31 @@ import datetime
 import urllib.request
 import ssl
 
-# URL officielle de votre ERP Render pour le backup
 ERP_URL = "https://fbpack-erp-cxdf.onrender.com/administration/backup/download/"
 TOKEN = "django-ultimate-erp-secret-key"
 
-# Chemin exact et absolu du dossier de votre ERP sur votre PC
 BASE_DIR = r"C:\Users\ACER ASPIRE\Documents\fbpack_erp beta - Copie"
 BACKUP_DIR = os.path.join(BASE_DIR, "backups")
-
-# Création forcée du sous-dossier "backups" s'il n'existe pas
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
-# Nom du fichier avec la date et l'heure exactes
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 filename = f"backup_fbpack_{timestamp}.json"
 filepath = os.path.join(BACKUP_DIR, filename)
+logpath = os.path.join(BACKUP_DIR, "backup_log.txt")
 
-print("🔄 Connexion à Render pour télécharger la sauvegarde TOTALE de l'ERP...")
+def log(msg):
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{now_str}] {msg}\n"
+    print(line, end="")
+    try:
+        with open(logpath, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception:
+        pass
+
+log("🔄 Connexion à Render pour télécharger la sauvegarde TOTALE...")
 
 full_url = f"{ERP_URL}?token={TOKEN}"
-
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
@@ -34,12 +39,8 @@ try:
             data = response.read()
             with open(filepath, 'wb') as f:
                 f.write(data)
-            print("\n==================================================")
-            print("✅ SAUVEGARDE RÉUSSIE AVEC SUCCÈS !")
-            print(f"📁 Fichier créé : {filename}")
-            print(f"👉 Emplacement : {filepath}")
-            print("==================================================\n")
+            log(f"✅ SAUVEGARDE RÉUSSIE ! Fichier créé : {filename}")
         else:
-            print(f"❌ Erreur HTTP : {response.status}")
+            log(f"❌ Erreur HTTP : {response.status}")
 except Exception as e:
-    print(f"❌ Erreur de connexion au serveur ERP : {e}")
+    log(f"❌ Erreur de connexion au serveur ERP : {e}")
