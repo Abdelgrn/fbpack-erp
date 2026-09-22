@@ -9,6 +9,7 @@ from django.http import HttpResponse, JsonResponse
 from django.core.management import call_command
 from django.utils import timezone
 from django.conf import settings
+from django.templatetags.static import static
 import traceback
 import io
 import os
@@ -237,3 +238,35 @@ def export_database_backup(request):
         return response
     except Exception as e:
         return JsonResponse({'error': f"Erreur lors de la sauvegarde: {e}"}, status=500)
+
+
+def manifest_view(request):
+    """Génère un fichier manifest.json dynamique avec l'URL absolue exacte de logo1.png pour Chrome et Windows."""
+    logo_url = request.build_absolute_uri(static('logo1.png'))
+    data = {
+        "name": "FB PACK ERP Ultimate",
+        "short_name": "FB PACK",
+        "description": "ERP FB PACK - Production, Stock, CRM, Maintenance, DRH",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "any",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a",
+        "lang": "fr",
+        "icons": [
+            {
+                "src": logo_url,
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": logo_url,
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    }
+    return JsonResponse(data, content_type="application/manifest+json")
