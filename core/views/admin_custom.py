@@ -5,7 +5,12 @@ from django.contrib.auth.models import User, Group
 from django.contrib.admin.models import LogEntry
 from django.db.models import Count
 from django.contrib import messages
+from django.http import HttpResponse, JsonResponse
+from django.core.management import call_command
+from django.utils import timezone
+from django.conf import settings
 import traceback
+import io
 
 from ..models import Client, Opportunite, Quote, OrdreFabrication, ProductionEntry, Material, Machine
 from ..models.permissions import UserModulePermission
@@ -176,3 +181,29 @@ def admin_import_data_view(request):
         print(traceback.format_exc())
         messages.error(request, f"❌ Erreur critique lors de l'importation: {type(e).__name__} - {str(e)}")
     return redirect('admin_view')
+
+
+def export_database_backup(request):
+    """Génère un fichier JSON de sauvegarde complète de l'ERP."""
+    token = request.GET.get('token', '')
+    secret_key = getattr(settings, 'SECRET_KEY', 'django-ultimate-erp-secret-key')
+    
+    if not (request.user.is_authenticated and request.user.is_superuser or (token and token == secret_key)):
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+
+    try:
+        buf = io.StringIO()
+        call_command(
+            'dumpdata', 'core', 'auth.user', 'core.usermodulepermission',
+            exclude=['contenttypes', 'auth.permission'], indent=2, stdout=buf
+        )
+        buf.seek(0)
+
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"backup_fbpack_erp_{timestamp}.json"
+
+        response = HttpResponse(buf.getvalue(), content_type='application/json')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        return JsonResponse({'error': f"Erreur lors de la sauvegarde: {e}"}, status=500)

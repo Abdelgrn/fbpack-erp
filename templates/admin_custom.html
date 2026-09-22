@@ -13,12 +13,20 @@
             <p class="text-gray-400 mt-2">Gestion des utilisateurs et des permissions par module</p>
         </div>
 
-        <!-- BOUTON D'IMPORTATION DIRECTE -->
-        <a href="{% url 'admin_import_data' %}" 
-           onclick="return confirm('Voulez-vous importer vos clients, machines et stocks de votre PC vers Render ? (Aucun utilisateur existant ne sera effacé)')"
-           class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition flex items-center gap-2">
-            📥 Importer Données PC (Clients, Machines, Stocks)
-        </a>
+        <div class="flex flex-wrap gap-2">
+            <!-- BOUTON DE TÉLÉCHARGEMENT BACKUP MANUEL -->
+            <a href="{% url 'admin_export_backup' %}" 
+               class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-5 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                💾 Télécharger Backup Sécurisé (JSON)
+            </a>
+
+            <!-- BOUTON D'IMPORTATION DIRECTE -->
+            <a href="{% url 'admin_import_data' %}" 
+               onclick="return confirm('Voulez-vous importer vos clients, machines et stocks de votre PC vers Render ? (Aucun utilisateur existant ne sera effacé)')"
+               class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-5 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                📥 Importer Données PC
+            </a>
+        </div>
     </div>
 
     <!-- STATS RAPIDES -->

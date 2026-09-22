@@ -215,13 +215,14 @@ urlpatterns = [
     path('prod/encre/analyse/', views.encre_analyse, name='encre_analyse'),
 
     # ==========================================
-    # ADMINISTRATION
+    # ADMINISTRATION & BACKUP
     # ==========================================
     path('administration/', views.admin_view, name='admin_view'),
     path('administration/user/add/', views.admin_add_user, name='admin_add_user'),
     path('administration/user/<int:user_id>/edit/', views.admin_edit_user, name='admin_edit_user'),
     path('administration/user/<int:user_id>/toggle/', views.admin_toggle_user, name='admin_toggle_user'),
     path('administration/import-data/', views.admin_import_data_view, name='admin_import_data'),
+    path('administration/backup/download/', views.export_database_backup, name='admin_export_backup'),
 
     # ==========================================
     # MODULE DRH
