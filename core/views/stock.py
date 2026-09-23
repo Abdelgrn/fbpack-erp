@@ -784,14 +784,16 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE 100% INFALLIBLE (AUTO-DÉCOUVERTE DYNAMIQUE) ---
+# --- API SCANNER IA ÉTIQUETTE 100% INFALLIBLE (ALIAS AUTO-MIS-À-JOUR) ---
 # ===========================================================================
 
 @login_required
 def scan_label_ai(request):
     """
     API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle).
-    Interroge Google ListModels pour trouver LES VRAIS modèles actifs pour cette clé API.
+    Utilise l'alias 'gemini-flash-latest' de Google, qui pointe toujours vers le
+    dernier modèle Flash stable en production, sans jamais avoir besoin de coder
+    un nom de modèle en dur ni de faire un ListModels fragile.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
@@ -827,41 +829,11 @@ def scan_label_ai(request):
             "Réponds UNIQUEMENT au format JSON valide, sans texte d'environnement ni balises markdown."
         )
 
-        # 1. AUTO-DÉCOUVERTE DES MODÈLES ACTIFS DE LA CLÉ SUR GOOGLE
-        target_model = None
-        list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        # 1. MODÈLE : alias auto-mis-à-jour de Google, toujours le Flash stable actuel.
+        #    Plus besoin de ListModels ni de nom codé en dur qui se périme.
+        target_model = "models/gemini-flash-latest"
 
-        try:
-            req_list = urllib.request.Request(list_url)
-            with urllib.request.urlopen(req_list, timeout=10) as resp_list:
-                data_list = json.loads(resp_list.read().decode('utf-8'))
-                for m in data_list.get('models', []):
-                    methods = m.get('supportedGenerationMethods', [])
-                    if 'generateContent' in methods:
-                        m_name = m.get('name', '')  # Ex: "models/gemini-1.5-flash"
-                        # Préférer les modèles 'flash' rapides
-                        if 'flash' in m_name:
-                            target_model = m_name
-                            break
-                        elif not target_model:
-                            target_model = m_name
-        except urllib.error.HTTPError as e_list:
-            err_msg = e_list.read().decode('utf-8') if hasattr(e_list, 'read') else str(e_list)
-            return JsonResponse({
-                'status': 'error',
-                'message': f"Clé API non reconnue par Google (HTTP {e_list.code}) : {err_msg}"
-            }, status=400)
-        except Exception as e_list:
-            print(f"⚠️ Warning ListModels : {e_list}")
-
-        # Secours universel par défaut si ListModels est vide
-        if not target_model:
-            target_model = "models/gemini-1.5-flash"
-
-        if not target_model.startswith("models/"):
-            target_model = f"models/{target_model}"
-
-        # 2. ENVOI DE L'IMAGE AU MODÈLE DÉTECTÉ
+        # 2. ENVOI DE L'IMAGE AU MODÈLE
         gen_url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={api_key}"
 
         payload = {
