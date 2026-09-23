@@ -1,12 +1,18 @@
 import openpyxl
 import json
 import traceback
+import os
+import re
+import base64
+import urllib.request
+import urllib.error
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.db.models import Sum, Q, F
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 from ..models import (
     Material, Supplier, ConsommationEncre, StockLocation, StockLot, StockMovement,
@@ -776,3 +782,97 @@ def stock_dashboard_data(request):
         except Exception:
             pass
     return JsonResponse({'critiques': critiques})
+
+
+# ===========================================================================
+# --- API SCANNER IA ÉTIQUETTE 100% GRATUIT (GOOGLE GEMINI FLASH) ---
+# ===========================================================================
+
+@login_required
+def scan_label_ai(request):
+    """
+    API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle)
+    Utilise Google Gemini 1.5 Flash (100% Gratuit)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
+
+    image_file = request.FILES.get('image')
+    if not image_file:
+        return JsonResponse({'status': 'error', 'message': 'Aucune image n\'a été fournie.'}, status=400)
+
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if not api_key:
+        return JsonResponse({
+            'status': 'error', 
+            'message': 'Clé API Gemini absente. Veuillez configurer GEMINI_API_KEY dans votre environnement.'
+        }, status=400)
+
+    try:
+        # Encodage de l'image en Base64
+        image_data = base64.b64encode(image_file.read()).decode('utf-8')
+        mime_type = image_file.content_type or 'image/jpeg'
+
+        # Instruction système très précise pour le secteur emballage souple
+        prompt_text = (
+            "Tu es un expert en gestion de stock et emballage souple (BOPP, PE, Encres, Solvants, Colles). "
+            "Analyse cette étiquette de matière première et extrait précisément les informations suivantes au format JSON strict :\n"
+            "1. fournisseur: Nom de la société fournisseur (ex: SunChemical, Nodaplast, Gulfpack, Starkraft, United Ink, Biaxial Films...)\n"
+            "2. material_name: Type de film ou référence d'encre/colle (ex: NSC 30, BOPP 1055/20, CRYSTALPLUS PRO.BLACK, ATS 20...)\n"
+            "3. numero_lot: Numéro de lot, Batch No, Roll Number ou Pallet N°\n"
+            "4. poids_net: Poids Net sous forme de nombre (float/int en kg, ex: 806, 20, 389.7, 160)\n"
+            "5. laize_width: Largeur / Width en mm (si disponible, ex: 1055, 760)\n"
+            "6. longueur_length: Longueur / Length en mètres (si disponible, ex: 28000, 19500)\n"
+
+            "Renvoie UNIQUEMENT un objet JSON valide, sans texte additionnel ni balise Markdown triple backtick."
+        )
+
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt_text},
+                        {
+                            "inline_data": {
+                                "mime_type": mime_type,
+                                "data": image_data
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        json_payload = json.dumps(payload).encode('utf-8')
+
+        req = urllib.request.Request(url, data=json_payload, headers={'Content-Type': 'application/json'})
+        
+        with urllib.request.urlopen(req, timeout=20) as response:
+            res_body = response.read().decode('utf-8')
+            res_json = json.loads(res_body)
+
+        raw_text = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
+
+        # Nettoyage si le modèle renvoie du markdown ```json ... ```
+        if "```json" in raw_text:
+            raw_text = re.sub(r'```json\s*', '', raw_text)
+            raw_text = re.sub(r'```\s*$', '', raw_text)
+        elif "```" in raw_text:
+            raw_text = re.sub(r'```\s*', '', raw_text)
+
+        parsed_data = json.loads(raw_text)
+
+        return JsonResponse({
+            'status': 'success',
+            'data': parsed_data
+        })
+
+    except urllib.error.HTTPError as e:
+        error_content = e.read().decode('utf-8')
+        print("=== ERREUR GEMINI API ===", error_content)
+        return JsonResponse({'status': 'error', 'message': f"Erreur API Gemini ({e.code})."}, status=500)
+    except Exception as e:
+        print("=== ERREUR SCANNER IA ===")
+        print(traceback.format_exc())
+        return JsonResponse({'status': 'error', 'message': f"Erreur d'analyse : {str(e)}"}, status=500)
