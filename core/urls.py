@@ -156,6 +156,9 @@ urlpatterns = [
     path('stock/material/<int:id>/delete/', views.delete_material, name='delete_material'),
     path('stock/search/api/', views.material_search_api, name='material_search_api'),
     path('stock/export/', views.export_search_results, name='export_search_results'),
+    
+    # --- API SCANNER IA (NOUVEAU) ---
+    path('stock/api/scan-label/', views.scan_label_ai, name='scan_label_ai'),
 
     # ==========================================
     # STOCK AVANCÉ
