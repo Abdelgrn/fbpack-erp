@@ -784,14 +784,14 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE 100% GRATUIT (AVEC REPLI MULTI-MODÈLES) ---
+# --- API SCANNER IA ÉTIQUETTE 100% GRATUIT (SYNTAXE REQUIS GEMINI) ---
 # ===========================================================================
 
 @login_required
 def scan_label_ai(request):
     """
-    API backend de lecture d'étiquettes industrielles.
-    Explore automatiquement les modèles Gemini 1.5/2.0 pour parer à toute erreur 404.
+    API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle).
+    Structure JSON corrigée en CamelCase (inlineData / mimeType).
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
@@ -800,10 +800,9 @@ def scan_label_ai(request):
     if not image_file:
         return JsonResponse({'status': 'error', 'message': 'Aucune image n\'a été fournie.'}, status=400)
 
-    # Nettoyage systématique des espaces/sauts de ligne
     raw_key = os.environ.get('GEMINI_API_KEY', '')
     api_key = raw_key.strip()
-    
+
     if not api_key:
         return JsonResponse({
             'status': 'error', 
@@ -827,14 +826,15 @@ def scan_label_ai(request):
             "Renvoie UNIQUEMENT un objet JSON valide, sans texte additionnel ni balise Markdown triple backtick."
         )
 
+        # SYNTAXE CORRIGÉE : inlineData et mimeType en CamelCase pour Google REST API
         payload = {
             "contents": [
                 {
                     "parts": [
                         {"text": prompt_text},
                         {
-                            "inline_data": {
-                                "mime_type": mime_type,
+                            "inlineData": {
+                                "mimeType": mime_type,
                                 "data": image_data
                             }
                         }
@@ -843,37 +843,14 @@ def scan_label_ai(request):
             ]
         }
 
-        # Modèles testés en cascade si l'un renvoie un 404
-        candidate_models = [
-            "gemini-1.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-pro",
-            "gemini-1.5-flash-latest"
-        ]
+        # Envoi au modèle principal Google Gemini Flash
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        json_payload = json.dumps(payload).encode('utf-8')
 
-        res_body = None
-        last_exception = None
+        req = urllib.request.Request(url, data=json_payload, headers={'Content-Type': 'application/json'})
 
-        for model in candidate_models:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-            json_payload = json.dumps(payload).encode('utf-8')
-            req = urllib.request.Request(url, data=json_payload, headers={'Content-Type': 'application/json'})
-
-            try:
-                with urllib.request.urlopen(req, timeout=25) as response:
-                    res_body = response.read().decode('utf-8')
-                    if res_body:
-                        break # Détection réussie !
-            except urllib.error.HTTPError as e:
-                last_exception = e
-                if e.code == 404:
-                    continue # Essayer le modèle suivant
-                else:
-                    raise e
-
-        if not res_body:
-            error_details = last_exception.read().decode('utf-8') if (last_exception and hasattr(last_exception, 'read')) else str(last_exception)
-            return JsonResponse({'status': 'error', 'message': f"Erreur Google API (404/Invalid Key). Vérifiez votre clé sur AI Studio. Détails: {error_details}"}, status=400)
+        with urllib.request.urlopen(req, timeout=25) as response:
+            res_body = response.read().decode('utf-8')
 
         res_json = json.loads(res_body)
         raw_text = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
@@ -895,7 +872,7 @@ def scan_label_ai(request):
     except urllib.error.HTTPError as e:
         error_content = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
         print("=== ERREUR GEMINI API ===", error_content)
-        return JsonResponse({'status': 'error', 'message': f"Erreur API Google ({e.code}). Vérifiez la clé API."}, status=500)
+        return JsonResponse({'status': 'error', 'message': f"Erreur Google API ({e.code}) : {error_content}"}, status=500)
     except Exception as e:
         print("=== ERREUR SCANNER IA ===")
         print(traceback.format_exc())
