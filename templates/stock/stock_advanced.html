@@ -464,6 +464,11 @@
                 </select>
             </div>
 
+            <!-- BOUTON DE SCANNER IA DEPUIS LA LISTE MATIÈRE -->
+            <button onclick="openLabelScanner('lot')" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm flex items-center gap-2 animate-pulse">
+                📷 Scan Étiquette (IA)
+            </button>
+
             <a href="{% url 'export_search_results' %}?q={{ search_query }}&category={{ category_filter }}" 
                 class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm flex items-center gap-2">
                 📊 Export Excel
@@ -605,10 +610,15 @@
 <div id="tab-lots" class="tab-content hidden">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
         <h2 class="text-xl font-bold text-white">Gestion des Lots</h2>
-        <button onclick="document.getElementById('modalLot').classList.remove('hidden')"
-            class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
-            + Nouveau Lot
-        </button>
+        <div class="flex gap-2">
+            <button onclick="openLabelScanner('lot')" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded shadow transition text-sm flex items-center gap-2">
+                📷 Scanner Étiquette (IA)
+            </button>
+            <button onclick="document.getElementById('modalLot').classList.remove('hidden')"
+                class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition text-sm">
+                + Nouveau Lot Saisie
+            </button>
+        </div>
     </div>
     <div class="flex flex-wrap gap-2 mb-4">
         <button onclick="filterLots('ALL')" class="lot-filter-btn bg-slate-700 text-white text-xs px-3 py-1.5 rounded-full border border-slate-600 active">Tous</button>
@@ -696,10 +706,15 @@
 <div id="tab-mouvements" class="tab-content hidden">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
         <h2 class="text-xl font-bold text-white">Journal des Mouvements de Stock</h2>
-        <button onclick="document.getElementById('modalMouvement').classList.remove('hidden')"
-            class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
-            + Saisir Mouvement
-        </button>
+        <div class="flex gap-2">
+            <button onclick="openLabelScanner('mouvement')" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded shadow transition text-sm flex items-center gap-2">
+                📷 Scanner Étiquette (IA)
+            </button>
+            <button onclick="document.getElementById('modalMouvement').classList.remove('hidden')"
+                class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
+                + Saisir Mouvement
+            </button>
+        </div>
     </div>
     <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
         <div class="overflow-x-auto">
@@ -1145,30 +1160,38 @@
             <h3 class="text-xl font-bold text-white">🏷️ Nouveau Lot Fournisseur</h3>
             <button onclick="document.getElementById('modalLot').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
         </div>
+
+        <!-- BOUTON D'ACTIVATION CAMERA IA -->
+        <div class="px-6 pt-4">
+            <button type="button" onclick="openLabelScanner('lot')" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 border border-purple-400/40">
+                <span class="text-xl">📷</span> Scanner une Étiquette par Photo (Remplissage IA)
+            </button>
+        </div>
+
         <form method="post" action="{% url 'lot_add' %}" enctype="multipart/form-data" class="p-6 space-y-4">
             {% csrf_token %}
             <input type="hidden" name="tab" value="lots">
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Matière première *</label>
-                    <select name="material" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <select name="material" id="lotMaterialSelect" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="">— Choisir —</option>
                         {% for m in materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
                     </select>
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">N° Lot fournisseur *</label>
-                    <input type="text" name="numero_lot" required placeholder="Ex: LOT-2026-001"
+                    <input type="text" name="numero_lot" id="lotNumeroInput" required placeholder="Ex: LOT-2026-001"
                         class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Date réception *</label>
-                    <input type="date" name="date_reception" required
+                    <input type="date" name="date_reception" id="lotDateReceptionInput" required
                         class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Fournisseur</label>
-                    <select name="fournisseur" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <select name="fournisseur" id="lotSupplierSelect" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="">— Aucun —</option>
                         {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
                     </select>
@@ -1182,7 +1205,7 @@
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Quantité initiale (kg) *</label>
-                    <input type="number" name="quantite_initiale" required min="0" step="0.1" placeholder="0"
+                    <input type="number" name="quantite_initiale" id="lotQuantiteInput" required min="0" step="0.1" placeholder="0"
                         class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
                 <div>
@@ -1206,7 +1229,7 @@
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Notes / Remarques</label>
-                    <textarea name="notes" rows="2" placeholder="Observations..."
+                    <textarea name="notes" id="lotNotesInput" rows="2" placeholder="Observations..."
                         class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
                 </div>
             </div>
@@ -1226,6 +1249,14 @@
             <h3 class="text-xl font-bold text-white">🔄 Nouveau Mouvement de Stock</h3>
             <button onclick="document.getElementById('modalMouvement').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
         </div>
+
+        <!-- BOUTON D'ACTIVATION CAMERA IA POUR MOUVEMENT -->
+        <div class="px-6 pt-4">
+            <button type="button" onclick="openLabelScanner('mouvement')" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 border border-purple-400/40">
+                <span class="text-xl">📷</span> Scanner Étiquette pour Saisie Rapide (IA)
+            </button>
+        </div>
+
         <form method="post" action="{% url 'mouvement_add' %}" id="mouvementForm" class="p-6 space-y-4">
             {% csrf_token %}
             <input type="hidden" name="tab" value="mouvements">
@@ -1270,7 +1301,7 @@
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Motif / Référence</label>
-                    <input type="text" name="motif" placeholder="Ex: Transfert vers Flexo, Ajustement inventaire…"
+                    <input type="text" name="motif" id="mouvementMotifInput" placeholder="Ex: Transfert vers Flexo, Ajustement inventaire…"
                         class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
             </div>
@@ -1463,6 +1494,63 @@
                     class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL CAMERA DE SCANNER IA (TABLETTE ET SMARTPHONE) -->
+<!-- ============================================================ -->
+<div id="modalScanCamera" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative">
+        <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                🤖 Scanner d'Étiquette IA
+            </h3>
+            <button onclick="closeLabelScanner()" class="text-gray-400 hover:text-white text-2xl">×</button>
+        </div>
+
+        <p class="text-xs text-gray-300 mb-4">
+            Prenez une photo claire de l'étiquette collée sur le produit (Palette, Bobine, Fût). L'IA extraira le poids, le lot et les références.
+        </p>
+
+        <!-- ZONE PREVIEW / DECLENCHEUR CAMERA -->
+        <div class="space-y-4 text-center">
+            <!-- Entrée Fichier Caméra Universelle -->
+            <input type="file" id="cameraFileInput" accept="image/*" capture="environment" class="hidden" onchange="handleLabelImageUpload(event)">
+            
+            <div id="scannerPreviewArea" class="border-2 border-dashed border-purple-500/50 rounded-2xl p-8 bg-slate-900/50 flex flex-col items-center justify-center hover:border-purple-400 transition cursor-pointer" onclick="document.getElementById('cameraFileInput').click()">
+                <div class="text-5xl mb-3">📸</div>
+                <div class="text-white font-bold text-sm">Prendre une Photo / Choisir une Image</div>
+                <div class="text-gray-400 text-xs mt-1">Appuyez ici pour ouvrir l'appareil photo de la tablette</div>
+            </div>
+
+            <!-- Loader d'Analyse IA -->
+            <div id="scannerLoadingOverlay" class="hidden py-8 text-center space-y-3">
+                <div class="inline-block w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                <div class="text-purple-300 font-bold text-sm">Analyse de l'étiquette par l'IA en cours...</div>
+                <div class="text-gray-400 text-xs">Lecture du Poids, Lot, Fournisseur et Laize...</div>
+            </div>
+
+            <!-- Résultat extrait par l'IA -->
+            <div id="scannerResultBox" class="hidden bg-slate-900/80 border border-purple-500/40 rounded-xl p-4 text-left space-y-2 text-xs">
+                <div class="text-purple-400 font-bold border-b border-slate-700 pb-1 mb-2">✅ Données Détectées :</div>
+                <div class="grid grid-cols-2 gap-2 text-gray-300">
+                    <div>Fournisseur: <strong id="resSupplier" class="text-white"></strong></div>
+                    <div>Matière: <strong id="resMaterial" class="text-white"></strong></div>
+                    <div>N° Lot: <strong id="resLot" class="text-cyan-400 font-mono"></strong></div>
+                    <div>Poids Net: <strong id="resWeight" class="text-emerald-400"></strong> kg</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-3 pt-5 mt-4 border-t border-slate-700">
+            <button type="button" onclick="document.getElementById('cameraFileInput').click()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-lg transition text-xs">
+                📷 Recommencer
+            </button>
+            <button type="button" onclick="closeLabelScanner()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition text-xs">
+                Fermer
+            </button>
+        </div>
     </div>
 </div>
 
@@ -2066,6 +2154,148 @@ function ouvrirDA(materialId, materialName, seuil, unite) {
     var modalDA = document.getElementById('modalDA');
     if (modalDA) modalDA.classList.remove('hidden');
     showTab('achats');
+}
+
+// ============================================================
+// 🤖 SCRIPT D'INTERACTION DU SCANNER CAMERA IA (REMPLISSAGE AUTO)
+// ============================================================
+let currentScanTarget = 'lot'; // 'lot' ou 'mouvement'
+
+function openLabelScanner(target = 'lot') {
+    currentScanTarget = target;
+    document.getElementById('scannerPreviewArea').classList.remove('hidden');
+    document.getElementById('scannerLoadingOverlay').classList.add('hidden');
+    document.getElementById('scannerResultBox').classList.add('hidden');
+    document.getElementById('modalScanCamera').classList.remove('hidden');
+}
+
+function closeLabelScanner() {
+    document.getElementById('modalScanCamera').classList.add('hidden');
+}
+
+function handleLabelImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Masquer le bouton, afficher le spinner
+    document.getElementById('scannerPreviewArea').classList.add('hidden');
+    document.getElementById('scannerLoadingOverlay').classList.remove('hidden');
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    fetch('/stock/api/scan-label/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('scannerLoadingOverlay').classList.add('hidden');
+
+        if (data.status === 'success') {
+            const extracted = data.data;
+
+            // Afficher dans la box de preview du scanner
+            document.getElementById('resSupplier').textContent = extracted.fournisseur || 'Non détecté';
+            document.getElementById('resMaterial').textContent = extracted.material_name || 'Non détecté';
+            document.getElementById('resLot').textContent = extracted.numero_lot || 'Inconnu';
+            document.getElementById('resWeight').textContent = extracted.poids_net || '0';
+            document.getElementById('scannerResultBox').classList.remove('hidden');
+
+            // Remplissage automatique selon la cible
+            if (currentScanTarget === 'lot') {
+                fillLotForm(extracted);
+            } else if (currentScanTarget === 'mouvement') {
+                fillMouvementForm(extracted);
+            }
+
+            setTimeout(() => {
+                closeLabelScanner();
+            }, 2000);
+
+        } else {
+            alert("⚠️ " + (data.message || "Impossible de lire l'étiquette. Veuillez réessayer avec une photo plus claire."));
+            document.getElementById('scannerPreviewArea').classList.remove('hidden');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        document.getElementById('scannerLoadingOverlay').classList.add('hidden');
+        document.getElementById('scannerPreviewArea').classList.remove('hidden');
+        alert("❌ Erreur de connexion avec l'IA. Vérifiez votre connexion internet.");
+    });
+}
+
+function fillLotForm(data) {
+    document.getElementById('modalLot').classList.remove('hidden');
+    showTab('lots');
+
+    if (data.numero_lot) {
+        document.getElementById('lotNumeroInput').value = data.numero_lot;
+    }
+    if (data.poids_net) {
+        document.getElementById('lotQuantiteInput').value = data.poids_net;
+    }
+
+    // Tenter d'associer automatiquement la matière première dans le menu déroulant
+    if (data.material_name) {
+        const matSelect = document.getElementById('lotMaterialSelect');
+        const searchName = data.material_name.toLowerCase();
+        for (let i = 0; i < matSelect.options.length; i++) {
+            if (matSelect.options[i].text.toLowerCase().includes(searchName)) {
+                matSelect.selectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    // Tenter d'associer le fournisseur dans le menu déroulant
+    if (data.fournisseur) {
+        const suppSelect = document.getElementById('lotSupplierSelect');
+        const searchSupp = data.fournisseur.toLowerCase();
+        for (let i = 0; i < suppSelect.options.length; i++) {
+            if (suppSelect.options[i].text.toLowerCase().includes(searchSupp)) {
+                suppSelect.selectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    // Notes supplémentaires
+    let extraNotes = [];
+    if (data.laize_width) extraNotes.push("Laize: " + data.laize_width + " mm");
+    if (data.longueur_length) extraNotes.push("Métrage: " + data.longueur_length + " m");
+    if (extraNotes.length > 0) {
+        document.getElementById('lotNotesInput').value = "Scan IA — " + extraNotes.join(" | ");
+    }
+}
+
+function fillMouvementForm(data) {
+    document.getElementById('modalMouvement').classList.remove('hidden');
+    showTab('mouvements');
+
+    if (data.poids_net) {
+        document.getElementById('mouvementQuantityInput').value = data.poids_net;
+    }
+
+    // Tenter d'associer la matière première
+    if (data.material_name) {
+        const matSelect = document.getElementById('mouvementMaterialSelect');
+        const searchName = data.material_name.toLowerCase();
+        for (let i = 0; i < matSelect.options.length; i++) {
+            if (matSelect.options[i].text.toLowerCase().includes(searchName)) {
+                matSelect.selectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    if (data.numero_lot) {
+        document.getElementById('mouvementMotifInput').value = "Lot scanné : " + data.numero_lot;
+    }
 }
 </script>
 {% endblock %}

@@ -102,3 +102,6 @@ core/
 git add .
 git commit -m "Mise à jour"
 git push origin main
+
+
+ https://aistudio.google.com/app/apikey
