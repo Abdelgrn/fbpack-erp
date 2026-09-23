@@ -212,6 +212,7 @@
                             <th class="px-5 py-4">Statut</th>
                             <th class="px-5 py-4">Segment</th>
                             <th class="px-5 py-4">Région</th>
+                            <th class="px-5 py-4">Commercial</th> <!-- AJOUT DE LA COLONNE COMMERCIAL -->
                             <th class="px-5 py-4">Contacts</th>
                             <th class="px-5 py-4">Opport.</th>
                             <th class="px-5 py-4">CA Estimé</th>
@@ -248,6 +249,16 @@
                                 <span class="bg-slate-700 text-gray-300 px-2 py-1 rounded text-xs">{{ client.get_segment_display }}</span>
                             </td>
                             <td class="px-5 py-4 text-gray-300">{{ client.get_region_display }}</td>
+                            
+                            <!-- AJOUT DE LA COLONNE COMMERCIAL (Contenu) -->
+                            <td class="px-5 py-4">
+                                {% if client.commercial %}
+                                    <span class="text-blue-300 text-xs font-semibold">{{ client.commercial.get_full_name|default:client.commercial.username }}</span>
+                                {% else %}
+                                    <span class="text-gray-600 text-xs">—</span>
+                                {% endif %}
+                            </td>
+
                             <td class="px-5 py-4">
                                 <span class="text-white font-bold">{{ client.get_nb_contacts }}</span>
                                 <span class="text-gray-500 text-xs"> contact(s)</span>
@@ -272,7 +283,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="9" class="px-6 py-10 text-center text-gray-500">
                                 Aucun client trouvé. <a href="{% url 'add_client' %}" class="text-yellow-400 hover:underline">Créer le premier client</a>
                             </td>
                         </tr>

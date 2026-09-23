@@ -2,7 +2,7 @@
 from .crm import (
     ClientForm, ClientContactForm, ClientContactFormSet, InteractionLogForm, OpportuniteForm, QuoteForm,
     CommandeClientForm, LigneCommandeClientForm, LigneCommandeClientFormSet,
-    DemandePrixForm,
+    DemandePrixForm, ClientImportForm,
 )
 
 # Prepress
@@ -59,7 +59,7 @@ __all__ = [
     # CRM
     "ClientForm", "ClientContactForm", "ClientContactFormSet", "InteractionLogForm", "OpportuniteForm", "QuoteForm",
     "CommandeClientForm", "LigneCommandeClientForm", "LigneCommandeClientFormSet",
-    "DemandePrixForm",
+    "DemandePrixForm", "ClientImportForm",
     # Prepress
     "ProductForm", "ToolForm",
     # Stock
