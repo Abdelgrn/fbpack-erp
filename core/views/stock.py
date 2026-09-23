@@ -784,14 +784,14 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE (GEMINI 3.6 FLASH + FALLBACK 1.5/2.0) ---
+# --- API SCANNER IA ÉTIQUETTE (GEMINI 3.6 FLASH) ---
 # ===========================================================================
 
 @login_required
 def scan_label_ai(request):
     """
     API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle).
-    Utilise le tout nouveau modèle gemini-3.6-flash avec bascule sur 1.5-flash et 2.0-flash.
+    Analyse l'image d'une étiquette avec Gemini API pour extraire automatiquement les données.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
@@ -800,11 +800,11 @@ def scan_label_ai(request):
     if not image_file:
         return JsonResponse({'status': 'error', 'message': 'Aucune image fournie.'}, status=400)
 
-    api_key = os.environ.get('GEMINI_API_KEY', '').strip().replace('"', '').replace("'", "")
+    api_key = os.environ.get('GEMINI_API_KEY', '').strip()
     if not api_key:
         return JsonResponse({
             'status': 'error', 
-            'message': 'Variable GEMINI_API_KEY non configurée dans Render.'
+            'message': 'Variable GEMINI_API_KEY non configurée sur le serveur.'
         }, status=400)
 
     try:
@@ -813,22 +813,24 @@ def scan_label_ai(request):
         image_b64 = base64.b64encode(image_bytes).decode('utf-8')
         mime_type = image_file.content_type or 'image/jpeg'
 
-        prompt = (
-            "Tu es un expert en gestion de stock industriel et imprimerie flexographique.\n"
-            "Analyse l'image de cette étiquette et extrais les informations sous la forme d'un objet JSON strict :\n"
-            "{\n"
-            '  "fournisseur": "string ou null",\n'
-            '  "material_name": "string ou null",\n'
-            '  "numero_lot": "string ou null",\n'
-            '  "poids_net": number ou null,\n'
-            '  "laize_width": number ou null,\n'
-            '  "longueur_length": number ou null\n'
-            "}\n"
-            "Réponds UNIQUEMENT au format JSON valide, sans texte d'introduction ni balises markdown."
-        )
+        prompt = """
+        Tu es un expert en gestion de stock industriel et imprimerie flexographique.
+        Analyse l'image de cette étiquette et extrais les informations sous la forme d'un objet JSON strict :
+        {
+          "numero_lot": "string ou null",
+          "nom_matiere": "string ou null",
+          "fournisseur": "string ou null",
+          "quantite": number ou null,
+          "unite": "KG, M, M2, L, etc. ou null",
+          "laize": number ou null,
+          "epaisseur": number ou null,
+          "grammage": number ou null
+        }
+        Réponds UNIQUEMENT au format JSON valide, sans texte d'introduction ni balises markdown code.
+        """
 
-        # Gemini 3.6 Flash placé EN PREMIER comme demandé !
-        candidate_models = ["gemini-3.6-flash", "gemini-1.5-flash", "gemini-2.0-flash"]
+        # Utilisation des versions mises à jour recommandées par Google
+        candidate_models = ["gemini-3.6-flash", "gemini-1.5-flash"]
         last_error = None
 
         for model_name in candidate_models:
@@ -839,8 +841,8 @@ def scan_label_ai(request):
                     "parts": [
                         {"text": prompt},
                         {
-                            "inlineData": {
-                                "mimeType": mime_type,
+                            "inline_data": {
+                                "mime_type": mime_type,
                                 "data": image_b64
                             }
                         }
@@ -855,13 +857,12 @@ def scan_label_ai(request):
             )
 
             try:
-                with urllib.request.urlopen(req, timeout=20) as resp:
+                with urllib.request.urlopen(req, timeout=15) as resp:
                     res_body = json.loads(resp.read().decode('utf-8'))
-                    text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
+                    text_response = res_body['candidates'][0]['content']['parts'][0]['text']
                     
                     # Nettoyage JSON
                     text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip()
-                    text_clean = text_clean.strip('`').strip()
                     parsed_json = json.loads(text_clean)
                     
                     return JsonResponse({
@@ -871,17 +872,16 @@ def scan_label_ai(request):
                     })
 
             except urllib.error.HTTPError as e:
-                err_text = e.read().decode('utf-8') if hasattr(e, 'read') else e.reason
-                last_error = f"Modèle {model_name} -> HTTP {e.code}: {err_text}"
+                last_error = f"HTTP {e.code}: {e.reason}"
                 continue
             except Exception as e:
-                last_error = f"Modèle {model_name} -> {str(e)}"
+                last_error = str(e)
                 continue
 
         return JsonResponse({
             'status': 'error',
-            'message': f"Aucun modèle n'a fonctionné. Détails : {last_error}"
-        }, status=400)
+            'message': f"Erreur lors de l'appel aux modèles Gemini: {last_error}"
+        }, status=500)
 
     except Exception as e:
         print("=== ERREUR SCANNER IA ===")
