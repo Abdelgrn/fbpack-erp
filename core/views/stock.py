@@ -4,6 +4,7 @@ import traceback
 import os
 import re
 import base64
+import time
 import urllib.request
 import urllib.error
 from django.shortcuts import render, redirect, get_object_or_404
@@ -793,6 +794,10 @@ def scan_label_ai(request):
     API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle).
     Spécialisée pour reconnaître les gammes d'encres (Solvaprint, Soliprop, Solimax, Rotoflexo, Solvares...)
     et traduire automatiquement toutes les abréviations de couleur (BLK -> BLACK, MGT -> MAGENTA, YLW -> YELLOW...).
+
+    Résilience 503 "modèle surchargé" : essaie gemini-flash-latest, puis en cas de
+    surcharge persistante bascule sur gemini-flash-lite-latest (modèle plus léger,
+    généralement moins saturé), avec 2 tentatives par modèle et un court délai entre elles.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
@@ -863,9 +868,12 @@ RÈGLES D'OR DE NORMALISATION DES NOMS ET GAMMES D'ENCRES :
 Réponds EXCLUSIVEMENT avec l'objet JSON valide, sans balises markdown ni commentaire.
 """
 
-        # Alias officiel auto-mis-à-jour
-        target_model = "models/gemini-flash-latest"
-        gen_url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={api_key}"
+        # ========== CHAÎNE DE MODÈLES AVEC RETRY + FALLBACK SUR 503 ==========
+        # gemini-flash-latest en priorité (modèle principal, toujours à jour),
+        # gemini-flash-lite-latest en secours si le premier est surchargé.
+        model_chain = ["models/gemini-flash-latest", "models/gemini-flash-lite-latest"]
+        max_attempts_per_model = 2
+        retry_delay_seconds = 2
 
         payload = {
             "contents": [{
@@ -880,40 +888,69 @@ Réponds EXCLUSIVEMENT avec l'objet JSON valide, sans balises markdown ni commen
                 ]
             }]
         }
+        payload_bytes = json.dumps(payload).encode('utf-8')
 
-        req = urllib.request.Request(
-            gen_url,
-            data=json.dumps(payload).encode('utf-8'),
-            headers={'Content-Type': 'application/json'}
-        )
+        res_body = None
+        target_model = None
+        last_503_detail = None
 
-        with urllib.request.urlopen(req, timeout=25) as resp:
-            res_body = json.loads(resp.read().decode('utf-8'))
-            text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
-
-            # Nettoyage JSON
-            text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip().strip('`').strip()
-            parsed_json = json.loads(text_clean)
-
-            # Sécurité supplémentaire : Forcer les majuscules de la catégorie
-            if 'category' in parsed_json and parsed_json['category']:
-                parsed_json['category'] = parsed_json['category'].upper().strip()
-                if parsed_json['category'] not in ['FILM', 'INK', 'GLUE', 'SOLV']:
-                    name_up = (parsed_json.get('material_name') or '').upper()
-                    if any(x in name_up for x in ['BOPP', 'PE', 'PET', 'FILM', 'KRAFT', 'PAPER']):
-                        parsed_json['category'] = 'FILM'
-                    elif any(x in name_up for x in ['SOLIPROP', 'SOLVAPRINT', 'SOLIMAX', 'ROTOFLEXO', 'SOLVARES', 'BLACK', 'MAGENTA', 'YELLOW', 'CYAN', 'WHITE', 'ENCRE', 'INK']):
-                        parsed_json['category'] = 'INK'
-                    elif any(x in name_up for x in ['GLUE', 'COLLE', 'ADHESIVE']):
-                        parsed_json['category'] = 'GLUE'
+        for model_name in model_chain:
+            gen_url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={api_key}"
+            for attempt in range(1, max_attempts_per_model + 1):
+                try:
+                    req = urllib.request.Request(
+                        gen_url,
+                        data=payload_bytes,
+                        headers={'Content-Type': 'application/json'}
+                    )
+                    with urllib.request.urlopen(req, timeout=25) as resp:
+                        res_body = json.loads(resp.read().decode('utf-8'))
+                        target_model = model_name
+                    break  # succès, on sort de la boucle de tentatives
+                except urllib.error.HTTPError as e_http:
+                    if e_http.code == 503:
+                        last_503_detail = e_http.read().decode('utf-8') if hasattr(e_http, 'read') else str(e_http)
+                        print(f"⚠️ 503 sur {model_name} (tentative {attempt}/{max_attempts_per_model})")
+                        if attempt < max_attempts_per_model:
+                            time.sleep(retry_delay_seconds)
+                        continue  # on retente, puis on passera au modèle suivant si épuisé
                     else:
-                        parsed_json['category'] = 'SOLV'
+                        # Erreur non liée à la surcharge (clé invalide, quota, etc.) : on remonte l'erreur
+                        raise
+            if res_body:
+                break  # un modèle a réussi, inutile d'essayer le suivant
 
+        if not res_body:
             return JsonResponse({
-                'status': 'success',
-                'data': parsed_json,
-                'model_used': target_model
-            })
+                'status': 'error',
+                'message': f"Google est actuellement surchargé sur tous les modèles testés ({', '.join(model_chain)}). Réessayez dans quelques instants. Détail : {last_503_detail}"
+            }, status=503)
+
+        text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
+
+        # Nettoyage JSON
+        text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip().strip('`').strip()
+        parsed_json = json.loads(text_clean)
+
+        # Sécurité supplémentaire : Forcer les majuscules de la catégorie
+        if 'category' in parsed_json and parsed_json['category']:
+            parsed_json['category'] = parsed_json['category'].upper().strip()
+            if parsed_json['category'] not in ['FILM', 'INK', 'GLUE', 'SOLV']:
+                name_up = (parsed_json.get('material_name') or '').upper()
+                if any(x in name_up for x in ['BOPP', 'PE', 'PET', 'FILM', 'KRAFT', 'PAPER']):
+                    parsed_json['category'] = 'FILM'
+                elif any(x in name_up for x in ['SOLIPROP', 'SOLVAPRINT', 'SOLIMAX', 'ROTOFLEXO', 'SOLVARES', 'BLACK', 'MAGENTA', 'YELLOW', 'CYAN', 'WHITE', 'ENCRE', 'INK']):
+                    parsed_json['category'] = 'INK'
+                elif any(x in name_up for x in ['GLUE', 'COLLE', 'ADHESIVE']):
+                    parsed_json['category'] = 'GLUE'
+                else:
+                    parsed_json['category'] = 'SOLV'
+
+        return JsonResponse({
+            'status': 'success',
+            'data': parsed_json,
+            'model_used': target_model
+        })
 
     except urllib.error.HTTPError as e:
         err_body = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)

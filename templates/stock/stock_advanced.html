@@ -1527,7 +1527,7 @@
             <!-- Loader d'Analyse IA -->
             <div id="scannerLoadingOverlay" class="hidden py-8 text-center space-y-3">
                 <div class="inline-block w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                <div class="text-purple-300 font-bold text-sm">Compression et Analyse IA en cours...</div>
+                <div class="text-purple-300 font-bold text-sm">Analyse IA ultra-rapide en cours...</div>
                 <div class="text-gray-400 text-xs">Extraction du Poids, Lot, Fournisseur et Laize...</div>
             </div>
 
@@ -2157,7 +2157,7 @@ function ouvrirDA(materialId, materialName, seuil, unite) {
 }
 
 // ============================================================
-// 🤖 SCRIPT D'INTERACTION DU SCANNER CAMERA IA (AVEC COMPRESSION JS)
+// 🤖 SCRIPT D'INTERACTION DU SCANNER CAMERA IA (AVEC CREATEIMAGEBITMAP)
 // ============================================================
 let currentScanTarget = 'lot'; // 'lot' ou 'mouvement'
 
@@ -2173,8 +2173,43 @@ function closeLabelScanner() {
     document.getElementById('modalScanCamera').classList.add('hidden');
 }
 
-// ⚡ FONCTION DE COMPRESSION AUTOMATIQUE D'IMAGE SUR LA TABLETTE
+// ⚡ FONCTION DE COMPRESSION RAPIDE OPTIMISÉE (CREATEIMAGEBITMAP)
 function compressImageBeforeUpload(file, maxWidth, maxHeight, quality, callback) {
+    // Méthode rapide : décodage natif sans passer par base64
+    if (typeof createImageBitmap === 'function') {
+        createImageBitmap(file).then(function(bitmap) {
+            let width = bitmap.width;
+            let height = bitmap.height;
+            if (width > height) {
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width = Math.round((width * maxHeight) / height);
+                    height = maxHeight;
+                }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(bitmap, 0, 0, width, height);
+            bitmap.close();
+            canvas.toBlob(function(blob) {
+                callback(blob);
+            }, 'image/jpeg', quality);
+        }).catch(function() {
+            // Fallback ancienne méthode si createImageBitmap échoue
+            compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback);
+        });
+    } else {
+        compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback);
+    }
+}
+
+function compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback) {
     const reader = new FileReader();
     reader.onload = function(e) {
         const img = new Image();
@@ -2214,8 +2249,8 @@ function handleLabelImageUpload(event) {
     document.getElementById('scannerPreviewArea').classList.add('hidden');
     document.getElementById('scannerLoadingOverlay').classList.remove('hidden');
 
-    // Compression de la photo de la tablette : Max 1200px, Qualité 0.75 (~150 Ko)
-    compressImageBeforeUpload(rawFile, 1200, 1200, 0.75, function(compressedBlob) {
+    // Compression ultra-rapide via createImageBitmap (1000px max / Qualité 0.7)
+    compressImageBeforeUpload(rawFile, 1000, 1000, 0.7, function(compressedBlob) {
         const formData = new FormData();
         formData.append('image', compressedBlob, 'scan.jpg');
 
@@ -2269,26 +2304,44 @@ function fillLotForm(data) {
     document.getElementById('modalLot').classList.remove('hidden');
     showTab('lots');
 
+    // Date de réception = AUJOURD'HUI (obligatoire)
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('lotDateReceptionInput');
+    if (dateInput) dateInput.value = today;
+
+    // N° Lot
     if (data.numero_lot) {
         document.getElementById('lotNumeroInput').value = data.numero_lot;
     }
+
+    // Quantité
     if (data.poids_net) {
         document.getElementById('lotQuantiteInput').value = data.poids_net;
     }
 
-    // Tenter d'associer automatiquement la matière première dans le menu déroulant
-    if (data.material_name) {
-        const matSelect = document.getElementById('lotMaterialSelect');
-        const searchName = data.material_name.toLowerCase();
+    // ===== MATCHING INTELLIGENT DE LA MATIÈRE =====
+    const matSelect = document.getElementById('lotMaterialSelect');
+    if (matSelect && data.material_name) {
+        const searchName = data.material_name.toLowerCase().replace(/\./g, ' ').trim();
+        let bestMatch = -1;
+        let bestScore = 0;
+
         for (let i = 0; i < matSelect.options.length; i++) {
-            if (matSelect.options[i].text.toLowerCase().includes(searchName)) {
-                matSelect.selectedIndex = i;
-                break;
+            const optText = matSelect.options[i].text.toLowerCase();
+            if (optText.includes(searchName) || searchName.includes(optText.split('(')[0].trim())) {
+                const score = Math.min(optText.length, searchName.length);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = i;
+                }
             }
+        }
+        if (bestMatch >= 0) {
+            matSelect.selectedIndex = bestMatch;
         }
     }
 
-    // Tenter d'associer le fournisseur dans le menu déroulant
+    // ===== FOURNISSEUR =====
     if (data.fournisseur) {
         const suppSelect = document.getElementById('lotSupplierSelect');
         const searchSupp = data.fournisseur.toLowerCase();
@@ -2300,12 +2353,14 @@ function fillLotForm(data) {
         }
     }
 
-    // Notes supplémentaires
-    let extraNotes = [];
-    if (data.laize_width) extraNotes.push("Laize: " + data.laize_width + " mm");
-    if (data.longueur_length) extraNotes.push("Métrage: " + data.longueur_length + " m");
-    if (extraNotes.length > 0) {
-        document.getElementById('lotNotesInput').value = "Scan IA — " + extraNotes.join(" | ");
+    // ===== NOTES ENRICHIES =====
+    let notes = [];
+    if (data.category) notes.push("Catégorie: " + data.category);
+    if (data.laize_width) notes.push("Laize: " + data.laize_width + " mm");
+    if (data.longueur_length) notes.push("Métrage: " + data.longueur_length + " m");
+    if (data.date_expiration) notes.push("Exp: " + data.date_expiration);
+    if (notes.length > 0) {
+        document.getElementById('lotNotesInput').value = "Scan IA — " + notes.join(" | ");
     }
 }
 
