@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from . import views
 from .views import of_views
 from .views import production_speciale as prod_views
+from .views.stock import scan_label_ai  # <-- IMPORT DIRECT SÉCURISÉ
 
 urlpatterns = [
     # ==========================================
@@ -158,7 +159,7 @@ urlpatterns = [
     path('stock/export/', views.export_search_results, name='export_search_results'),
     
     # --- API SCANNER IA (NOUVEAU) ---
-    path('stock/api/scan-label/', views.scan_label_ai, name='scan_label_ai'),
+    path('stock/api/scan-label/', scan_label_ai, name='scan_label_ai'),
 
     # ==========================================
     # STOCK AVANCÉ
