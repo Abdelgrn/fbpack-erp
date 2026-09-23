@@ -4,7 +4,6 @@ import traceback
 import os
 import re
 import base64
-import time
 import urllib.request
 import urllib.error
 from django.shortcuts import render, redirect, get_object_or_404
@@ -785,19 +784,16 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE — VERSION ADVANCED EXPERT ENCRES & FILMS ---
+# --- API SCANNER IA ÉTIQUETTE — VERSION GULFPACK/NODAPLAST/BIAXIAL/ENCRES ---
 # ===========================================================================
 
 @login_required
 def scan_label_ai(request):
     """
-    API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle).
-    Spécialisée pour reconnaître les gammes d'encres (Solvaprint, Soliprop, Solimax, Rotoflexo, Solvares...)
-    et traduire automatiquement toutes les abréviations de couleur (BLK -> BLACK, MGT -> MAGENTA, YLW -> YELLOW...).
-
-    Résilience 503 "modèle surchargé" : essaie gemini-flash-latest, puis en cas de
-    surcharge persistante bascule sur gemini-flash-lite-latest (modèle plus léger,
-    généralement moins saturé), avec 2 tentatives par modèle et un court délai entre elles.
+    API backend ultra-précise pour étiquettes d'emballage souple.
+    Distingue parfaitement WEIGHT (poids_net) de LENGTH (longueur).
+    Normalise les couleurs d'encres (MGT, YLW, BLK...).
+    Extrait précisément la Laize (WIDTH).
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
@@ -808,26 +804,22 @@ def scan_label_ai(request):
 
     api_key = os.environ.get('GEMINI_API_KEY', '').strip().replace('"', '').replace("'", "")
     if not api_key:
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Variable GEMINI_API_KEY non configurée dans Render.'
-        }, status=400)
+        return JsonResponse({'status': 'error', 'message': 'Variable GEMINI_API_KEY manquante sur Render.'}, status=400)
 
     try:
         image_bytes = image_file.read()
         image_b64 = base64.b64encode(image_bytes).decode('utf-8')
         mime_type = image_file.content_type or 'image/jpeg'
 
-        # ========== PROMPT AVANCÉ SPÉCIALISTE IMPRIMERIE FLEXO / HÉLIO ==========
         prompt = """
-Tu es un expert en matières premières d'imprimerie flexographique, héliogravure et d'emballage souple.
+Tu es un expert en étiquettes de matières premières d'emballage souple (Films BOPP/PE et Encres).
 
 Analyse l'étiquette et retourne UNIQUEMENT un objet JSON strict :
 
 {
   "fournisseur": "string ou null",
   "material_name": "string ou null",
-  "category": "FILM ou INK ou GLUE ou SOLV",
+  "category": "FILM" ou "INK" ou "GLUE" ou "SOLV",
   "numero_lot": "string ou null",
   "poids_net": number ou null,
   "laize_width": number ou null,
@@ -835,129 +827,115 @@ Analyse l'étiquette et retourne UNIQUEMENT un objet JSON strict :
   "date_expiration": "YYYY-MM-DD ou null"
 }
 
-RÈGLES D'OR DE NORMALISATION DES NOMS ET GAMMES D'ENCRES :
+RÈGLES ABSOLUES (très importantes) :
 
-1. RECONNAISSANCE DES GAMMES D'ENCRES ET SOLVANTS (CATEGORY = INK ou SOLV) :
-   - Inclus mais non limité à : Solvaprint, Soliprop, Solimax, Rotoflexo, Solvares, Crystalplus, Process, SunChemical, DIC, Siegwerk, Flint, United Ink, etc.
+1. POIDS_NET (kg) :
+   - Cherche uniquement le champ "WEIGHT (Kgs.)" ou "NET WEIGHT" ou "GROSS WEIGHT" ou "WEIGHT".
+   - Exemple GulfPack : WEIGHT (Kgs.) = 282.80 -> poids_net = 282.80
+   - Exemple Nodaplast : NET WEIGHT kg 389.7 -> poids_net = 389.7
+   - NE PRENDS JAMAIS la "LENGTH" ou le "Métrage" comme poids !
 
-2. TRADUCTION OBLIGATOIRE DES COULEURS ET ABRÉVIATIONS (Dans material_name) :
-   - BLK, BK -> BLACK
-   - MGT, MG -> MAGENTA
-   - YLW, YEL, Y -> YELLOW
-   - CYA, CY, C -> CYAN
-   - WHT, WT, W -> WHITE
-   - SLV -> SILVER
-   - GLD -> GOLD
-   - VRN, VR -> VERNIS
-   
-   EXEMPLES CONCRETS DE TRANSFORMATION OBLIGATOIRE :
-   - "SOLIPROP T AP BLK" -> "SOLIPROP T AP BLACK"
-   - "SOLVAPRINT MGT" -> "SOLVAPRINT MAGENTA"
-   - "SOLIMAX YLW" -> "SOLIMAX YELLOW"
-   - "SOLVARES CYA" -> "SOLVARES CYAN"
-   - "ROTOFLEXO HI-PROCESS CRYSTALPLUS PRO.BLACK" -> "ROTOFLEXO HI-PROCESS CRYSTALPLUS PRO BLACK"
+2. LONGUEUR_LENGTH (mètres) :
+   - Cherche "LENGTH (mt)" ou "LENGTH (m)" ou "LENGTH .ml".
+   - Les virgules sont des séparateurs de milliers en anglais. 20,200 ou 20.200 -> 20200
+   - 28 000 -> 28000
+   - 19500 -> 19500
 
-3. DÉTECTION STRICTE DE LA CATÉGORIE :
-   - FILM : Si l'étiquette mentionne BOPP, PE, PET, OPP, CPP, Paper, Kraft, Film, Nodaplast, Biaxial, Gulfpack, Starkraft...
-   - INK : Si l'étiquette concerne une Encre, Ink, Solvaprint, Soliprop, Solimax, Rotoflexo, Solvares, Crystalplus, Black, Magenta, Yellow, Cyan, White, Vernis...
-   - GLUE : Si Colle, Adhesive, Glue, Polyuréthane, Lamination...
-   - SOLV : Si Solvant, Solvent, Acétate, Ethyl, IPA, Isopropanol, Métoxyn, Retardateur, Diluant...
+3. LAIZE_WIDTH (mm) :
+   - Cherche "WIDTH (mm)" ou "WIDTH .mm".
+   - Exemple : 780 -> 780
+   - Exemple : 1055 -> 1055
 
-4. POIDS_NET : toujours la valeur numérique exacte du poids net en kg.
+4. MATERIAL_NAME :
+   - Pour les films : utilise le PRODUCT CODE ou ITEM Desc (ex: FA-20-HF101-0, BOPP 1055/20, ATS 20).
+   - Pour les encres : normalise toujours les couleurs : BLK/BK -> BLACK | MGT/MG -> MAGENTA | YLW/YEL/Y -> YELLOW | CYA/CY/C -> CYAN | WHT/W -> WHITE
 
-Réponds EXCLUSIVEMENT avec l'objet JSON valide, sans balises markdown ni commentaire.
+5. CATEGORY (Obligatoire) :
+   - FILM si BOPP, PE, PET, Film, GulfPack, Nodaplast, Biaxial, Starkraft, Kraft...
+   - INK si Soliprop, Solvaprint, Solimax, Rotoflexo, Solvares, Crystalplus, Encre, Ink...
+   - GLUE si Colle / Adhesive
+   - SOLV si Solvant
+
+6. FOURNISSEUR :
+   - "Gulf Packaging Industries Co" ou "GulfPack" -> "GulfPack"
+   - "SunChemical" -> "SunChemical"
+   - "Nodaplast" -> "Nodaplast"
+   - "Biaxial Films" -> "Biaxial Films"
+   - "Starkraft" -> "Starkraft"
+
+Réponds UNIQUEMENT avec le JSON, rien d'autre.
 """
-
-        # ========== CHAÎNE DE MODÈLES AVEC RETRY + FALLBACK SUR 503 ==========
-        # gemini-flash-latest en priorité (modèle principal, toujours à jour),
-        # gemini-flash-lite-latest en secours si le premier est surchargé.
-        model_chain = ["models/gemini-flash-latest", "models/gemini-flash-lite-latest"]
-        max_attempts_per_model = 2
-        retry_delay_seconds = 2
-
         payload = {
             "contents": [{
                 "parts": [
                     {"text": prompt},
-                    {
-                        "inline_data": {
-                            "mime_type": mime_type,
-                            "data": image_b64
-                        }
-                    }
+                    {"inline_data": {"mime_type": mime_type, "data": image_b64}}
                 ]
             }]
         }
-        payload_bytes = json.dumps(payload).encode('utf-8')
 
-        res_body = None
-        target_model = None
-        last_503_detail = None
+        candidate_models = [
+            "models/gemini-flash-latest",
+            "models/gemini-flash-lite-latest",
+            "models/gemini-1.5-flash"
+        ]
 
-        for model_name in model_chain:
-            gen_url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={api_key}"
-            for attempt in range(1, max_attempts_per_model + 1):
-                try:
-                    req = urllib.request.Request(
-                        gen_url,
-                        data=payload_bytes,
-                        headers={'Content-Type': 'application/json'}
-                    )
-                    with urllib.request.urlopen(req, timeout=25) as resp:
-                        res_body = json.loads(resp.read().decode('utf-8'))
-                        target_model = model_name
-                    break  # succès, on sort de la boucle de tentatives
-                except urllib.error.HTTPError as e_http:
-                    if e_http.code == 503:
-                        last_503_detail = e_http.read().decode('utf-8') if hasattr(e_http, 'read') else str(e_http)
-                        print(f"⚠️ 503 sur {model_name} (tentative {attempt}/{max_attempts_per_model})")
-                        if attempt < max_attempts_per_model:
-                            time.sleep(retry_delay_seconds)
-                        continue  # on retente, puis on passera au modèle suivant si épuisé
-                    else:
-                        # Erreur non liée à la surcharge (clé invalide, quota, etc.) : on remonte l'erreur
-                        raise
-            if res_body:
-                break  # un modèle a réussi, inutile d'essayer le suivant
+        last_error = None
+        for target_model in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={api_key}"
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
 
-        if not res_body:
-            return JsonResponse({
-                'status': 'error',
-                'message': f"Google est actuellement surchargé sur tous les modèles testés ({', '.join(model_chain)}). Réessayez dans quelques instants. Détail : {last_503_detail}"
-            }, status=503)
+            try:
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    res_body = json.loads(resp.read().decode('utf-8'))
+                    text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
 
-        text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
+                    text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip().strip('`').strip()
+                    parsed_json = json.loads(text_clean)
 
-        # Nettoyage JSON
-        text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip().strip('`').strip()
-        parsed_json = json.loads(text_clean)
+                    # Conversion sécurisée des nombres (retrait des virgules/espaces de milliers)
+                    for key in ['poids_net', 'laize_width', 'longueur_length']:
+                        val = parsed_json.get(key)
+                        if val is not None and isinstance(val, str):
+                            try:
+                                parsed_json[key] = float(val.replace(',', '').replace(' ', ''))
+                            except ValueError:
+                                parsed_json[key] = None
 
-        # Sécurité supplémentaire : Forcer les majuscules de la catégorie
-        if 'category' in parsed_json and parsed_json['category']:
-            parsed_json['category'] = parsed_json['category'].upper().strip()
-            if parsed_json['category'] not in ['FILM', 'INK', 'GLUE', 'SOLV']:
-                name_up = (parsed_json.get('material_name') or '').upper()
-                if any(x in name_up for x in ['BOPP', 'PE', 'PET', 'FILM', 'KRAFT', 'PAPER']):
-                    parsed_json['category'] = 'FILM'
-                elif any(x in name_up for x in ['SOLIPROP', 'SOLVAPRINT', 'SOLIMAX', 'ROTOFLEXO', 'SOLVARES', 'BLACK', 'MAGENTA', 'YELLOW', 'CYAN', 'WHITE', 'ENCRE', 'INK']):
-                    parsed_json['category'] = 'INK'
-                elif any(x in name_up for x in ['GLUE', 'COLLE', 'ADHESIVE']):
-                    parsed_json['category'] = 'GLUE'
-                else:
-                    parsed_json['category'] = 'SOLV'
+                    # Sécurisation de la catégorie
+                    if not parsed_json.get('category') or parsed_json.get('category') not in ['FILM', 'INK', 'GLUE', 'SOLV']:
+                        name_up = (parsed_json.get('material_name') or '').upper()
+                        if any(x in name_up for x in ['BOPP', 'PE', 'PET', 'FILM', 'KRAFT', 'PAPER']):
+                            parsed_json['category'] = 'FILM'
+                        elif any(x in name_up for x in ['SOLIPROP', 'SOLVAPRINT', 'SOLIMAX', 'ROTOFLEXO', 'SOLVARES', 'BLACK', 'MAGENTA', 'YELLOW', 'CYAN', 'WHITE', 'ENCRE', 'INK']):
+                            parsed_json['category'] = 'INK'
+                        elif any(x in name_up for x in ['GLUE', 'COLLE', 'ADHESIVE']):
+                            parsed_json['category'] = 'GLUE'
+                        else:
+                            parsed_json['category'] = 'SOLV'
 
-        return JsonResponse({
-            'status': 'success',
-            'data': parsed_json,
-            'model_used': target_model
-        })
+                    return JsonResponse({
+                        'status': 'success',
+                        'data': parsed_json,
+                        'model_used': target_model
+                    })
 
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
+            except urllib.error.HTTPError as e:
+                last_error = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
+                continue
+            except Exception as e:
+                last_error = str(e)
+                continue
+
         return JsonResponse({
             'status': 'error',
-            'message': f"Erreur Google (HTTP {e.code}) : {err_body}"
-        }, status=400)
+            'message': f"Surcharge Google / Erreur : {last_error}"
+        }, status=503)
+
     except Exception as e:
         print("=== ERREUR SCANNER IA ===")
         print(traceback.format_exc())
