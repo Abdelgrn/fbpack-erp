@@ -3,7 +3,7 @@
 <html lang="fr" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fb pack ERP Ultimate</title>
 
     <!-- METATAGS ET RACCOURCI APPLICATION (PWA SÉCURISÉ) -->
@@ -88,14 +88,14 @@
         .stock-na { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
 
         /* Badge chat menu */
-        #chat-menu-badge {
+        .chat-menu-badge {
             min-width: 1.15rem;
             height: 1.15rem;
             line-height: 1.15rem;
             font-size: 10px;
             font-weight: 800;
         }
-        #chat-menu-badge.pulse {
+        .chat-menu-badge.pulse {
             animation: chatBadgePulse 1.2s ease-in-out infinite;
         }
         @keyframes chatBadgePulse {
@@ -112,22 +112,31 @@
         <div class="flex items-center gap-3">
             <img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="FB PACK" class="h-8 w-auto object-contain">
             <div>
-                <span class="text-xs md:text-sm font-black uppercase tracking-wider block">📲 Installer l'application FB PACK ERP</span>
-                <span class="text-[10px] text-slate-900 font-bold block">Ajoutez l'icône de l'ERP directement sur votre écran ou Bureau en 1 Clic</span>
+                <span class="text-xs md:text-sm font-black uppercase tracking-wider block">📲 Installer l'application FB PACK</span>
+                <span class="text-[10px] text-slate-900 font-bold block">Ajoutez l'icône directement sur votre écran</span>
             </div>
         </div>
         <div class="flex items-center gap-3 shrink-0">
             <button id="pwa-banner-install-btn" type="button" class="bg-slate-950 hover:bg-slate-900 text-yellow-400 px-5 py-2.5 rounded-xl text-xs uppercase font-extrabold shadow-lg transition transform active:scale-95 flex items-center gap-2">
-                <span>👉</span> INSTALLER EN 1 CLIC
+                <span>👉</span> INSTALLER
             </button>
             <button type="button" onclick="document.getElementById('pwa-install-banner').classList.add('hidden')" class="text-slate-950 hover:text-white font-black text-xl px-2">✕</button>
         </div>
     </div>
 
-    <div class="flex-1 flex overflow-hidden w-full h-full">
-        <!-- SIDEBAR -->
-        <aside class="w-64 bg-slate-900 border-r border-slate-700 flex flex-col shrink-0 transition-all duration-300">
+    <div class="flex-1 flex overflow-hidden w-full h-full relative">
+        
+        <!-- VOILE NOIR POUR SMARTPHONE (OVERLAY) -->
+        <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/70 z-[90] hidden md:hidden transition-opacity opacity-0 backdrop-blur-sm"></div>
+
+        <!-- SIDEBAR (Menu latéral glissant sur mobile) -->
+        <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-[100] w-64 bg-slate-900 border-r border-slate-700 flex flex-col transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none">
             
+            <!-- BOUTON FERMER SUR MOBILE -->
+            <button onclick="toggleSidebar()" class="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                ✕
+            </button>
+
             <!-- LOGO SÉCURISÉ -->
             <div class="h-16 flex items-center justify-center border-b border-slate-700 p-2 shadow-lg bg-slate-800/50">
                 <img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="Logo FB PACK" class="h-12 w-auto object-contain">
@@ -185,7 +194,7 @@
                 </a>
                 {% endif %}
 
-                <!-- NOUVEAU MODULE PLANIFICATION (REMPLACE VISUELLEMENT OF) -->
+                <!-- NOUVEAU MODULE PLANIFICATION -->
                 {% if 'planification' in user_modules %}
                 <a href="{% url 'planning_atelier' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'planification' in request.path or 'planning-atelier' in request.path or '/of/' in request.path and 'crm' not in request.path %}active{% endif %}">
                     <span class="mr-3">📅</span> Planification
@@ -249,7 +258,7 @@
                     <span class="mr-3">💬</span>
                     <span>Chat d'Équipe</span>
                     <span id="chat-menu-badge"
-                          class="ml-auto hidden bg-red-500 text-white text-center rounded-full px-1.5">
+                          class="chat-menu-badge ml-auto hidden bg-red-500 text-white text-center rounded-full px-1.5">
                         0
                     </span>
                 </a>
@@ -313,54 +322,104 @@
             </div>
         </aside>
 
-        <!-- MAIN CONTENT -->
-        <main class="flex-1 overflow-auto bg-darkbg relative w-full h-full">
+        <!-- WRAPPER DROITE (Header Mobile + Contenu + Bottom Nav) -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-darkbg">
             
-            <!-- MESSAGES DJANGO -->
-            {% if messages %}
-            <div class="px-8 pt-4">
-
-                {% for message in messages %}
-
-                <div class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
-                    {% if message.tags == 'success' %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
-                    {% elif message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400
-                    {% elif message.tags == 'warning' %}bg-yellow-500/10 border border-yellow-500/30 text-yellow-400
-                    {% else %}bg-blue-500/10 border border-blue-500/30 text-blue-400{% endif %}">
-
-                    {% if message.tags == 'success' %}
-                        ✅
-                    {% elif message.tags == 'error' %}
-                        ❌
-                    {% elif message.tags == 'warning' %}
-                        ⚠️
-                    {% else %}
-                        ℹ️
-                    {% endif %}
-
-                    {{ message }}
-
-                    <button onclick="this.parentElement.remove()" class="ml-auto text-gray-500 hover:text-white">
-                        ✕
+            <!-- HEADER MOBILE SEULEMENT -->
+            <header class="md:hidden flex items-center justify-between bg-slate-900 border-b border-slate-700 p-3 shrink-0 shadow-md">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSidebar()" class="text-gray-300 hover:text-white focus:outline-none p-1 bg-slate-800 rounded-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
                     </button>
+                    <img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="FB PACK" class="h-6 w-auto">
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="h-8 w-8 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold text-xs shadow-lg">
+                        {{ user.username|slice:":1"|upper }}
+                    </div>
+                </div>
+            </header>
+
+            <!-- MAIN CONTENT -->
+            <main class="flex-1 overflow-auto relative w-full h-full pb-16 md:pb-0">
+                
+                <!-- MESSAGES DJANGO -->
+                {% if messages %}
+                <div class="px-4 md:px-8 pt-4">
+
+                    {% for message in messages %}
+                    <div class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
+                        {% if message.tags == 'success' %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
+                        {% elif message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400
+                        {% elif message.tags == 'warning' %}bg-yellow-500/10 border border-yellow-500/30 text-yellow-400
+                        {% else %}bg-blue-500/10 border border-blue-500/30 text-blue-400{% endif %}">
+
+                        {% if message.tags == 'success' %}✅
+                        {% elif message.tags == 'error' %}❌
+                        {% elif message.tags == 'warning' %}⚠️
+                        {% else %}ℹ️{% endif %}
+                        
+                        <span class="flex-1">{{ message }}</span>
+
+                        <button onclick="this.parentElement.remove()" class="text-gray-500 hover:text-white text-lg">✕</button>
+                    </div>
+                    {% endfor %}
 
                 </div>
+                {% endif %}
+                
+                <div class="p-4 md:p-8">
+                    {% block content %}
+                    {% endblock %}
+                </div>
+            </main>
 
-                {% endfor %}
+            <!-- BARRE DE NAVIGATION INFÉRIEURE (MOBILE SEULEMENT) -->
+            <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex items-center justify-around pb-2 pt-2 z-40 shadow-[0_-4px_15px_rgba(0,0,0,0.4)]" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
+                
+                {% if 'dashboard' in user_modules %}
+                <a href="{% url 'dashboard' %}" class="flex flex-col items-center p-1 text-gray-400 hover:text-neon {% if request.resolver_match.url_name == 'dashboard' %}text-neon{% endif %}">
+                    <span class="text-xl leading-none mb-1">📊</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wider">Accueil</span>
+                </a>
+                {% endif %}
 
-            </div>
-            {% endif %}
-            
-            <div class="p-8">
-                {% block content %}
-                {% endblock %}
-            </div>
+                {% if 'production' in user_modules %}
+                <a href="{% url 'prod_dashboard' %}" class="flex flex-col items-center p-1 text-gray-400 hover:text-cyan-400 {% if '/prod/' in request.path %}text-cyan-400{% endif %}">
+                    <span class="text-xl leading-none mb-1">⚙️</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wider">Atelier</span>
+                </a>
+                {% endif %}
 
-        </main>
+                {% if 'stock' in user_modules %}
+                <a href="{% url 'stock_advanced' %}" class="flex flex-col items-center p-1 text-gray-400 hover:text-emerald-400 {% if '/stock/' in request.path %}text-emerald-400{% endif %}">
+                    <span class="text-xl leading-none mb-1">📦</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wider">Stock</span>
+                </a>
+                {% endif %}
+
+                {% if 'chat' in user_modules %}
+                <a href="{% url 'chat_home' %}" class="relative flex flex-col items-center p-1 text-gray-400 hover:text-purple-400 {% if 'chat' in request.path %}text-purple-400{% endif %}">
+                    <span class="text-xl leading-none mb-1">💬</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wider">Chat</span>
+                    <span id="mobile-chat-badge" class="chat-menu-badge absolute -top-1 -right-1 hidden bg-red-500 text-white rounded-full">0</span>
+                </a>
+                {% endif %}
+
+                <!-- Bouton Ouvrir Menu Mobile -->
+                <button onclick="toggleSidebar()" class="flex flex-col items-center p-1 text-gray-400 hover:text-white focus:outline-none">
+                    <span class="text-xl leading-none mb-1">☰</span>
+                    <span class="text-[9px] font-bold uppercase tracking-wider">Menu</span>
+                </button>
+            </nav>
+
+        </div>
     </div>
 
     <!-- TOAST CHAT GLOBAL -->
-    <div id="global-chat-toast" class="fixed bottom-6 right-6 z-[9999] hidden max-w-sm w-full sm:w-96">
+    <div id="global-chat-toast" class="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[9999] hidden max-w-sm w-72 md:w-96">
         <div class="bg-slate-900 border border-neon/40 shadow-2xl rounded-xl px-4 py-3 text-white flex items-start gap-3">
             <span class="text-2xl shrink-0" id="global-chat-toast-icon">💬</span>
             <div class="min-w-0 flex-1">
@@ -405,6 +464,25 @@
         </div>
     </div>
 
+    <!-- GESTION SIDEBAR MOBILE -->
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('main-sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+            const isClosed = sidebar.classList.contains('-translate-x-full');
+            
+            if (isClosed) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        }
+    </script>
+
     <!-- AUTO-HIDE MESSAGES -->
     <script>
         setTimeout(function() {
@@ -415,14 +493,10 @@
                 '[class*="bg-blue-500/10"]'
             ).forEach(function(el) {
 
-                if (el.parentElement.classList.contains('px-8')) {
-
+                if (el.parentElement.classList.contains('px-8') || el.parentElement.classList.contains('px-4')) {
                     el.style.transition = 'opacity 0.5s';
                     el.style.opacity = '0';
-
-                    setTimeout(function() {
-                        el.remove();
-                    }, 500);
+                    setTimeout(function() { el.remove(); }, 500);
                 }
             });
         }, 5000);
@@ -438,7 +512,7 @@
         const modal = document.getElementById('modal-install-help');
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('{% static "sw.js" %}').catch(function () {});
+            navigator.serviceWorker.register('/static/sw.js').catch(function () {});
         }
 
         window.addEventListener('beforeinstallprompt', function (e) {
@@ -539,15 +613,19 @@
         }
 
         function updateBadge() {
-            const badge = document.getElementById('chat-menu-badge');
-            if (!badge) return;
+            const badges = document.querySelectorAll('.chat-menu-badge');
+            
             if (unread > 0 && !isOnChatPage) {
-                badge.textContent = unread > 99 ? '99+' : String(unread);
-                badge.classList.remove('hidden');
-                badge.classList.add('pulse');
+                badges.forEach(b => {
+                    b.textContent = unread > 99 ? '99+' : String(unread);
+                    b.classList.remove('hidden');
+                    b.classList.add('pulse');
+                });
             } else {
-                badge.classList.add('hidden');
-                badge.classList.remove('pulse');
+                badges.forEach(b => {
+                    b.classList.add('hidden');
+                    b.classList.remove('pulse');
+                });
             }
             localStorage.setItem(UNREAD_KEY, String(unread));
         }
