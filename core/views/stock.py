@@ -784,16 +784,15 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE 100% INFALLIBLE (ALIAS AUTO-MIS-À-JOUR) ---
+# --- API SCANNER IA ÉTIQUETTE — VERSION ADVANCED EXPERT ENCRES & FILMS ---
 # ===========================================================================
 
 @login_required
 def scan_label_ai(request):
     """
     API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle).
-    Utilise l'alias 'gemini-flash-latest' de Google, qui pointe toujours vers le
-    dernier modèle Flash stable en production, sans jamais avoir besoin de coder
-    un nom de modèle en dur ni de faire un ListModels fragile.
+    Spécialisée pour reconnaître les gammes d'encres (Solvaprint, Soliprop, Solimax, Rotoflexo, Solvares...)
+    et traduire automatiquement toutes les abréviations de couleur (BLK -> BLACK, MGT -> MAGENTA, YLW -> YELLOW...).
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
@@ -805,35 +804,67 @@ def scan_label_ai(request):
     api_key = os.environ.get('GEMINI_API_KEY', '').strip().replace('"', '').replace("'", "")
     if not api_key:
         return JsonResponse({
-            'status': 'error', 
+            'status': 'error',
             'message': 'Variable GEMINI_API_KEY non configurée dans Render.'
         }, status=400)
 
     try:
-        # Encodage de l'image en Base64
         image_bytes = image_file.read()
         image_b64 = base64.b64encode(image_bytes).decode('utf-8')
         mime_type = image_file.content_type or 'image/jpeg'
 
-        prompt = (
-            "Tu es un expert en gestion de stock industriel et emballage souple.\n"
-            "Analyse l'image de cette étiquette et extrais les informations sous la forme d'un objet JSON strict :\n"
-            "{\n"
-            '  "fournisseur": "Nom de la société fournisseur ou null",\n'
-            '  "material_name": "Référence ou nom de la matière ou null",\n'
-            '  "numero_lot": "N° de lot, Batch, Roll, Pallet ou null",\n'
-            '  "poids_net": nombre_en_kg_ou_null,\n'
-            '  "laize_width": nombre_en_mm_ou_null,\n'
-            '  "longueur_length": nombre_en_m_ou_null\n'
-            "}\n"
-            "Réponds UNIQUEMENT au format JSON valide, sans texte d'environnement ni balises markdown."
-        )
+        # ========== PROMPT AVANCÉ SPÉCIALISTE IMPRIMERIE FLEXO / HÉLIO ==========
+        prompt = """
+Tu es un expert en matières premières d'imprimerie flexographique, héliogravure et d'emballage souple.
 
-        # 1. MODÈLE : alias auto-mis-à-jour de Google, toujours le Flash stable actuel.
-        #    Plus besoin de ListModels ni de nom codé en dur qui se périme.
+Analyse l'étiquette et retourne UNIQUEMENT un objet JSON strict :
+
+{
+  "fournisseur": "string ou null",
+  "material_name": "string ou null",
+  "category": "FILM ou INK ou GLUE ou SOLV",
+  "numero_lot": "string ou null",
+  "poids_net": number ou null,
+  "laize_width": number ou null,
+  "longueur_length": number ou null,
+  "date_expiration": "YYYY-MM-DD ou null"
+}
+
+RÈGLES D'OR DE NORMALISATION DES NOMS ET GAMMES D'ENCRES :
+
+1. RECONNAISSANCE DES GAMMES D'ENCRES ET SOLVANTS (CATEGORY = INK ou SOLV) :
+   - Inclus mais non limité à : Solvaprint, Soliprop, Solimax, Rotoflexo, Solvares, Crystalplus, Process, SunChemical, DIC, Siegwerk, Flint, United Ink, etc.
+
+2. TRADUCTION OBLIGATOIRE DES COULEURS ET ABRÉVIATIONS (Dans material_name) :
+   - BLK, BK -> BLACK
+   - MGT, MG -> MAGENTA
+   - YLW, YEL, Y -> YELLOW
+   - CYA, CY, C -> CYAN
+   - WHT, WT, W -> WHITE
+   - SLV -> SILVER
+   - GLD -> GOLD
+   - VRN, VR -> VERNIS
+   
+   EXEMPLES CONCRETS DE TRANSFORMATION OBLIGATOIRE :
+   - "SOLIPROP T AP BLK" -> "SOLIPROP T AP BLACK"
+   - "SOLVAPRINT MGT" -> "SOLVAPRINT MAGENTA"
+   - "SOLIMAX YLW" -> "SOLIMAX YELLOW"
+   - "SOLVARES CYA" -> "SOLVARES CYAN"
+   - "ROTOFLEXO HI-PROCESS CRYSTALPLUS PRO.BLACK" -> "ROTOFLEXO HI-PROCESS CRYSTALPLUS PRO BLACK"
+
+3. DÉTECTION STRICTE DE LA CATÉGORIE :
+   - FILM : Si l'étiquette mentionne BOPP, PE, PET, OPP, CPP, Paper, Kraft, Film, Nodaplast, Biaxial, Gulfpack, Starkraft...
+   - INK : Si l'étiquette concerne une Encre, Ink, Solvaprint, Soliprop, Solimax, Rotoflexo, Solvares, Crystalplus, Black, Magenta, Yellow, Cyan, White, Vernis...
+   - GLUE : Si Colle, Adhesive, Glue, Polyuréthane, Lamination...
+   - SOLV : Si Solvant, Solvent, Acétate, Ethyl, IPA, Isopropanol, Métoxyn, Retardateur, Diluant...
+
+4. POIDS_NET : toujours la valeur numérique exacte du poids net en kg.
+
+Réponds EXCLUSIVEMENT avec l'objet JSON valide, sans balises markdown ni commentaire.
+"""
+
+        # Alias officiel auto-mis-à-jour
         target_model = "models/gemini-flash-latest"
-
-        # 2. ENVOI DE L'IMAGE AU MODÈLE
         gen_url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={api_key}"
 
         payload = {
@@ -860,9 +891,23 @@ def scan_label_ai(request):
             res_body = json.loads(resp.read().decode('utf-8'))
             text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
 
-            # Nettoyage JSON strict
+            # Nettoyage JSON
             text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip().strip('`').strip()
             parsed_json = json.loads(text_clean)
+
+            # Sécurité supplémentaire : Forcer les majuscules de la catégorie
+            if 'category' in parsed_json and parsed_json['category']:
+                parsed_json['category'] = parsed_json['category'].upper().strip()
+                if parsed_json['category'] not in ['FILM', 'INK', 'GLUE', 'SOLV']:
+                    name_up = (parsed_json.get('material_name') or '').upper()
+                    if any(x in name_up for x in ['BOPP', 'PE', 'PET', 'FILM', 'KRAFT', 'PAPER']):
+                        parsed_json['category'] = 'FILM'
+                    elif any(x in name_up for x in ['SOLIPROP', 'SOLVAPRINT', 'SOLIMAX', 'ROTOFLEXO', 'SOLVARES', 'BLACK', 'MAGENTA', 'YELLOW', 'CYAN', 'WHITE', 'ENCRE', 'INK']):
+                        parsed_json['category'] = 'INK'
+                    elif any(x in name_up for x in ['GLUE', 'COLLE', 'ADHESIVE']):
+                        parsed_json['category'] = 'GLUE'
+                    else:
+                        parsed_json['category'] = 'SOLV'
 
             return JsonResponse({
                 'status': 'success',
