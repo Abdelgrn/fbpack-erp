@@ -386,7 +386,6 @@ def stock_advanced_view(request):
         print("=== ERREUR CRITIQUE STOCK ADVANCED ===")
         print(traceback.format_exc())
         messages.error(request, f"❌ Erreur module Stock : {type(e).__name__} - {str(e)}")
-        # Affichage d'une page de secours si le calcul plante, on revient sur le dashboard
         return redirect('dashboard')
 
 
@@ -785,14 +784,14 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE 100% GRATUIT (GOOGLE GEMINI FLASH) ---
+# --- API SCANNER IA ÉTIQUETTE 100% GRATUIT (AVEC REPLI MULTI-MODÈLES) ---
 # ===========================================================================
 
 @login_required
 def scan_label_ai(request):
     """
-    API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle)
-    Utilise Google Gemini 1.5 Flash (100% Gratuit)
+    API backend de lecture d'étiquettes industrielles.
+    Explore automatiquement les modèles Gemini 1.5/2.0 pour parer à toute erreur 404.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
@@ -801,11 +800,14 @@ def scan_label_ai(request):
     if not image_file:
         return JsonResponse({'status': 'error', 'message': 'Aucune image n\'a été fournie.'}, status=400)
 
-    api_key = os.environ.get('GEMINI_API_KEY')
+    # Nettoyage systématique des espaces/sauts de ligne
+    raw_key = os.environ.get('GEMINI_API_KEY', '')
+    api_key = raw_key.strip()
+    
     if not api_key:
         return JsonResponse({
             'status': 'error', 
-            'message': 'Clé API Gemini absente. Veuillez configurer GEMINI_API_KEY dans votre environnement.'
+            'message': 'Clé API Gemini absente. Veuillez configurer GEMINI_API_KEY dans votre environnement Render.'
         }, status=400)
 
     try:
@@ -813,7 +815,6 @@ def scan_label_ai(request):
         image_data = base64.b64encode(image_file.read()).decode('utf-8')
         mime_type = image_file.content_type or 'image/jpeg'
 
-        # Instruction système très précise pour le secteur emballage souple
         prompt_text = (
             "Tu es un expert en gestion de stock et emballage souple (BOPP, PE, Encres, Solvants, Colles). "
             "Analyse cette étiquette de matière première et extrait précisément les informations suivantes au format JSON strict :\n"
@@ -822,8 +823,7 @@ def scan_label_ai(request):
             "3. numero_lot: Numéro de lot, Batch No, Roll Number ou Pallet N°\n"
             "4. poids_net: Poids Net sous forme de nombre (float/int en kg, ex: 806, 20, 389.7, 160)\n"
             "5. laize_width: Largeur / Width en mm (si disponible, ex: 1055, 760)\n"
-            "6. longueur_length: Longueur / Length en mètres (si disponible, ex: 28000, 19500)\n"
-
+            "6. longueur_length: Longueur / Length en mètres (si disponible, ex: 28000, 19500)\n\n"
             "Renvoie UNIQUEMENT un objet JSON valide, sans texte additionnel ni balise Markdown triple backtick."
         )
 
@@ -843,18 +843,42 @@ def scan_label_ai(request):
             ]
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        json_payload = json.dumps(payload).encode('utf-8')
+        # Modèles testés en cascade si l'un renvoie un 404
+        candidate_models = [
+            "gemini-1.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash-latest"
+        ]
 
-        req = urllib.request.Request(url, data=json_payload, headers={'Content-Type': 'application/json'})
-        
-        with urllib.request.urlopen(req, timeout=20) as response:
-            res_body = response.read().decode('utf-8')
-            res_json = json.loads(res_body)
+        res_body = None
+        last_exception = None
 
+        for model in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            json_payload = json.dumps(payload).encode('utf-8')
+            req = urllib.request.Request(url, data=json_payload, headers={'Content-Type': 'application/json'})
+
+            try:
+                with urllib.request.urlopen(req, timeout=25) as response:
+                    res_body = response.read().decode('utf-8')
+                    if res_body:
+                        break # Détection réussie !
+            except urllib.error.HTTPError as e:
+                last_exception = e
+                if e.code == 404:
+                    continue # Essayer le modèle suivant
+                else:
+                    raise e
+
+        if not res_body:
+            error_details = last_exception.read().decode('utf-8') if (last_exception and hasattr(last_exception, 'read')) else str(last_exception)
+            return JsonResponse({'status': 'error', 'message': f"Erreur Google API (404/Invalid Key). Vérifiez votre clé sur AI Studio. Détails: {error_details}"}, status=400)
+
+        res_json = json.loads(res_body)
         raw_text = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
 
-        # Nettoyage si le modèle renvoie du markdown ```json ... ```
+        # Nettoyage du balisage markdown si présent
         if "```json" in raw_text:
             raw_text = re.sub(r'```json\s*', '', raw_text)
             raw_text = re.sub(r'```\s*$', '', raw_text)
@@ -869,9 +893,9 @@ def scan_label_ai(request):
         })
 
     except urllib.error.HTTPError as e:
-        error_content = e.read().decode('utf-8')
+        error_content = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
         print("=== ERREUR GEMINI API ===", error_content)
-        return JsonResponse({'status': 'error', 'message': f"Erreur API Gemini ({e.code})."}, status=500)
+        return JsonResponse({'status': 'error', 'message': f"Erreur API Google ({e.code}). Vérifiez la clé API."}, status=500)
     except Exception as e:
         print("=== ERREUR SCANNER IA ===")
         print(traceback.format_exc())
