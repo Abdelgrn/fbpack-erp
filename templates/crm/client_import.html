@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-2xl mx-auto mt-8">
+    <div class="glass rounded-2xl border border-slate-700 shadow-2xl p-8">
+        <div class="mb-4">
+            <a href="{% url 'crm_view' %}" class="text-gray-500 hover:text-white text-sm transition flex items-center gap-2">
+                <span>←</span> Retour au CRM
+            </a>
+        </div>
+        
+        <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-3">
+            <span>📊</span> {{ titre }}
+        </h2>
+
+        <div class="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mb-6">
+            <h4 class="text-blue-300 font-bold mb-2 flex items-center gap-2">
+                ℹ️ Format attendu
+            </h4>
+            <p class="text-sm text-gray-300 mb-2">
+                Votre fichier doit contenir ces colonnes (les noms doivent être exacts) :
+            </p>
+            <ul class="text-xs text-gray-400 list-disc list-inside grid grid-cols-2 gap-2">
+                <li>ID Client</li>
+                <li>Nom Client <strong class="text-white">(Obligatoire)</strong></li>
+                <li>Secteur</li>
+                <li>Adresse</li>
+                <li>Ville</li>
+                <li>Téléphone</li>
+                <li>Email</li>
+                <li>Commercial</li>
+                <li>Statut compte (Actif/Inactif)</li>
+                <li>Limite crédit (DA)</li>
+                <li>Observations</li>
+            </ul>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-5">
+            {% csrf_token %}
+            
+            <div>
+                <label class="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-wider">
+                    {{ form.fichier.label }}
+                </label>
+                {{ form.fichier }}
+                {% if form.fichier.errors %}
+                    <p class="text-red-400 text-[10px] mt-1">{{ form.fichier.errors }}</p>
+                {% endif %}
+            </div>
+
+            <!-- BOUTONS D'ACTION -->
+            <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
+                <a href="{% url 'crm_view' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">
+                    Annuler
+                </a>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-blue-500/20 transition uppercase tracking-wider text-sm flex items-center gap-2">
+                    <span>🚀</span> Lancer l'import
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

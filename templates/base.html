@@ -4,794 +4,3205 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Fb pack ERP Ultimate</title>
 
-    <!-- METATAGS ET RACCOURCI APPLICATION (PWA SÉCURISÉ) -->
+    <title>FB PACK ERP Ultimate</title>
+
+    <!-- ================================================================ -->
+    <!-- PWA                                                              -->
+    <!-- ================================================================ -->
+
     <meta name="theme-color" content="#0f172a">
     <meta name="application-name" content="FB PACK ERP">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FB PACK ERP">
+
     <link rel="manifest" href="{% url 'manifest_view' %}">
     <link rel="apple-touch-icon" href="{% static 'logo1.png' %}">
     <link rel="icon" type="image/png" href="{% static 'logo1.png' %}">
 
+    <!-- ================================================================ -->
+    <!-- LIBRAIRIES                                                       -->
+    <!-- ================================================================ -->
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- ================================================================ -->
+    <!-- THEME IMMÉDIAT                                                    -->
+    <!-- Évite le flash DARK -> LIGHT                                    -->
+    <!-- ================================================================ -->
+
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('color-theme');
+
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
+    <!-- ================================================================ -->
+    <!-- TAILWIND                                                         -->
+    <!-- ================================================================ -->
+
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: { extend: { colors: { neon: '#f3b83a', darkbg: '#22375c', panel: '#1e293b' } } }
+
+            theme: {
+                extend: {
+                    colors: {
+                        neon: '#f3b83a',
+                        darkbg: '#22375c',
+                        panel: '#1e293b',
+                        lightbg: '#f8fafc',
+                        lightcard: '#ffffff'
+                    }
+                }
+            }
         };
 
-        // ÉCOUTEUR GLOBAL POUR SECOURS IMAGE SANS ERREUR DE SYNTAXE
+        /*
+         * Fallback automatique des images.
+         */
         document.addEventListener('error', function (e) {
-            if (e.target && e.target.tagName === 'IMG' && e.target.dataset.fallback) {
-                const fb = e.target.dataset.fallback;
+
+            if (
+                e.target &&
+                e.target.tagName === 'IMG' &&
+                e.target.dataset.fallback
+            ) {
+                const fallback = e.target.dataset.fallback;
+
                 delete e.target.dataset.fallback;
-                e.target.src = fb;
+
+                e.target.src = fallback;
             }
+
         }, true);
     </script>
+
+    <!-- ================================================================ -->
+    <!-- STYLE GLOBAL                                                     -->
+    <!-- ================================================================ -->
+
     <style>
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
-        .nav-link:hover { color: #f3b83a; background: rgba(255,255,255,0.05); }
-        .nav-link.active { color: #f3b83a; background: rgba(243, 184, 58, 0.1); border-right: 3px solid #f3b83a; }
-        .nav-link-drh:hover { color: #34d399; background: rgba(16, 185, 129, 0.08); }
-        .nav-link-drh.active { color: #34d399; background: rgba(16, 185, 129, 0.12); border-right: 3px solid #34d399; }
-        .nav-link-maint:hover { color: #f97316; background: rgba(249, 115, 22, 0.08); }
-        .nav-link-maint.active { color: #f97316; background: rgba(249, 115, 22, 0.12); border-right: 3px solid #f97316; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        
-        /* STYLE GLOBAL POUR TOUS LES FORMULAIRES DJANGO DE L'ERP */
-        .django-form-container input, 
-        .django-form-container select, 
-        .django-form-container textarea,
-        .form-control, .form-select {
-            width: 100%;
-            background-color: #0f172a;
-            color: #f8fafc;
-            border: 1px solid #334155;
-            border-radius: 0.5rem;
-            padding: 0.6rem 0.75rem;
-            font-size: 0.85rem;
-            transition: all 0.3s ease;
-            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+
+        /* ============================================================ */
+        /* VARIABLES                                                     */
+        /* ============================================================ */
+
+        :root {
+
+            --fb-dark-bg: #0f172a;
+            --fb-dark-panel: #1e293b;
+            --fb-dark-border: #334155;
+
+            --fb-light-bg: #f8fafc;
+            --fb-light-card: #ffffff;
+            --fb-light-panel: #ffffff;
+            --fb-light-border: #e2e8f0;
+
+            --fb-light-text: #1e293b;
+            --fb-light-muted: #64748b;
+
+            --fb-neon: #f3b83a;
+
+            --fb-light-shadow:
+                0 4px 12px rgba(15, 23, 42, 0.06);
+
+            --fb-light-shadow-hover:
+                0 8px 20px rgba(15, 23, 42, 0.09);
         }
-        
-        .django-form-container input:focus, 
-        .django-form-container select:focus, 
+
+
+        /* ============================================================ */
+        /* BASE DARK                                                     */
+        /* ============================================================ */
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            background-color: #22375c;
+            color: #e2e8f0;
+        }
+
+
+        /* ============================================================ */
+        /* GLASS DARK                                                     */
+        /* ============================================================ */
+
+        .glass {
+
+            background: rgba(30, 41, 59, 0.7);
+
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+
+        /* ============================================================ */
+        /* NAVIGATION                                                      */
+        /* ============================================================ */
+
+        .nav-link:hover {
+            color: #f3b83a;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-link.active {
+            color: #f3b83a;
+            background: rgba(243, 184, 58, 0.1);
+            border-right: 3px solid #f3b83a;
+        }
+
+        .nav-link-drh:hover {
+            color: #34d399;
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .nav-link-drh.active {
+            color: #34d399;
+            background: rgba(16, 185, 129, 0.12);
+            border-right: 3px solid #34d399;
+        }
+
+        .nav-link-maint:hover {
+            color: #f97316;
+            background: rgba(249, 115, 22, 0.08);
+        }
+
+        .nav-link-maint.active {
+            color: #f97316;
+            background: rgba(249, 115, 22, 0.12);
+            border-right: 3px solid #f97316;
+        }
+
+
+        /* ============================================================ */
+        /* SCROLLBAR                                                      */
+        /* ============================================================ */
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+
+        /* ============================================================ */
+        /* FORMULAIRES DARK                                                */
+        /* ============================================================ */
+
+        .django-form-container input,
+        .django-form-container select,
+        .django-form-container textarea,
+        .form-control,
+        .form-select {
+
+            width: 100%;
+
+            background-color: #0f172a;
+
+            color: #f8fafc;
+
+            border: 1px solid #334155;
+
+            border-radius: 0.5rem;
+
+            padding: 0.6rem 0.75rem;
+
+            font-size: 0.85rem;
+
+            transition:
+                background-color 0.25s ease,
+                border-color 0.25s ease,
+                color 0.25s ease,
+                box-shadow 0.25s ease;
+
+            box-shadow:
+                inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .django-form-container input:focus,
+        .django-form-container select:focus,
         .django-form-container textarea:focus,
-        .form-control:focus, .form-select:focus {
+        .form-control:focus,
+        .form-select:focus {
+
             outline: none;
+
             border-color: #f3b83a;
+
             background-color: #1e293b;
-            box-shadow: 0 0 0 3px rgba(243, 184, 58, 0.15);
+
+            box-shadow:
+                0 0 0 3px rgba(243, 184, 58, 0.15);
         }
 
         .django-form-container input[type="checkbox"] {
+
             width: auto;
+
             accent-color: #f3b83a;
         }
 
         ::-webkit-calendar-picker-indicator {
-            filter: invert(0.8) sepia(1) saturate(3) hue-rotate(175deg);
+
+            filter:
+                invert(0.8)
+                sepia(1)
+                saturate(3)
+                hue-rotate(175deg);
+
             cursor: pointer;
         }
 
-        /* Badge stock CRM */
-        .stock-ok { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
-        .stock-ko { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
-        .stock-na { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
 
-        /* Badge chat menu */
+        /* ============================================================ */
+        /* CHAT BADGE                                                     */
+        /* ============================================================ */
+
         .chat-menu-badge {
+
             min-width: 1.15rem;
+
             height: 1.15rem;
+
             line-height: 1.15rem;
+
             font-size: 10px;
+
             font-weight: 800;
         }
+
         .chat-menu-badge.pulse {
-            animation: chatBadgePulse 1.2s ease-in-out infinite;
+
+            animation:
+                chatBadgePulse 1.2s ease-in-out infinite;
         }
+
         @keyframes chatBadgePulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-            50% { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+
+            0%,
+            100% {
+
+                transform: scale(1);
+
+                box-shadow:
+                    0 0 0 0 rgba(239, 68, 68, 0.5);
+            }
+
+            50% {
+
+                transform: scale(1.08);
+
+                box-shadow:
+                    0 0 0 6px rgba(239, 68, 68, 0);
+            }
         }
+
+
+        /* ============================================================ */
+        /* TRANSITIONS                                                    */
+        /* ============================================================ */
+
+        main,
+        main * {
+
+            transition:
+                background-color 0.22s ease,
+                border-color 0.22s ease,
+                color 0.22s ease;
+        }
+
+
+        /* ============================================================ */
+        /* ============================================================ */
+        /*                     LIGHT MODE                                */
+        /* ============================================================ */
+        /* ============================================================ */
+
+        html:not(.dark) main {
+
+            background-color: #f8fafc !important;
+
+            color: #334155 !important;
+        }
+
+
+        /* ============================================================ */
+        /* CARTES GLASS-CARD                                              */
+        /* IMPORTANT POUR PRODUCTION SPÉCIAL                              */
+        /* ============================================================ */
+
+        html:not(.dark) main .glass-card {
+
+            background: #ffffff !important;
+
+            background-color: #ffffff !important;
+
+            background-image: none !important;
+
+            backdrop-filter: none !important;
+
+            -webkit-backdrop-filter: none !important;
+
+            border-color: #e2e8f0 !important;
+
+            color: #1e293b !important;
+
+            box-shadow:
+                0 4px 12px rgba(15, 23, 42, 0.06) !important;
+        }
+
+        html:not(.dark) main .glass-card:hover {
+
+            box-shadow:
+                0 8px 20px rgba(15, 23, 42, 0.09) !important;
+        }
+
+
+        /* ============================================================ */
+        /* GLASS                                                          */
+        /* ============================================================ */
+
+        html:not(.dark) main .glass {
+
+            background: #ffffff !important;
+
+            background-color: #ffffff !important;
+
+            background-image: none !important;
+
+            backdrop-filter: none !important;
+
+            -webkit-backdrop-filter: none !important;
+
+            border-color: #e2e8f0 !important;
+
+            color: #1e293b !important;
+
+            box-shadow:
+                0 4px 12px rgba(15, 23, 42, 0.06) !important;
+        }
+
+
+        /* ============================================================ */
+        /* PANNEAUX DARK -> WHITE                                         */
+        /* ============================================================ */
+
+        html:not(.dark) main
+        [class*="bg-slate-500"],
+        html:not(.dark) main
+        [class*="bg-slate-600"],
+        html:not(.dark) main
+        [class*="bg-slate-700"],
+        html:not(.dark) main
+        [class*="bg-slate-800"],
+        html:not(.dark) main
+        [class*="bg-slate-900"],
+        html:not(.dark) main
+        [class*="bg-slate-950"],
+
+        html:not(.dark) main
+        [class*="bg-gray-500"],
+        html:not(.dark) main
+        [class*="bg-gray-600"],
+        html:not(.dark) main
+        [class*="bg-gray-700"],
+        html:not(.dark) main
+        [class*="bg-gray-800"],
+        html:not(.dark) main
+        [class*="bg-gray-900"],
+        html:not(.dark) main
+        [class*="bg-gray-950"],
+
+        html:not(.dark) main
+        [class*="bg-zinc-500"],
+        html:not(.dark) main
+        [class*="bg-zinc-600"],
+        html:not(.dark) main
+        [class*="bg-zinc-700"],
+        html:not(.dark) main
+        [class*="bg-zinc-800"],
+        html:not(.dark) main
+        [class*="bg-zinc-900"],
+
+        html:not(.dark) main
+        [class*="bg-neutral-500"],
+        html:not(.dark) main
+        [class*="bg-neutral-600"],
+        html:not(.dark) main
+        [class*="bg-neutral-700"],
+        html:not(.dark) main
+        [class*="bg-neutral-800"],
+        html:not(.dark) main
+        [class*="bg-neutral-900"],
+
+        html:not(.dark) main
+        [class*="bg-stone-500"],
+        html:not(.dark) main
+        [class*="bg-stone-600"],
+        html:not(.dark) main
+        [class*="bg-stone-700"],
+        html:not(.dark) main
+        [class*="bg-stone-800"],
+        html:not(.dark) main
+        [class*="bg-stone-900"] {
+
+            background-color: #ffffff !important;
+
+            background-image: none !important;
+
+            color: #1e293b !important;
+
+            border-color: #e2e8f0 !important;
+
+            box-shadow:
+                0 2px 8px rgba(15, 23, 42, 0.05) !important;
+        }
+
+
+        /* ============================================================ */
+        /* CLASSES TAILWIND ARBITRAIRES                                   */
+        /* bg-[#0f172a] etc.                                             */
+        /* ============================================================ */
+
+        html:not(.dark) main
+        [class*="bg-[#0f172a"],
+        html:not(.dark) main
+        [class*="bg-[#111827"],
+        html:not(.dark) main
+        [class*="bg-[#1e293b"],
+        html:not(.dark) main
+        [class*="bg-[#334155"],
+        html:not(.dark) main
+        [class*="bg-[#374151"],
+        html:not(.dark) main
+        [class*="bg-[#3f3f46"],
+        html:not(.dark) main
+        [class*="bg-[#475569"],
+        html:not(.dark) main
+        [class*="bg-[#4b5563"],
+        html:not(.dark) main
+        [class*="bg-[#52525b"],
+        html:not(.dark) main
+        [class*="bg-[#57534e"],
+        html:not(.dark) main
+        [class*="bg-[#64748b"],
+        html:not(.dark) main
+        [class*="bg-[#6b7280"] {
+
+            background-color: #ffffff !important;
+
+            background-image: none !important;
+
+            color: #1e293b !important;
+
+            border-color: #e2e8f0 !important;
+        }
+
+
+        /* ============================================================ */
+        /* FONDS BLANC/GRIS                                              */
+        /* ============================================================ */
+
+        html:not(.dark) main .bg-slate-50,
+        html:not(.dark) main .bg-gray-50,
+        html:not(.dark) main .bg-zinc-50,
+        html:not(.dark) main .bg-neutral-50,
+        html:not(.dark) main .bg-stone-50 {
+
+            background-color: #f8fafc !important;
+
+            color: #334155 !important;
+        }
+
+
+        /* ============================================================ */
+        /* GRADIENTS SOMBRES                                              */
+        /* ============================================================ */
+
+        html:not(.dark) main
+        [class*="bg-gradient-to-"],
+
+        html:not(.dark) main
+        [class*="from-slate-"],
+
+        html:not(.dark) main
+        [class*="via-slate-"],
+
+        html:not(.dark) main
+        [class*="to-slate-"],
+
+        html:not(.dark) main
+        [class*="from-gray-"],
+
+        html:not(.dark) main
+        [class*="to-gray-"] {
+
+            background-image: none !important;
+        }
+
+
+        /* ============================================================ */
+        /* TEXTES                                                         */
+        /* ============================================================ */
+
+        html:not(.dark) main h1,
+        html:not(.dark) main h2,
+        html:not(.dark) main h3,
+        html:not(.dark) main h4,
+        html:not(.dark) main h5,
+        html:not(.dark) main h6 {
+
+            color: #1e293b !important;
+        }
+
+        html:not(.dark) main
+        [class*="text-white"] {
+
+            color: #1e293b !important;
+        }
+
+        html:not(.dark) main
+        [class*="text-gray-100"],
+        html:not(.dark) main
+        [class*="text-gray-200"],
+        html:not(.dark) main
+        [class*="text-gray-300"],
+        html:not(.dark) main
+        [class*="text-gray-400"],
+
+        html:not(.dark) main
+        [class*="text-slate-100"],
+        html:not(.dark) main
+        [class*="text-slate-200"],
+        html:not(.dark) main
+        [class*="text-slate-300"],
+        html:not(.dark) main
+        [class*="text-slate-400"],
+
+        html:not(.dark) main
+        [class*="text-zinc-100"],
+        html:not(.dark) main
+        [class*="text-zinc-200"],
+        html:not(.dark) main
+        [class*="text-zinc-300"],
+        html:not(.dark) main
+        [class*="text-zinc-400"] {
+
+            color: #475569 !important;
+        }
+
+        html:not(.dark) main ::placeholder {
+
+            color: #94a3b8 !important;
+
+            opacity: 1 !important;
+        }
+
+
+        /* ============================================================ */
+        /* BORDURES                                                       */
+        /* ============================================================ */
+
+        html:not(.dark) main
+        [class*="border-slate-"],
+        html:not(.dark) main
+        [class*="border-gray-"],
+        html:not(.dark) main
+        [class*="border-zinc-"],
+        html:not(.dark) main
+        [class*="border-neutral-"],
+        html:not(.dark) main
+        [class*="border-stone-"] {
+
+            border-color: #e2e8f0 !important;
+        }
+
+
+        /* ============================================================ */
+        /* TABLEAUX                                                       */
+        /* ============================================================ */
+
+        html:not(.dark) main table {
+
+            background-color: #ffffff !important;
+
+            color: #334155 !important;
+
+            border-color: #e2e8f0 !important;
+        }
+
+        html:not(.dark) main thead,
+        html:not(.dark) main th {
+
+            background-color: #f1f5f9 !important;
+
+            color: #334155 !important;
+
+            border-color: #e2e8f0 !important;
+        }
+
+        html:not(.dark) main tbody {
+
+            background-color: #ffffff !important;
+        }
+
+        html:not(.dark) main tbody tr {
+
+            background-color: #ffffff !important;
+
+            color: #475569 !important;
+
+            border-color: #e2e8f0 !important;
+        }
+
+        html:not(.dark) main tbody tr:nth-child(even) {
+
+            background-color: #f8fafc !important;
+        }
+
+        html:not(.dark) main tbody tr:hover {
+
+            background-color: #f1f5f9 !important;
+        }
+
+
+        /* ============================================================ */
+        /* FORMULAIRES LIGHT                                              */
+        /* ============================================================ */
+
+        html:not(.dark) main input:not([type="checkbox"]):not([type="radio"]),
+        html:not(.dark) main select,
+        html:not(.dark) main textarea {
+
+            background-color: #ffffff !important;
+
+            color: #1e293b !important;
+
+            border: 1px solid #cbd5e1 !important;
+
+            box-shadow:
+                0 1px 2px rgba(15, 23, 42, 0.05) !important;
+        }
+
+        html:not(.dark) main input:focus,
+        html:not(.dark) main select:focus,
+        html:not(.dark) main textarea:focus {
+
+            background-color: #ffffff !important;
+
+            color: #1e293b !important;
+
+            border-color: #f3b83a !important;
+
+            box-shadow:
+                0 0 0 3px rgba(243, 184, 58, 0.16) !important;
+        }
+
+        html:not(.dark) main
+        ::-webkit-calendar-picker-indicator {
+
+            filter: invert(0) !important;
+        }
+
+
+        /* ============================================================ */
+        /* HR                                                             */
+        /* ============================================================ */
+
+        html:not(.dark) main hr {
+
+            border-color: #e2e8f0 !important;
+        }
+
+
+        /* ============================================================ */
+        /* HOVER TAILWIND                                                 */
+        /* ============================================================ */
+
+        html:not(.dark) main
+        .hover\:bg-slate-800:hover,
+
+        html:not(.dark) main
+        .hover\:bg-slate-900:hover,
+
+        html:not(.dark) main
+        .hover\:bg-gray-800:hover,
+
+        html:not(.dark) main
+        .hover\:bg-gray-900:hover {
+
+            background-color: #f1f5f9 !important;
+        }
+
+
+        /* ============================================================ */
+        /* COULEURS MÉTIER — PRÉSERVÉES                                  */
+        /* ============================================================ */
+
+        html:not(.dark) main .bg-blue-500,
+        html:not(.dark) main .bg-blue-600,
+        html:not(.dark) main .bg-cyan-500,
+        html:not(.dark) main .bg-cyan-600,
+        html:not(.dark) main .bg-emerald-500,
+        html:not(.dark) main .bg-emerald-600,
+        html:not(.dark) main .bg-red-500,
+        html:not(.dark) main .bg-red-600,
+        html:not(.dark) main .bg-orange-500,
+        html:not(.dark) main .bg-orange-600,
+        html:not(.dark) main .bg-purple-500,
+        html:not(.dark) main .bg-purple-600,
+        html:not(.dark) main .bg-neon {
+
+            color: #ffffff !important;
+
+            box-shadow: none !important;
+        }
+
+
+        html:not(.dark) main .bg-neon {
+
+            background-color: #f3b83a !important;
+
+            color: #1e293b !important;
+        }
+
+        html:not(.dark) main .text-neon {
+
+            color: #d97706 !important;
+        }
+
+        html:not(.dark) main .text-cyan-400 {
+
+            color: #0284c7 !important;
+        }
+
+        html:not(.dark) main .text-emerald-400 {
+
+            color: #059669 !important;
+        }
+
+        html:not(.dark) main .text-red-400 {
+
+            color: #dc2626 !important;
+        }
+
+        html:not(.dark) main .text-orange-400 {
+
+            color: #ea580c !important;
+        }
+
+        html:not(.dark) main .text-purple-400 {
+
+            color: #7c3aed !important;
+        }
+
+
+        /* ============================================================ */
+        /* MODULE PRODUCTION                                              */
+        /* ============================================================ */
+
+        html:not(.dark) main .border-t-cyan-500 {
+
+            border-top-color: #06b6d4 !important;
+        }
+
+        html:not(.dark) main .border-emerald-500\/30 {
+
+            border-color: #34d399 !important;
+
+            background-color: #f0fdf4 !important;
+        }
+
+        html:not(.dark) main .border-blue-500\/30 {
+
+            border-color: #3b82f6 !important;
+
+            background-color: #eff6ff !important;
+        }
+
+        html:not(.dark) main .border-orange-500\/40 {
+
+            border-color: #f97316 !important;
+
+            background-color: #fff7ed !important;
+        }
+
+        html:not(.dark) main .border-red-500\/40 {
+
+            border-color: #ef4444 !important;
+
+            background-color: #fef2f2 !important;
+        }
+
+
+        /* ============================================================ */
+        /* CHAT                                                           */
+        /* ============================================================ */
+
+        html:not(.dark) main .bg-cyan-600 {
+
+            background-color: #06b6d4 !important;
+
+            color: #ffffff !important;
+        }
+
+
+        /* ============================================================ */
+        /* INLINE DARK COLORS                                             */
+        /* ============================================================ */
+
+        html:not(.dark) main
+        [style*="#0f172a"],
+        html:not(.dark) main
+        [style*="#111827"],
+        html:not(.dark) main
+        [style*="#1e293b"],
+        html:not(.dark) main
+        [style*="#334155"],
+        html:not(.dark) main
+        [style*="#374151"],
+        html:not(.dark) main
+        [style*="#3f3f46"],
+        html:not(.dark) main
+        [style*="#475569"],
+        html:not(.dark) main
+        [style*="#4b5563"],
+        html:not(.dark) main
+        [style*="#52525b"],
+        html:not(.dark) main
+        [style*="#57534e"],
+        html:not(.dark) main
+        [style*="#64748b"],
+        html:not(.dark) main
+        [style*="#6b7280"] {
+
+            background-color: #ffffff !important;
+
+            color: #1e293b !important;
+
+            border-color: #e2e8f0 !important;
+        }
+
+
+        /* ============================================================ */
+        /* RGBA SOMBRES INLINE                                            */
+        /* ============================================================ */
+
+        html:not(.dark) main
+        [style*="rgba(15, 23, 42"],
+        html:not(.dark) main
+        [style*="rgba(15,23,42"],
+        html:not(.dark) main
+        [style*="rgba(30, 41, 59"],
+        html:not(.dark) main
+        [style*="rgba(30,41,59"],
+        html:not(.dark) main
+        [style*="rgba(51, 65, 85"],
+        html:not(.dark) main
+        [style*="rgba(51,65,85"] {
+
+            background-color: #ffffff !important;
+
+            background-image: none !important;
+
+            color: #1e293b !important;
+
+            border-color: #e2e8f0 !important;
+        }
+
+
+        /* ============================================================ */
+        /* PLANNING / GANTT                                               */
+        /* ============================================================ */
+
+        html:not(.dark) main
+        [class*="gantt"],
+        html:not(.dark) main
+        [id*="gantt"],
+        html:not(.dark) main
+        [class*="Gantt"],
+        html:not(.dark) main
+        [id*="Gantt"] {
+
+            color: #334155 !important;
+        }
+
+
+        /* ============================================================ */
+        /* SVG GANTT                                                      */
+        /* ============================================================ */
+
+        html:not(.dark) main svg text {
+
+            fill: #334155 !important;
+        }
+
+        html:not(.dark) main svg line {
+
+            stroke: #e2e8f0 !important;
+        }
+
+        html:not(.dark) main svg path {
+
+            stroke: #cbd5e1;
+        }
+
+
+        /* ============================================================ */
+        /* CANVAS                                                         */
+        /* ============================================================ */
+
+        html:not(.dark) main canvas {
+
+            background-color: transparent !important;
+        }
+
+
+        /* ============================================================ */
+        /* SCROLLBAR LIGHT                                                */
+        /* ============================================================ */
+
+        html:not(.dark) main ::-webkit-scrollbar-track {
+
+            background: #f1f5f9 !important;
+        }
+
+        html:not(.dark) main ::-webkit-scrollbar-thumb {
+
+            background: #cbd5e1 !important;
+
+            border-radius: 5px;
+        }
+
+        html:not(.dark) main ::-webkit-scrollbar-thumb:hover {
+
+            background: #94a3b8 !important;
+        }
+
+
+        /* ============================================================ */
+        /* CARTES GÉNÉRIQUES                                              */
+        /* ============================================================ */
+
+        html:not(.dark) main .production-card,
+        html:not(.dark) main .production-panel,
+        html:not(.dark) main .planning-card,
+        html:not(.dark) main .planning-panel {
+
+            background-color: #ffffff !important;
+
+            background-image: none !important;
+
+            color: #1e293b !important;
+
+            border-color: #e2e8f0 !important;
+
+            box-shadow:
+                0 4px 12px rgba(15, 23, 42, 0.06) !important;
+        }
+
+
+        /* ============================================================ */
+        /* PWA TOAST LIGHT                                                */
+        /* ============================================================ */
+
+        html:not(.dark) #global-chat-toast > div {
+
+            background-color: #ffffff !important;
+
+            color: #1e293b !important;
+
+            border-color: #e2e8f0 !important;
+        }
+
+        html:not(.dark) #global-chat-toast-body {
+
+            color: #475569 !important;
+        }
+
     </style>
 </head>
 
+
 <body class="bg-darkbg text-gray-200 font-sans h-screen flex flex-col overflow-hidden">
 
-    <!-- 🌟 BANNIÈRE AUTOMATIQUE D'INSTALLATION DE L'APPLICATION -->
-    <div id="pwa-install-banner" class="hidden bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black px-4 py-3 flex items-center justify-between shadow-2xl z-[99999] border-b-2 border-yellow-300">
+
+    <!-- ================================================================ -->
+    <!-- BANNIÈRE INSTALLATION PWA                                       -->
+    <!-- ================================================================ -->
+
+    <div
+        id="pwa-install-banner"
+        class="hidden bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black px-4 py-3 flex items-center justify-between shadow-2xl z-[99999] border-b-2 border-yellow-300"
+    >
+
         <div class="flex items-center gap-3">
-            <img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="FB PACK" class="h-8 w-auto object-contain">
+
+            <img
+                src="{% static 'logo1.png' %}"
+                data-fallback="{% static 'logo.png' %}"
+                alt="FB PACK"
+                class="h-8 w-auto object-contain"
+            >
+
             <div>
-                <span class="text-xs md:text-sm font-black uppercase tracking-wider block">📲 Installer l'application FB PACK</span>
-                <span class="text-[10px] text-slate-900 font-bold block">Ajoutez l'icône directement sur votre écran</span>
+
+                <span class="text-xs md:text-sm font-black uppercase tracking-wider block">
+                    📲 Installer l'application FB PACK
+                </span>
+
+                <span class="text-[10px] text-slate-900 font-bold block">
+                    Ajoutez l'icône directement sur votre écran
+                </span>
+
             </div>
+
         </div>
+
         <div class="flex items-center gap-3 shrink-0">
-            <button id="pwa-banner-install-btn" type="button" class="bg-slate-950 hover:bg-slate-900 text-yellow-400 px-5 py-2.5 rounded-xl text-xs uppercase font-extrabold shadow-lg transition transform active:scale-95 flex items-center gap-2">
-                <span>👉</span> INSTALLER
+
+            <button
+                id="pwa-banner-install-btn"
+                type="button"
+                class="bg-slate-950 hover:bg-slate-900 text-yellow-400 px-5 py-2.5 rounded-xl text-xs uppercase font-extrabold shadow-lg transition transform active:scale-95 flex items-center gap-2"
+            >
+                <span>👉</span>
+                INSTALLER
             </button>
-            <button type="button" onclick="document.getElementById('pwa-install-banner').classList.add('hidden')" class="text-slate-950 hover:text-white font-black text-xl px-2">✕</button>
-        </div>
-    </div>
 
-    <div class="flex-1 flex overflow-hidden w-full h-full relative">
-        
-        <!-- VOILE NOIR POUR SMARTPHONE (OVERLAY) -->
-        <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/70 z-[90] hidden md:hidden transition-opacity opacity-0 backdrop-blur-sm"></div>
-
-        <!-- SIDEBAR (Menu latéral glissant sur mobile) -->
-        <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-[100] w-64 bg-slate-900 border-r border-slate-700 flex flex-col transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none">
-            
-            <!-- BOUTON FERMER SUR MOBILE -->
-            <button onclick="toggleSidebar()" class="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+            <button
+                type="button"
+                onclick="document.getElementById('pwa-install-banner').classList.add('hidden')"
+                class="text-slate-950 hover:text-white font-black text-xl px-2"
+            >
                 ✕
             </button>
 
-            <!-- LOGO SÉCURISÉ -->
-            <div class="h-16 flex items-center justify-center border-b border-slate-700 p-2 shadow-lg bg-slate-800/50">
-                <img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="Logo FB PACK" class="h-12 w-auto object-contain">
+        </div>
+
+    </div>
+
+
+    <!-- ================================================================ -->
+    <!-- CONTENEUR GLOBAL                                                 -->
+    <!-- ================================================================ -->
+
+    <div class="flex-1 flex overflow-hidden w-full h-full relative">
+
+
+        <!-- ============================================================ -->
+        <!-- MOBILE OVERLAY                                                -->
+        <!-- ============================================================ -->
+
+        <div
+            id="mobile-overlay"
+            onclick="toggleSidebar()"
+            class="fixed inset-0 bg-black/70 z-[90] hidden md:hidden transition-opacity opacity-0 backdrop-blur-sm"
+        ></div>
+
+
+        <!-- ============================================================ -->
+        <!-- SIDEBAR                                                       -->
+        <!-- TOUJOURS DARK                                                 -->
+        <!-- ============================================================ -->
+
+        <aside
+            id="main-sidebar"
+            class="fixed inset-y-0 left-0 z-[100] w-64 bg-slate-900 border-r border-slate-700 flex flex-col transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none"
+        >
+
+            <button
+                onclick="toggleSidebar()"
+                class="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white p-2"
+            >
+                ✕
+            </button>
+
+
+            <!-- LOGO -->
+
+            <div
+                class="h-16 flex items-center justify-center border-b border-slate-700 p-2 shadow-lg bg-slate-800/50"
+            >
+
+                <img
+                    src="{% static 'logo1.png' %}"
+                    data-fallback="{% static 'logo.png' %}"
+                    alt="Logo FB PACK"
+                    class="h-12 w-auto object-contain"
+                >
+
             </div>
 
-            <!-- 🚀 RECHERCHE GLOBALE LOT -->
+
+            <!-- RECHERCHE -->
+
             <div class="p-3 border-b border-slate-800">
-                <form action="{% url 'prod_tracabilite_search' %}" method="GET" class="relative">
-                    <input type="text" name="q" placeholder="Chercher un Lot / OF..." 
-                           class="w-full bg-slate-950 text-gray-200 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+
+                <form
+                    action="{% url 'prod_tracabilite_search' %}"
+                    method="GET"
+                    class="relative"
+                >
+
+                    <input
+                        type="text"
+                        name="q"
+                        placeholder="Chercher un Lot / OF..."
+                        class="w-full bg-slate-950 text-gray-200 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
+                    >
+
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                        🔍
+                    </span>
+
                 </form>
+
             </div>
 
-            <!-- MENU NAVIGATION -->
+
+            <!-- ======================================================== -->
+            <!-- NAVIGATION                                                -->
+            <!-- ======================================================== -->
+
             <nav class="flex-1 py-4 overflow-y-auto space-y-1">
 
-                <!-- TABLEAU DE BORD -->
+
                 {% if 'dashboard' in user_modules %}
-                <a href="{% url 'dashboard' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                    <span class="mr-3 text-lg">📊</span> Dashboard
+
+                <a
+                    href="{% url 'dashboard' %}"
+                    class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                >
+
+                    <span class="mr-3 text-lg">📊</span>
+
+                    Dashboard
+
                 </a>
+
                 {% endif %}
+
 
                 {% if 'planning' in user_modules %}
-                <a href="{% url 'planning' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}">
-                    <span class="mr-3 text-lg">📅</span> Planning Gantt
+
+                <a
+                    href="{% url 'planning' %}"
+                    class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}"
+                >
+
+                    <span class="mr-3 text-lg">📅</span>
+
+                    Planning Gantt
+
                 </a>
+
                 {% endif %}
 
+
                 {% if 'reporting' in user_modules %}
-                <a href="{% url 'reporting' %}" class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}">
-                    <span class="mr-3 text-lg">📈</span> Reporting
+
+                <a
+                    href="{% url 'reporting' %}"
+                    class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}"
+                >
+
+                    <span class="mr-3 text-lg">📈</span>
+
+                    Reporting
+
                 </a>
+
                 {% endif %}
-                
-                <!-- GESTION OPÉRATIONNELLE -->
+
+
                 {% if 'crm' in user_modules or 'prepress' in user_modules or 'planification' in user_modules or 'production' in user_modules or 'stock' in user_modules %}
+
                 <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                     Gestion Opérationnelle
                 </div>
+
                 {% endif %}
-                
-                <!-- CRM & DEVIS -->
+
+
                 {% if 'crm' in user_modules %}
-                <a href="{% url 'crm_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'crm' in request.path %}active{% endif %}">
-                    <span class="mr-3">🤝</span> CRM & Devis
+
+                <a
+                    href="{% url 'crm_view' %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'crm' in request.path %}active{% endif %}"
+                >
+
+                    <span class="mr-3">🤝</span>
+
+                    CRM & Devis
+
                 </a>
+
                 {% endif %}
 
-                <!-- PRÉPRESSE -->
+
                 {% if 'prepress' in user_modules %}
-                <a href="{% url 'prepress_view' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'prepress' in request.path %}active{% endif %}">
-                    <span class="mr-3">🎨</span> Prépresse & Outils
+
+                <a
+                    href="{% url 'prepress_view' %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'prepress' in request.path %}active{% endif %}"
+                >
+
+                    <span class="mr-3">🎨</span>
+
+                    Prépresse & Outils
+
                 </a>
+
                 {% endif %}
 
-                <!-- NOUVEAU MODULE PLANIFICATION -->
+
                 {% if 'planification' in user_modules %}
-                <a href="{% url 'planning_atelier' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'planification' in request.path or 'planning-atelier' in request.path or '/of/' in request.path and 'crm' not in request.path %}active{% endif %}">
-                    <span class="mr-3">📅</span> Planification
+
+                <a
+                    href="{% url 'planning_atelier' %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'planification' in request.path or 'planning-atelier' in request.path or '/of/' in request.path and 'crm' not in request.path %}active{% endif %}"
+                >
+
+                    <span class="mr-3">📅</span>
+
+                    Planification
+
                 </a>
+
                 {% endif %}
 
-                <!-- PRODUCTION SPÉCIALE -->
+
                 {% if 'production' in user_modules %}
-                <a href="{% url 'prod_dashboard' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/prod/' in request.path and '/encre/' not in request.path %}active{% endif %}">
-                    <span class="mr-3">⚙️</span> Production Spécial
+
+                <a
+                    href="{% url 'prod_dashboard' %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/prod/' in request.path and '/encre/' not in request.path %}active{% endif %}"
+                >
+
+                    <span class="mr-3">⚙️</span>
+
+                    Production Spécial
+
                 </a>
+
                 {% endif %}
 
-                <!-- STOCKS & ACHATS -->
+
                 {% if 'stock' in user_modules %}
-                <a href="{% url 'stock_advanced' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/stock/' in request.path %}active{% endif %}">
-                    <span class="mr-3">📦</span> Stocks & Achats
+
+                <a
+                    href="{% url 'stock_advanced' %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/stock/' in request.path %}active{% endif %}"
+                >
+
+                    <span class="mr-3">📦</span>
+
+                    Stocks & Achats
+
                 </a>
+
                 {% endif %}
 
-                <!-- MODULE MAINTENANCE -->
+
                 {% if 'maintenance' in user_modules %}
+
                 <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-orange-500/60 uppercase tracking-widest">
                     Maintenance
                 </div>
 
-                <a href="{% url 'maintenance_dashboard' %}" class="nav-link-maint flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/maintenance/' in request.path %}active{% endif %}">
+                <a
+                    href="{% url 'maintenance_dashboard' %}"
+                    class="nav-link-maint flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/maintenance/' in request.path %}active{% endif %}"
+                >
+
                     <span class="mr-3">🔧</span>
-                    <span>Maintenance</span>
+
+                    Maintenance
 
                     {% if alertes_maintenance_count > 0 %}
+
                     <span class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                         {{ alertes_maintenance_count }}
                     </span>
+
                     {% endif %}
+
                 </a>
+
                 {% endif %}
 
-                <!-- MODULE DRH -->
+
                 {% if 'drh' in user_modules %}
+
                 <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-emerald-500/60 uppercase tracking-widest">
                     Ressources Humaines
                 </div>
 
-                <a href="{% url 'drh_dashboard' %}" class="nav-link-drh flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/drh/' in request.path %}active{% endif %}">
+                <a
+                    href="{% url 'drh_dashboard' %}"
+                    class="nav-link-drh flex items-center px-6 py-2 transition text-sm text-gray-300 {% if '/drh/' in request.path %}active{% endif %}"
+                >
+
                     <span class="mr-3">👥</span>
-                    <span>DRH</span>
+
+                    DRH
+
                 </a>
+
                 {% endif %}
 
-                <!-- OUTILS -->
+
                 {% if 'chat' in user_modules or 'import' in user_modules %}
+
                 <div class="mt-6 mb-2 px-6 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
                     Outils
                 </div>
-                {% endif %}
-                
-                {% if 'chat' in user_modules %}
-                <a href="{% url 'chat_home' %}" id="chat-menu-link"
-                   class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}">
-                    <span class="mr-3">💬</span>
-                    <span>Chat d'Équipe</span>
-                    <span id="chat-menu-badge"
-                          class="chat-menu-badge ml-auto hidden bg-red-500 text-white text-center rounded-full px-1.5">
-                        0
-                    </span>
-                </a>
+
                 {% endif %}
 
-                {% if 'import' in user_modules %}
-                <a href="{% url 'import_stock' %}" class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300 {% if 'import' in request.path %}active{% endif %}">
-                    <span class="mr-3">📥</span> Importer Excel
+
+                {% if 'chat' in user_modules %}
+
+                <a
+                    href="{% url 'chat_home' %}"
+                    id="chat-menu-link"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'chat' in request.path %}active{% endif %}"
+                >
+
+                    <span class="mr-3">💬</span>
+
+                    Chat d'Équipe
+
+                    <span
+                        id="chat-menu-badge"
+                        class="chat-menu-badge ml-auto hidden bg-red-500 text-white text-center rounded-full px-1.5"
+                    >
+                        0
+                    </span>
+
                 </a>
+
+                {% endif %}
+
+
+                {% if 'import' in user_modules %}
+
+                <a
+                    href="{% url 'import_stock' %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-emerald-400 hover:text-emerald-300 {% if 'import' in request.path %}active{% endif %}"
+                >
+
+                    <span class="mr-3">📥</span>
+
+                    Importer Excel
+
+                </a>
+
                 {% endif %}
 
             </nav>
 
-            <!-- ZONE UTILISATEUR -->
-            <div class="mt-auto border-t border-slate-700 p-4 bg-slate-900/80 backdrop-blur-sm">
+
+            <!-- ======================================================== -->
+            <!-- UTILISATEUR                                               -->
+            <!-- ======================================================== -->
+
+            <div
+                class="mt-auto border-t border-slate-700 p-4 bg-slate-900/80 backdrop-blur-sm"
+            >
 
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold shadow-lg shadow-orange-500/20">
+
+                    <div
+                        class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold shadow-lg shadow-orange-500/20"
+                    >
                         {{ user.username|slice:":1"|upper }}
                     </div>
 
-                    <div class="overflow-hidden">
-                        <p class="text-sm font-bold text-white truncate w-32">
+                    <div class="overflow-hidden flex-1">
+
+                        <p class="text-sm font-bold text-white truncate">
                             {{ user.username|default:"Utilisateur" }}
                         </p>
 
                         <p class="text-[10px] text-emerald-400 flex items-center gap-1">
+
                             <span class="relative flex h-2 w-2">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+
+                                <span
+                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
+                                ></span>
+
+                                <span
+                                    class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"
+                                ></span>
+
                             </span>
+
                             En ligne
+
                         </p>
+
                     </div>
+
+
+                    <!-- TOGGLE -->
+
+                    <button
+                        id="theme-toggle"
+                        type="button"
+                        class="p-2 text-gray-400 hover:text-white rounded-lg bg-slate-800 border border-slate-700 transition shadow-md"
+                        title="Basculer le mode Sombre/Clair"
+                    >
+
+                        <span class="theme-toggle-dark-icon hidden text-xl">
+                            🌙
+                        </span>
+
+                        <span class="theme-toggle-light-icon hidden text-xl">
+                            ☀️
+                        </span>
+
+                    </button>
+
                 </div>
 
-                <!-- BOUTON INSTALLER L'APPLICATION EN BAS DE SIDEBAR -->
-                <button id="btn-install-app" type="button"
-                        class="w-full mb-2 flex items-center justify-center gap-2 text-xs font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 py-2 rounded-lg transition duration-200">
+
+                <!-- INSTALL APP -->
+
+                <button
+                    id="btn-install-app"
+                    type="button"
+                    class="w-full mb-2 flex items-center justify-center gap-2 text-xs font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 py-2 rounded-lg transition duration-200"
+                >
                     📲 Installer l'App FB PACK
                 </button>
+
 
                 <div class="grid grid-cols-2 gap-2">
 
                     {% if 'admin' in user_modules or is_super_admin %}
-                    <a href="{% url 'admin_view' %}" class="flex items-center justify-center gap-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg border border-slate-600 transition duration-200">
+
+                    <a
+                        href="{% url 'admin_view' %}"
+                        class="flex items-center justify-center gap-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-gray-300 py-2 rounded-lg border border-slate-600 transition duration-200"
+                    >
                         ⚙️ Admin
                     </a>
+
                     {% else %}
+
                     <div></div>
+
                     {% endif %}
 
-                    <form action="{% url 'logout' %}" method="post" class="w-full">
+
+                    <form
+                        action="{% url 'logout' %}"
+                        method="post"
+                        class="w-full"
+                    >
+
                         {% csrf_token %}
-                        <button type="submit" class="w-full flex items-center justify-center gap-1 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2 rounded-lg transition duration-200">
+
+                        <button
+                            type="submit"
+                            class="w-full flex items-center justify-center gap-1 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2 rounded-lg transition duration-200"
+                        >
                             🚪 Sortir
                         </button>
+
                     </form>
 
                 </div>
+
             </div>
+
         </aside>
 
-        <!-- WRAPPER DROITE (Header Mobile + Contenu + Bottom Nav) -->
-        <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-darkbg">
-            
-            <!-- HEADER MOBILE SEULEMENT -->
-            <header class="md:hidden flex items-center justify-between bg-slate-900 border-b border-slate-700 p-3 shrink-0 shadow-md">
+
+        <!-- ============================================================ -->
+        <!-- WRAPPER DROITE                                                -->
+        <!-- ============================================================ -->
+
+        <div
+            class="flex-1 flex flex-col min-w-0 overflow-hidden bg-darkbg transition-colors duration-300"
+        >
+
+
+            <!-- ======================================================== -->
+            <!-- HEADER MOBILE                                              -->
+            <!-- TOUJOURS DARK                                               -->
+            <!-- ======================================================== -->
+
+            <header
+                class="md:hidden flex items-center justify-between bg-slate-900 border-b border-slate-700 p-3 shrink-0 shadow-md"
+            >
+
                 <div class="flex items-center gap-3">
-                    <button onclick="toggleSidebar()" class="text-gray-300 hover:text-white focus:outline-none p-1 bg-slate-800 rounded-lg">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+
+                    <button
+                        onclick="toggleSidebar()"
+                        class="text-gray-300 hover:text-white focus:outline-none p-1 bg-slate-800 rounded-lg"
+                    >
+
+                        <svg
+                            class="w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16"
+                            ></path>
+
                         </svg>
+
                     </button>
-                    <img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="FB PACK" class="h-6 w-auto">
+
+
+                    <img
+                        src="{% static 'logo1.png' %}"
+                        data-fallback="{% static 'logo.png' %}"
+                        alt="FB PACK"
+                        class="h-6 w-auto"
+                    >
+
                 </div>
+
+
                 <div class="flex items-center gap-2">
-                    <div class="h-8 w-8 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold text-xs shadow-lg">
+
+                    <button
+                        id="theme-toggle-mobile"
+                        type="button"
+                        class="p-1.5 text-gray-300 hover:text-white bg-slate-800 rounded-lg border border-slate-700"
+                        title="Basculer le mode Sombre/Clair"
+                    >
+
+                        <span class="theme-toggle-dark-icon hidden text-base">
+                            🌙
+                        </span>
+
+                        <span class="theme-toggle-light-icon hidden text-base">
+                            ☀️
+                        </span>
+
+                    </button>
+
+
+                    <div
+                        class="h-8 w-8 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold text-xs shadow-lg"
+                    >
                         {{ user.username|slice:":1"|upper }}
                     </div>
+
                 </div>
+
             </header>
 
-            <!-- MAIN CONTENT -->
-            <main class="flex-1 overflow-auto relative w-full h-full pb-16 md:pb-0">
-                
-                <!-- MESSAGES DJANGO -->
+
+            <!-- ======================================================== -->
+            <!-- MAIN                                                        -->
+            <!-- ======================================================== -->
+
+            <main
+                id="fb-main-content"
+                class="flex-1 overflow-auto relative w-full h-full pb-16 md:pb-0 transition-colors duration-300 bg-darkbg"
+            >
+
                 {% if messages %}
+
                 <div class="px-4 md:px-8 pt-4">
 
                     {% for message in messages %}
-                    <div class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
-                        {% if message.tags == 'success' %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
-                        {% elif message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400
-                        {% elif message.tags == 'warning' %}bg-yellow-500/10 border border-yellow-500/30 text-yellow-400
-                        {% else %}bg-blue-500/10 border border-blue-500/30 text-blue-400{% endif %}">
 
-                        {% if message.tags == 'success' %}✅
-                        {% elif message.tags == 'error' %}❌
-                        {% elif message.tags == 'warning' %}⚠️
-                        {% else %}ℹ️{% endif %}
-                        
-                        <span class="flex-1">{{ message }}</span>
+                    <div
+                        class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
+                        {% if message.tags == 'success' %}
+                            bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
+                        {% elif message.tags == 'error' %}
+                            bg-red-500/10 border border-red-500/30 text-red-400
+                        {% elif message.tags == 'warning' %}
+                            bg-yellow-500/10 border border-yellow-500/30 text-yellow-400
+                        {% else %}
+                            bg-blue-500/10 border border-blue-500/30 text-blue-400
+                        {% endif %}"
+                    >
 
-                        <button onclick="this.parentElement.remove()" class="text-gray-500 hover:text-white text-lg">✕</button>
+                        {% if message.tags == 'success' %}
+                            ✅
+                        {% elif message.tags == 'error' %}
+                            ❌
+                        {% elif message.tags == 'warning' %}
+                            ⚠️
+                        {% else %}
+                            ℹ️
+                        {% endif %}
+
+                        <span class="flex-1">
+                            {{ message }}
+                        </span>
+
+                        <button
+                            onclick="this.parentElement.remove()"
+                            class="text-gray-500 hover:text-white text-lg"
+                        >
+                            ✕
+                        </button>
+
                     </div>
+
                     {% endfor %}
 
                 </div>
+
                 {% endif %}
-                
+
+
                 <div class="p-4 md:p-8">
-                    {% block content %}
-                    {% endblock %}
+
+                    {% block content %}{% endblock %}
+
                 </div>
+
             </main>
 
-            <!-- BARRE DE NAVIGATION INFÉRIEURE (MOBILE SEULEMENT) -->
-            <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex items-center justify-around pb-2 pt-2 z-40 shadow-[0_-4px_15px_rgba(0,0,0,0.4)]" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
-                
+
+            <!-- ======================================================== -->
+            <!-- MOBILE BOTTOM NAV                                          -->
+            <!-- ======================================================== -->
+
+            <nav
+                class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex items-center justify-around pb-2 pt-2 z-40 shadow-[0_-4px_15px_rgba(0,0,0,0.4)]"
+                style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));"
+            >
+
                 {% if 'dashboard' in user_modules %}
-                <a href="{% url 'dashboard' %}" class="flex flex-col items-center p-1 text-gray-400 hover:text-neon {% if request.resolver_match.url_name == 'dashboard' %}text-neon{% endif %}">
-                    <span class="text-xl leading-none mb-1">📊</span>
-                    <span class="text-[9px] font-bold uppercase tracking-wider">Accueil</span>
+
+                <a
+                    href="{% url 'dashboard' %}"
+                    class="flex flex-col items-center p-1 text-gray-400 hover:text-neon {% if request.resolver_match.url_name == 'dashboard' %}text-neon{% endif %}"
+                >
+
+                    <span class="text-xl leading-none mb-1">
+                        📊
+                    </span>
+
+                    <span class="text-[9px] font-bold uppercase tracking-wider">
+                        Accueil
+                    </span>
+
                 </a>
+
                 {% endif %}
+
 
                 {% if 'production' in user_modules %}
-                <a href="{% url 'prod_dashboard' %}" class="flex flex-col items-center p-1 text-gray-400 hover:text-cyan-400 {% if '/prod/' in request.path %}text-cyan-400{% endif %}">
-                    <span class="text-xl leading-none mb-1">⚙️</span>
-                    <span class="text-[9px] font-bold uppercase tracking-wider">Atelier</span>
+
+                <a
+                    href="{% url 'prod_dashboard' %}"
+                    class="flex flex-col items-center p-1 text-gray-400 hover:text-cyan-400 {% if '/prod/' in request.path %}text-cyan-400{% endif %}"
+                >
+
+                    <span class="text-xl leading-none mb-1">
+                        ⚙️
+                    </span>
+
+                    <span class="text-[9px] font-bold uppercase tracking-wider">
+                        Atelier
+                    </span>
+
                 </a>
+
                 {% endif %}
+
 
                 {% if 'stock' in user_modules %}
-                <a href="{% url 'stock_advanced' %}" class="flex flex-col items-center p-1 text-gray-400 hover:text-emerald-400 {% if '/stock/' in request.path %}text-emerald-400{% endif %}">
-                    <span class="text-xl leading-none mb-1">📦</span>
-                    <span class="text-[9px] font-bold uppercase tracking-wider">Stock</span>
+
+                <a
+                    href="{% url 'stock_advanced' %}"
+                    class="flex flex-col items-center p-1 text-gray-400 hover:text-emerald-400 {% if '/stock/' in request.path %}text-emerald-400{% endif %}"
+                >
+
+                    <span class="text-xl leading-none mb-1">
+                        📦
+                    </span>
+
+                    <span class="text-[9px] font-bold uppercase tracking-wider">
+                        Stock
+                    </span>
+
                 </a>
+
                 {% endif %}
+
 
                 {% if 'chat' in user_modules %}
-                <a href="{% url 'chat_home' %}" class="relative flex flex-col items-center p-1 text-gray-400 hover:text-purple-400 {% if 'chat' in request.path %}text-purple-400{% endif %}">
-                    <span class="text-xl leading-none mb-1">💬</span>
-                    <span class="text-[9px] font-bold uppercase tracking-wider">Chat</span>
-                    <span id="mobile-chat-badge" class="chat-menu-badge absolute -top-1 -right-1 hidden bg-red-500 text-white rounded-full">0</span>
+
+                <a
+                    href="{% url 'chat_home' %}"
+                    class="relative flex flex-col items-center p-1 text-gray-400 hover:text-purple-400 {% if 'chat' in request.path %}text-purple-400{% endif %}"
+                >
+
+                    <span class="text-xl leading-none mb-1">
+                        💬
+                    </span>
+
+                    <span class="text-[9px] font-bold uppercase tracking-wider">
+                        Chat
+                    </span>
+
+                    <span
+                        id="mobile-chat-badge"
+                        class="chat-menu-badge absolute -top-1 -right-1 hidden bg-red-500 text-white rounded-full"
+                    >
+                        0
+                    </span>
+
                 </a>
+
                 {% endif %}
 
-                <!-- Bouton Ouvrir Menu Mobile -->
-                <button onclick="toggleSidebar()" class="flex flex-col items-center p-1 text-gray-400 hover:text-white focus:outline-none">
-                    <span class="text-xl leading-none mb-1">☰</span>
-                    <span class="text-[9px] font-bold uppercase tracking-wider">Menu</span>
+
+                <button
+                    onclick="toggleSidebar()"
+                    class="flex flex-col items-center p-1 text-gray-400 hover:text-white focus:outline-none"
+                >
+
+                    <span class="text-xl leading-none mb-1">
+                        ☰
+                    </span>
+
+                    <span class="text-[9px] font-bold uppercase tracking-wider">
+                        Menu
+                    </span>
+
                 </button>
+
             </nav>
 
         </div>
+
     </div>
 
-    <!-- TOAST CHAT GLOBAL -->
-    <div id="global-chat-toast" class="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[9999] hidden max-w-sm w-72 md:w-96">
-        <div class="bg-slate-900 border border-neon/40 shadow-2xl rounded-xl px-4 py-3 text-white flex items-start gap-3">
-            <span class="text-2xl shrink-0" id="global-chat-toast-icon">💬</span>
+
+    <!-- ================================================================ -->
+    <!-- TOAST CHAT                                                       -->
+    <!-- ================================================================ -->
+
+    <div
+        id="global-chat-toast"
+        class="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[9999] hidden max-w-sm w-72 md:w-96"
+    >
+
+        <div
+            class="bg-slate-900 border border-neon/40 shadow-2xl rounded-xl px-4 py-3 text-white flex items-start gap-3"
+        >
+
+            <span
+                class="text-2xl shrink-0"
+                id="global-chat-toast-icon"
+            >
+                💬
+            </span>
+
             <div class="min-w-0 flex-1">
-                <p id="global-chat-toast-title" class="font-bold text-neon text-sm"></p>
-                <p id="global-chat-toast-body" class="text-gray-300 text-sm mt-0.5 break-words"></p>
-                <a id="global-chat-toast-link" href="{% url 'chat_home' %}" class="inline-block mt-2 text-xs text-cyan-400 hover:underline">Ouvrir le chat →</a>
+
+                <p
+                    id="global-chat-toast-title"
+                    class="font-bold text-neon text-sm"
+                ></p>
+
+                <p
+                    id="global-chat-toast-body"
+                    class="text-gray-300 text-sm mt-0.5 break-words"
+                ></p>
+
+                <a
+                    id="global-chat-toast-link"
+                    href="{% url 'chat_home' %}"
+                    class="inline-block mt-2 text-xs text-cyan-400 hover:underline"
+                >
+                    Ouvrir le chat →
+                </a>
+
             </div>
-            <button type="button" onclick="window.FBChatNotif && window.FBChatNotif.closeToast()" class="text-gray-500 hover:text-white text-lg leading-none shrink-0">&times;</button>
+
+            <button
+                type="button"
+                onclick="window.FBChatNotif && window.FBChatNotif.closeToast()"
+                class="text-gray-500 hover:text-white text-lg leading-none shrink-0"
+            >
+                &times;
+            </button>
+
         </div>
+
     </div>
 
-    <!-- MODAL AIDE INSTALLATION APP -->
-    <div id="modal-install-help" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+
+    <!-- ================================================================ -->
+    <!-- MODAL INSTALLATION                                                -->
+    <!-- ================================================================ -->
+
+    <div
+        id="modal-install-help"
+        class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4"
+    >
+
+        <div
+            class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl"
+        >
+
             <div class="flex items-center gap-3 mb-4">
-                <img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="FB PACK" class="h-10 w-auto object-contain">
+
+                <img
+                    src="{% static 'logo1.png' %}"
+                    data-fallback="{% static 'logo.png' %}"
+                    alt="FB PACK"
+                    class="h-10 w-auto object-contain"
+                >
+
                 <div>
-                    <h3 class="text-lg font-bold text-white">Installer FB PACK ERP</h3>
-                    <p class="text-xs text-gray-400">Créez un raccourci avec le logo de l'entreprise</p>
+
+                    <h3 class="text-lg font-bold text-white">
+                        Installer FB PACK ERP
+                    </h3>
+
+                    <p class="text-xs text-gray-400">
+                        Créez un raccourci avec le logo de l'entreprise
+                    </p>
+
                 </div>
+
             </div>
+
 
             <div class="space-y-3 text-sm text-gray-300">
+
                 <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                    <p class="font-bold text-cyan-300 mb-1">💻 PC (Chrome / Edge)</p>
-                    <p class="text-xs">Cliquez sur l’icône <strong>Installer</strong> dans la barre d’adresse, ou menu ⋮ → <strong>Installer FB PACK ERP</strong>.</p>
+
+                    <p class="font-bold text-cyan-300 mb-1">
+                        💻 PC (Chrome / Edge)
+                    </p>
+
+                    <p class="text-xs">
+                        Cliquez sur l'icône
+                        <strong>Installer</strong>
+                        dans la barre d'adresse,
+                        ou menu ⋮ →
+                        <strong>Installer FB PACK ERP</strong>.
+                    </p>
+
                 </div>
+
+
                 <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                    <p class="font-bold text-emerald-300 mb-1">🤖 Android (Chrome)</p>
-                    <p class="text-xs">Menu ⋮ → <strong>Ajouter à l’écran d’accueil</strong> / <strong>Installer l’application</strong>.</p>
+
+                    <p class="font-bold text-emerald-300 mb-1">
+                        🤖 Android (Chrome)
+                    </p>
+
+                    <p class="text-xs">
+                        Menu ⋮ →
+                        <strong>Ajouter à l'écran d'accueil</strong>
+                        /
+                        <strong>Installer l'application</strong>.
+                    </p>
+
                 </div>
+
+
                 <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                    <p class="font-bold text-blue-300 mb-1">🍎 iPhone / iPad (Safari)</p>
-                    <p class="text-xs">Bouton Partager ⎋ → <strong>Sur l’écran d’accueil</strong> → Ajouter.</p>
+
+                    <p class="font-bold text-blue-300 mb-1">
+                        🍎 iPhone / iPad (Safari)
+                    </p>
+
+                    <p class="text-xs">
+                        Bouton Partager ⎋ →
+                        <strong>Sur l'écran d'accueil</strong>
+                        → Ajouter.
+                    </p>
+
                 </div>
+
             </div>
 
-            <button type="button" onclick="document.getElementById('modal-install-help').classList.add('hidden')"
-                    class="mt-5 w-full bg-neon hover:bg-yellow-400 text-black font-bold py-3 rounded-xl transition">
+
+            <button
+                type="button"
+                onclick="document.getElementById('modal-install-help').classList.add('hidden')"
+                class="mt-5 w-full bg-neon hover:bg-yellow-400 text-black font-bold py-3 rounded-xl transition"
+            >
                 ✅ Compris
             </button>
+
         </div>
+
     </div>
 
-    <!-- GESTION SIDEBAR MOBILE -->
-    <script>
-        function toggleSidebar() {
-            const sidebar = document.getElementById('main-sidebar');
-            const overlay = document.getElementById('mobile-overlay');
-            const isClosed = sidebar.classList.contains('-translate-x-full');
-            
-            if (isClosed) {
-                sidebar.classList.remove('-translate-x-full');
-                overlay.classList.remove('hidden');
-                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
-            } else {
-                sidebar.classList.add('-translate-x-full');
-                overlay.classList.add('opacity-0');
-                setTimeout(() => overlay.classList.add('hidden'), 300);
-            }
-        }
-    </script>
 
-    <!-- AUTO-HIDE MESSAGES -->
-    <script>
-        setTimeout(function() {
-            document.querySelectorAll(
-                '[class*="bg-emerald-500/10"], ' +
-                '[class*="bg-red-500/10"], ' +
-                '[class*="bg-yellow-500/10"], ' +
-                '[class*="bg-blue-500/10"]'
-            ).forEach(function(el) {
+    <!-- ================================================================ -->
+    <!-- THEME ENGINE                                                     -->
+    <!-- ================================================================ -->
 
-                if (el.parentElement.classList.contains('px-8') || el.parentElement.classList.contains('px-4')) {
-                    el.style.transition = 'opacity 0.5s';
-                    el.style.opacity = '0';
-                    setTimeout(function() { el.remove(); }, 500);
-                }
-            });
-        }, 5000);
-    </script>
-
-    <!-- GESTION AUTOMATIQUE INSTALLATION APP (PWA BANNER) -->
     <script>
+
     (function () {
-        let deferredPrompt = null;
-        const btnSidebar = document.getElementById('btn-install-app');
-        const btnBanner = document.getElementById('pwa-banner-install-btn');
-        const banner = document.getElementById('pwa-install-banner');
-        const modal = document.getElementById('modal-install-help');
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/sw.js').catch(function () {});
+        const darkIcons =
+            document.querySelectorAll('.theme-toggle-dark-icon');
+
+        const lightIcons =
+            document.querySelectorAll('.theme-toggle-light-icon');
+
+        const toggleButtons = [
+            document.getElementById('theme-toggle'),
+            document.getElementById('theme-toggle-mobile')
+        ].filter(Boolean);
+
+
+        /* ============================================================ */
+        /* THEME                                                          */
+        /* ============================================================ */
+
+        function isLight() {
+
+            return (
+                localStorage.getItem('color-theme') === 'light'
+            );
         }
 
-        window.addEventListener('beforeinstallprompt', function (e) {
-            e.preventDefault();
-            deferredPrompt = e;
-            
-            if (banner) {
-                banner.classList.remove('hidden');
-            }
-        });
 
-        window.addEventListener('appinstalled', function () {
-            deferredPrompt = null;
-            if (banner) banner.classList.add('hidden');
-            if (btnSidebar) {
-                btnSidebar.innerHTML = '✅ App installée';
-                btnSidebar.disabled = true;
-                btnSidebar.classList.add('opacity-60');
-            }
-        });
+        function syncIcons() {
 
-        async function triggerInstall() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                try {
-                    const choice = await deferredPrompt.userChoice;
-                    if (choice && choice.outcome === 'accepted') {
-                        if (banner) banner.classList.add('hidden');
-                        if (btnSidebar) {
-                            btnSidebar.innerHTML = '✅ App installée';
-                            btnSidebar.disabled = true;
+            if (isLight()) {
+
+                darkIcons.forEach(function (el) {
+                    el.classList.remove('hidden');
+                });
+
+                lightIcons.forEach(function (el) {
+                    el.classList.add('hidden');
+                });
+
+            } else {
+
+                lightIcons.forEach(function (el) {
+                    el.classList.remove('hidden');
+                });
+
+                darkIcons.forEach(function (el) {
+                    el.classList.add('hidden');
+                });
+            }
+        }
+
+
+        /* ============================================================ */
+        /* CHART.JS                                                      */
+        /* ============================================================ */
+
+        function chartTextColor() {
+
+            return isLight()
+                ? '#334155'
+                : '#e2e8f0';
+        }
+
+
+        function chartGridColor() {
+
+            return isLight()
+                ? 'rgba(51,65,85,0.12)'
+                : 'rgba(255,255,255,0.08)';
+        }
+
+
+        function getAllChartInstances() {
+
+            const charts = [];
+
+            if (!window.Chart) {
+                return charts;
+            }
+
+
+            if (Chart.instances) {
+
+                Object.values(Chart.instances)
+                    .forEach(function (chart) {
+
+                        if (
+                            chart &&
+                            charts.indexOf(chart) === -1
+                        ) {
+                            charts.push(chart);
                         }
-                    }
-                } catch (err) {}
-                deferredPrompt = null;
-            } else {
-                if (modal) modal.classList.remove('hidden');
-            }
-        }
 
-        if (btnBanner) btnBanner.addEventListener('click', triggerInstall);
-        if (btnSidebar) btnSidebar.addEventListener('click', triggerInstall);
-    })();
-    </script>
-
-    {% if 'chat' in user_modules %}
-    <!-- NOTIFICATIONS CHAT GLOBALES -->
-    <script>
-    (function () {
-        const STORAGE_KEY = 'fbpack_chat_last_id';
-        const UNREAD_KEY = 'fbpack_chat_unread';
-        const POLL_MS = 4000;
-        const isOnChatPage = window.location.pathname.indexOf('/chat') !== -1;
-
-        let audioCtx = null;
-        let toastTimer = null;
-        let unread = parseInt(localStorage.getItem(UNREAD_KEY) || '0', 10) || 0;
-        let lastId = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
-        let polling = false;
-
-        function getAudioContext() {
-            if (!audioCtx) {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                if (AC) audioCtx = new AC();
-            }
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().catch(function () {});
-            }
-            return audioCtx;
-        }
-
-        function playSound() {
-            try {
-                const ctx = getAudioContext();
-                if (!ctx) return;
-                const now = ctx.currentTime;
-
-                const o1 = ctx.createOscillator();
-                const g1 = ctx.createGain();
-                o1.type = 'sine';
-                o1.frequency.setValueAtTime(880, now);
-                g1.gain.setValueAtTime(0.0001, now);
-                g1.gain.exponentialRampToValueAtTime(0.16, now + 0.02);
-                g1.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
-                o1.connect(g1); g1.connect(ctx.destination);
-                o1.start(now); o1.stop(now + 0.18);
-
-                const o2 = ctx.createOscillator();
-                const g2 = ctx.createGain();
-                o2.type = 'sine';
-                o2.frequency.setValueAtTime(1175, now + 0.14);
-                g2.gain.setValueAtTime(0.0001, now + 0.14);
-                g2.gain.exponentialRampToValueAtTime(0.14, now + 0.16);
-                g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
-                o2.connect(g2); g2.connect(ctx.destination);
-                o2.start(now + 0.14); o2.stop(now + 0.36);
-            } catch (e) {}
-        }
-
-        function updateBadge() {
-            const badges = document.querySelectorAll('.chat-menu-badge');
-            
-            if (unread > 0 && !isOnChatPage) {
-                badges.forEach(b => {
-                    b.textContent = unread > 99 ? '99+' : String(unread);
-                    b.classList.remove('hidden');
-                    b.classList.add('pulse');
-                });
-            } else {
-                badges.forEach(b => {
-                    b.classList.add('hidden');
-                    b.classList.remove('pulse');
-                });
-            }
-            localStorage.setItem(UNREAD_KEY, String(unread));
-        }
-
-        function showToast(msg) {
-            const box = document.getElementById('global-chat-toast');
-            const title = document.getElementById('global-chat-toast-title');
-            const body = document.getElementById('global-chat-toast-body');
-            const icon = document.getElementById('global-chat-toast-icon');
-            const link = document.getElementById('global-chat-toast-link');
-            if (!box || !title || !body) return;
-
-            const roomName = msg.room_name || 'Chat';
-            const preview = (msg.contenu || '').toString();
-            title.textContent = (msg.auteur || 'Quelqu\'un') + ' · ' + roomName;
-            body.textContent = preview.length > 120 ? preview.slice(0, 120) + '…' : preview;
-            if (icon) icon.textContent = msg.room_icone || '💬';
-            if (link && msg.room_slug) {
-                link.href = '/chat/' + encodeURIComponent(msg.room_slug) + '/';
-            } else if (link) {
-                link.href = '{% url "chat_home" %}';
+                    });
             }
 
-            box.classList.remove('hidden');
-            if (toastTimer) clearTimeout(toastTimer);
-            toastTimer = setTimeout(closeToast, 6000);
+
+            if (Chart.getChart) {
+
+                document
+                    .querySelectorAll('canvas')
+                    .forEach(function (canvas) {
+
+                        const chart =
+                            Chart.getChart(canvas);
+
+                        if (
+                            chart &&
+                            charts.indexOf(chart) === -1
+                        ) {
+                            charts.push(chart);
+                        }
+
+                    });
+            }
+
+
+            return charts;
         }
 
-        function closeToast() {
-            const box = document.getElementById('global-chat-toast');
-            if (box) box.classList.add('hidden');
-        }
 
-        function browserNotify(msg) {
-            if (!('Notification' in window)) return;
-            if (Notification.permission !== 'granted') return;
-            if (!document.hidden && isOnChatPage) return;
-            try {
-                const preview = (msg.contenu || '').toString();
-                const n = new Notification((msg.auteur || 'Chat') + ' — ' + (msg.room_name || 'Équipe'), {
-                    body: preview.length > 100 ? preview.slice(0, 100) + '…' : preview,
-                    tag: 'fbpack-chat-global',
-                    renotify: true
-                });
-                n.onclick = function () {
-                    window.focus();
-                    if (msg.room_slug) {
-                        window.location.href = '/chat/' + encodeURIComponent(msg.room_slug) + '/';
-                    } else {
-                        window.location.href = '{% url "chat_home" %}';
-                    }
-                    n.close();
-                };
-                setTimeout(function () { try { n.close(); } catch (e) {} }, 7000);
-            } catch (e) {}
-        }
+        function refreshChartsTheme() {
 
-        function onNewMessages(list) {
-            if (!list || !list.length) return;
-
-            if (isOnChatPage) {
-                list.forEach(function (m) {
-                    if (m.id > lastId) lastId = m.id;
-                });
-                localStorage.setItem(STORAGE_KEY, String(lastId));
-                unread = 0;
-                updateBadge();
+            if (!window.Chart) {
                 return;
             }
 
-            list.forEach(function (m) {
-                if (m.id > lastId) lastId = m.id;
-            });
-            localStorage.setItem(STORAGE_KEY, String(lastId));
 
-            unread += list.length;
-            updateBadge();
-            playSound();
+            const textColor =
+                chartTextColor();
 
-            showToast(list[list.length - 1]);
-            browserNotify(list[list.length - 1]);
+            const gridColor =
+                chartGridColor();
+
+
+            getAllChartInstances()
+                .forEach(function (chart) {
+
+                    try {
+
+                        const options =
+                            chart.options || {};
+
+
+                        /* LEGEND */
+
+                        if (
+                            options.plugins &&
+                            options.plugins.legend &&
+                            options.plugins.legend.labels
+                        ) {
+
+                            options.plugins.legend.labels.color =
+                                textColor;
+                        }
+
+
+                        /* TITLE */
+
+                        if (
+                            options.plugins &&
+                            options.plugins.title
+                        ) {
+
+                            options.plugins.title.color =
+                                textColor;
+                        }
+
+
+                        /* SCALES */
+
+                        if (options.scales) {
+
+                            Object.values(options.scales)
+                                .forEach(function (scale) {
+
+                                    if (!scale) {
+                                        return;
+                                    }
+
+
+                                    if (scale.ticks) {
+
+                                        scale.ticks.color =
+                                            textColor;
+                                    }
+
+
+                                    if (scale.grid) {
+
+                                        scale.grid.color =
+                                            gridColor;
+                                    }
+
+
+                                    if (scale.title) {
+
+                                        scale.title.color =
+                                            textColor;
+                                    }
+
+                                });
+                        }
+
+
+                        chart.update('none');
+
+                    } catch (error) {
+
+                        console.warn(
+                            'FB PACK Chart theme:',
+                            error
+                        );
+                    }
+
+                });
         }
 
-        function poll(init) {
-            if (polling) return;
-            polling = true;
 
-            let url = '/chat/api/notifications/?last_id=' + encodeURIComponent(lastId || 0);
-            if (init) url += '&init=1';
+        function applyChartDefaults() {
 
-            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (init) {
-                        const mid = parseInt(data.max_id || data.latest_id || 0, 10) || 0;
-                        if (mid > 0) {
-                            lastId = mid;
-                            localStorage.setItem(STORAGE_KEY, String(lastId));
-                        }
-                        if (isOnChatPage) {
-                            unread = 0;
-                            updateBadge();
-                        } else {
-                            updateBadge();
-                        }
+            if (!window.Chart) {
+                return;
+            }
+
+            Chart.defaults.color =
+                chartTextColor();
+
+            Chart.defaults.borderColor =
+                chartGridColor();
+        }
+
+
+        /* ============================================================ */
+        /* NORMALISATION DES STYLES INLINE                               */
+        /* ============================================================ */
+
+        function normalizeInlineLightMode() {
+
+            const main =
+                document.querySelector('main');
+
+            if (!main) {
+                return;
+            }
+
+
+            const darkHex = new Set([
+
+                '#020617',
+                '#0f172a',
+                '#111827',
+                '#1e293b',
+                '#334155',
+                '#374151',
+                '#3f3f46',
+                '#475569',
+                '#4b5563',
+                '#52525b',
+                '#57534e',
+                '#64748b',
+                '#6b7280'
+
+            ]);
+
+
+            function isDarkColor(value) {
+
+                if (!value) {
+                    return false;
+                }
+
+
+                value =
+                    value
+                        .replace(/\s+/g, '')
+                        .toLowerCase();
+
+
+                /* HEX */
+
+                if (darkHex.has(value)) {
+                    return true;
+                }
+
+
+                /* RGB / RGBA */
+
+                const match =
+                    value.match(
+                        /^rgba?\((\d+),(\d+),(\d+)(?:,[\d.]+)?\)$/
+                    );
+
+
+                if (!match) {
+                    return false;
+                }
+
+
+                const r =
+                    parseInt(match[1]);
+
+                const g =
+                    parseInt(match[2]);
+
+                const b =
+                    parseInt(match[3]);
+
+
+                return (
+                    r <= 110 &&
+                    g <= 120 &&
+                    b <= 140
+                );
+            }
+
+
+            main.querySelectorAll('*')
+                .forEach(function (el) {
+
+                    if (!el.style) {
                         return;
                     }
-                    if (data.messages && data.messages.length) {
-                        onNewMessages(data.messages);
+
+
+                    /* BACKGROUND */
+
+                    const bg =
+                        (el.style.backgroundColor || '')
+                        .trim();
+
+
+                    if (isDarkColor(bg)) {
+
+                        if (!el.dataset.fbOriginalBg) {
+
+                            el.dataset.fbOriginalBg =
+                                bg;
+                        }
+
+
+                        el.style.setProperty(
+                            'background-color',
+                            '#ffffff',
+                            'important'
+                        );
                     }
-                    if (data.max_id && parseInt(data.max_id, 10) > lastId && !(data.messages && data.messages.length)) {
-                        lastId = parseInt(data.max_id, 10);
-                        localStorage.setItem(STORAGE_KEY, String(lastId));
+
+
+                    /* COLOR */
+
+                    const color =
+                        (el.style.color || '')
+                        .trim();
+
+
+                    if (isDarkColor(color)) {
+
+                        if (!el.dataset.fbOriginalColor) {
+
+                            el.dataset.fbOriginalColor =
+                                color;
+                        }
+
+
+                        el.style.setProperty(
+                            'color',
+                            '#334155',
+                            'important'
+                        );
                     }
-                })
-                .catch(function () {})
-                .finally(function () { polling = false; });
+
+
+                    /* BORDER */
+
+                    const border =
+                        (el.style.borderColor || '')
+                        .trim();
+
+
+                    if (isDarkColor(border)) {
+
+                        if (!el.dataset.fbOriginalBorder) {
+
+                            el.dataset.fbOriginalBorder =
+                                border;
+                        }
+
+
+                        el.style.setProperty(
+                            'border-color',
+                            '#e2e8f0',
+                            'important'
+                        );
+                    }
+
+                });
         }
 
-        window.FBChatNotif = {
-            closeToast: closeToast,
-            resetUnread: function () {
-                unread = 0;
-                updateBadge();
-            },
-            markSeenUpTo: function (id) {
-                id = parseInt(id, 10) || 0;
-                if (id > lastId) {
-                    lastId = id;
-                    localStorage.setItem(STORAGE_KEY, String(lastId));
-                }
-                unread = 0;
-                updateBadge();
-            },
-            playSound: playSound,
-            requestPermission: async function () {
-                getAudioContext();
-                if ('Notification' in window && Notification.permission === 'default') {
-                    try { await Notification.requestPermission(); } catch (e) {}
-                }
-                playSound();
-            }
-        };
 
-        const link = document.getElementById('chat-menu-link');
-        if (link) {
-            link.addEventListener('click', function () {
-                unread = 0;
-                updateBadge();
+        /* ============================================================ */
+        /* RESTAURATION DARK                                              */
+        /* ============================================================ */
+
+        function restoreInlineDarkMode() {
+
+            const main =
+                document.querySelector('main');
+
+            if (!main) {
+                return;
+            }
+
+
+            main.querySelectorAll(
+                '[data-fb-original-bg], ' +
+                '[data-fb-original-color], ' +
+                '[data-fb-original-border]'
+            )
+            .forEach(function (el) {
+
+
+                if (el.dataset.fbOriginalBg) {
+
+                    el.style.setProperty(
+                        'background-color',
+                        el.dataset.fbOriginalBg
+                    );
+
+                    delete el.dataset.fbOriginalBg;
+                }
+
+
+                if (el.dataset.fbOriginalColor) {
+
+                    el.style.setProperty(
+                        'color',
+                        el.dataset.fbOriginalColor
+                    );
+
+                    delete el.dataset.fbOriginalColor;
+                }
+
+
+                if (el.dataset.fbOriginalBorder) {
+
+                    el.style.setProperty(
+                        'border-color',
+                        el.dataset.fbOriginalBorder
+                    );
+
+                    delete el.dataset.fbOriginalBorder;
+                }
+
             });
         }
 
-        document.addEventListener('click', function () { getAudioContext(); }, { once: true });
-        document.addEventListener('keydown', function () { getAudioContext(); }, { once: true });
+
+        /* ============================================================ */
+        /* APPLICATION DU THÈME                                          */
+        /* ============================================================ */
+
+        function applyTheme(theme) {
+
+            if (theme === 'light') {
+
+                document.documentElement
+                    .classList
+                    .remove('dark');
+
+                localStorage.setItem(
+                    'color-theme',
+                    'light'
+                );
+
+            } else {
+
+                document.documentElement
+                    .classList
+                    .add('dark');
+
+                localStorage.setItem(
+                    'color-theme',
+                    'dark'
+                );
+            }
+
+
+            if (theme === 'light') {
+
+                normalizeInlineLightMode();
+
+            } else {
+
+                restoreInlineDarkMode();
+            }
+
+
+            syncIcons();
+
+            applyChartDefaults();
+
+            refreshChartsTheme();
+
+
+            /*
+             * Petite seconde passe.
+             * Utile pour les modules qui ajoutent du HTML
+             * après le chargement.
+             */
+
+            setTimeout(function () {
+
+                if (theme === 'light') {
+
+                    normalizeInlineLightMode();
+
+                } else {
+
+                    restoreInlineDarkMode();
+                }
+
+                refreshChartsTheme();
+
+            }, 100);
+        }
+
+
+        function toggleTheme() {
+
+            applyTheme(
+                isLight()
+                    ? 'dark'
+                    : 'light'
+            );
+        }
+
+
+        /* ============================================================ */
+        /* BOUTONS                                                        */
+        /* ============================================================ */
+
+        toggleButtons.forEach(function (button) {
+
+            button.addEventListener(
+                'click',
+                toggleTheme
+            );
+
+        });
+
+
+        /* ============================================================ */
+        /* INITIALISATION                                                 */
+        /* ============================================================ */
+
+        syncIcons();
+
+        if (isLight()) {
+
+            normalizeInlineLightMode();
+        }
+
+        applyChartDefaults();
+
+
+        [0, 100, 300, 700, 1200, 2000]
+            .forEach(function (delay) {
+
+                setTimeout(function () {
+
+                    if (isLight()) {
+
+                        normalizeInlineLightMode();
+                    }
+
+                    refreshChartsTheme();
+
+                }, delay);
+
+            });
+
+
+        window.addEventListener(
+            'load',
+            function () {
+
+                if (isLight()) {
+
+                    normalizeInlineLightMode();
+                }
+
+                refreshChartsTheme();
+
+            }
+        );
+
+
+        /* ============================================================ */
+        /* OBSERVATEUR DOM                                                */
+        /* Très important pour Planning / Production                    */
+        /* ============================================================ */
+
+        let observerTimer = null;
+
+
+        const observer =
+            new MutationObserver(function () {
+
+                if (!isLight()) {
+                    return;
+                }
+
+
+                clearTimeout(observerTimer);
+
+
+                observerTimer =
+                    setTimeout(function () {
+
+                        normalizeInlineLightMode();
+
+                        refreshChartsTheme();
+
+                    }, 80);
+
+            });
+
+
+        const main =
+            document.querySelector('main');
+
+
+        if (main) {
+
+            observer.observe(main, {
+
+                childList: true,
+
+                subtree: true,
+
+                attributes: true,
+
+                attributeFilter: [
+                    'class',
+                    'style'
+                ]
+
+            });
+        }
+
+
+    })();
+
+    </script>
+
+
+    <!-- ================================================================ -->
+    <!-- SIDEBAR MOBILE                                                   -->
+    <!-- ================================================================ -->
+
+    <script>
+
+    function toggleSidebar() {
+
+        const sidebar =
+            document.getElementById(
+                'main-sidebar'
+            );
+
+        const overlay =
+            document.getElementById(
+                'mobile-overlay'
+            );
+
+
+        if (!sidebar || !overlay) {
+            return;
+        }
+
+
+        const isClosed =
+            sidebar.classList.contains(
+                '-translate-x-full'
+            );
+
+
+        if (isClosed) {
+
+            sidebar.classList.remove(
+                '-translate-x-full'
+            );
+
+            overlay.classList.remove(
+                'hidden'
+            );
+
+
+            setTimeout(function () {
+
+                overlay.classList.remove(
+                    'opacity-0'
+                );
+
+            }, 10);
+
+
+        } else {
+
+            sidebar.classList.add(
+                '-translate-x-full'
+            );
+
+            overlay.classList.add(
+                'opacity-0'
+            );
+
+
+            setTimeout(function () {
+
+                overlay.classList.add(
+                    'hidden'
+                );
+
+            }, 300);
+        }
+
+    }
+
+    </script>
+
+
+    <!-- ================================================================ -->
+    <!-- PWA INSTALLATION                                                  -->
+    <!-- ================================================================ -->
+
+    <script>
+
+    (function () {
+
+        let deferredPrompt = null;
+
+
+        const btnSidebar =
+            document.getElementById(
+                'btn-install-app'
+            );
+
+        const btnBanner =
+            document.getElementById(
+                'pwa-banner-install-btn'
+            );
+
+        const banner =
+            document.getElementById(
+                'pwa-install-banner'
+            );
+
+        const modal =
+            document.getElementById(
+                'modal-install-help'
+            );
+
+
+        /* SERVICE WORKER */
+
+        if ('serviceWorker' in navigator) {
+
+            navigator.serviceWorker
+                .register('/static/sw.js')
+                .catch(function () {});
+
+        }
+
+
+        /* INSTALL PROMPT */
+
+        window.addEventListener(
+            'beforeinstallprompt',
+            function (e) {
+
+                e.preventDefault();
+
+                deferredPrompt = e;
+
+
+                if (banner) {
+
+                    banner.classList.remove(
+                        'hidden'
+                    );
+                }
+
+            }
+        );
+
+
+        /* INSTALLÉ */
+
+        window.addEventListener(
+            'appinstalled',
+            function () {
+
+                deferredPrompt = null;
+
+
+                if (banner) {
+
+                    banner.classList.add(
+                        'hidden'
+                    );
+                }
+
+
+                if (btnSidebar) {
+
+                    btnSidebar.innerHTML =
+                        '✅ App installée';
+
+                    btnSidebar.disabled =
+                        true;
+
+                    btnSidebar.classList.add(
+                        'opacity-60'
+                    );
+                }
+
+            }
+        );
+
+
+        async function triggerInstall() {
+
+            if (deferredPrompt) {
+
+                deferredPrompt.prompt();
+
+
+                try {
+
+                    const choice =
+                        await deferredPrompt.userChoice;
+
+
+                    if (
+                        choice &&
+                        choice.outcome === 'accepted'
+                    ) {
+
+                        if (banner) {
+
+                            banner.classList.add(
+                                'hidden'
+                            );
+                        }
+
+
+                        if (btnSidebar) {
+
+                            btnSidebar.innerHTML =
+                                '✅ App installée';
+
+                            btnSidebar.disabled =
+                                true;
+                        }
+
+                    }
+
+                } catch (error) {}
+
+
+                deferredPrompt = null;
+
+
+            } else {
+
+                if (modal) {
+
+                    modal.classList.remove(
+                        'hidden'
+                    );
+                }
+
+            }
+        }
+
+
+        if (btnBanner) {
+
+            btnBanner.addEventListener(
+                'click',
+                triggerInstall
+            );
+        }
+
+
+        if (btnSidebar) {
+
+            btnSidebar.addEventListener(
+                'click',
+                triggerInstall
+            );
+        }
+
+    })();
+
+    </script>
+
+
+    <!-- ================================================================ -->
+    <!-- NOTIFICATIONS CHAT                                                -->
+    <!-- ================================================================ -->
+
+    {% if 'chat' in user_modules %}
+
+    <script>
+
+    (function () {
+
+        const STORAGE_KEY =
+            'fbpack_chat_last_id';
+
+        const UNREAD_KEY =
+            'fbpack_chat_unread';
+
+        const POLL_MS =
+            4000;
+
+
+        const isOnChatPage =
+            window.location.pathname
+                .indexOf('/chat') !== -1;
+
+
+        let audioCtx = null;
+
+        let toastTimer = null;
+
+        let unread =
+            parseInt(
+                localStorage.getItem(
+                    UNREAD_KEY
+                ) || '0',
+                10
+            ) || 0;
+
+
+        let lastId =
+            parseInt(
+                localStorage.getItem(
+                    STORAGE_KEY
+                ) || '0',
+                10
+            ) || 0;
+
+
+        let polling = false;
+
+
+        /* AUDIO */
+
+        function getAudioContext() {
+
+            if (!audioCtx) {
+
+                const AC =
+                    window.AudioContext ||
+                    window.webkitAudioContext;
+
+
+                if (AC) {
+
+                    audioCtx =
+                        new AC();
+                }
+            }
+
+
+            if (
+                audioCtx &&
+                audioCtx.state === 'suspended'
+            ) {
+
+                audioCtx
+                    .resume()
+                    .catch(function () {});
+            }
+
+
+            return audioCtx;
+        }
+
+
+        /* BADGE */
+
+        function updateBadge() {
+
+            const badges =
+                document.querySelectorAll(
+                    '.chat-menu-badge'
+                );
+
+
+            if (
+                unread > 0 &&
+                !isOnChatPage
+            ) {
+
+                badges.forEach(function (badge) {
+
+                    badge.textContent =
+                        unread > 99
+                            ? '99+'
+                            : String(unread);
+
+                    badge.classList.remove(
+                        'hidden'
+                    );
+
+                    badge.classList.add(
+                        'pulse'
+                    );
+
+                });
+
+
+            } else {
+
+                badges.forEach(function (badge) {
+
+                    badge.classList.add(
+                        'hidden'
+                    );
+
+                    badge.classList.remove(
+                        'pulse'
+                    );
+
+                });
+
+            }
+
+
+            localStorage.setItem(
+                UNREAD_KEY,
+                String(unread)
+            );
+        }
+
+
+        /* POLLING */
+
+        function poll(init) {
+
+            if (polling) {
+                return;
+            }
+
+
+            polling = true;
+
+
+            let url =
+                '/chat/api/notifications/?last_id=' +
+                encodeURIComponent(
+                    lastId || 0
+                );
+
+
+            if (init) {
+
+                url += '&init=1';
+            }
+
+
+            fetch(
+                url,
+                {
+                    credentials: 'same-origin',
+
+                    headers: {
+                        'X-Requested-With':
+                            'XMLHttpRequest'
+                    }
+                }
+            )
+            .then(function (response) {
+
+                return response.json();
+
+            })
+            .then(function (data) {
+
+
+                if (init) {
+
+                    const mid =
+                        parseInt(
+                            data.max_id ||
+                            data.latest_id ||
+                            0,
+                            10
+                        ) || 0;
+
+
+                    if (mid > 0) {
+
+                        lastId = mid;
+
+                        localStorage.setItem(
+                            STORAGE_KEY,
+                            String(lastId)
+                        );
+                    }
+
+
+                    if (isOnChatPage) {
+
+                        unread = 0;
+                    }
+
+
+                    updateBadge();
+
+                    return;
+                }
+
+
+                if (
+                    data.messages &&
+                    data.messages.length
+                ) {
+
+                    data.messages.forEach(
+                        function (message) {
+
+                            if (
+                                message.id >
+                                lastId
+                            ) {
+
+                                lastId =
+                                    message.id;
+                            }
+
+                        }
+                    );
+
+
+                    localStorage.setItem(
+                        STORAGE_KEY,
+                        String(lastId)
+                    );
+
+
+                    if (!isOnChatPage) {
+
+                        unread +=
+                            data.messages.length;
+
+                        updateBadge();
+                    }
+                }
+
+
+                if (
+                    data.max_id &&
+                    parseInt(
+                        data.max_id,
+                        10
+                    ) > lastId &&
+                    !(
+                        data.messages &&
+                        data.messages.length
+                    )
+                ) {
+
+                    lastId =
+                        parseInt(
+                            data.max_id,
+                            10
+                        );
+
+
+                    localStorage.setItem(
+                        STORAGE_KEY,
+                        String(lastId)
+                    );
+                }
+
+            })
+            .catch(function () {})
+            .finally(function () {
+
+                polling = false;
+            });
+        }
+
 
         updateBadge();
-        poll(true);
-        setInterval(function () { poll(false); }, POLL_MS);
 
-        if (isOnChatPage) {
-            unread = 0;
-            updateBadge();
-        }
+        poll(true);
+
+
+        setInterval(
+            function () {
+
+                poll(false);
+
+            },
+            POLL_MS
+        );
+
     })();
+
     </script>
+
     {% endif %}
+
 
 </body>
 </html>

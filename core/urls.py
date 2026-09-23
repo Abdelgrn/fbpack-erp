@@ -25,6 +25,7 @@ urlpatterns = [
     # ==========================================
     path('crm/', views.crm_view, name='crm_view'),
     path('crm/client/add/', views.add_client, name='add_client'),
+    path('crm/client/import/', views.import_clients, name='import_clients'),
     path('crm/client/<int:id>/', views.client_detail, name='client_detail'),
     path('crm/client/<int:id>/edit/', views.edit_client, name='edit_client'),
     path('crm/client/<int:id>/convertir/', views.convertir_prospect, name='convertir_prospect'),
@@ -212,6 +213,7 @@ urlpatterns = [
     path('prod/synthese/calculer/save/', prod_views.prod_calculer_temps_save, name='prod_calculer_temps_save'),
     path('prod/synthese/calculer/<int:id>/delete/', prod_views.prod_calculer_temps_delete, name='prod_calculer_temps_delete'),
     path('import/template-special-prod/', views.download_template_special_prod, name='download_template_special_prod'),
+    path('import/template-stock/', views.download_template_stock, name='download_template_stock'),
 
     # ==========================================
     # MODULE ENCRE

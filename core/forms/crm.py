@@ -1,11 +1,38 @@
 from django import forms
 from django.forms import inlineformset_factory
+from django.contrib.auth.models import User
+from django.db.models import Q
+
 from core.models import (
     Client, ClientContact, InteractionLog, Opportunite, Quote,
     CommandeClient, LigneCommandeClient, DemandePrix,
     Material, TechnicalProduct,
 )
 
+
+# ===========================================================================
+# --- HELPER : Queryset des utilisateurs ayant accès au module CRM ---
+# ===========================================================================
+
+def get_crm_users_queryset():
+    """
+    Retourne uniquement les utilisateurs actifs ayant la permission 
+    d'accéder au module CRM (ou les super-administrateurs).
+    """
+    return User.objects.filter(
+        Q(is_active=True) & 
+        (Q(is_superuser=True) | Q(module_permissions__can_access_crm=True))
+    ).distinct().order_by('first_name', 'username')
+
+
+def format_user_label(obj):
+    """Format d'affichage : Prénom Nom (username)"""
+    return f"{obj.get_full_name()} ({obj.username})" if obj.get_full_name().strip() else obj.username
+
+
+# ===========================================================================
+# --- FORMULAIRE CLIENT ---
+# ===========================================================================
 
 class ClientForm(forms.ModelForm):
     class Meta:
@@ -42,6 +69,16 @@ class ClientForm(forms.ModelForm):
             'ice_nif': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ICE / NIF / RC'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Charge uniquement les utilisateurs ayant accès au CRM
+        self.fields['commercial'].queryset = get_crm_users_queryset()
+        self.fields['commercial'].label_from_instance = format_user_label
+
+
+# ===========================================================================
+# --- FORMULAIRE CONTACT CLIENT ---
+# ===========================================================================
 
 class ClientContactForm(forms.ModelForm):
     class Meta:
@@ -68,6 +105,10 @@ ClientContactFormSet = inlineformset_factory(
 )
 
 
+# ===========================================================================
+# --- FORMULAIRE INTERACTION ---
+# ===========================================================================
+
 class InteractionLogForm(forms.ModelForm):
     class Meta:
         model = InteractionLog
@@ -86,7 +127,14 @@ class InteractionLogForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if client:
             self.fields['contact'].queryset = ClientContact.objects.filter(client=client)
+        # Filtre les commerciaux avec accès CRM
+        self.fields['commercial'].queryset = get_crm_users_queryset()
+        self.fields['commercial'].label_from_instance = format_user_label
 
+
+# ===========================================================================
+# --- FORMULAIRE OPPORTUNITÉ ---
+# ===========================================================================
 
 class OpportuniteForm(forms.ModelForm):
     class Meta:
@@ -124,7 +172,14 @@ class OpportuniteForm(forms.ModelForm):
         self.fields['produit_demande'].queryset = TechnicalProduct.objects.all().order_by('name')
         self.fields['material_principal'].queryset = Material.objects.all().order_by('name')
         self.fields['devis_lie'].queryset = Quote.objects.all().order_by('-date')
+        # Filtre les commerciaux avec accès CRM
+        self.fields['commercial'].queryset = get_crm_users_queryset()
+        self.fields['commercial'].label_from_instance = format_user_label
 
+
+# ===========================================================================
+# --- FORMULAIRE DEVIS ---
+# ===========================================================================
 
 class QuoteForm(forms.ModelForm):
     class Meta:
@@ -145,6 +200,16 @@ class QuoteForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtre les commerciaux avec accès CRM
+        self.fields['commercial'].queryset = get_crm_users_queryset()
+        self.fields['commercial'].label_from_instance = format_user_label
+
+
+# ===========================================================================
+# --- FORMULAIRE COMMANDE CLIENT ---
+# ===========================================================================
 
 class CommandeClientForm(forms.ModelForm):
     class Meta:
@@ -180,7 +245,14 @@ class CommandeClientForm(forms.ModelForm):
             status__in=['PERDU']
         ).select_related('client').order_by('-date_ouverture')
         self.fields['devis'].queryset = Quote.objects.all().order_by('-date')
+        # Filtre les commerciaux avec accès CRM
+        self.fields['commercial'].queryset = get_crm_users_queryset()
+        self.fields['commercial'].label_from_instance = format_user_label
 
+
+# ===========================================================================
+# --- FORMULAIRE LIGNE COMMANDE CLIENT ---
+# ===========================================================================
 
 class LigneCommandeClientForm(forms.ModelForm):
     class Meta:
@@ -207,7 +279,6 @@ class LigneCommandeClientForm(forms.ModelForm):
         self.fields['material'].required = False
         self.fields['produit'].queryset = TechnicalProduct.objects.all().order_by('name')
         self.fields['material'].queryset = Material.objects.all().order_by('name')
-        # Annoter le stock dans le label matière pour le commercial
         self.fields['material'].label_from_instance = lambda obj: (
             f"{obj.name} — Stock: {obj.quantity:.1f} {obj.unit}"
             f"{' ⚠️ BAS' if obj.is_low_stock() else ''}"
@@ -224,6 +295,10 @@ LigneCommandeClientFormSet = inlineformset_factory(
     validate_min=False,
 )
 
+
+# ===========================================================================
+# --- FORMULAIRE DEMANDE DE PRIX ---
+# ===========================================================================
 
 class DemandePrixForm(forms.ModelForm):
     class Meta:
@@ -257,3 +332,20 @@ class DemandePrixForm(forms.ModelForm):
         self.fields['produit'].required = False
         self.fields['commercial'].required = False
         self.fields['produit'].queryset = TechnicalProduct.objects.all().order_by('name')
+        # Filtre les commerciaux avec accès CRM
+        self.fields['commercial'].queryset = get_crm_users_queryset()
+        self.fields['commercial'].label_from_instance = format_user_label
+
+
+# ===========================================================================
+# --- FORMULAIRE IMPORT CLIENTS ---
+# ===========================================================================
+
+class ClientImportForm(forms.Form):
+    fichier = forms.FileField(
+        label="Fichier Excel (.xlsx) ou CSV",
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control bg-slate-800 border-slate-700 text-white',
+            'accept': '.xlsx, .xls, .csv'
+        })
+    )

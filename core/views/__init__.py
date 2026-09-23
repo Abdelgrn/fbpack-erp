@@ -7,7 +7,7 @@ from .dashboard import (
 )
 
 from .crm import (
-    crm_view, client_detail, add_client, edit_client,
+    crm_view, client_detail, add_client, edit_client, import_clients,
     add_contact, edit_contact, delete_contact, add_interaction,
     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
     quotes_view, add_quote, edit_quote, convert_quote_to_order,

@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 {% block content %}
 <div class="max-w-3xl mx-auto mt-6">
@@ -17,7 +16,7 @@
         <div class="mt-2 mb-6 p-4 bg-slate-900/50 border border-slate-700 rounded text-xs text-gray-300 max-h-60 overflow-y-auto">
             <p class="text-neon font-bold mb-2">📋 Détail ligne par ligne :</p>
             {% for d in details %}
-                <p class="{% if 'ERREUR' in d %}text-red-400{% elif 'IGNORÉE' in d %}text-yellow-400{% else %}text-green-400{% endif %}">{{ d }}</p>
+                <p class="{% if 'ERREUR' in d or 'Erreur' in d or '❌' in d %}text-red-400{% elif 'IGNORÉE' in d or 'ignorée' in d or '⚠️' in d %}text-yellow-400{% else %}text-green-400{% endif %}">{{ d }}</p>
             {% endfor %}
         </div>
         {% endif %}
@@ -35,6 +34,18 @@
                     <option value="PLANNING">🏭 Planning Production (OF)</option>
                     <option value="CONSO">💧 Consommation (Flexo/Hélio)</option>
                     <option value="SPECIAL_PROD">🔧 Production Spéciale (Découpe/Impression)</option>
+                </select>
+            </div>
+
+            <!-- Liste déroulante des commerciaux (affichée uniquement si CRM) -->
+            <div id="commercialSelection" class="hidden bg-slate-900/40 p-4 border border-blue-500/30 rounded-lg mt-4">
+                <label class="block text-sm font-bold text-blue-300 mb-2">👤 Assigner un commercial (Optionnel)</label>
+                <p class="text-xs text-gray-400 mb-3">Si vous choisissez un commercial ici, il sera affecté à <strong>tous les clients</strong> de ce fichier Excel. Sinon, l'ERP lira la colonne de l'Excel.</p>
+                <select name="commercial_id" class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:border-neon focus:outline-none">
+                    <option value="">--- Utiliser la colonne du fichier Excel ---</option>
+                    {% for u in crm_users %}
+                    <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
+                    {% endfor %}
                 </select>
             </div>
 
@@ -110,10 +121,14 @@
         </form>
 
         <!-- Bouton Télécharger Template -->
-        <div class="mt-4">
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <a href="{% url 'download_template_special_prod' %}" 
-               class="block text-center w-full bg-slate-700 text-neon font-bold py-3 px-6 rounded hover:bg-slate-600 transition">
-                📥 Télécharger le Template Excel (Production Spéciale)
+               class="text-center bg-slate-700 text-neon font-bold py-3 px-4 rounded hover:bg-slate-600 transition text-xs">
+                📥 Template Excel (Prod Spéciale)
+            </a>
+            <a href="{% url 'download_template_stock' %}" 
+               class="text-center bg-slate-700 text-neon font-bold py-3 px-4 rounded hover:bg-slate-600 transition text-xs">
+                📥 Template Excel (Stock Matières)
             </a>
         </div>
     </div>
@@ -122,7 +137,7 @@
 <script>
     const colMap = {
         'STOCK': 'Designation, Categorie (Film/Encre/Colle), Quantite, Unite, Seuil_Min, Prix',
-        'CRM': 'Nom, Ville, Telephone, Email, Secteur, Statut (Active/Prospect)',
+        'CRM': 'ID Client, Nom Client, Secteur, Adresse, Ville, Région, Téléphone, Email, Commercial, Statut compte, Limite crédit (DA), Observations',
         'TOOLS': 'Ref_Produit, Type (Cylindre/Cliche), Serial, Tours_Max, Tours_Actuels',
         'PLANNING': 'OF_Numero, Client, Produit, Machine, Date_Debut (JJ/MM/AAAA), Qte_Prevue',
         'CONSO': 'Date, Type (Flexo/Helio), Support, Laize, Bobine_In, Bobine_Out, Metrage, Noir, Magenta, Jaune, Cyan, Dore, Silver, Orange, Blanc, Vernis, Metoxyn, 2080',
@@ -139,6 +154,14 @@
             exTable.classList.remove('hidden');
         } else {
             exTable.classList.add('hidden');
+        }
+
+        // Afficher/masquer la sélection du commercial pour CRM
+        const commSelection = document.getElementById('commercialSelection');
+        if (type === 'CRM') {
+            commSelection.classList.remove('hidden');
+        } else {
+            commSelection.classList.add('hidden');
         }
     }
     // Init

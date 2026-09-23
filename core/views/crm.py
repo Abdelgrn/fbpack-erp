@@ -4,6 +4,15 @@ from django.db.models import Sum, Q, Count, Prefetch
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
+from django.db import transaction
+from django.contrib.auth.models import User
+
+# Gestion de l'import pandas (sécurité)
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
 
 from ..models import (
     Client, ClientContact, InteractionLog, Opportunite, Quote,
@@ -13,7 +22,7 @@ from ..models import (
 from ..forms import (
     ClientForm, ClientContactForm, ClientContactFormSet, InteractionLogForm, OpportuniteForm, QuoteForm,
     CommandeClientForm, LigneCommandeClientFormSet, DemandePrixForm,
-    OrdreFabricationForm, EtapeProductionFormSet,
+    OrdreFabricationForm, EtapeProductionFormSet, ClientImportForm,
 )
 
 
@@ -165,6 +174,116 @@ def add_client(request):
         'form': form,
         'formset': formset,
         'titre': 'Nouveau Client'
+    })
+
+
+@login_required
+def import_clients(request):
+    """
+    Vue d'importation en masse de clients depuis un fichier Excel/CSV
+    Gère la création et la mise à jour (via ID Client/code_client)
+    """
+    if not PANDAS_AVAILABLE:
+        messages.error(request, "L'import nécessite les librairies Python 'pandas' et 'openpyxl'. Installez-les sur le serveur avec : pip install pandas openpyxl")
+        return redirect('crm_view')
+
+    if request.method == 'POST':
+        form = ClientImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            fichier = request.FILES['fichier']
+            try:
+                if fichier.name.endswith('.csv'):
+                    df = pd.read_csv(fichier)
+                else:
+                    df = pd.read_excel(fichier)
+                
+                # Nettoyage des NaN pour éviter les erreurs de base de données
+                df = df.fillna('')
+                
+                crees = 0
+                mis_a_jour = 0
+                erreurs = 0
+
+                with transaction.atomic():
+                    for index, row in df.iterrows():
+                        # Extraction selon vos colonnes exactes
+                        code_client = str(row.get('ID Client', '')).strip()
+                        nom = str(row.get('Nom Client', '')).strip()
+                        
+                        if not nom:
+                            erreurs += 1
+                            continue
+                            
+                        secteur = str(row.get('Secteur', ''))[:100]
+                        adresse = str(row.get('Adresse', ''))
+                        ville = str(row.get('Ville', ''))[:100]
+                        telephone = str(row.get('Téléphone', ''))[:50]
+                        email = str(row.get('Email', ''))
+                        limite_credit = row.get('Limite crédit (DA)', 0)
+                        observations = str(row.get('Observations', ''))
+                        
+                        # Traitement du statut compte (Actif -> ACTIVE, Inactif -> LOST)
+                        statut_raw = str(row.get('Statut compte', '')).strip().upper()
+                        if 'ACTIF' in statut_raw and 'IN' not in statut_raw:
+                            status = 'ACTIVE'
+                        elif 'INACTIF' in statut_raw:
+                            status = 'LOST'
+                        else:
+                            status = 'PROSPECT'
+                            
+                        # Traitement du commercial (recherche par nom d'utilisateur)
+                        commercial_raw = str(row.get('Commercial', '')).strip()
+                        commercial = None
+                        if commercial_raw:
+                            commercial = User.objects.filter(username__icontains=commercial_raw).first()
+
+                        # Nettoyage limite crédit
+                        try:
+                            limite_credit = float(limite_credit) if limite_credit else 0.0
+                        except ValueError:
+                            limite_credit = 0.0
+
+                        defaults = {
+                            'name': nom,
+                            'sector': secteur,
+                            'address': adresse,
+                            'city': ville,
+                            'phone': telephone,
+                            'email': email,
+                            'status': status,
+                            'limite_credit': limite_credit,
+                            'notes': observations,
+                        }
+                        
+                        if commercial:
+                            defaults['commercial'] = commercial
+
+                        # Si on a un Code Client, on met à jour ou crée. Sinon création brute.
+                        if code_client:
+                            client, created = Client.objects.update_or_create(
+                                code_client=code_client,
+                                defaults=defaults
+                            )
+                            if created:
+                                crees += 1
+                            else:
+                                mis_a_jour += 1
+                        else:
+                            Client.objects.create(**defaults)
+                            crees += 1
+
+                messages.success(request, f"Import terminé : {crees} créés, {mis_a_jour} mis à jour. ({erreurs} lignes ignorées)")
+                return redirect('crm_view')
+
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'import : {str(e)}")
+                return redirect('import_clients')
+    else:
+        form = ClientImportForm()
+
+    return render(request, 'crm/client_import.html', {
+        'form': form,
+        'titre': 'Importation Clients (Excel/CSV)'
     })
 
 
