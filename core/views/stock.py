@@ -784,7 +784,7 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE (GEMINI 3.6 FLASH) ---
+# --- API SCANNER IA ÉTIQUETTE (GEMINI 1.5 FLASH) ---
 # ===========================================================================
 
 @login_required
@@ -829,8 +829,8 @@ def scan_label_ai(request):
         Réponds UNIQUEMENT au format JSON valide, sans texte d'introduction ni balises markdown code.
         """
 
-        # Utilisation des versions mises à jour recommandées par Google
-        candidate_models = ["gemini-3.6-flash", "gemini-1.5-flash"]
+        # Modèles valides sur l'endpoint Google AI Studio
+        candidate_models = ["gemini-1.5-flash", "gemini-1.5-pro"]
         last_error = None
 
         for model_name in candidate_models:
