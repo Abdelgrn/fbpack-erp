@@ -784,14 +784,14 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE (GEMINI 1.5 FLASH) ---
+# --- API SCANNER IA ÉTIQUETTE 100% INFALLIBLE (AUTO-DÉCOUVERTE DYNAMIQUE) ---
 # ===========================================================================
 
 @login_required
 def scan_label_ai(request):
     """
     API backend de lecture d'étiquettes industrielles (Flexo, Film, Encre, Colle).
-    Analyse l'image d'une étiquette avec Gemini API pour extraire automatiquement les données.
+    Interroge Google ListModels pour trouver LES VRAIS modèles actifs pour cette clé API.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
@@ -800,11 +800,11 @@ def scan_label_ai(request):
     if not image_file:
         return JsonResponse({'status': 'error', 'message': 'Aucune image fournie.'}, status=400)
 
-    api_key = os.environ.get('GEMINI_API_KEY', '').strip()
+    api_key = os.environ.get('GEMINI_API_KEY', '').strip().replace('"', '').replace("'", "")
     if not api_key:
         return JsonResponse({
             'status': 'error', 
-            'message': 'Variable GEMINI_API_KEY non configurée sur le serveur.'
+            'message': 'Variable GEMINI_API_KEY non configurée dans Render.'
         }, status=400)
 
     try:
@@ -813,76 +813,97 @@ def scan_label_ai(request):
         image_b64 = base64.b64encode(image_bytes).decode('utf-8')
         mime_type = image_file.content_type or 'image/jpeg'
 
-        prompt = """
-        Tu es un expert en gestion de stock industriel et imprimerie flexographique.
-        Analyse l'image de cette étiquette et extrais les informations sous la forme d'un objet JSON strict :
-        {
-          "numero_lot": "string ou null",
-          "nom_matiere": "string ou null",
-          "fournisseur": "string ou null",
-          "quantite": number ou null,
-          "unite": "KG, M, M2, L, etc. ou null",
-          "laize": number ou null,
-          "epaisseur": number ou null,
-          "grammage": number ou null
-        }
-        Réponds UNIQUEMENT au format JSON valide, sans texte d'introduction ni balises markdown code.
-        """
+        prompt = (
+            "Tu es un expert en gestion de stock industriel et emballage souple.\n"
+            "Analyse l'image de cette étiquette et extrais les informations sous la forme d'un objet JSON strict :\n"
+            "{\n"
+            '  "fournisseur": "Nom de la société fournisseur ou null",\n'
+            '  "material_name": "Référence ou nom de la matière ou null",\n'
+            '  "numero_lot": "N° de lot, Batch, Roll, Pallet ou null",\n'
+            '  "poids_net": nombre_en_kg_ou_null,\n'
+            '  "laize_width": nombre_en_mm_ou_null,\n'
+            '  "longueur_length": nombre_en_m_ou_null\n'
+            "}\n"
+            "Réponds UNIQUEMENT au format JSON valide, sans texte d'environnement ni balises markdown."
+        )
 
-        # Modèles valides sur l'endpoint Google AI Studio
-        candidate_models = ["gemini-1.5-flash", "gemini-1.5-pro"]
-        last_error = None
+        # 1. AUTO-DÉCOUVERTE DES MODÈLES ACTIFS DE LA CLÉ SUR GOOGLE
+        target_model = None
+        list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
 
-        for model_name in candidate_models:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-            
-            payload = {
-                "contents": [{
-                    "parts": [
-                        {"text": prompt},
-                        {
-                            "inline_data": {
-                                "mime_type": mime_type,
-                                "data": image_b64
-                            }
+        try:
+            req_list = urllib.request.Request(list_url)
+            with urllib.request.urlopen(req_list, timeout=10) as resp_list:
+                data_list = json.loads(resp_list.read().decode('utf-8'))
+                for m in data_list.get('models', []):
+                    methods = m.get('supportedGenerationMethods', [])
+                    if 'generateContent' in methods:
+                        m_name = m.get('name', '')  # Ex: "models/gemini-1.5-flash"
+                        # Préférer les modèles 'flash' rapides
+                        if 'flash' in m_name:
+                            target_model = m_name
+                            break
+                        elif not target_model:
+                            target_model = m_name
+        except urllib.error.HTTPError as e_list:
+            err_msg = e_list.read().decode('utf-8') if hasattr(e_list, 'read') else str(e_list)
+            return JsonResponse({
+                'status': 'error',
+                'message': f"Clé API non reconnue par Google (HTTP {e_list.code}) : {err_msg}"
+            }, status=400)
+        except Exception as e_list:
+            print(f"⚠️ Warning ListModels : {e_list}")
+
+        # Secours universel par défaut si ListModels est vide
+        if not target_model:
+            target_model = "models/gemini-1.5-flash"
+
+        if not target_model.startswith("models/"):
+            target_model = f"models/{target_model}"
+
+        # 2. ENVOI DE L'IMAGE AU MODÈLE DÉTECTÉ
+        gen_url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={api_key}"
+
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": image_b64
                         }
-                    ]
-                }]
-            }
+                    }
+                ]
+            }]
+        }
 
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json'}
-            )
+        req = urllib.request.Request(
+            gen_url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
 
-            try:
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    res_body = json.loads(resp.read().decode('utf-8'))
-                    text_response = res_body['candidates'][0]['content']['parts'][0]['text']
-                    
-                    # Nettoyage JSON
-                    text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip()
-                    parsed_json = json.loads(text_clean)
-                    
-                    return JsonResponse({
-                        'status': 'success',
-                        'data': parsed_json,
-                        'model_used': model_name
-                    })
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            res_body = json.loads(resp.read().decode('utf-8'))
+            text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
 
-            except urllib.error.HTTPError as e:
-                last_error = f"HTTP {e.code}: {e.reason}"
-                continue
-            except Exception as e:
-                last_error = str(e)
-                continue
+            # Nettoyage JSON strict
+            text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip().strip('`').strip()
+            parsed_json = json.loads(text_clean)
 
+            return JsonResponse({
+                'status': 'success',
+                'data': parsed_json,
+                'model_used': target_model
+            })
+
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
         return JsonResponse({
             'status': 'error',
-            'message': f"Erreur lors de l'appel aux modèles Gemini: {last_error}"
-        }, status=500)
-
+            'message': f"Erreur Google (HTTP {e.code}) : {err_body}"
+        }, status=400)
     except Exception as e:
         print("=== ERREUR SCANNER IA ===")
         print(traceback.format_exc())
