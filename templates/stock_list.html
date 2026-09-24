@@ -36,6 +36,10 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <!-- Case de sélection globale -->
+                        <th class="p-4 border-b border-slate-700 w-12 text-center">
+                            <input type="checkbox" id="selectAllMaterials" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer">
+                        </th>
                         <th class="p-4 border-b border-slate-700">Désignation</th>
                         <th class="p-4 border-b border-slate-700">Catégorie</th>
                         <th class="p-4 border-b border-slate-700">Stock Réel</th>
@@ -47,6 +51,10 @@
                 <tbody class="text-gray-200 text-sm">
                     {% for m in materials %}
                     <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <!-- Case de sélection individuelle -->
+                        <td class="p-4 text-center align-middle">
+                            <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer">
+                        </td>
                         <td class="p-4 font-bold text-cyan-400">{{ m.name }}</td>
                         <td class="p-4">
                             {% if m.category == 'FILM' %}
@@ -70,7 +78,7 @@
                         <td class="p-4 font-bold {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
                             {{ m.quantity }} {{ m.unit }}
                             {% if m.is_low_stock %}
-                                <span class="ml-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30">⚠️ ALERTE</span>
+                                <span class="ml-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 font-black">⚠️ ALERTE</span>
                             {% endif %}
                         </td>
                         <td class="p-4 text-gray-400">{{ m.min_threshold }} {{ m.unit }}</td>
@@ -103,7 +111,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="p-8 text-center text-gray-500 italic">
+                        <td colspan="7" class="p-8 text-center text-gray-500 italic">
                             Aucune matière enregistrée.
                         </td>
                     </tr>
@@ -224,7 +232,17 @@
     </div>
 </div>
 
-<!-- SCRIPT DE GESTION DES ONGLETS -->
+<!-- ============================================================ -->
+<!-- BARRE ACTIONS GROUPÉES (AFFICHEE LORS DE LA SELECTION MULTIPLE) -->
+<!-- ============================================================ -->
+<div id="bulkActionsBar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 shadow-2xl flex items-center gap-4 z-50 animate-fade-in">
+    <span class="text-xs text-gray-300 font-bold"><span id="selectedCount" class="text-yellow-400 font-black">0</span> sélectionné(s)</span>
+    <button onclick="bulkDeleteMaterials()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-1 shadow-md">
+        🗑️ Supprimer la sélection
+    </button>
+</div>
+
+<!-- SCRIPT DE GESTION DES ONGLETS & SELECTIONS MULTIPLES -->
 <script>
     function showTab(tabName) {
         var contents = document.querySelectorAll('.tab-content');
@@ -249,6 +267,74 @@
         if (activeBtn) {
             activeBtn.classList.remove('border-transparent', 'text-gray-400');
             activeBtn.classList.add('border-yellow-500', 'text-yellow-500');
+        }
+    }
+
+    // GESTION DU MULTI-SELECT & DES ACTIONS EN LOT
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAll = document.getElementById('selectAllMaterials');
+        const checkboxes = document.querySelectorAll('.material-checkbox');
+        const bulkBar = document.getElementById('bulkActionsBar');
+        const selectedCountSpan = document.getElementById('selectedCount');
+
+        function updateBulkBar() {
+            const checkedCount = document.querySelectorAll('.material-checkbox:checked').length;
+            if (checkedCount > 0) {
+                selectedCountSpan.textContent = checkedCount;
+                bulkBar.classList.remove('hidden');
+                bulkBar.classList.add('flex');
+            } else {
+                bulkBar.classList.add('hidden');
+                bulkBar.classList.remove('flex');
+            }
+        }
+
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                checkboxes.forEach(cb => {
+                    cb.checked = selectAll.checked;
+                });
+                updateBulkBar();
+            });
+        }
+
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                const allChecked = document.querySelectorAll('.material-checkbox:checked').length === checkboxes.length;
+                if (selectAll) selectAll.checked = allChecked;
+                updateBulkBar();
+            });
+        });
+    });
+
+    function bulkDeleteMaterials() {
+        const checkedBoxes = document.querySelectorAll('.material-checkbox:checked');
+        const ids = Array.from(checkedBoxes).map(cb => cb.value);
+        if (ids.length === 0) return;
+
+        if (confirm(`⚠️ Êtes-vous sûr de vouloir supprimer définitivement les ${ids.length} matières sélectionnées ? cette action supprimera également tous leurs lots liés.`)) {
+            fetch("{% url 'bulk_delete_materials' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ids: ids })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    alert('❌ Erreur: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Une erreur technique est survenue.');
+            });
         }
     }
 </script>

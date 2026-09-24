@@ -2,7 +2,7 @@
 {% block content %}
 <div class="max-w-3xl mx-auto mt-6">
     <h2 class="text-3xl font-bold text-white mb-2">Station d'Import Universelle</h2>
-    <p class="text-gray-400 mb-6">Mettez à jour vos données en masse via Excel.</p>
+    <p class="text-gray-400 mb-6">Mettez à jour vos données et vos mouvements de stock en masse via Excel.</p>
 
     <div class="glass p-8 rounded-xl border border-slate-700">
         
@@ -21,13 +21,13 @@
         </div>
         {% endif %}
 
-        <form method="post" enctype="multipart/form-data" class="space-y-6">
+        <form method="post" action="{% url 'import_stock' %}" enctype="multipart/form-data" class="space-y-6">
             {% csrf_token %}
             
-            <!-- Choix du Type -->
             <div>
                 <label class="block text-sm font-bold text-gray-300 mb-2">1. Que voulez-vous importer ?</label>
                 <select name="import_type" id="typeSelector" onchange="updateInstructions()" class="w-full bg-slate-800 border border-slate-600 rounded p-3 text-white focus:border-neon focus:outline-none">
+                    <option value="MOUVEMENTS" selected>🔄 Journal Mouvements de Stock (Flexo/Hélio)</option>
                     <option value="STOCK">📦 Stock (Matières Premières)</option>
                     <option value="CRM">🤝 CRM (Clients & Prospects)</option>
                     <option value="TOOLS">⚙️ Outillage (Cylindres & Clichés)</option>
@@ -37,7 +37,6 @@
                 </select>
             </div>
 
-            <!-- Liste déroulante des commerciaux (affichée uniquement si CRM) -->
             <div id="commercialSelection" class="hidden bg-slate-900/40 p-4 border border-blue-500/30 rounded-lg mt-4">
                 <label class="block text-sm font-bold text-blue-300 mb-2">👤 Assigner un commercial (Optionnel)</label>
                 <p class="text-xs text-gray-400 mb-3">Si vous choisissez un commercial ici, il sera affecté à <strong>tous les clients</strong> de ce fichier Excel. Sinon, l'ERP lira la colonne de l'Excel.</p>
@@ -49,7 +48,6 @@
                 </select>
             </div>
 
-            <!-- Zone Upload -->
             <div>
                 <label class="block text-sm font-bold text-gray-300 mb-2">2. Fichier Excel (.xlsx)</label>
                 <div class="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center hover:border-neon transition bg-slate-800/30">
@@ -58,15 +56,87 @@
                 </div>
             </div>
 
-            <!-- Instructions Dynamiques -->
             <div class="bg-slate-900/50 p-4 rounded text-sm border border-slate-700">
                 <p class="text-neon font-bold mb-2">Colonnes Excel requises (En-têtes) :</p>
                 <p id="colList" class="font-mono text-gray-300 text-xs leading-relaxed break-words">Select type...</p>
             </div>
 
-            <!-- Exemple visuel pour SPECIAL_PROD -->
+            <div id="mouvementsTable" class="hidden bg-slate-900/50 p-4 rounded text-sm border border-slate-700 overflow-x-auto">
+                <p class="text-neon font-bold mb-2">📝 Format de votre fichier Excel (Mouvements) :</p>
+                <table class="text-xs text-gray-300 border-collapse w-full">
+                    <thead>
+                        <tr class="border-b border-slate-600 bg-slate-800 text-cyan-400">
+                            <th class="p-2 text-left">Date</th>
+                            <th class="p-2 text-left">Machine</th>
+                            <th class="p-2 text-left">Produit</th>
+                            <th class="p-2 text-left">Quantite (KG)</th>
+                            <th class="p-2 text-left">Code Prod</th>
+                            <th class="p-2 text-left">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-700">
+                            <td class="p-2">6/22/2026</td>
+                            <td class="p-2">Flexo</td>
+                            <td class="p-2">SOLVAPRINT TF EP YELLOW:JPR1</td>
+                            <td class="p-2">180,0</td>
+                            <td class="p-2">HSAU200019</td>
+                            <td class="p-2">Sortie Atelier</td>
+                        </tr>
+                        <tr class="border-b border-slate-700">
+                            <td class="p-2">6/22/2026</td>
+                            <td class="p-2">Flexo</td>
+                            <td class="p-2">SOLIPROP V AP WHITE:LT30</td>
+                            <td class="p-2">1000,0</td>
+                            <td class="p-2">HSAN-10001</td>
+                            <td class="p-2">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="stockTable" class="hidden bg-slate-900/50 p-4 rounded text-sm border border-slate-700 overflow-x-auto">
+                <p class="text-neon font-bold mb-2">📝 Format de votre fichier Excel (Stock Matières) :</p>
+                <table class="text-xs text-gray-300 border-collapse w-full">
+                    <thead>
+                        <tr class="border-b border-slate-600 bg-slate-800 text-cyan-400">
+                            <th class="p-2 text-left">Designation</th>
+                            <th class="p-2 text-left">Code</th>
+                            <th class="p-2 text-left">Fournisseur</th>
+                            <th class="p-2 text-left">Categorie</th>
+                            <th class="p-2 text-left">Quantite</th>
+                            <th class="p-2 text-left">Unite</th>
+                            <th class="p-2 text-left">Seuil_Min</th>
+                            <th class="p-2 text-left">Prix</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-700">
+                            <td class="p-2">SOLVAPRINT TF EP YELLOW:JPR1</td>
+                            <td class="p-2">HSAU200019</td>
+                            <td class="p-2">SunChemical</td>
+                            <td class="p-2">Encre</td>
+                            <td class="p-2">500</td>
+                            <td class="p-2">kg</td>
+                            <td class="p-2">100</td>
+                            <td class="p-2">1200</td>
+                        </tr>
+                        <tr class="border-b border-slate-700">
+                            <td class="p-2">BOPP Transparent 20µ</td>
+                            <td class="p-2">BOPP-20-TR</td>
+                            <td class="p-2">GulfPack</td>
+                            <td class="p-2">Film</td>
+                            <td class="p-2">1500</td>
+                            <td class="p-2">kg</td>
+                            <td class="p-2">300</td>
+                            <td class="p-2">450</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
             <div id="exampleTable" class="hidden bg-slate-900/50 p-4 rounded text-sm border border-slate-700 overflow-x-auto">
-                <p class="text-neon font-bold mb-2">📝 Exemple de votre fichier Excel :</p>
+                <p class="text-neon font-bold mb-2">📝 Exemple de votre fichier Excel (Prod Spéciale) :</p>
                 <table class="text-xs text-gray-300 border-collapse w-full">
                     <thead>
                         <tr class="border-b border-slate-600">
@@ -120,7 +190,6 @@
             </button>
         </form>
 
-        <!-- Bouton Télécharger Template -->
         <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <a href="{% url 'download_template_special_prod' %}" 
                class="text-center bg-slate-700 text-neon font-bold py-3 px-4 rounded hover:bg-slate-600 transition text-xs">
@@ -136,7 +205,8 @@
 
 <script>
     const colMap = {
-        'STOCK': 'Designation, Categorie (Film/Encre/Colle), Quantite, Unite, Seuil_Min, Prix',
+        'MOUVEMENTS': 'Date, Machine, Produit, Quantite (KG), Code Prod, Notes',
+        'STOCK': 'Designation, Code, Fournisseur, Categorie (Film/Encre/Colle/Solvant), Quantite, Unite, Seuil_Min, Prix',
         'CRM': 'ID Client, Nom Client, Secteur, Adresse, Ville, Région, Téléphone, Email, Commercial, Statut compte, Limite crédit (DA), Observations',
         'TOOLS': 'Ref_Produit, Type (Cylindre/Cliche), Serial, Tours_Max, Tours_Actuels',
         'PLANNING': 'OF_Numero, Client, Produit, Machine, Date_Debut (JJ/MM/AAAA), Qte_Prevue',
@@ -146,17 +216,24 @@
 
     function updateInstructions() {
         const type = document.getElementById('typeSelector').value;
-        document.getElementById('colList').innerText = colMap[type];
+        document.getElementById('colList').innerText = colMap[type] || '';
         
-        // Afficher/masquer l'exemple pour SPECIAL_PROD
         const exTable = document.getElementById('exampleTable');
+        const mvtTable = document.getElementById('mouvementsTable');
+        const stockTable = document.getElementById('stockTable');
+        
+        exTable.classList.add('hidden');
+        mvtTable.classList.add('hidden');
+        stockTable.classList.add('hidden');
+
         if (type === 'SPECIAL_PROD') {
             exTable.classList.remove('hidden');
-        } else {
-            exTable.classList.add('hidden');
+        } else if (type === 'MOUVEMENTS') {
+            mvtTable.classList.remove('hidden');
+        } else if (type === 'STOCK') {
+            stockTable.classList.remove('hidden');
         }
 
-        // Afficher/masquer la sélection du commercial pour CRM
         const commSelection = document.getElementById('commercialSelection');
         if (type === 'CRM') {
             commSelection.classList.remove('hidden');
@@ -164,7 +241,6 @@
             commSelection.classList.add('hidden');
         }
     }
-    // Init
     updateInstructions();
 </script>
 {% endblock %}

@@ -23,11 +23,12 @@ class Material(models.Model):
         ('SOLV', 'Solvant'),
     ]
     name = models.CharField("Désignation", max_length=200)
+    code = models.CharField("Code Produit", max_length=100, blank=True, default='', db_index=True)
     category = models.CharField(max_length=10, choices=CAT_CHOICES)
     quantity = models.FloatField("Stock Réel")
     unit = models.CharField("Unité", max_length=10, default='kg')
     min_threshold = models.FloatField("Stock Alerte (Min)")
-    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True)
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True)
     price_per_unit = models.DecimalField("Prix Unitaire", max_digits=10, decimal_places=2, default=0)
 
     class Meta:
@@ -59,7 +60,7 @@ class StockLocation(models.Model):
         verbose_name_plural = "Emplacements Stock"
 
     def __str__(self):
-        return f"{self.get_type_display()} – {self.name}"
+        return self.name
 
 
 class StockLot(models.Model):
