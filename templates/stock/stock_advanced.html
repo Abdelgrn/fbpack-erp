@@ -159,7 +159,6 @@
         </div>
     </div>
 
-    <!-- Corps du tableau alertes : Mémorisé -->
     <div id="corpsTableauAlertes" style="display: none;">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse" id="tableAlertes">
@@ -192,21 +191,13 @@
 
                         <td class="px-4 py-3">
                             {% if a.category == 'FILM' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800">
-                                    {{ a.cat_label }}
-                                </span>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800">{{ a.cat_label }}</span>
                             {% elif a.category == 'INK' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-pink-950 text-pink-400 border border-pink-800">
-                                    {{ a.cat_label }}
-                                </span>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-pink-950 text-pink-400 border border-pink-800">{{ a.cat_label }}</span>
                             {% elif a.category == 'GLUE' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
-                                    {{ a.cat_label }}
-                                </span>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">{{ a.cat_label }}</span>
                             {% else %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">
-                                    {{ a.cat_label }}
-                                </span>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">{{ a.cat_label }}</span>
                             {% endif %}
                         </td>
 
@@ -332,7 +323,6 @@
 <!-- ============================================================ -->
 <div id="tab-matieres" class="tab-content block">
     
-    <!-- BARRE DE RECHERCHE AVANCÉE -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-5">
         <form method="get" action="{% url 'stock_advanced' %}" id="searchForm">
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
@@ -427,7 +417,6 @@
         <div id="liveSearchResults" class="hidden mt-4 bg-slate-900 border border-slate-600 rounded-lg max-h-80 overflow-y-auto"></div>
     </div>
     
-    <!-- EN-TÊTE AVEC TITRE, TRI ET BOUTONS -->
     <div class="flex justify-between items-end mb-4 flex-wrap gap-3">
         <div>
             <h2 class="text-xl font-bold text-white flex items-center gap-2">
@@ -464,7 +453,6 @@
                 </select>
             </div>
 
-            <!-- BOUTON DE SCANNER IA DEPUIS LA LISTE MATIÈRE -->
             <button onclick="openLabelScanner('lot')" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm flex items-center gap-2 animate-pulse">
                 📷 Scan Étiquette (IA)
             </button>
@@ -480,12 +468,14 @@
         </div>
     </div>
     
-    <!-- TABLEAU DES MATIÈRES -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse" id="materialsTable">
                 <thead>
                     <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700 w-12 text-center">
+                            <input type="checkbox" id="selectAllMaterialsAdv" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer" title="Tout sélectionner">
+                        </th>
                         <th class="p-4 border-b border-slate-700">Désignation</th>
                         <th class="p-4 border-b border-slate-700">Catégorie</th>
                         <th class="p-4 border-b border-slate-700">Stock Réel</th>
@@ -509,29 +499,25 @@
                         data-price="{{ m.price_per_unit|default:0 }}"
                         data-created-at="{{ m.created_at|date:'U'|default:m.id }}"
                         data-original-order="{{ forloop.counter }}">
+                        <td class="p-4 text-center align-middle">
+                            <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox-adv w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer">
+                        </td>
                         <td class="p-4 font-bold text-cyan-400">
                             {{ m.name }}
+                            {% if m.code %}<div class="text-[10px] text-gray-500 font-mono">{{ m.code }}</div>{% endif %}
                             {% if m.is_low_stock %}
                             <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-ping ml-1" title="Alerte : Seuil critique atteint !"></span>
                             {% endif %}
                         </td>
                         <td class="p-4">
                             {% if m.category == 'FILM' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800">
-                                    {{ m.get_category_display }}
-                                </span>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800">{{ m.get_category_display }}</span>
                             {% elif m.category == 'INK' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-pink-950 text-pink-400 border border-pink-800">
-                                    {{ m.get_category_display }}
-                                </span>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-pink-950 text-pink-400 border border-pink-800">{{ m.get_category_display }}</span>
                             {% elif m.category == 'GLUE' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
-                                    {{ m.get_category_display }}
-                                </span>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">{{ m.get_category_display }}</span>
                             {% else %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">
-                                    {{ m.get_category_display }}
-                                </span>
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">{{ m.get_category_display }}</span>
                             {% endif %}
                         </td>
                         <td class="p-4 font-bold {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
@@ -592,7 +578,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="p-8 text-center" id="noMaterialRow">
+                        <td colspan="10" class="p-8 text-center" id="noMaterialRow">
                             <div class="text-gray-500 italic">Aucune matière enregistrée.</div>
                         </td>
                     </tr>
@@ -652,7 +638,7 @@
                         <td class="p-3 text-white">{{ lot.material.name }}</td>
                         <td class="p-3 text-gray-400">{{ lot.date_reception|date:"d/m/Y" }}</td>
                         <td class="p-3 text-gray-400">{{ lot.fournisseur.name|default:"—" }}</td>
-                        <td class="p-3 text-gray-400">{{ lot.emplacement|default:"—" }}</td>
+                        <td class="p-3 text-gray-400">{{ lot.emplacement.name|default:"—" }}</td>
                         <td class="p-3 text-gray-300">{{ lot.quantite_initiale }} kg</td>
                         <td class="p-3 font-bold text-emerald-400">{{ lot.quantite_restante }} kg</td>
                         <td class="p-3">
@@ -707,6 +693,9 @@
     <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
         <h2 class="text-xl font-bold text-white">Journal des Mouvements de Stock</h2>
         <div class="flex gap-2">
+            <a href="{% url 'import_stock' %}" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 text-white font-bold py-2 px-4 rounded shadow transition text-sm flex items-center gap-2">
+                📊 Import Excel
+            </a>
             <button onclick="openLabelScanner('mouvement')" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded shadow transition text-sm flex items-center gap-2">
                 📷 Scanner Étiquette (IA)
             </button>
@@ -749,7 +738,11 @@
                         <td class="p-3 font-bold {% if mv.type == 'ENTREE' %}text-emerald-400{% else %}text-red-400{% endif %}">
                             {% if mv.type == 'ENTREE' %}+{% else %}-{% endif %}{{ mv.quantite }} kg
                         </td>
-                        <td class="p-3 text-xs text-gray-400">{{ mv.emplacement_source|default:"—" }} → {{ mv.emplacement_destination|default:"—" }}</td>
+                        <td class="p-3 text-xs text-gray-400">
+                            {% if mv.emplacement_source %}{{ mv.emplacement_source.name }}{% else %}—{% endif %}
+                            →
+                            {% if mv.emplacement_destination %}{{ mv.emplacement_destination.name }}{% else %}—{% endif %}
+                        </td>
                         <td class="p-3 text-xs text-gray-400">
                             {% if mv.machine %}{{ mv.machine.name }}{% endif %}
                             {% if mv.of %}/ OF {{ mv.of.of_number }}{% endif %}
@@ -986,7 +979,6 @@
                             </div>
                         </td>
                         
-                        <!-- LISTE DES CONTACTS (MULTI-CONTACTS) -->
                         <td class="p-4 align-top">
                             {% if s.contacts.all %}
                                 <div class="space-y-2">
@@ -1053,25 +1045,19 @@
 <!-- MODALS -->
 <!-- ============================================================ -->
 
-<!-- Modal : NOUVEAU FOURNISSEUR AVEC MULTI-CONTACTS -->
+<!-- Modal : NOUVEAU FOURNISSEUR -->
 <div id="modalSupplier" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-800 z-10">
-            <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                🏭 Nouveau Fournisseur
-            </h3>
+            <h3 class="text-xl font-bold text-white flex items-center gap-2">🏭 Nouveau Fournisseur</h3>
             <button onclick="document.getElementById('modalSupplier').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
         </div>
         
         <form method="post" action="{% url 'add_supplier' %}" class="p-6 space-y-6">
             {% csrf_token %}
             <input type="hidden" name="tab" value="fournisseurs">
-
-            <!-- INFOS SOCIÉTÉ -->
             <div class="space-y-4">
-                <h4 class="text-xs font-black text-cyan-400 uppercase tracking-wider border-b border-slate-700 pb-2">
-                    1. Informations de l'entreprise
-                </h4>
+                <h4 class="text-xs font-black text-cyan-400 uppercase tracking-wider border-b border-slate-700 pb-2">1. Informations de l'entreprise</h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs text-gray-400 mb-1 font-bold">Nom du fournisseur *</label>
@@ -1085,21 +1071,15 @@
                     </div>
                 </div>
             </div>
-
-            <!-- CONTACTS MULTIPLES -->
             <div class="space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-700 pb-2">
-                    <h4 class="text-xs font-black text-cyan-400 uppercase tracking-wider">
-                        2. Contacts & Interlocuteurs
-                    </h4>
+                    <h4 class="text-xs font-black text-cyan-400 uppercase tracking-wider">2. Contacts & Interlocuteurs</h4>
                     <button type="button" onclick="ajouterLigneContact()" 
                         class="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-3 py-1 rounded text-xs font-bold transition flex items-center gap-1">
                         + Ajouter un autre contact
                     </button>
                 </div>
-
                 <div id="modalContactsContainer" class="space-y-3">
-                    <!-- PREMIER CONTACT -->
                     <div class="contact-card bg-slate-900/60 border border-slate-700 rounded-xl p-4 relative">
                         <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Interlocuteur #1</div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1110,7 +1090,7 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] text-gray-400 mb-1">Poste / Rôle</label>
-                                <input type="text" name="contact_poste[]" placeholder="Ex: Commercial, DG, Transitaire..." list="modalPostesList"
+                                <input type="text" name="contact_poste[]" placeholder="Ex: Commercial, DG..." list="modalPostesList"
                                     class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
                             </div>
                             <div>
@@ -1127,22 +1107,14 @@
                     </div>
                 </div>
             </div>
-
-            <!-- BOUTONS ACTION -->
             <div class="flex gap-3 pt-4 border-t border-slate-700">
-                <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-bold py-2.5 rounded-lg transition shadow-lg">
-                    ✓ Enregistrer le Fournisseur
-                </button>
-                <button type="button" onclick="document.getElementById('modalSupplier').classList.add('hidden')"
-                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">
-                    Annuler
-                </button>
+                <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-bold py-2.5 rounded-lg transition shadow-lg">✓ Enregistrer le Fournisseur</button>
+                <button type="button" onclick="document.getElementById('modalSupplier').classList.add('hidden')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Suggerer les rôles les plus courants -->
 <datalist id="modalPostesList">
     <option value="Commercial">
     <option value="Directeur Général (DG)">
@@ -1160,32 +1132,24 @@
             <h3 class="text-xl font-bold text-white">🏷️ Nouveau Lot Fournisseur</h3>
             <button onclick="document.getElementById('modalLot').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
         </div>
-
         <div class="px-6 pt-4">
             <button type="button" onclick="openLabelScanner('lot')" 
                 class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 border border-purple-400/40">
                 <span class="text-xl">📷</span> Scanner une Étiquette par Photo (IA)
             </button>
         </div>
-
         <form method="post" action="{% url 'lot_add' %}" enctype="multipart/form-data" class="p-6 space-y-4">
             {% csrf_token %}
             <input type="hidden" name="tab" value="lots">
-
             <div class="grid grid-cols-2 gap-4">
-                <!-- Nom matière libre -->
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Nom / Référence matière *</label>
-                    <input type="text" name="material_name_free" id="lotMaterialNameFree" 
-                           placeholder="Ex: FA-20-HF200-0 ou SOLIPROP T AP BLACK"
+                    <input type="text" name="material_name_free" id="lotMaterialNameFree" placeholder="Ex: FA-20-HF200-0 ou SOLIPROP T AP BLACK"
                            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-
-                <!-- Catégorie -->
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Catégorie *</label>
-                    <select name="category" id="lotCategorySelect" required
-                            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <select name="category" id="lotCategorySelect" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="">— Choisir —</option>
                         <option value="FILM">Film / Papier</option>
                         <option value="INK">Encre</option>
@@ -1193,103 +1157,68 @@
                         <option value="SOLV">Solvant</option>
                     </select>
                 </div>
-
-                <!-- Matière existante (optionnel) -->
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Lier à une matière existante (optionnel)</label>
-                    <select name="material" id="lotMaterialSelect"
-                            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <select name="material" id="lotMaterialSelect" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="">— Aucune (créer plus tard) —</option>
-                        {% for m in materials %}
-                        <option value="{{ m.id }}">{{ m.name }}</option>
-                        {% endfor %}
+                        {% for m in materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">N° Lot fournisseur *</label>
-                    <input type="text" name="numero_lot" id="lotNumeroInput" required
-                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="text" name="numero_lot" id="lotNumeroInput" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Date réception *</label>
-                    <input type="date" name="date_reception" id="lotDateReceptionInput" required
-                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="date" name="date_reception" id="lotDateReceptionInput" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Fournisseur</label>
-                    <select name="fournisseur" id="lotSupplierSelect"
-                            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <select name="fournisseur" id="lotSupplierSelect" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="">— Aucun —</option>
-                        {% for s in suppliers %}
-                        <option value="{{ s.id }}">{{ s.name }}</option>
-                        {% endfor %}
+                        {% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Emplacement</label>
-                    <select name="emplacement"
-                            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <select name="emplacement" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="">— Aucun —</option>
-                        {% for loc in locations %}
-                        <option value="{{ loc.id }}">{{ loc.name }}</option>
-                        {% endfor %}
+                        {% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Quantité / Poids net (kg) *</label>
-                    <input type="number" name="quantite_initiale" id="lotQuantiteInput" required min="0" step="0.01"
-                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="number" name="quantite_initiale" id="lotQuantiteInput" required min="0" step="0.01" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Laize / Width (mm)</label>
-                    <input type="number" name="laize" id="lotLaizeInput" min="0" step="1"
-                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="number" name="laize" id="lotLaizeInput" min="0" step="1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Longueur / Length (m)</label>
-                    <input type="number" name="longueur" id="lotLongueurInput" min="0" step="1"
-                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="number" name="longueur" id="lotLongueurInput" min="0" step="1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Prix unitaire (DA/kg)</label>
-                    <input type="number" name="prix_unitaire" min="0" step="0.01"
-                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="number" name="prix_unitaire" min="0" step="0.01" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Statut qualité *</label>
-                    <select name="statut" required
-                            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <select name="statut" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="EN_ATTENTE">⏳ En attente de contrôle</option>
                         <option value="CONFORME">✓ Conforme</option>
                         <option value="BLOQUE">✗ Bloqué</option>
                         <option value="QUARANTAINE">🔒 Quarantaine</option>
                     </select>
                 </div>
-
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Notes / Remarques</label>
-                    <textarea name="notes" id="lotNotesInput" rows="2"
-                              class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
+                    <textarea name="notes" id="lotNotesInput" rows="2" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
                 </div>
             </div>
-
             <div class="flex gap-3 pt-2">
-                <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2.5 rounded-lg transition">
-                    ✓ Créer le lot
-                </button>
-                <button type="button" onclick="document.getElementById('modalLot').classList.add('hidden')"
-                        class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">
-                    Annuler
-                </button>
+                <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2.5 rounded-lg transition">✓ Créer le lot</button>
+                <button type="button" onclick="document.getElementById('modalLot').classList.add('hidden')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
             </div>
         </form>
     </div>
@@ -1302,14 +1231,11 @@
             <h3 class="text-xl font-bold text-white">🔄 Nouveau Mouvement de Stock</h3>
             <button onclick="document.getElementById('modalMouvement').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
         </div>
-
-        <!-- BOUTON D'ACTIVATION CAMERA IA POUR MOUVEMENT -->
         <div class="px-6 pt-4">
             <button type="button" onclick="openLabelScanner('mouvement')" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 border border-purple-400/40">
                 <span class="text-xl">📷</span> Scanner Étiquette pour Saisie Rapide (IA)
             </button>
         </div>
-
         <form method="post" action="{% url 'mouvement_add' %}" id="mouvementForm" class="p-6 space-y-4">
             {% csrf_token %}
             <input type="hidden" name="tab" value="mouvements">
@@ -1354,14 +1280,13 @@
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Motif / Référence</label>
-                    <input type="text" name="motif" id="mouvementMotifInput" placeholder="Ex: Transfert vers Flexo, Ajustement inventaire…"
+                    <input type="text" name="motif" id="mouvementMotifInput" placeholder="Ex: Transfert vers Flexo…"
                         class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-bold py-2.5 rounded-lg transition">✓ Enregistrer</button>
-                <button type="button" onclick="document.getElementById('modalMouvement').classList.add('hidden')"
-                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+                <button type="button" onclick="document.getElementById('modalMouvement').classList.add('hidden')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
             </div>
         </form>
     </div>
@@ -1394,13 +1319,11 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-400 mb-1">Description</label>
-                <textarea name="description" rows="2"
-                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
+                <textarea name="description" rows="2" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="submit" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 rounded-lg transition">✓ Créer</button>
-                <button type="button" onclick="document.getElementById('modalLocation').classList.add('hidden')"
-                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+                <button type="button" onclick="document.getElementById('modalLocation').classList.add('hidden')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
             </div>
         </form>
     </div>
@@ -1425,8 +1348,7 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Quantité (kg) *</label>
-                    <input type="number" name="quantite_demandee" required min="0" step="0.1" placeholder="0"
-                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="number" name="quantite_demandee" required min="0" step="0.1" placeholder="0" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Urgence</label>
@@ -1439,18 +1361,15 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-400 mb-1">Date besoin souhaitée</label>
-                <input type="date" name="date_besoin"
-                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <input type="date" name="date_besoin" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
             </div>
             <div>
                 <label class="block text-xs text-gray-400 mb-1">Motif</label>
-                <textarea name="motif" rows="2" placeholder="Pourquoi cette demande ?"
-                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
+                <textarea name="motif" rows="2" placeholder="Pourquoi cette demande ?" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-bold py-2.5 rounded-lg transition">✓ Soumettre</button>
-                <button type="button" onclick="document.getElementById('modalDA').classList.add('hidden')"
-                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+                <button type="button" onclick="document.getElementById('modalDA').classList.add('hidden')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
             </div>
         </form>
     </div>
@@ -1476,8 +1395,7 @@
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Livraison prévue</label>
-                    <input type="date" name="date_livraison_prevue"
-                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="date" name="date_livraison_prevue" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
             </div>
             <div>
@@ -1490,22 +1408,18 @@
                         <select name="material_1" class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
                             {% for m in materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
                         </select>
-                        <input type="number" name="quantite_1" placeholder="Qté (kg)" min="0" step="0.1"
-                            class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
-                        <input type="number" name="prix_1" placeholder="Prix DA/kg" min="0" step="0.01"
-                            class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+                        <input type="number" name="quantite_1" placeholder="Qté (kg)" min="0" step="0.1" class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+                        <input type="number" name="prix_1" placeholder="Prix DA/kg" min="0" step="0.01" class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
                     </div>
                 </div>
             </div>
             <div>
                 <label class="block text-xs text-gray-400 mb-1">Notes / Conditions</label>
-                <textarea name="notes" rows="2"
-                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
+                <textarea name="notes" rows="2" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none resize-none"></textarea>
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-2.5 rounded-lg transition">✓ Créer le BC</button>
-                <button type="button" onclick="document.getElementById('modalBC').classList.add('hidden')"
-                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+                <button type="button" onclick="document.getElementById('modalBC').classList.add('hidden')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
             </div>
         </form>
     </div>
@@ -1526,65 +1440,46 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-400 mb-1">Consommation moyenne / jour (kg)</label>
-                <input type="number" name="conso_jour" min="0" step="0.1" placeholder="Ex: 50"
-                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <input type="number" name="conso_jour" min="0" step="0.1" placeholder="Ex: 50" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Délai fournisseur (jours)</label>
-                    <input type="number" name="delai_jours" min="1" value="7" step="1"
-                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="number" name="delai_jours" min="1" value="7" step="1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Jours de sécurité</label>
-                    <input type="number" name="securite_jours" min="0" value="3" step="1"
-                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <input type="number" name="securite_jours" min="0" value="3" step="1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="submit" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 rounded-lg transition">✓ Enregistrer</button>
-                <button type="button" onclick="document.getElementById('modalSeuil').classList.add('hidden')"
-                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
+                <button type="button" onclick="document.getElementById('modalSeuil').classList.add('hidden')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition">Annuler</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- MODAL CAMERA DE SCANNER IA (TABLETTE ET SMARTPHONE) -->
-<!-- ============================================================ -->
+<!-- Modal Scanner IA -->
 <div id="modalScanCamera" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative">
         <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                🤖 Scanner d'Étiquette IA
-            </h3>
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">🤖 Scanner d'Étiquette IA</h3>
             <button onclick="closeLabelScanner()" class="text-gray-400 hover:text-white text-2xl">×</button>
         </div>
-
-        <p class="text-xs text-gray-300 mb-4">
-            Prenez une photo claire de l'étiquette collée sur le produit (Palette, Bobine, Fût). L'IA extraira le poids, le lot et les références.
-        </p>
-
-        <!-- ZONE PREVIEW / DECLENCHEUR CAMERA -->
+        <p class="text-xs text-gray-300 mb-4">Prenez une photo claire de l'étiquette collée sur le produit (Palette, Bobine, Fût). L'IA extraira le poids, le lot et les références.</p>
         <div class="space-y-4 text-center">
-            <!-- Entrée Fichier Caméra Universelle -->
             <input type="file" id="cameraFileInput" accept="image/*" capture="environment" class="hidden" onchange="handleLabelImageUpload(event)">
-            
             <div id="scannerPreviewArea" class="border-2 border-dashed border-purple-500/50 rounded-2xl p-8 bg-slate-900/50 flex flex-col items-center justify-center hover:border-purple-400 transition cursor-pointer" onclick="document.getElementById('cameraFileInput').click()">
                 <div class="text-5xl mb-3">📸</div>
                 <div class="text-white font-bold text-sm">Prendre une Photo / Choisir une Image</div>
                 <div class="text-gray-400 text-xs mt-1">Appuyez ici pour ouvrir l'appareil photo de la tablette</div>
             </div>
-
-            <!-- Loader d'Analyse IA -->
             <div id="scannerLoadingOverlay" class="hidden py-8 text-center space-y-3">
                 <div class="inline-block w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
                 <div class="text-purple-300 font-bold text-sm">Compression et Analyse IA en cours...</div>
                 <div class="text-gray-400 text-xs">Extraction du Poids, Lot, Fournisseur et Laize...</div>
             </div>
-
-            <!-- Résultat extrait par l'IA -->
             <div id="scannerResultBox" class="hidden bg-slate-900/80 border border-purple-500/40 rounded-xl p-4 text-left space-y-2 text-xs">
                 <div class="text-purple-400 font-bold border-b border-slate-700 pb-1 mb-2">✅ Données Détectées :</div>
                 <div class="grid grid-cols-2 gap-2 text-gray-300">
@@ -1595,21 +1490,34 @@
                 </div>
             </div>
         </div>
-
         <div class="flex gap-3 pt-5 mt-4 border-t border-slate-700">
-            <button type="button" onclick="document.getElementById('cameraFileInput').click()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-lg transition text-xs">
-                📷 Recommencer
-            </button>
-            <button type="button" onclick="closeLabelScanner()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition text-xs">
-                Fermer
-            </button>
+            <button type="button" onclick="document.getElementById('cameraFileInput').click()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-lg transition text-xs">📷 Recommencer</button>
+            <button type="button" onclick="closeLabelScanner()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg transition text-xs">Fermer</button>
         </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- BARRE ACTIONS GROUPÉES (AFFICHEE LORS DE LA SELECTION MULTIPLE) -->
+<!-- ============================================================ -->
+<div id="bulkActionsBarAdv" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border-2 border-slate-600 rounded-2xl px-6 py-3.5 shadow-2xl flex items-center gap-5 z-50 backdrop-blur-md">
+    <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-ping"></span>
+        <span class="text-xs text-gray-200 font-bold"><span id="selectedCountAdv" class="text-yellow-400 font-black text-sm">0</span> matière(s) sélectionnée(s)</span>
+    </div>
+    <div class="flex items-center gap-2">
+        <button onclick="bulkDeleteMaterialsAdv()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-black px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-red-600/30">
+            🗑️ Supprimer la sélection
+        </button>
+        <button onclick="unselectAllMaterialsAdv()" class="bg-slate-700 hover:bg-slate-600 text-gray-300 hover:text-white text-xs font-bold px-3 py-2 rounded-xl transition">
+            Annuler
+        </button>
     </div>
 </div>
 
 
 <!-- ============================================================ -->
-<!-- BALISES JSON POUR TRANSMISSION SÉCURISÉE AU JAVASCRIPT -->
+<!-- BALISES JSON -->
 <!-- ============================================================ -->
 {{ top_alertes_noms|json_script:"top-alertes-noms-data" }}
 {{ top_alertes_stock|json_script:"top-alertes-stock-data" }}
@@ -1622,157 +1530,102 @@
 
 
 <!-- ============================================================ -->
-<!-- SCRIPTS PRINCIPAUX -->
+<!-- SCRIPTS -->
 <!-- ============================================================ -->
 <script>
-// RESTAURATION DU SCROLL APRÈS TOUT RECHARGEMENT
 window.addEventListener('beforeunload', function() {
     sessionStorage.setItem('stock_scroll_pos', window.scrollY);
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Scroll Position
     const savedPos = sessionStorage.getItem('stock_scroll_pos');
     if (savedPos) {
         window.scrollTo(0, parseInt(savedPos, 10));
         sessionStorage.removeItem('stock_scroll_pos');
     }
-
-    // 2. Restaurer l'Onglet Actif
     var urlParams = new URLSearchParams(window.location.search);
     var tabParam = urlParams.get('tab');
     var savedTab = null;
     try { savedTab = localStorage.getItem('activeStockTab'); } catch(e){}
-
-    if (tabParam) {
-        showTab(tabParam);
-    } else if (savedTab) {
-        showTab(savedTab);
-    } else {
-        showTab('matieres');
-    }
-
-    // 3. Restaurer l'État de la Liste des Alertes (Masquée par défaut)
+    if (tabParam) { showTab(tabParam); }
+    else if (savedTab) { showTab(savedTab); }
+    else { showTab('matieres'); }
     initAlertsListState();
-
-    // 4. Jauges
     document.querySelectorAll('.progress-bar-fill').forEach(function(el) {
         var w = el.getAttribute('data-width');
-        if (w !== null && w !== '') {
-            el.style.width = w + '%';
-        }
+        if (w !== null && w !== '') { el.style.width = w + '%'; }
     });
-
-    // 5. Suppression AJAX
     attachAjaxDeleteHandlers();
-
-    // 6. Filtres & Tri
     applyAllFilters();
     initSortSystem();
     initMouvementStockValidation();
+    initBulkSelectionAdv();
 });
 
-// ⚡ Dynamic contacts in Fournisseur Modal
 let supplierContactIdx = 1;
 function ajouterLigneContact() {
     supplierContactIdx++;
     const container = document.getElementById('modalContactsContainer');
     if (!container) return;
-
     const div = document.createElement('div');
     div.className = 'contact-card bg-slate-900/60 border border-slate-700 rounded-xl p-4 relative transition-all duration-300';
     div.innerHTML = `
         <div class="flex items-center justify-between mb-2">
             <div class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Interlocuteur #${supplierContactIdx}</div>
-            <button type="button" onclick="this.closest('.contact-card').remove()" class="text-red-400 hover:text-red-300 text-xs px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20">
-                🗑️ Supprimer
-            </button>
+            <button type="button" onclick="this.closest('.contact-card').remove()" class="text-red-400 hover:text-red-300 text-xs px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20">🗑️ Supprimer</button>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-                <label class="block text-[10px] text-gray-400 mb-1">Nom Complet</label>
-                <input type="text" name="contact_nom[]" placeholder="Ex: Jean Dupont"
-                    class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
-            </div>
-            <div>
-                <label class="block text-[10px] text-gray-400 mb-1">Poste / Rôle</label>
-                <input type="text" name="contact_poste[]" placeholder="Ex: Commercial, DG, Transitaire..." list="modalPostesList"
-                    class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
-            </div>
-            <div>
-                <label class="block text-[10px] text-gray-400 mb-1">Téléphone</label>
-                <input type="tel" name="contact_telephone[]" placeholder="Ex: 0550 12 34 56"
-                    class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
-            </div>
-            <div>
-                <label class="block text-[10px] text-gray-400 mb-1">Email Direct</label>
-                <input type="email" name="contact_email[]" placeholder="Ex: jean@sunchemical.com"
-                    class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
-            </div>
-        </div>
-    `;
+            <div><label class="block text-[10px] text-gray-400 mb-1">Nom Complet</label><input type="text" name="contact_nom[]" placeholder="Ex: Jean Dupont" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none"></div>
+            <div><label class="block text-[10px] text-gray-400 mb-1">Poste / Rôle</label><input type="text" name="contact_poste[]" placeholder="Ex: Commercial..." list="modalPostesList" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none"></div>
+            <div><label class="block text-[10px] text-gray-400 mb-1">Téléphone</label><input type="tel" name="contact_telephone[]" placeholder="Ex: 0550 12 34 56" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none"></div>
+            <div><label class="block text-[10px] text-gray-400 mb-1">Email Direct</label><input type="email" name="contact_email[]" placeholder="Ex: jean@sunchemical.com" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none"></div>
+        </div>`;
     container.appendChild(div);
 }
 
-// ⚡ GESTION ET VALIDATION DES MOUVEMENTS DE STOCK POUR BLOQUER LES VALEURS NÉGATIVES
 function initMouvementStockValidation() {
     const form = document.getElementById('mouvementForm');
     if (!form) return;
-
     form.addEventListener('submit', function(e) {
         const typeSelect = document.getElementById('mouvementTypeSelect');
         const materialSelect = document.getElementById('mouvementMaterialSelect');
         const quantityInput = document.getElementById('mouvementQuantityInput');
-
         if (typeSelect && materialSelect && quantityInput) {
             const movementType = typeSelect.value;
             const selectedOption = materialSelect.options[materialSelect.selectedIndex];
-            
-            // Récupération des attributs de stock
             const availableStock = parseFloat(selectedOption.getAttribute('data-stock')) || 0;
             const enteredQty = parseFloat(quantityInput.value) || 0;
             const unit = selectedOption.getAttribute('data-unit') || 'kg';
             const materialName = selectedOption.text.split('(')[0].trim();
-
             if (movementType === 'SORTIE' || movementType === 'PERTE') {
                 if (availableStock <= 0) {
                     e.preventDefault();
-                    alert("❌ OPÉRATION IMPOSSIBLE : Le stock de \"" + materialName + "\" est actuellement de 0 " + unit + ". Vous ne pouvez pas réaliser de sortie de stock.");
+                    alert("❌ OPÉRATION IMPOSSIBLE : Le stock de \"" + materialName + "\" est actuellement de 0 " + unit + ".");
                     quantityInput.classList.add('border-red-500');
                     return false;
                 }
                 if (enteredQty > availableStock) {
                     e.preventDefault();
-                    alert("❌ OPÉRATION IMPOSSIBLE : La quantité de sortie demandée (" + enteredQty + " " + unit + ") dépasse la quantité actuellement disponible en stock pour \"" + materialName + "\" (" + availableStock + " " + unit + "). Le stock ne peut pas devenir négatif.");
+                    alert("❌ OPÉRATION IMPOSSIBLE : La quantité demandée (" + enteredQty + " " + unit + ") dépasse le stock disponible (" + availableStock + " " + unit + ").");
                     quantityInput.classList.add('border-red-500');
                     return false;
                 }
             }
         }
     });
-
     const quantityInput = document.getElementById('mouvementQuantityInput');
     if (quantityInput) {
-        quantityInput.addEventListener('input', function() {
-            this.classList.remove('border-red-500');
-        });
+        quantityInput.addEventListener('input', function() { this.classList.remove('border-red-500'); });
     }
 }
 
-// FORCE LE TRI "ALERTES EN PREMIER" LORS DU CLIC SUR LE BANDEAU D'ALERTE
 function selectSortAlertFirst() {
     const sortSelect = document.getElementById('sortSelect');
-    if (sortSelect) {
-        sortSelect.value = 'alert_first';
-        sortMaterials();
-    }
+    if (sortSelect) { sortSelect.value = 'alert_first'; sortMaterials(); }
 }
 
-// ⚡ GESTION NAVIGATION ET PERSISTENCE DES ONGLETS
 function showTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(function(el) {
-        el.classList.add('hidden'); el.classList.remove('block');
-    });
+    document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.add('hidden'); el.classList.remove('block'); });
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.classList.remove('border-yellow-500', 'text-yellow-500');
         btn.classList.add('border-transparent', 'text-gray-400');
@@ -1784,14 +1637,11 @@ function showTab(tabName) {
         btn.classList.remove('border-transparent', 'text-gray-400');
         btn.classList.add('border-yellow-500', 'text-yellow-500');
     }
-
     try { localStorage.setItem('activeStockTab', tabName); } catch(e){}
 }
 
 function showSubTab(name) {
-    document.querySelectorAll('.subtab-content').forEach(function(el) {
-        el.classList.add('hidden'); el.classList.remove('block');
-    });
+    document.querySelectorAll('.subtab-content').forEach(function(el) { el.classList.add('hidden'); el.classList.remove('block'); });
     document.querySelectorAll('.sub-tab-btn').forEach(function(btn) {
         btn.classList.remove('border-blue-400', 'text-blue-400');
         btn.classList.add('border-transparent', 'text-gray-400');
@@ -1805,7 +1655,6 @@ function showSubTab(name) {
     }
 }
 
-// ⚡ GESTION LISTE DES ALERTES (MASQUÉE PAR DÉFAUT + MÉMORISATION)
 function initAlertsListState() {
     var state = 'hidden';
     try { state = localStorage.getItem('alertsListState') || 'hidden'; } catch(e){}
@@ -1816,43 +1665,30 @@ function applyAlertsListVisibility(state) {
     var corps = document.getElementById('corpsTableauAlertes');
     var icone = document.getElementById('iconeToggle');
     var texte = document.getElementById('texteToggle');
-    var btn   = document.getElementById('btnToggleListe');
-
+    var btn = document.getElementById('btnToggleListe');
     if (!corps) return;
-
     if (state === 'visible') {
         corps.style.display = '';
         if(icone) icone.textContent = '🙈';
         if(texte) texte.textContent = 'Masquer la liste';
-        if(btn) {
-            btn.style.boxShadow = 'none';
-            btn.classList.remove('text-yellow-400');
-            btn.classList.add('text-gray-300');
-        }
+        if(btn) { btn.style.boxShadow = 'none'; btn.classList.remove('text-yellow-400'); btn.classList.add('text-gray-300'); }
     } else {
         corps.style.display = 'none';
         if(icone) icone.textContent = '👁️';
         if(texte) texte.textContent = 'Afficher la liste';
-        if(btn) {
-            btn.style.boxShadow = '0 0 0 2px #facc15';
-            btn.classList.remove('text-gray-300');
-            btn.classList.add('text-yellow-400');
-        }
+        if(btn) { btn.style.boxShadow = '0 0 0 2px #facc15'; btn.classList.remove('text-gray-300'); btn.classList.add('text-yellow-400'); }
     }
 }
 
 function toggleListeAlertes() {
     var corps = document.getElementById('corpsTableauAlertes');
     if (!corps) return;
-
     var currentState = (corps.style.display === 'none') ? 'hidden' : 'visible';
     var newState = (currentState === 'hidden') ? 'visible' : 'hidden';
-
     try { localStorage.setItem('alertsListState', newState); } catch(e){}
     applyAlertsListVisibility(newState);
 }
 
-// ⚡ SUPPRESSION AJAX FLUIDE
 function attachAjaxDeleteHandlers() {
     document.querySelectorAll('.delete-material-form').forEach(function(form) {
         form.removeEventListener('submit', handleMaterialDelete);
@@ -1864,103 +1700,70 @@ function handleMaterialDelete(e) {
     e.preventDefault();
     var form = this;
     var materialName = form.getAttribute('data-confirm-name') || 'cette matière';
-    
-    if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer « ' + materialName + ' » ?\n\nCette action est IRRÉVERSIBLE.')) {
-        return false;
-    }
-
+    if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer « ' + materialName + ' » ?\n\nCette action est IRRÉVERSIBLE.')) return false;
     var row = form.closest('tr');
     var formData = new FormData(form);
-
-    fetch(form.action, {
-        method: 'POST',
-        body: formData,
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
+    fetch(form.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
     .then(function(response) {
         if (response.ok || response.redirected) {
             row.style.transition = 'all 0.3s ease';
             row.style.opacity = '0';
             row.style.transform = 'scale(0.95)';
-            
             setTimeout(function() {
                 row.remove();
                 var remaining = document.querySelectorAll('.material-row:not([style*="display: none"])').length;
                 var totalStat = document.getElementById('statTotalMatieres');
                 var countStat = document.getElementById('visibleMaterialsCount');
                 if (countStat) countStat.textContent = remaining;
-                if (totalStat && parseInt(totalStat.textContent, 10) > 0) {
-                    totalStat.textContent = parseInt(totalStat.textContent, 10) - 1;
-                }
+                if (totalStat && parseInt(totalStat.textContent, 10) > 0) totalStat.textContent = parseInt(totalStat.textContent, 10) - 1;
+                updateBulkBarAdv();
             }, 300);
-        } else {
-            alert('❌ Erreur lors de la suppression de la matière.');
-        }
+        } else { alert('❌ Erreur lors de la suppression.'); }
     })
-    .catch(function(err) {
-        form.submit();
-    });
+    .catch(function() { form.submit(); });
 }
 
-// ⚡ FILTRAGE ET RECHERCHE
 function applyAllFilters() {
     var searchInput = document.getElementById('searchInput');
     var categoryFilter = document.getElementById('categoryFilter');
     var supplierFilter = document.getElementById('supplierFilter');
     var lowStockFilter = document.getElementById('lowStockFilter');
-
     var q = (searchInput ? searchInput.value : '').toLowerCase().trim();
     var cat = (categoryFilter ? categoryFilter.value : '').toUpperCase();
     var suppId = (supplierFilter ? supplierFilter.value : '');
     var lowOnly = (lowStockFilter ? lowStockFilter.checked : false);
-
     var visibleCount = 0;
-    var rows = document.querySelectorAll('.material-row');
-
-    rows.forEach(function(row) {
+    document.querySelectorAll('.material-row').forEach(function(row) {
         var name = (row.dataset.name || '').toLowerCase();
         var category = (row.dataset.category || '').toUpperCase();
         var supplierId = (row.dataset.supplierId || '');
         var supplierName = (row.dataset.supplier || '').toLowerCase();
         var isLow = (row.dataset.lowStock === 'true');
-
         var matchQ = !q || name.includes(q) || category.toLowerCase().includes(q) || supplierName.includes(q);
         var matchCat = !cat || category === cat;
         var matchSupp = !suppId || supplierId === suppId;
         var matchLow = !lowOnly || isLow;
-
-        if (matchQ && matchCat && matchSupp && matchLow) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
+        if (matchQ && matchCat && matchSupp && matchLow) { row.style.display = ''; visibleCount++; }
+        else { row.style.display = 'none'; }
     });
-
     var visibleCounter = document.getElementById('visibleMaterialsCount');
     if (visibleCounter) visibleCounter.textContent = visibleCount;
+    updateBulkBarAdv();
 }
 
 ['searchInput', 'categoryFilter', 'supplierFilter', 'lowStockFilter'].forEach(function(id) {
     var el = document.getElementById(id);
-    if (el) {
-        el.addEventListener('input', applyAllFilters);
-        el.addEventListener('change', applyAllFilters);
-    }
+    if (el) { el.addEventListener('input', applyAllFilters); el.addEventListener('change', applyAllFilters); }
 });
 
-// ⚡ TRI DES MATIÈRES
 function sortMaterials() {
     var sortSelect = document.getElementById('sortSelect');
     if (!sortSelect) return;
-    
     var criteria = sortSelect.value;
     var tbody = document.getElementById('materialsTbody');
     if (!tbody) return;
-    
     var rows = Array.from(tbody.querySelectorAll('.material-row'));
     if (rows.length === 0) return;
-    
     rows.sort(function(a, b) {
         switch (criteria) {
             case 'name_asc': return (a.dataset.name || '').localeCompare(b.dataset.name || '');
@@ -1976,21 +1779,11 @@ function sortMaterials() {
                 var bAlert = (b.dataset.lowStock === 'true') ? 0 : 1;
                 if (aAlert !== bAlert) return aAlert - bAlert;
                 return parseFloat(a.dataset.stock || 0) - parseFloat(b.dataset.stock || 0);
-            case 'default':
             default: return parseInt(a.dataset.originalOrder || 0, 10) - parseInt(b.dataset.originalOrder || 0, 10);
         }
     });
-    
-    rows.forEach(function(row) {
-        row.style.transition = 'opacity 0.15s ease';
-        row.style.opacity = '0.3';
-        tbody.appendChild(row);
-    });
-    
-    setTimeout(function() {
-        rows.forEach(function(row) { row.style.opacity = '1'; });
-    }, 100);
-    
+    rows.forEach(function(row) { row.style.transition = 'opacity 0.15s ease'; row.style.opacity = '0.3'; tbody.appendChild(row); });
+    setTimeout(function() { rows.forEach(function(row) { row.style.opacity = '1'; }); }, 100);
     try { localStorage.setItem('stock_sort_preference', criteria); } catch (e) {}
 }
 
@@ -2000,54 +1793,34 @@ function initSortSystem() {
     sortSelect.addEventListener('change', sortMaterials);
     try {
         var savedSort = localStorage.getItem('stock_sort_preference');
-        if (savedSort && savedSort !== 'default') {
-            sortSelect.value = savedSort;
-            sortMaterials();
-        }
+        if (savedSort && savedSort !== 'default') { sortSelect.value = savedSort; sortMaterials(); }
     } catch (e) {}
 }
 
 var searchForm = document.getElementById('searchForm');
-if (searchForm) {
-    searchForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        applyAllFilters();
-    });
-}
+if (searchForm) { searchForm.addEventListener('submit', function(e) { e.preventDefault(); applyAllFilters(); }); }
 
 function clearSearch() {
     var searchInput = document.getElementById('searchInput');
     var categoryFilter = document.getElementById('categoryFilter');
     var supplierFilter = document.getElementById('supplierFilter');
     var lowStockFilter = document.getElementById('lowStockFilter');
-
     if (searchInput) searchInput.value = '';
     if (categoryFilter) categoryFilter.value = '';
     if (supplierFilter) supplierFilter.value = '';
     if (lowStockFilter) lowStockFilter.checked = false;
-
     applyAllFilters();
 }
 
-// ⚡ DELEGATION D'ÉVÉNEMENTS
 document.addEventListener('click', function(e) {
     var daBtn = e.target.closest('.btn-da-trigger');
     if (daBtn) {
-        ouvrirDA(
-            daBtn.getAttribute('data-da-id'),
-            daBtn.getAttribute('data-da-name'),
-            parseFloat(daBtn.getAttribute('data-da-seuil') || 0),
-            daBtn.getAttribute('data-da-unit')
-        );
+        ouvrirDA(daBtn.getAttribute('data-da-id'), daBtn.getAttribute('data-da-name'), parseFloat(daBtn.getAttribute('data-da-seuil') || 0), daBtn.getAttribute('data-da-unit'));
         return;
     }
-
     var seuilBtn = e.target.closest('.btn-seuil-trigger');
     if (seuilBtn) {
-        openSeuilModal(
-            seuilBtn.getAttribute('data-seuil-id'),
-            seuilBtn.getAttribute('data-seuil-name')
-        );
+        openSeuilModal(seuilBtn.getAttribute('data-seuil-id'), seuilBtn.getAttribute('data-seuil-name'));
         return;
     }
 });
@@ -2059,9 +1832,7 @@ function getJsonData(id) {
         var parsed = JSON.parse(el.textContent);
         if (typeof parsed === 'string') return JSON.parse(parsed);
         return parsed;
-    } catch (err) {
-        return [];
-    }
+    } catch (err) { return []; }
 }
 
 const topNoms = getJsonData('top-alertes-noms-data');
@@ -2085,9 +1856,7 @@ if (ctx1 && typeof Chart !== 'undefined') {
             ]
         },
         options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
             plugins: { legend: { position: 'top', labels: { color: '#94a3b8', font: { size: 11 }, usePointStyle: true, padding: 15 } } },
             scales: {
                 x: { grid: { color: 'rgba(148,163,184,0.08)' }, ticks: { color: '#64748b', font: { size: 10 } } },
@@ -2104,14 +1873,13 @@ if (ctx2 && typeof Chart !== 'undefined') {
         data: {
             labels: catLabels,
             datasets: [
-                { label: '🔴 Rupture',  data: catRupture,  backgroundColor: '#dc2626', borderRadius: 4 },
+                { label: '🔴 Rupture', data: catRupture, backgroundColor: '#dc2626', borderRadius: 4 },
                 { label: '🟠 Critique', data: catCritique, backgroundColor: '#ea580c', borderRadius: 4 },
-                { label: '🟡 Alerte',   data: catAlerte,   backgroundColor: '#ca8a04', borderRadius: 4 }
+                { label: '🟡 Alerte', data: catAlerte, backgroundColor: '#ca8a04', borderRadius: 4 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 12 } } },
             scales: {
                 x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
@@ -2123,11 +1891,8 @@ if (ctx2 && typeof Chart !== 'undefined') {
 
 function filterLots(statut) {
     document.querySelectorAll('.lot-row').forEach(function(row) {
-        if (statut === 'ALL' || row.dataset.statut === statut) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
+        if (statut === 'ALL' || row.dataset.statut === statut) row.style.display = '';
+        else row.style.display = 'none';
     });
 }
 
@@ -2139,25 +1904,15 @@ function addLigneBC() {
     var selectMat = document.createElement('select');
     selectMat.name = 'material_' + ligneIdx;
     selectMat.className = 'bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none';
-    
     var firstSelect = document.querySelector('select[name="material_1"]');
     if (firstSelect) selectMat.innerHTML = firstSelect.innerHTML;
-    
     var inputQte = document.createElement('input');
-    inputQte.type = 'number';
-    inputQte.name = 'quantite_' + ligneIdx;
-    inputQte.placeholder = 'Qté (kg)';
+    inputQte.type = 'number'; inputQte.name = 'quantite_' + ligneIdx; inputQte.placeholder = 'Qté (kg)';
     inputQte.className = 'bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none';
-    
     var inputPrix = document.createElement('input');
-    inputPrix.type = 'number';
-    inputPrix.name = 'prix_' + ligneIdx;
-    inputPrix.placeholder = 'Prix DA/kg';
+    inputPrix.type = 'number'; inputPrix.name = 'prix_' + ligneIdx; inputPrix.placeholder = 'Prix DA/kg';
     inputPrix.className = 'bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none';
-    
-    div.appendChild(selectMat);
-    div.appendChild(inputQte);
-    div.appendChild(inputPrix);
+    div.appendChild(selectMat); div.appendChild(inputQte); div.appendChild(inputPrix);
     document.getElementById('lignesBC').appendChild(div);
 }
 
@@ -2168,22 +1923,15 @@ function openSeuilModal(materialId, materialName) {
 }
 
 document.querySelectorAll('[id^="modal"]').forEach(function(modal) {
-    modal.addEventListener('click', function(e) {
-        if (e.target === this) this.classList.add('hidden');
-    });
+    modal.addEventListener('click', function(e) { if (e.target === this) this.classList.add('hidden'); });
 });
 
 function filtrerAlertes(niveau, btn) {
-    document.querySelectorAll('.alerte-filtre-btn').forEach(function(b) {
-        b.style.boxShadow = 'none';
-    });
+    document.querySelectorAll('.alerte-filtre-btn').forEach(function(b) { b.style.boxShadow = 'none'; });
     if (btn) btn.style.boxShadow = '0 0 0 2px #facc15';
     document.querySelectorAll('.alerte-row').forEach(function(row) {
-        if (niveau === 'ALL' || row.dataset.niveau === niveau) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
+        if (niveau === 'ALL' || row.dataset.niveau === niveau) row.style.display = '';
+        else row.style.display = 'none';
     });
 }
 
@@ -2209,11 +1957,7 @@ function ouvrirDA(materialId, materialName, seuil, unite) {
     showTab('achats');
 }
 
-// ============================================================
-// 🤖 SCRIPT D'INTERACTION DU SCANNER CAMERA IA
-// ============================================================
-let currentScanTarget = 'lot'; // 'lot' ou 'mouvement'
-
+let currentScanTarget = 'lot';
 function openLabelScanner(target = 'lot') {
     currentScanTarget = target;
     document.getElementById('scannerPreviewArea').classList.remove('hidden');
@@ -2221,41 +1965,20 @@ function openLabelScanner(target = 'lot') {
     document.getElementById('scannerResultBox').classList.add('hidden');
     document.getElementById('modalScanCamera').classList.remove('hidden');
 }
-
-function closeLabelScanner() {
-    document.getElementById('modalScanCamera').classList.add('hidden');
-}
+function closeLabelScanner() { document.getElementById('modalScanCamera').classList.add('hidden'); }
 
 function compressImageBeforeUpload(file, maxWidth, maxHeight, quality, callback) {
-    // Méthode rapide : décodage natif sans passer par base64
     if (typeof createImageBitmap === 'function') {
         createImageBitmap(file).then(function(bitmap) {
-            let width = bitmap.width;
-            let height = bitmap.height;
-            if (width > height) {
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
-            } else {
-                if (height > maxHeight) {
-                    width = Math.round((width * maxHeight) / height);
-                    height = maxHeight;
-                }
-            }
+            let width = bitmap.width, height = bitmap.height;
+            if (width > height) { if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; } }
+            else { if (height > maxHeight) { width = Math.round((width * maxHeight) / height); height = maxHeight; } }
             const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(bitmap, 0, 0, width, height);
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
             bitmap.close();
-            canvas.toBlob(function(blob) {
-                callback(blob);
-            }, 'image/jpeg', quality);
-        }).catch(function() {
-            // Fallback ancienne méthode si createImageBitmap échoue
-            compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback);
-        });
+            canvas.toBlob(function(blob) { callback(blob); }, 'image/jpeg', quality);
+        }).catch(function() { compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback); });
     } else {
         compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback);
     }
@@ -2266,27 +1989,13 @@ function compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, c
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-            let width = img.width;
-            let height = img.height;
-            if (width > height) {
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
-            } else {
-                if (height > maxHeight) {
-                    width = Math.round((width * maxHeight) / height);
-                    height = maxHeight;
-                }
-            }
+            let width = img.width, height = img.height;
+            if (width > height) { if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; } }
+            else { if (height > maxHeight) { width = Math.round((width * maxHeight) / height); height = maxHeight; } }
             const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob(function(blob) {
-                callback(blob);
-            }, 'image/jpeg', quality);
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            canvas.toBlob(function(blob) { callback(blob); }, 'image/jpeg', quality);
         };
         img.src = e.target.result;
     };
@@ -2296,50 +2005,30 @@ function compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, c
 function handleLabelImageUpload(event) {
     const rawFile = event.target.files[0];
     if (!rawFile) return;
-
-    // Afficher le loader pendant la compression
     document.getElementById('scannerPreviewArea').classList.add('hidden');
     document.getElementById('scannerLoadingOverlay').classList.remove('hidden');
-
-    // Compression ultra-rapide (800px max / Qualité 0.6)
     compressImageBeforeUpload(rawFile, 800, 800, 0.6, function(compressedBlob) {
         const formData = new FormData();
         formData.append('image', compressedBlob, 'scan.jpg');
-
         fetch('/stock/api/scan-label/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
+            method: 'POST', body: formData,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
         })
         .then(response => response.json())
         .then(data => {
             document.getElementById('scannerLoadingOverlay').classList.add('hidden');
-
             if (data.status === 'success') {
                 const extracted = data.data;
-
-                // Afficher dans la box de preview du scanner
                 document.getElementById('resSupplier').textContent = extracted.fournisseur || 'Non détecté';
                 document.getElementById('resMaterial').textContent = extracted.material_name || 'Non détecté';
                 document.getElementById('resLot').textContent = extracted.numero_lot || 'Inconnu';
                 document.getElementById('resWeight').textContent = extracted.poids_net || '0';
                 document.getElementById('scannerResultBox').classList.remove('hidden');
-
-                // Remplissage automatique selon la cible
-                if (currentScanTarget === 'lot') {
-                    fillLotForm(extracted);
-                } else if (currentScanTarget === 'mouvement') {
-                    fillMouvementForm(extracted);
-                }
-
-                setTimeout(() => {
-                    closeLabelScanner();
-                }, 2000);
-
+                if (currentScanTarget === 'lot') fillLotForm(extracted);
+                else if (currentScanTarget === 'mouvement') fillMouvementForm(extracted);
+                setTimeout(() => { closeLabelScanner(); }, 2000);
             } else {
-                alert("⚠️ " + (data.message || "Impossible de lire l'étiquette. Veuillez réessayer."));
+                alert("⚠️ " + (data.message || "Impossible de lire l'étiquette."));
                 document.getElementById('scannerPreviewArea').classList.remove('hidden');
             }
         })
@@ -2355,115 +2044,173 @@ function handleLabelImageUpload(event) {
 function fillLotForm(data) {
     document.getElementById('modalLot').classList.remove('hidden');
     showTab('lots');
-
-    // Date = aujourd'hui
     const today = new Date().toISOString().split('T')[0];
     const dateInput = document.getElementById('lotDateReceptionInput');
     if (dateInput) dateInput.value = today;
-
-    // Nom matière libre
     const nameFreeInput = document.getElementById('lotMaterialNameFree');
-    if (nameFreeInput && data.material_name) {
-        nameFreeInput.value = data.material_name;
-    }
-
-    // Catégorie
+    if (nameFreeInput && data.material_name) nameFreeInput.value = data.material_name;
     const catSelect = document.getElementById('lotCategorySelect');
-    if (catSelect && data.category) {
-        catSelect.value = data.category;
-    }
-
-    // N° Lot
-    if (data.numero_lot) {
-        document.getElementById('lotNumeroInput').value = data.numero_lot;
-    }
-
-    // Poids net (corrigé)
-    if (data.poids_net) {
-        document.getElementById('lotQuantiteInput').value = data.poids_net;
-    }
-
-    // Laize
+    if (catSelect && data.category) catSelect.value = data.category;
+    if (data.numero_lot) document.getElementById('lotNumeroInput').value = data.numero_lot;
+    if (data.poids_net) document.getElementById('lotQuantiteInput').value = data.poids_net;
     const laizeInput = document.getElementById('lotLaizeInput');
-    if (laizeInput && data.laize_width) {
-        laizeInput.value = data.laize_width;
-    }
-
-    // Longueur
+    if (laizeInput && data.laize_width) laizeInput.value = data.laize_width;
     const lengthInput = document.getElementById('lotLongueurInput');
-    if (lengthInput && data.longueur_length) {
-        lengthInput.value = data.longueur_length;
-    }
-
-    // ===== MATCHING INTELLIGENT DE LA MATIÈRE EXISTANTE =====
+    if (lengthInput && data.longueur_length) lengthInput.value = data.longueur_length;
     const matSelect = document.getElementById('lotMaterialSelect');
     if (matSelect && data.material_name) {
         const searchName = data.material_name.toLowerCase().replace(/\./g, ' ').trim();
-        let bestMatch = -1;
-        let bestScore = 0;
-
+        let bestMatch = -1, bestScore = 0;
         for (let i = 0; i < matSelect.options.length; i++) {
             const optText = matSelect.options[i].text.toLowerCase();
             if (optText.includes(searchName) || searchName.includes(optText.split('(')[0].trim())) {
                 const score = Math.min(optText.length, searchName.length);
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = i;
-                }
+                if (score > bestScore) { bestScore = score; bestMatch = i; }
             }
         }
-        if (bestMatch >= 0) {
-            matSelect.selectedIndex = bestMatch;
-        }
+        if (bestMatch >= 0) matSelect.selectedIndex = bestMatch;
     }
-
-    // ===== FOURNISSEUR =====
     if (data.fournisseur) {
         const suppSelect = document.getElementById('lotSupplierSelect');
         const searchSupp = data.fournisseur.toLowerCase();
         for (let i = 0; i < suppSelect.options.length; i++) {
-            if (suppSelect.options[i].text.toLowerCase().includes(searchSupp) || 
-                searchSupp.includes(suppSelect.options[i].text.toLowerCase())) {
-                suppSelect.selectedIndex = i;
-                break;
+            if (suppSelect.options[i].text.toLowerCase().includes(searchSupp) || searchSupp.includes(suppSelect.options[i].text.toLowerCase())) {
+                suppSelect.selectedIndex = i; break;
             }
         }
     }
-
-    // ===== NOTES ENRICHIES =====
     let notes = [];
     if (data.category) notes.push("Catégorie: " + data.category);
     if (data.laize_width) notes.push("Laize: " + data.laize_width + " mm");
     if (data.longueur_length) notes.push("Longueur: " + data.longueur_length + " m");
     if (data.date_expiration) notes.push("Exp: " + data.date_expiration);
-    if (notes.length > 0) {
-        document.getElementById('lotNotesInput').value = "Scan IA — " + notes.join(" | ");
-    }
+    if (notes.length > 0) document.getElementById('lotNotesInput').value = "Scan IA — " + notes.join(" | ");
 }
 
 function fillMouvementForm(data) {
     document.getElementById('modalMouvement').classList.remove('hidden');
     showTab('mouvements');
-
-    if (data.poids_net) {
-        document.getElementById('mouvementQuantityInput').value = data.poids_net;
-    }
-
-    // Tenter d'associer la matière première
+    if (data.poids_net) document.getElementById('mouvementQuantityInput').value = data.poids_net;
     if (data.material_name) {
         const matSelect = document.getElementById('mouvementMaterialSelect');
         const searchName = data.material_name.toLowerCase();
         for (let i = 0; i < matSelect.options.length; i++) {
             if (matSelect.options[i].text.toLowerCase().includes(searchName)) {
-                matSelect.selectedIndex = i;
-                break;
+                matSelect.selectedIndex = i; break;
             }
         }
     }
+    if (data.numero_lot) document.getElementById('mouvementMotifInput').value = "Lot scanné : " + data.numero_lot;
+}
 
-    if (data.numero_lot) {
-        document.getElementById('mouvementMotifInput').value = "Lot scanné : " + data.numero_lot;
+// ============================================================
+// GESTION DU MULTI-SELECT & DES ACTIONS EN LOT DANS L'ONGLET MATIÈRES
+// ============================================================
+function updateBulkBarAdv() {
+    const visibleChecked = document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv:checked');
+    const checkedCount = visibleChecked.length;
+    const bulkBar = document.getElementById('bulkActionsBarAdv');
+    const selectedCountSpan = document.getElementById('selectedCountAdv');
+    const selectAll = document.getElementById('selectAllMaterialsAdv');
+    
+    if (selectedCountSpan) selectedCountSpan.textContent = checkedCount;
+    
+    if (bulkBar) {
+        if (checkedCount > 0) {
+            bulkBar.classList.remove('hidden');
+            bulkBar.classList.add('flex');
+        } else {
+            bulkBar.classList.add('hidden');
+            bulkBar.classList.remove('flex');
+        }
     }
+
+    const visibleTotal = document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv').length;
+    if (selectAll) {
+        selectAll.checked = (visibleTotal > 0 && checkedCount === visibleTotal);
+    }
+}
+
+function initBulkSelectionAdv() {
+    const selectAll = document.getElementById('selectAllMaterialsAdv');
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const visibleCheckboxes = document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv');
+            visibleCheckboxes.forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            updateBulkBarAdv();
+        });
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.classList.contains('material-checkbox-adv')) {
+            updateBulkBarAdv();
+        }
+    });
+}
+
+function unselectAllMaterialsAdv() {
+    document.querySelectorAll('.material-checkbox-adv').forEach(cb => {
+        cb.checked = false;
+    });
+    const selectAll = document.getElementById('selectAllMaterialsAdv');
+    if (selectAll) selectAll.checked = false;
+    updateBulkBarAdv();
+}
+
+function bulkDeleteMaterialsAdv() {
+    const checkedBoxes = document.querySelectorAll('.material-checkbox-adv:checked');
+    const ids = Array.from(checkedBoxes).map(cb => cb.value);
+    if (ids.length === 0) return;
+
+    if (!confirm(`⚠️ Attention : Vous êtes sur le point de supprimer DÉFINITIVEMENT ${ids.length} matière(s) première(s).\n\nTous leurs lots et historiques associés seront également effacés.\n\nConfirmer la suppression ?`)) {
+        return;
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+
+    fetch("{% url 'bulk_delete_materials' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ ids: ids })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            checkedBoxes.forEach(cb => {
+                const row = cb.closest('tr');
+                if (row) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                    setTimeout(() => row.remove(), 300);
+                }
+            });
+
+            setTimeout(() => {
+                const remaining = document.querySelectorAll('.material-row:not([style*="display: none"])').length;
+                const totalStat = document.getElementById('statTotalMatieres');
+                const countStat = document.getElementById('visibleMaterialsCount');
+                if (countStat) countStat.textContent = remaining;
+                if (totalStat) {
+                    const currentTotal = parseInt(totalStat.textContent, 10) || 0;
+                    totalStat.textContent = Math.max(0, currentTotal - ids.length);
+                }
+                unselectAllMaterialsAdv();
+            }, 350);
+        } else {
+            alert('❌ ' + (data.message || 'Erreur lors de la suppression groupée.'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur bulk delete:', error);
+        alert('❌ Erreur technique lors de la suppression groupée.');
+    });
 }
 </script>
 {% endblock %}

@@ -6,6 +6,7 @@ import re
 import base64
 import urllib.request
 import urllib.error
+from datetime import datetime, date
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
@@ -13,6 +14,7 @@ from django.contrib import messages
 from django.db.models import Sum, Q, F
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.models import User
 
 from ..models import (
     Material, Supplier, ConsommationEncre, StockLocation, StockLot, StockMovement,
@@ -83,6 +85,38 @@ def delete_material(request, id):
 
 
 @login_required
+def bulk_delete_materials(request):
+    if request.method == 'POST':
+        try:
+            ids = []
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+                ids = data.get('ids', [])
+            else:
+                ids = request.POST.getlist('ids[]') or request.POST.getlist('ids')
+            
+            if ids:
+                materials = Material.objects.filter(id__in=ids)
+                count = materials.count()
+                materials.delete()
+                
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    return JsonResponse({'status': 'success', 'message': f'🗑️ {count} matière(s) supprimée(s) avec succès.'})
+                
+                messages.success(request, f'🗑️ {count} matière(s) supprimée(s) avec succès.')
+            else:
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    return JsonResponse({'status': 'error', 'message': 'Aucune sélection reçue.'})
+                messages.warning(request, 'Aucun élément sélectionné.')
+        except Exception as e:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                return JsonResponse({'status': 'error', 'message': f'Erreur : {str(e)}'})
+            messages.error(request, f'Erreur lors de la suppression multiple : {str(e)}')
+            
+    return redirect('stock_advanced')
+
+
+@login_required
 def clear_all_stock(request):
     if request.method == 'POST':
         try:
@@ -100,7 +134,25 @@ def add_supplier(request):
     if request.method == 'POST':
         form = SupplierForm(request.POST)
         if form.is_valid():
-            form.save()
+            supplier = form.save()
+            contact_noms = request.POST.getlist('contact_nom[]')
+            contact_postes = request.POST.getlist('contact_poste[]')
+            contact_telephones = request.POST.getlist('contact_telephone[]')
+            contact_emails = request.POST.getlist('contact_email[]')
+            try:
+                from core.models import SupplierContact
+                for i in range(len(contact_noms)):
+                    nom = contact_noms[i].strip() if i < len(contact_noms) else ''
+                    if nom:
+                        SupplierContact.objects.create(
+                            supplier=supplier,
+                            nom=nom,
+                            poste=contact_postes[i].strip() if i < len(contact_postes) else '',
+                            telephone=contact_telephones[i].strip() if i < len(contact_telephones) else '',
+                            email=contact_emails[i].strip() if i < len(contact_emails) else ''
+                        )
+            except Exception:
+                pass
             messages.success(request, '✅ Fournisseur ajouté avec succès !')
             return redirect('stock_advanced')
     else:
@@ -156,7 +208,327 @@ def conso_list_view(request):
 
 
 # ===========================================================================
-# --- STOCK AVANCÉ AVEC PROTECTION ANTI-500 ---
+# --- HELPERS IMPORT EXCEL ---
+# ===========================================================================
+
+def parse_date_custom(val):
+    try:
+        if val is None:
+            return timezone.now()
+        if isinstance(val, datetime):
+            return val
+        if isinstance(val, date) and not isinstance(val, datetime):
+            return datetime.combine(val, datetime.min.time())
+        if isinstance(val, (int, float)):
+            try:
+                from openpyxl.utils.datetime import from_excel
+                return from_excel(val)
+            except Exception:
+                return timezone.now()
+        val_str = str(val).strip()
+        if not val_str or val_str.lower() in ('none', 'null', ''):
+            return timezone.now()
+        formats = [
+            '%m/%d/%Y', '%d/%m/%Y', '%Y-%m-%d', '%m/%d/%y', '%d/%m/%y',
+            '%m/%d/%Y %H:%M', '%d/%m/%Y %H:%M', '%Y-%m-%d %H:%M:%S',
+            '%m-%d-%Y', '%d-%m-%Y', '%Y/%m/%d', '%d.%m.%Y', '%d.%m.%y',
+        ]
+        for fmt in formats:
+            try:
+                return datetime.strptime(val_str, fmt)
+            except ValueError:
+                continue
+        return timezone.now()
+    except Exception:
+        return timezone.now()
+
+
+def parse_float_eu(val):
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip().replace(' ', '').replace('\xa0', '').replace(',', '.')
+    if not s or s.lower() in ('none', 'null', '-'):
+        return 0.0
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def clean_str(val):
+    if val is None:
+        return ''
+    s = str(val).strip()
+    if s.lower() in ('none', 'null', 'nan'):
+        return ''
+    return s
+
+
+def get_or_create_location(name, loc_type='GENERAL'):
+    loc = StockLocation.objects.filter(name__iexact=name).first()
+    if not loc:
+        loc = StockLocation.objects.filter(name__icontains=name).first()
+    if not loc:
+        loc = StockLocation.objects.create(
+            name=name,
+            type=loc_type,
+            description="Créé automatiquement par import Excel",
+            is_active=True
+        )
+    return loc
+
+
+def resolve_source_destination(machine_str):
+    magasin_general = get_or_create_location('Magasin Général', 'GENERAL')
+    machine_up = (machine_str or '').upper()
+    if 'FLEXO' in machine_up:
+        dest = get_or_create_location('Stock Tampon Flexo', 'TAMPON')
+        return magasin_general, dest
+    elif 'HELIO' in machine_up or 'HÉLIO' in machine_up:
+        dest = get_or_create_location('Stock Tampon Helio', 'TAMPON')
+        return magasin_general, dest
+    else:
+        return magasin_general, None
+
+
+# ===========================================================================
+# --- STATION D'IMPORTATION EXCEL ---
+# ===========================================================================
+
+@login_required
+def import_stock_view(request):
+    crm_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+
+    if request.method != 'POST':
+        return render(request, 'stock/import_stock.html', {'crm_users': crm_users})
+
+    import_type = request.POST.get('import_type', 'MOUVEMENTS')
+    excel_file = request.FILES.get('excel_file')
+
+    if not excel_file:
+        messages.error(request, "❌ Veuillez sélectionner un fichier Excel.")
+        return render(request, 'stock/import_stock.html', {'crm_users': crm_users})
+
+    details = []
+    success_count = 0
+    error_count = 0
+
+    try:
+        wb = openpyxl.load_workbook(excel_file, data_only=True)
+        ws = wb.worksheets[0]
+        details.append(f"📄 Analyse de la feuille : « {ws.title} » ({ws.max_row} lignes détectées)")
+
+        if import_type == 'MOUVEMENTS':
+            for row_idx in range(2, ws.max_row + 1):
+                raw_date = ws.cell(row=row_idx, column=1).value
+                raw_machine = ws.cell(row=row_idx, column=2).value
+                raw_produit = ws.cell(row=row_idx, column=3).value
+                raw_quantite = ws.cell(row=row_idx, column=4).value
+                raw_code = ws.cell(row=row_idx, column=5).value
+                raw_notes = ws.cell(row=row_idx, column=6).value
+
+                produit_str = clean_str(raw_produit)
+                code_str = clean_str(raw_code)
+                machine_str = clean_str(raw_machine)
+                notes_str = clean_str(raw_notes)
+
+                if not produit_str and not code_str and raw_quantite is None:
+                    continue
+
+                try:
+                    qte_val = abs(parse_float_eu(raw_quantite))
+                    if qte_val == 0:
+                        details.append(f"Ligne {row_idx} : ⚠️ Ignorée (Quantité = 0)")
+                        error_count += 1
+                        continue
+
+                    date_val = parse_date_custom(raw_date)
+
+                    material = None
+                    if code_str:
+                        material = Material.objects.filter(Q(code__iexact=code_str) | Q(name__icontains=code_str)).first()
+                    if not material and produit_str:
+                        material = Material.objects.filter(Q(name__iexact=produit_str) | Q(name__icontains=produit_str)).first()
+
+                    if not material:
+                        mat_name = (produit_str or code_str or f"Matière-Ligne-{row_idx}")[:200]
+                        cat = 'INK'
+                        up = mat_name.upper()
+                        if any(x in up for x in ['BOPP', 'PE', 'PET', 'FILM', 'PAPIER']):
+                            cat = 'FILM'
+                        elif any(x in up for x in ['GLUE', 'COLLE', 'ADHES']):
+                            cat = 'GLUE'
+                        elif any(x in up for x in ['SOLV', 'ETHANOL', 'ETHYL']):
+                            cat = 'SOLV'
+                        material = Material.objects.create(
+                            name=mat_name,
+                            code=code_str,
+                            category=cat,
+                            quantity=0,
+                            unit='kg',
+                            min_threshold=50,
+                            price_per_unit=0
+                        )
+                        details.append(f"Ligne {row_idx} : 🆕 Nouvelle matière créée « {mat_name} »")
+
+                    machine_obj = None
+                    if machine_str:
+                        machine_obj = Machine.objects.filter(name__icontains=machine_str).first()
+
+                    emplacement_source, emplacement_destination = resolve_source_destination(machine_str)
+
+                    motif_text = "Import Excel"
+                    if code_str:
+                        motif_text += f" | Code: {code_str}"
+                    if notes_str:
+                        motif_text += f" | {notes_str}"
+
+                    StockMovement.objects.create(
+                        date=date_val,
+                        type='SORTIE',
+                        material=material,
+                        quantite=qte_val,
+                        emplacement_source=emplacement_source,
+                        emplacement_destination=emplacement_destination,
+                        machine=machine_obj,
+                        utilisateur=request.user if request.user.is_authenticated else None,
+                        motif=motif_text[:200],
+                    )
+
+                    success_count += 1
+                    src_name = emplacement_source.name if emplacement_source else "—"
+                    dst_name = emplacement_destination.name if emplacement_destination else "—"
+                    details.append(f"Ligne {row_idx} : ✅ -{qte_val} kg « {material.name} » | {src_name} → {dst_name}")
+
+                except Exception as row_err:
+                    error_count += 1
+                    details.append(f"Ligne {row_idx} : ❌ Erreur technique ({str(row_err)})")
+
+        elif import_type == 'STOCK':
+            for row_idx in range(2, ws.max_row + 1):
+                designation = clean_str(ws.cell(row=row_idx, column=1).value)
+                if not designation:
+                    continue
+                code_val = clean_str(ws.cell(row=row_idx, column=2).value)
+                fournisseur_name = clean_str(ws.cell(row=row_idx, column=3).value)
+                category = clean_str(ws.cell(row=row_idx, column=4).value)
+                quantity = ws.cell(row=row_idx, column=5).value
+                unit = clean_str(ws.cell(row=row_idx, column=6).value) or 'kg'
+                seuil = ws.cell(row=row_idx, column=7).value or 0
+                prix = ws.cell(row=row_idx, column=8).value or 0
+
+                cat_code = 'FILM'
+                cat_up = category.upper()
+                if 'ENCRE' in cat_up or 'INK' in cat_up:
+                    cat_code = 'INK'
+                elif 'COLLE' in cat_up or 'GLUE' in cat_up:
+                    cat_code = 'GLUE'
+                elif 'SOLV' in cat_up:
+                    cat_code = 'SOLV'
+
+                supplier_obj = None
+                if fournisseur_name:
+                    supplier_obj = Supplier.objects.filter(name__icontains=fournisseur_name).first()
+                    if not supplier_obj:
+                        supplier_obj = Supplier.objects.create(name=fournisseur_name, email='')
+                        details.append(f"Ligne {row_idx} : 🆕 Fournisseur créé « {fournisseur_name} »")
+
+                try:
+                    mat = None
+                    if code_val:
+                        mat = Material.objects.filter(code__iexact=code_val).first()
+                    if not mat:
+                        mat = Material.objects.filter(name__iexact=designation).first()
+
+                    if mat:
+                        mat.name = designation
+                        mat.code = code_val or mat.code
+                        mat.category = cat_code
+                        mat.quantity = parse_float_eu(quantity)
+                        mat.unit = unit
+                        mat.min_threshold = parse_float_eu(seuil)
+                        mat.price_per_unit = parse_float_eu(prix)
+                        if supplier_obj:
+                            mat.supplier = supplier_obj
+                        mat.save()
+                        created = False
+                    else:
+                        mat = Material.objects.create(
+                            name=designation,
+                            code=code_val,
+                            category=cat_code,
+                            quantity=parse_float_eu(quantity),
+                            unit=unit,
+                            min_threshold=parse_float_eu(seuil),
+                            price_per_unit=parse_float_eu(prix),
+                            supplier=supplier_obj,
+                        )
+                        created = True
+
+                    success_count += 1
+                    action = "Créée" if created else "Mise à jour"
+                    four_txt = f" | Fournisseur: {supplier_obj.name}" if supplier_obj else ""
+                    details.append(f"Ligne {row_idx} : ✅ Matière {action} « {mat.name} »{four_txt}")
+                except Exception as e:
+                    error_count += 1
+                    details.append(f"Ligne {row_idx} : ❌ {e}")
+
+        msg = f"Importation terminée : {success_count} ligne(s) importée(s) avec succès, {error_count} erreur(s)."
+        if success_count > 0:
+            messages.success(request, f"🎉 {msg}")
+        else:
+            messages.warning(request, f"⚠️ {msg}")
+
+        return render(request, 'stock/import_stock.html', {
+            'success': success_count > 0,
+            'message': msg,
+            'details': details,
+            'crm_users': crm_users,
+        })
+
+    except Exception as e:
+        print("=== ERREUR CRITIQUE IMPORT EXCEL ===")
+        print(traceback.format_exc())
+        return render(request, 'stock/import_stock.html', {
+            'success': False,
+            'message': f"❌ Erreur lors de l'importation : {str(e)}",
+            'details': details,
+            'crm_users': crm_users,
+        })
+
+
+@login_required
+def download_template_stock(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Template Stock"
+    ws.append(['Designation', 'Code', 'Fournisseur', 'Categorie (Film/Encre/Colle/Solvant)', 'Quantite', 'Unite', 'Seuil_Min', 'Prix_Unitaire'])
+    ws.append(['SOLVAPRINT TF EP YELLOW:JPR1', 'HSAU200019', 'SunChemical', 'Encre', 500, 'kg', 100, 1200])
+    ws.append(['BOPP Transparent 20µ', 'BOPP-20-TR', 'GulfPack', 'Film', 1500, 'kg', 300, 450])
+    ws.append(['SOLIPROP V AP WHITE:LT30', 'HSAN-10001', 'SunChemical', 'Encre', 1000, 'kg', 200, 950])
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="template_stock_matieres.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def download_template_special_prod(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Template Prod Spéciale"
+    ws.append(['Date', 'Produit', 'Support', 'Qte_Lancee', 'Lot', 'Laize', 'Client', 'Equipe', 'Machine', 'H_Debut', 'H_Fin', 'Prod_ML', 'Dec_Demarrage', 'Dec_Lisiere', 'Dec_Jonction', 'Dec_Transport', 'Prod_KG', 'Rebobinage_KG'])
+    ws.append(['15/01/2025', 'Sac Lait', 'PEBD 50μ', 500, 'LOT-2025-001', 320, 'Laiterie Atlas', 'A', 'IMP-01', '08:00', '16:30', 12000, 5.2, 3.1, 1.5, 2.0, 485, 10])
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="template_production_speciale.xlsx"'
+    wb.save(response)
+    return response
+
+
+# ===========================================================================
+# --- STOCK AVANCÉ ---
 # ===========================================================================
 
 @login_required
@@ -175,6 +547,7 @@ def stock_advanced_view(request):
         if search_query:
             materials = materials.filter(
                 Q(name__icontains=search_query) |
+                Q(code__icontains=search_query) |
                 Q(supplier__name__icontains=search_query)
             )
         if category_filter:
@@ -311,7 +684,10 @@ def stock_advanced_view(request):
             lots_attente = 0
 
         try:
-            mouvements = StockMovement.objects.all().order_by('-id')[:100]
+            mouvements = StockMovement.objects.select_related(
+                'material', 'lot', 'emplacement_source', 'emplacement_destination',
+                'machine', 'utilisateur'
+            ).all().order_by('-id')[:100]
         except Exception:
             mouvements = []
 
@@ -396,7 +772,7 @@ def material_search_api(request):
         return JsonResponse([], safe=False)
 
     materials = Material.objects.filter(
-        Q(name__icontains=query) | Q(category__icontains=query) | Q(supplier__name__icontains=query)
+        Q(name__icontains=query) | Q(code__icontains=query) | Q(category__icontains=query) | Q(supplier__name__icontains=query)
     ).select_related('supplier').order_by('name')[:30]
 
     results = []
@@ -406,13 +782,11 @@ def material_search_api(request):
             is_low = m.is_low_stock()
         except Exception:
             pass
-
         cat_lbl = m.category
         try:
             cat_lbl = m.get_category_display()
         except Exception:
             pass
-
         results.append({
             'id': m.id, 'name': m.name,
             'name_html': highlight_search(m.name, query),
@@ -432,9 +806,8 @@ def export_search_results(request):
     query = request.GET.get('q', '').strip()
     category = request.GET.get('category', '')
     materials = Material.objects.select_related('supplier').all()
-
     if query:
-        materials = materials.filter(Q(name__icontains=query) | Q(supplier__name__icontains=query))
+        materials = materials.filter(Q(name__icontains=query) | Q(code__icontains=query) | Q(supplier__name__icontains=query))
     if category:
         materials = materials.filter(category=category)
     materials = materials.order_by('name')
@@ -442,25 +815,18 @@ def export_search_results(request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Stock Matières"
-
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
     alert_fill = PatternFill(start_color="fee2e2", end_color="fee2e2", fill_type="solid")
-    thin_border = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin')
-    )
-
-    headers = ['Désignation', 'Catégorie', 'Stock Actuel', 'Unité', 'Seuil Min', 'Fournisseur', 'Prix/Unité', 'Valeur Stock', 'État']
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    headers = ['Désignation', 'Code', 'Catégorie', 'Stock Actuel', 'Unité', 'Seuil Min', 'Fournisseur', 'Prix/Unité', 'Valeur Stock', 'État']
     ws.append(headers)
-
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col_num)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center')
         cell.border = thin_border
-
     for row_num, m in enumerate(materials, 2):
         q = float(m.quantity or 0)
         p = float(getattr(m, 'price_per_unit', 0) or 0)
@@ -476,32 +842,22 @@ def export_search_results(request):
             cat_lbl = m.get_category_display()
         except Exception:
             pass
-
-        row_data = [
-            m.name, cat_lbl, q, m.unit, m.min_threshold or 0,
-            m.supplier.name if m.supplier else '', p, round(valeur, 2), etat
-        ]
+        row_data = [m.name, getattr(m, 'code', '') or '', cat_lbl, q, m.unit, m.min_threshold or 0, m.supplier.name if m.supplier else '', p, round(valeur, 2), etat]
         ws.append(row_data)
         for col_num in range(1, len(row_data) + 1):
             cell = ws.cell(row=row_num, column=col_num)
             cell.border = thin_border
             if is_low:
                 cell.fill = alert_fill
-
-    column_widths = [40, 15, 15, 10, 12, 25, 12, 15, 12]
+    column_widths = [40, 18, 15, 15, 10, 12, 25, 12, 15, 12]
     for i, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
-
     filename = f"stock_matieres_{query if query else 'all'}.xlsx"
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
 
-
-# ===========================================================================
-# --- STOCK AVANCÉ (SUITE) ---
-# ===========================================================================
 
 @login_required
 def location_list(request):
@@ -541,6 +897,8 @@ def lot_add(request):
     if request.method == 'POST':
         try:
             material_id = request.POST.get('material')
+            material_name_free = request.POST.get('material_name_free', '').strip()
+            category = request.POST.get('category')
             numero_lot = request.POST.get('numero_lot', '').strip()
             date_reception = request.POST.get('date_reception')
             fournisseur_id = request.POST.get('fournisseur') or None
@@ -549,7 +907,18 @@ def lot_add(request):
             prix = float(request.POST.get('prix_unitaire', 0))
             statut = request.POST.get('statut', 'EN_ATTENTE')
             notes = request.POST.get('notes', '')
-            material = get_object_or_404(Material, id=material_id)
+
+            if material_id:
+                material = get_object_or_404(Material, id=material_id)
+            elif material_name_free:
+                material, _ = Material.objects.get_or_create(
+                    name=material_name_free,
+                    defaults={'category': category or 'INK', 'quantity': 0, 'min_threshold': 100}
+                )
+            else:
+                messages.error(request, "Veuillez sélectionner ou saisir un nom de matière.")
+                return redirect('stock_advanced')
+
             fournisseur = Supplier.objects.filter(id=fournisseur_id).first() if fournisseur_id else None
             emplacement = StockLocation.objects.filter(id=emplacement_id).first() if emplacement_id else None
             lot = StockLot.objects.create(
@@ -625,13 +994,11 @@ def mouvement_add(request):
             of_id = request.POST.get('of') or None
             machine_id = request.POST.get('machine') or None
             motif = request.POST.get('motif', '')
-
             lot = StockLot.objects.filter(id=lot_id).first() if lot_id else None
             src = StockLocation.objects.filter(id=src_id).first() if src_id else None
             dst = StockLocation.objects.filter(id=dst_id).first() if dst_id else None
             of_obj = ProductionOrder.objects.filter(id=of_id).first() if of_id else None
             machine_obj = Machine.objects.filter(id=machine_id).first() if machine_id else None
-
             StockMovement.objects.create(
                 type=type_mvt, material=material, lot=lot,
                 quantite=quantite, emplacement_source=src,
@@ -784,17 +1151,11 @@ def stock_dashboard_data(request):
 
 
 # ===========================================================================
-# --- API SCANNER IA ÉTIQUETTE — VERSION GULFPACK/NODAPLAST/BIAXIAL/ENCRES ---
+# --- API SCANNER IA ÉTIQUETTE ---
 # ===========================================================================
 
 @login_required
 def scan_label_ai(request):
-    """
-    API backend ultra-précise pour étiquettes d'emballage souple.
-    Distingue parfaitement WEIGHT (poids_net) de LENGTH (longueur).
-    Normalise les couleurs d'encres (MGT, YLW, BLK...).
-    Extrait précisément la Laize (WIDTH).
-    """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode POST requise.'}, status=400)
 
@@ -813,9 +1174,7 @@ def scan_label_ai(request):
 
         prompt = """
 Tu es un expert en étiquettes de matières premières d'emballage souple (Films BOPP/PE et Encres).
-
 Analyse l'étiquette et retourne UNIQUEMENT un objet JSON strict :
-
 {
   "fournisseur": "string ou null",
   "material_name": "string ou null",
@@ -826,43 +1185,12 @@ Analyse l'étiquette et retourne UNIQUEMENT un objet JSON strict :
   "longueur_length": number ou null,
   "date_expiration": "YYYY-MM-DD ou null"
 }
-
-RÈGLES ABSOLUES (très importantes) :
-
-1. POIDS_NET (kg) :
-   - Cherche uniquement le champ "WEIGHT (Kgs.)" ou "NET WEIGHT" ou "GROSS WEIGHT" ou "WEIGHT".
-   - Exemple GulfPack : WEIGHT (Kgs.) = 282.80 -> poids_net = 282.80
-   - Exemple Nodaplast : NET WEIGHT kg 389.7 -> poids_net = 389.7
-   - NE PRENDS JAMAIS la "LENGTH" ou le "Métrage" comme poids !
-
-2. LONGUEUR_LENGTH (mètres) :
-   - Cherche "LENGTH (mt)" ou "LENGTH (m)" ou "LENGTH .ml".
-   - Les virgules sont des séparateurs de milliers en anglais. 20,200 ou 20.200 -> 20200
-   - 28 000 -> 28000
-   - 19500 -> 19500
-
-3. LAIZE_WIDTH (mm) :
-   - Cherche "WIDTH (mm)" ou "WIDTH .mm".
-   - Exemple : 780 -> 780
-   - Exemple : 1055 -> 1055
-
-4. MATERIAL_NAME :
-   - Pour les films : utilise le PRODUCT CODE ou ITEM Desc (ex: FA-20-HF101-0, BOPP 1055/20, ATS 20).
-   - Pour les encres : normalise toujours les couleurs : BLK/BK -> BLACK | MGT/MG -> MAGENTA | YLW/YEL/Y -> YELLOW | CYA/CY/C -> CYAN | WHT/W -> WHITE
-
-5. CATEGORY (Obligatoire) :
-   - FILM si BOPP, PE, PET, Film, GulfPack, Nodaplast, Biaxial, Starkraft, Kraft...
-   - INK si Soliprop, Solvaprint, Solimax, Rotoflexo, Solvares, Crystalplus, Encre, Ink...
-   - GLUE si Colle / Adhesive
-   - SOLV si Solvant
-
-6. FOURNISSEUR :
-   - "Gulf Packaging Industries Co" ou "GulfPack" -> "GulfPack"
-   - "SunChemical" -> "SunChemical"
-   - "Nodaplast" -> "Nodaplast"
-   - "Biaxial Films" -> "Biaxial Films"
-   - "Starkraft" -> "Starkraft"
-
+RÈGLES ABSOLUES :
+1. POIDS_NET (kg) : Cherche "WEIGHT (Kgs.)" ou "NET WEIGHT". Ne prends JAMAIS la LENGTH !
+2. LONGUEUR_LENGTH (mètres) : Cherche "LENGTH (mt)" ou "m".
+3. LAIZE_WIDTH (mm) : Cherche "WIDTH (mm)".
+4. MATERIAL_NAME : Code produit complet.
+5. CATEGORY : FILM, INK, GLUE ou SOLV.
 Réponds UNIQUEMENT avec le JSON, rien d'autre.
 """
         payload = {
@@ -888,16 +1216,13 @@ Réponds UNIQUEMENT avec le JSON, rien d'autre.
                 data=json.dumps(payload).encode('utf-8'),
                 headers={'Content-Type': 'application/json'}
             )
-
             try:
                 with urllib.request.urlopen(req, timeout=25) as resp:
                     res_body = json.loads(resp.read().decode('utf-8'))
                     text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
-
                     text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip().strip('`').strip()
                     parsed_json = json.loads(text_clean)
 
-                    # Conversion sécurisée des nombres (retrait des virgules/espaces de milliers)
                     for key in ['poids_net', 'laize_width', 'longueur_length']:
                         val = parsed_json.get(key)
                         if val is not None and isinstance(val, str):
@@ -906,7 +1231,6 @@ Réponds UNIQUEMENT avec le JSON, rien d'autre.
                             except ValueError:
                                 parsed_json[key] = None
 
-                    # Sécurisation de la catégorie
                     if not parsed_json.get('category') or parsed_json.get('category') not in ['FILM', 'INK', 'GLUE', 'SOLV']:
                         name_up = (parsed_json.get('material_name') or '').upper()
                         if any(x in name_up for x in ['BOPP', 'PE', 'PET', 'FILM', 'KRAFT', 'PAPER']):
@@ -923,7 +1247,6 @@ Réponds UNIQUEMENT avec le JSON, rien d'autre.
                         'data': parsed_json,
                         'model_used': target_model
                     })
-
             except urllib.error.HTTPError as e:
                 last_error = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
                 continue
@@ -931,10 +1254,7 @@ Réponds UNIQUEMENT avec le JSON, rien d'autre.
                 last_error = str(e)
                 continue
 
-        return JsonResponse({
-            'status': 'error',
-            'message': f"Surcharge Google / Erreur : {last_error}"
-        }, status=503)
+        return JsonResponse({'status': 'error', 'message': f"Erreur : {last_error}"}, status=503)
 
     except Exception as e:
         print("=== ERREUR SCANNER IA ===")

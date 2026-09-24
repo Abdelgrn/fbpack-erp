@@ -5,7 +5,8 @@ from django.conf.urls.static import static
 from . import views
 from .views import of_views
 from .views import production_speciale as prod_views
-from .views.stock import scan_label_ai  # <-- IMPORT DIRECT SÉCURISÉ
+# IMPORT DIRECT SÉCURISÉ DU SCANNER IA, DE L'IMPORT STOCK ET DE LA SUPPRESSION MULTIPLE
+from .views.stock import scan_label_ai, import_stock_view, bulk_delete_materials
 
 urlpatterns = [
     # ==========================================
@@ -18,7 +19,7 @@ urlpatterns = [
     # ==========================================
     path('', views.dashboard, name='dashboard'),
     path('reporting/', views.reporting, name='reporting'),
-    path('stock/import/', views.import_stock_view, name='import_stock'),
+    path('stock/import/', import_stock_view, name='import_stock'),
 
     # ==========================================
     # CRM — CLIENTS
@@ -156,10 +157,11 @@ urlpatterns = [
     path('stock/consommation/list/', views.conso_list_view, name='conso_list'),
     path('stock/material/<int:id>/edit/', views.edit_material, name='edit_material'),
     path('stock/material/<int:id>/delete/', views.delete_material, name='delete_material'),
+    path('stock/material/bulk-delete/', bulk_delete_materials, name='bulk_delete_materials'),
     path('stock/search/api/', views.material_search_api, name='material_search_api'),
     path('stock/export/', views.export_search_results, name='export_search_results'),
     
-    # --- API SCANNER IA (NOUVEAU) ---
+    # --- API SCANNER IA ---
     path('stock/api/scan-label/', scan_label_ai, name='scan_label_ai'),
 
     # ==========================================
