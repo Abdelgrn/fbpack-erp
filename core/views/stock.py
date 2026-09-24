@@ -117,6 +117,38 @@ def bulk_delete_materials(request):
 
 
 @login_required
+def bulk_delete_movements(request):
+    if request.method == 'POST':
+        try:
+            ids = []
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+                ids = data.get('ids', [])
+            else:
+                ids = request.POST.getlist('ids[]') or request.POST.getlist('ids')
+            
+            if ids:
+                mouvements = StockMovement.objects.filter(id__in=ids)
+                count = mouvements.count()
+                mouvements.delete()
+                
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    return JsonResponse({'status': 'success', 'message': f'🗑️ {count} mouvement(s) supprimé(s) avec succès.'})
+                
+                messages.success(request, f'🗑️ {count} mouvement(s) supprimé(s) avec succès.')
+            else:
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    return JsonResponse({'status': 'error', 'message': 'Aucune sélection reçue.'})
+                messages.warning(request, 'Aucun élément sélectionné.')
+        except Exception as e:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                return JsonResponse({'status': 'error', 'message': f'Erreur : {str(e)}'})
+            messages.error(request, f'Erreur lors de la suppression multiple : {str(e)}')
+            
+    return redirect('stock_advanced')
+
+
+@login_required
 def clear_all_stock(request):
     if request.method == 'POST':
         try:
@@ -266,6 +298,53 @@ def clean_str(val):
     return s
 
 
+def normalize_str(s):
+    if not s:
+        return ""
+    s = str(s).strip()
+    s = re.sub(r'[\s\-_]+$', '', s)
+    s = re.sub(r'^[\s\-_]+', '', s)
+    return s
+
+
+def find_material_smart(code_str, produit_str):
+    code_clean = normalize_str(code_str)
+    produit_clean = normalize_str(produit_str)
+
+    if code_clean:
+        mat = Material.objects.filter(code__iexact=code_clean).first()
+        if mat:
+            return mat
+        code_alphanumeric = re.sub(r'[^A-Za-z0-9]', '', code_clean)
+        if code_alphanumeric:
+            for m in Material.objects.exclude(code='').exclude(code__isnull=True):
+                if re.sub(r'[^A-Za-z0-9]', '', m.code or '').upper() == code_alphanumeric.upper():
+                    return m
+
+    if produit_clean:
+        mat = Material.objects.filter(name__iexact=produit_clean).first()
+        if mat:
+            return mat
+
+    if produit_clean:
+        for m in Material.objects.exclude(code='').exclude(code__isnull=True):
+            if m.code and len(m.code) >= 3 and m.code.upper() in produit_clean.upper():
+                return m
+        for m in Material.objects.all():
+            if m.name.upper() in produit_clean.upper() or produit_clean.upper() in m.name.upper():
+                return m
+
+    if produit_clean:
+        norm_prod = re.sub(r'[^A-Za-z0-9]', '', produit_clean).upper()
+        if norm_prod:
+            for m in Material.objects.all():
+                norm_mat_name = re.sub(r'[^A-Za-z0-9]', '', m.name).upper()
+                if norm_prod == norm_mat_name or (len(norm_prod) > 5 and norm_prod in norm_mat_name) or (len(norm_mat_name) > 5 and norm_mat_name in norm_prod):
+                    return m
+
+    return None
+
+
 def get_or_create_location(name, loc_type='GENERAL'):
     loc = StockLocation.objects.filter(name__iexact=name).first()
     if not loc:
@@ -346,11 +425,7 @@ def import_stock_view(request):
 
                     date_val = parse_date_custom(raw_date)
 
-                    material = None
-                    if code_str:
-                        material = Material.objects.filter(Q(code__iexact=code_str) | Q(name__icontains=code_str)).first()
-                    if not material and produit_str:
-                        material = Material.objects.filter(Q(name__iexact=produit_str) | Q(name__icontains=produit_str)).first()
+                    material = find_material_smart(code_str, produit_str)
 
                     if not material:
                         mat_name = (produit_str or code_str or f"Matière-Ligne-{row_idx}")[:200]
@@ -360,11 +435,11 @@ def import_stock_view(request):
                             cat = 'FILM'
                         elif any(x in up for x in ['GLUE', 'COLLE', 'ADHES']):
                             cat = 'GLUE'
-                        elif any(x in up for x in ['SOLV', 'ETHANOL', 'ETHYL']):
+                        elif any(x in up for x in ['SOLV', 'ETHANOL', 'ETHYL', 'ACETATE', 'METHOXY', 'MELANGE']):
                             cat = 'SOLV'
                         material = Material.objects.create(
                             name=mat_name,
-                            code=code_str,
+                            code=normalize_str(code_str),
                             category=cat,
                             quantity=0,
                             unit='kg',
@@ -400,7 +475,7 @@ def import_stock_view(request):
                     success_count += 1
                     src_name = emplacement_source.name if emplacement_source else "—"
                     dst_name = emplacement_destination.name if emplacement_destination else "—"
-                    details.append(f"Ligne {row_idx} : ✅ -{qte_val} kg « {material.name} » | {src_name} → {dst_name}")
+                    details.append(f"Ligne {row_idx} : ✅ -{qte_val} kg « {material.name} » (Nouveau stock : {material.quantity} {material.unit}) | {src_name} → {dst_name}")
 
                 except Exception as row_err:
                     error_count += 1
@@ -436,15 +511,11 @@ def import_stock_view(request):
                         details.append(f"Ligne {row_idx} : 🆕 Fournisseur créé « {fournisseur_name} »")
 
                 try:
-                    mat = None
-                    if code_val:
-                        mat = Material.objects.filter(code__iexact=code_val).first()
-                    if not mat:
-                        mat = Material.objects.filter(name__iexact=designation).first()
+                    mat = find_material_smart(code_val, designation)
 
                     if mat:
                         mat.name = designation
-                        mat.code = code_val or mat.code
+                        mat.code = normalize_str(code_val) or mat.code
                         mat.category = cat_code
                         mat.quantity = parse_float_eu(quantity)
                         mat.unit = unit
@@ -457,7 +528,7 @@ def import_stock_view(request):
                     else:
                         mat = Material.objects.create(
                             name=designation,
-                            code=code_val,
+                            code=normalize_str(code_val),
                             category=cat_code,
                             quantity=parse_float_eu(quantity),
                             unit=unit,
@@ -470,7 +541,7 @@ def import_stock_view(request):
                     success_count += 1
                     action = "Créée" if created else "Mise à jour"
                     four_txt = f" | Fournisseur: {supplier_obj.name}" if supplier_obj else ""
-                    details.append(f"Ligne {row_idx} : ✅ Matière {action} « {mat.name} »{four_txt}")
+                    details.append(f"Ligne {row_idx} : ✅ Matière {action} « {mat.name} » avec un stock de {mat.quantity} {mat.unit}{four_txt}")
                 except Exception as e:
                     error_count += 1
                     details.append(f"Ligne {row_idx} : ❌ {e}")
