@@ -44,7 +44,10 @@ def add_material(request):
     if request.method == 'POST':
         form = MaterialForm(request.POST)
         if form.is_valid():
-            form.save()
+            mat = form.save(commit=False)
+            if not mat.initial_quantity and mat.quantity:
+                mat.initial_quantity = mat.quantity
+            mat.save()
             messages.success(request, '✅ Matière ajoutée avec succès !')
             return redirect('stock_advanced')
     else:
@@ -441,6 +444,7 @@ def import_stock_view(request):
                             name=mat_name,
                             code=normalize_str(code_str),
                             category=cat,
+                            initial_quantity=0,
                             quantity=0,
                             unit='kg',
                             min_threshold=50,
@@ -489,10 +493,23 @@ def import_stock_view(request):
                 code_val = clean_str(ws.cell(row=row_idx, column=2).value)
                 fournisseur_name = clean_str(ws.cell(row=row_idx, column=3).value)
                 category = clean_str(ws.cell(row=row_idx, column=4).value)
-                quantity = ws.cell(row=row_idx, column=5).value
-                unit = clean_str(ws.cell(row=row_idx, column=6).value) or 'kg'
-                seuil = ws.cell(row=row_idx, column=7).value or 0
-                prix = ws.cell(row=row_idx, column=8).value or 0
+                
+                # Support de stock initial si présent
+                val_col5 = ws.cell(row=row_idx, column=5).value
+                val_col6 = ws.cell(row=row_idx, column=6).value
+                
+                if ws.max_column >= 9:
+                    stock_initial_val = parse_float_eu(val_col5)
+                    quantity_val = parse_float_eu(val_col6)
+                    unit = clean_str(ws.cell(row=row_idx, column=7).value) or 'kg'
+                    seuil = ws.cell(row=row_idx, column=8).value or 0
+                    prix = ws.cell(row=row_idx, column=9).value or 0
+                else:
+                    quantity_val = parse_float_eu(val_col5)
+                    stock_initial_val = quantity_val
+                    unit = clean_str(val_col6) or 'kg'
+                    seuil = ws.cell(row=row_idx, column=7).value or 0
+                    prix = ws.cell(row=row_idx, column=8).value or 0
 
                 cat_code = 'FILM'
                 cat_up = category.upper()
@@ -517,7 +534,9 @@ def import_stock_view(request):
                         mat.name = designation
                         mat.code = normalize_str(code_val) or mat.code
                         mat.category = cat_code
-                        mat.quantity = parse_float_eu(quantity)
+                        if stock_initial_val:
+                            mat.initial_quantity = stock_initial_val
+                        mat.quantity = quantity_val
                         mat.unit = unit
                         mat.min_threshold = parse_float_eu(seuil)
                         mat.price_per_unit = parse_float_eu(prix)
@@ -530,7 +549,8 @@ def import_stock_view(request):
                             name=designation,
                             code=normalize_str(code_val),
                             category=cat_code,
-                            quantity=parse_float_eu(quantity),
+                            initial_quantity=stock_initial_val,
+                            quantity=quantity_val,
                             unit=unit,
                             min_threshold=parse_float_eu(seuil),
                             price_per_unit=parse_float_eu(prix),
@@ -541,7 +561,7 @@ def import_stock_view(request):
                     success_count += 1
                     action = "Créée" if created else "Mise à jour"
                     four_txt = f" | Fournisseur: {supplier_obj.name}" if supplier_obj else ""
-                    details.append(f"Ligne {row_idx} : ✅ Matière {action} « {mat.name} » avec un stock de {mat.quantity} {mat.unit}{four_txt}")
+                    details.append(f"Ligne {row_idx} : ✅ Matière {action} « {mat.name} » avec Stock Initial: {mat.initial_quantity} {mat.unit} | Stock Réel: {mat.quantity} {mat.unit}{four_txt}")
                 except Exception as e:
                     error_count += 1
                     details.append(f"Ligne {row_idx} : ❌ {e}")
@@ -575,10 +595,10 @@ def download_template_stock(request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Template Stock"
-    ws.append(['Designation', 'Code', 'Fournisseur', 'Categorie (Film/Encre/Colle/Solvant)', 'Quantite', 'Unite', 'Seuil_Min', 'Prix_Unitaire'])
-    ws.append(['SOLVAPRINT TF EP YELLOW:JPR1', 'HSAU200019', 'SunChemical', 'Encre', 500, 'kg', 100, 1200])
-    ws.append(['BOPP Transparent 20µ', 'BOPP-20-TR', 'GulfPack', 'Film', 1500, 'kg', 300, 450])
-    ws.append(['SOLIPROP V AP WHITE:LT30', 'HSAN-10001', 'SunChemical', 'Encre', 1000, 'kg', 200, 950])
+    ws.append(['Designation', 'Code', 'Fournisseur', 'Categorie (Film/Encre/Colle/Solvant)', 'Stock_Initial', 'Stock_Reel', 'Unite', 'Seuil_Min', 'Prix_Unitaire'])
+    ws.append(['SOLVAPRINT TF EP YELLOW:JPR1', 'HSAU200019', 'SunChemical', 'Encre', 500, 500, 'kg', 100, 1200])
+    ws.append(['BOPP Transparent 20µ', 'BOPP-20-TR', 'GulfPack', 'Film', 1500, 1200, 'kg', 300, 450])
+    ws.append(['SOLIPROP V AP WHITE:LT30', 'HSAN-10001', 'SunChemical', 'Encre', 1000, 850, 'kg', 200, 950])
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="template_stock_matieres.xlsx"'
     wb.save(response)
@@ -598,9 +618,9 @@ def download_template_special_prod(request):
     return response
 
 
-# ===========================================================================
+# ============================================================
 # --- STOCK AVANCÉ ---
-# ===========================================================================
+# ============================================================
 
 @login_required
 def stock_advanced_view(request):
@@ -862,6 +882,7 @@ def material_search_api(request):
             'id': m.id, 'name': m.name,
             'name_html': highlight_search(m.name, query),
             'category': cat_lbl,
+            'initial_quantity': getattr(m, 'initial_quantity', 0) or 0,
             'quantity': m.quantity or 0, 'unit': m.unit,
             'min_threshold': m.min_threshold or 0,
             'supplier': m.supplier.name if m.supplier else '—',
@@ -890,7 +911,7 @@ def export_search_results(request):
     header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
     alert_fill = PatternFill(start_color="fee2e2", end_color="fee2e2", fill_type="solid")
     thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    headers = ['Désignation', 'Code', 'Catégorie', 'Stock Actuel', 'Unité', 'Seuil Min', 'Fournisseur', 'Prix/Unité', 'Valeur Stock', 'État']
+    headers = ['Désignation', 'Code', 'Catégorie', 'Stock Initial', 'Stock Réel Actuel', 'Unité', 'Seuil Min', 'Fournisseur', 'Prix/Unité', 'Valeur Stock', 'État']
     ws.append(headers)
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col_num)
@@ -899,6 +920,7 @@ def export_search_results(request):
         cell.alignment = Alignment(horizontal='center')
         cell.border = thin_border
     for row_num, m in enumerate(materials, 2):
+        q_init = float(getattr(m, 'initial_quantity', 0) or 0)
         q = float(m.quantity or 0)
         p = float(getattr(m, 'price_per_unit', 0) or 0)
         valeur = q * p
@@ -913,14 +935,14 @@ def export_search_results(request):
             cat_lbl = m.get_category_display()
         except Exception:
             pass
-        row_data = [m.name, getattr(m, 'code', '') or '', cat_lbl, q, m.unit, m.min_threshold or 0, m.supplier.name if m.supplier else '', p, round(valeur, 2), etat]
+        row_data = [m.name, getattr(m, 'code', '') or '', cat_lbl, q_init, q, m.unit, m.min_threshold or 0, m.supplier.name if m.supplier else '', p, round(valeur, 2), etat]
         ws.append(row_data)
         for col_num in range(1, len(row_data) + 1):
             cell = ws.cell(row=row_num, column=col_num)
             cell.border = thin_border
             if is_low:
                 cell.fill = alert_fill
-    column_widths = [40, 18, 15, 15, 10, 12, 25, 12, 15, 12]
+    column_widths = [40, 18, 15, 15, 15, 10, 12, 25, 12, 15, 12]
     for i, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
     filename = f"stock_matieres_{query if query else 'all'}.xlsx"
@@ -984,7 +1006,7 @@ def lot_add(request):
             elif material_name_free:
                 material, _ = Material.objects.get_or_create(
                     name=material_name_free,
-                    defaults={'category': category or 'INK', 'quantity': 0, 'min_threshold': 100}
+                    defaults={'category': category or 'INK', 'initial_quantity': quantite, 'quantity': 0, 'min_threshold': 100}
                 )
             else:
                 messages.error(request, "Veuillez sélectionner ou saisir un nom de matière.")

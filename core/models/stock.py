@@ -25,6 +25,7 @@ class Material(models.Model):
     name = models.CharField("Désignation", max_length=200)
     code = models.CharField("Code Produit", max_length=100, blank=True, default='', db_index=True)
     category = models.CharField(max_length=10, choices=CAT_CHOICES)
+    initial_quantity = models.FloatField("Stock Initial (au départ)", default=0)
     quantity = models.FloatField("Stock Réel")
     unit = models.CharField("Unité", max_length=10, default='kg')
     min_threshold = models.FloatField("Stock Alerte (Min)")
