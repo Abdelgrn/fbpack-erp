@@ -691,7 +691,10 @@
 <!-- ============================================================ -->
 <div id="tab-mouvements" class="tab-content hidden">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
-        <h2 class="text-xl font-bold text-white">Journal des Mouvements de Stock</h2>
+        <div>
+            <h2 class="text-xl font-bold text-white">Journal des Mouvements de Stock</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Historique complet des entrées, sorties, transferts et ajustements.</p>
+        </div>
         <div class="flex gap-2">
             <a href="{% url 'import_stock' %}" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 text-white font-bold py-2 px-4 rounded shadow transition text-sm flex items-center gap-2">
                 📊 Import Excel
@@ -707,9 +710,12 @@
     </div>
     <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-left border-collapse" id="movementsTable">
                 <thead>
                     <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-3 border-b border-slate-700 w-12 text-center">
+                            <input type="checkbox" id="selectAllMovementsAdv" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer" title="Tout sélectionner">
+                        </th>
                         <th class="p-3 border-b border-slate-700">Date</th>
                         <th class="p-3 border-b border-slate-700">Type</th>
                         <th class="p-3 border-b border-slate-700">Matière</th>
@@ -721,9 +727,12 @@
                         <th class="p-3 border-b border-slate-700">Motif</th>
                     </tr>
                 </thead>
-                <tbody class="text-gray-200 text-sm">
+                <tbody class="text-gray-200 text-sm" id="movementsTbody">
                     {% for mv in mouvements %}
-                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50 movement-row" data-mvt-id="{{ mv.id }}">
+                        <td class="p-3 text-center align-middle">
+                            <input type="checkbox" name="selected_movements" value="{{ mv.id }}" class="movement-checkbox-adv w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer">
+                        </td>
                         <td class="p-3 text-gray-400 whitespace-nowrap">{{ mv.date|date:"d/m/Y H:i" }}</td>
                         <td class="p-3">
                             {% if mv.type == 'ENTREE' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">⬆ Entrée</span>
@@ -752,7 +761,7 @@
                         <td class="p-3 text-xs text-gray-500 max-w-[200px] truncate">{{ mv.motif|default:"—" }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="9" class="p-8 text-center text-gray-500 italic">Aucun mouvement enregistré.</td></tr>
+                    <tr><td colspan="10" class="p-8 text-center text-gray-500 italic">Aucun mouvement enregistré.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -1498,7 +1507,7 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- BARRE ACTIONS GROUPÉES (AFFICHEE LORS DE LA SELECTION MULTIPLE) -->
+<!-- BARRE ACTIONS GROUPÉES : MATIÈRES PREMIÈRES                  -->
 <!-- ============================================================ -->
 <div id="bulkActionsBarAdv" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border-2 border-slate-600 rounded-2xl px-6 py-3.5 shadow-2xl flex items-center gap-5 z-50 backdrop-blur-md">
     <div class="flex items-center gap-2">
@@ -1515,6 +1524,23 @@
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- BARRE ACTIONS GROUPÉES : JOURNAL DES MOUVEMENTS              -->
+<!-- ============================================================ -->
+<div id="bulkActionsBarMvt" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border-2 border-slate-600 rounded-2xl px-6 py-3.5 shadow-2xl flex items-center gap-5 z-50 backdrop-blur-md">
+    <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping"></span>
+        <span class="text-xs text-gray-200 font-bold"><span id="selectedCountMvt" class="text-blue-400 font-black text-sm">0</span> mouvement(s) sélectionné(s)</span>
+    </div>
+    <div class="flex items-center gap-2">
+        <button onclick="bulkDeleteMovementsAdv()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-black px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-red-600/30">
+            🗑️ Supprimer la sélection
+        </button>
+        <button onclick="unselectAllMovementsAdv()" class="bg-slate-700 hover:bg-slate-600 text-gray-300 hover:text-white text-xs font-bold px-3 py-2 rounded-xl transition">
+            Annuler
+        </button>
+    </div>
+</div>
 
 <!-- ============================================================ -->
 <!-- BALISES JSON -->
@@ -1560,6 +1586,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initSortSystem();
     initMouvementStockValidation();
     initBulkSelectionAdv();
+    initBulkSelectionMovementsAdv();
 });
 
 let supplierContactIdx = 1;
@@ -2104,7 +2131,7 @@ function fillMouvementForm(data) {
 }
 
 // ============================================================
-// GESTION DU MULTI-SELECT & DES ACTIONS EN LOT DANS L'ONGLET MATIÈRES
+// GESTION DU MULTI-SELECT & DES ACTIONS EN LOT : MATIÈRES
 // ============================================================
 function updateBulkBarAdv() {
     const visibleChecked = document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv:checked');
@@ -2209,6 +2236,108 @@ function bulkDeleteMaterialsAdv() {
     })
     .catch(error => {
         console.error('Erreur bulk delete:', error);
+        alert('❌ Erreur technique lors de la suppression groupée.');
+    });
+}
+
+// ============================================================
+// GESTION DU MULTI-SELECT & DES ACTIONS EN LOT : MOUVEMENTS
+// ============================================================
+function updateBulkBarMvt() {
+    const checkedBoxes = document.querySelectorAll('.movement-checkbox-adv:checked');
+    const checkedCount = checkedBoxes.length;
+    const bulkBar = document.getElementById('bulkActionsBarMvt');
+    const selectedCountSpan = document.getElementById('selectedCountMvt');
+    const selectAll = document.getElementById('selectAllMovementsAdv');
+    
+    if (selectedCountSpan) selectedCountSpan.textContent = checkedCount;
+    
+    if (bulkBar) {
+        if (checkedCount > 0) {
+            bulkBar.classList.remove('hidden');
+            bulkBar.classList.add('flex');
+        } else {
+            bulkBar.classList.add('hidden');
+            bulkBar.classList.remove('flex');
+        }
+    }
+
+    const totalCheckboxes = document.querySelectorAll('.movement-checkbox-adv').length;
+    if (selectAll) {
+        selectAll.checked = (totalCheckboxes > 0 && checkedCount === totalCheckboxes);
+    }
+}
+
+function initBulkSelectionMovementsAdv() {
+    const selectAll = document.getElementById('selectAllMovementsAdv');
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.movement-checkbox-adv');
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            updateBulkBarMvt();
+        });
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.classList.contains('movement-checkbox-adv')) {
+            updateBulkBarMvt();
+        }
+    });
+}
+
+function unselectAllMovementsAdv() {
+    document.querySelectorAll('.movement-checkbox-adv').forEach(cb => {
+        cb.checked = false;
+    });
+    const selectAll = document.getElementById('selectAllMovementsAdv');
+    if (selectAll) selectAll.checked = false;
+    updateBulkBarMvt();
+}
+
+function bulkDeleteMovementsAdv() {
+    const checkedBoxes = document.querySelectorAll('.movement-checkbox-adv:checked');
+    const ids = Array.from(checkedBoxes).map(cb => cb.value);
+    if (ids.length === 0) return;
+
+    if (!confirm(`⚠️ Attention : Vous êtes sur le point de supprimer DÉFINITIVEMENT ${ids.length} mouvement(s) de stock du journal.\n\nConfirmer la suppression ?`)) {
+        return;
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+
+    fetch("{% url 'bulk_delete_movements' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ ids: ids })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            checkedBoxes.forEach(cb => {
+                const row = cb.closest('tr');
+                if (row) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                    setTimeout(() => row.remove(), 300);
+                }
+            });
+
+            setTimeout(() => {
+                unselectAllMovementsAdv();
+            }, 350);
+        } else {
+            alert('❌ ' + (data.message || 'Erreur lors de la suppression groupée.'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur bulk delete mouvements:', error);
         alert('❌ Erreur technique lors de la suppression groupée.');
     });
 }

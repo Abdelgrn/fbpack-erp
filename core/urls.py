@@ -5,8 +5,8 @@ from django.conf.urls.static import static
 from . import views
 from .views import of_views
 from .views import production_speciale as prod_views
-# IMPORT DIRECT SÉCURISÉ DU SCANNER IA, DE L'IMPORT STOCK ET DE LA SUPPRESSION MULTIPLE
-from .views.stock import scan_label_ai, import_stock_view, bulk_delete_materials
+# IMPORT DIRECT SÉCURISÉ DU SCANNER IA, DE L'IMPORT STOCK ET DES SUPPRESSIONS MULTIPLES
+from .views.stock import scan_label_ai, import_stock_view, bulk_delete_materials, bulk_delete_movements
 
 urlpatterns = [
     # ==========================================
@@ -158,6 +158,7 @@ urlpatterns = [
     path('stock/material/<int:id>/edit/', views.edit_material, name='edit_material'),
     path('stock/material/<int:id>/delete/', views.delete_material, name='delete_material'),
     path('stock/material/bulk-delete/', bulk_delete_materials, name='bulk_delete_materials'),
+    path('stock/mouvement/bulk-delete/', bulk_delete_movements, name='bulk_delete_movements'),
     path('stock/search/api/', views.material_search_api, name='material_search_api'),
     path('stock/export/', views.export_search_results, name='export_search_results'),
     
