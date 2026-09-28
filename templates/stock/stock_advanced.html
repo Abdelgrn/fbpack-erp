@@ -478,8 +478,8 @@
                         </th>
                         <th class="p-4 border-b border-slate-700">Désignation</th>
                         <th class="p-4 border-b border-slate-700">Catégorie</th>
-                        <th class="p-4 border-b border-slate-700">Stock Initial</th>
-                        <th class="p-4 border-b border-slate-700">Stock Réel</th>
+                        <th class="p-4 border-b border-slate-700">Stock Initial <span class="text-[9px] text-gray-500 normal-case block font-normal">(au départ)</span></th>
+                        <th class="p-4 border-b border-slate-700">Stock Réel <span class="text-[9px] text-gray-500 normal-case block font-normal">(aujourd'hui)</span></th>
                         <th class="p-4 border-b border-slate-700">Seuil Alerte</th>
                         <th class="p-4 border-b border-slate-700">Seuil Intelligent</th>
                         <th class="p-4 border-b border-slate-700">Lots actifs</th>
@@ -496,6 +496,7 @@
                         data-supplier-id="{{ m.supplier.id|default:'' }}"
                         data-supplier="{{ m.supplier.name|default:''|lower }}"
                         data-low-stock="{% if m.is_low_stock %}true{% else %}false{% endif %}"
+                        data-initial-stock="{{ m.initial_quantity|default:0 }}"
                         data-stock="{{ m.quantity|default:0 }}"
                         data-price="{{ m.price_per_unit|default:0 }}"
                         data-created-at="{{ m.created_at|date:'U'|default:m.id }}"
@@ -521,8 +522,8 @@
                                 <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">{{ m.get_category_display }}</span>
                             {% endif %}
                         </td>
-                        <td class="p-4 text-gray-300 font-semibold">
-                            {{ m.initial_quantity|default:0 }} {{ m.unit }}
+                        <td class="p-4 text-slate-300 font-semibold">
+                            {{ m.initial_quantity|floatformat:"-2" }} {{ m.unit }}
                         </td>
                         <td class="p-4 font-bold {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
                             {{ m.quantity }} {{ m.unit }}
@@ -712,6 +713,50 @@
             </button>
         </div>
     </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <div>
+                <label class="block text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Du</label>
+                <input type="date" id="mvtDateFrom"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Au</label>
+                <input type="date" id="mvtDateTo"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Emplacement</label>
+                <select id="mvtEmplacementFilter"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <option value="">Tous</option>
+                    {% for loc in locations %}
+                    <option value="{{ loc.name|lower }}">{{ loc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Catégorie matière</label>
+                <select id="mvtCategoryFilter"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <option value="">Toutes</option>
+                    {% for code, label in categories %}
+                    <option value="{{ code }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs text-gray-400">
+                <span id="mvtVisibleCount" class="text-cyan-400 font-bold">{{ mouvements|length }}</span> mouvement(s) affiché(s)
+            </span>
+            <button type="button" onclick="clearMovementFilters()"
+                class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-600 transition">
+                ↺ Réinitialiser les filtres
+            </button>
+        </div>
+    </div>
+
     <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse" id="movementsTable">
@@ -733,7 +778,12 @@
                 </thead>
                 <tbody class="text-gray-200 text-sm" id="movementsTbody">
                     {% for mv in mouvements %}
-                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50 movement-row" data-mvt-id="{{ mv.id }}">
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50 movement-row"
+                        data-mvt-id="{{ mv.id }}"
+                        data-date="{{ mv.date|date:'Y-m-d' }}"
+                        data-emplacement-src="{{ mv.emplacement_source.name|default:''|lower }}"
+                        data-emplacement-dst="{{ mv.emplacement_destination.name|default:''|lower }}"
+                        data-category="{{ mv.material.category|default:'' }}">
                         <td class="p-3 text-center align-middle">
                             <input type="checkbox" name="selected_movements" value="{{ mv.id }}" class="movement-checkbox-adv w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer">
                         </td>
@@ -1591,7 +1641,62 @@ document.addEventListener('DOMContentLoaded', function() {
     initMouvementStockValidation();
     initBulkSelectionAdv();
     initBulkSelectionMovementsAdv();
+    initMovementFilters();
 });
+
+function applyMovementFilters() {
+    var dateFromEl = document.getElementById('mvtDateFrom');
+    var dateToEl = document.getElementById('mvtDateTo');
+    var emplacementEl = document.getElementById('mvtEmplacementFilter');
+    var categoryEl = document.getElementById('mvtCategoryFilter');
+    if (!dateFromEl) return;
+    var dateFrom = dateFromEl.value;
+    var dateTo = dateToEl.value;
+    var emplacement = (emplacementEl.value || '').toLowerCase();
+    var category = categoryEl.value;
+    var visibleCount = 0;
+    document.querySelectorAll('.movement-row').forEach(function(row) {
+        var rowDate = row.dataset.date || '';
+        var src = row.dataset.emplacementSrc || '';
+        var dst = row.dataset.emplacementDst || '';
+        var cat = row.dataset.category || '';
+        var matchDate = true;
+        if (dateFrom && rowDate && rowDate < dateFrom) matchDate = false;
+        if (dateTo && rowDate && rowDate > dateTo) matchDate = false;
+        var matchEmplacement = !emplacement || src === emplacement || dst === emplacement;
+        var matchCategory = !category || cat === category;
+        if (matchDate && matchEmplacement && matchCategory) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    var counter = document.getElementById('mvtVisibleCount');
+    if (counter) counter.textContent = visibleCount;
+}
+
+function clearMovementFilters() {
+    var dateFromEl = document.getElementById('mvtDateFrom');
+    var dateToEl = document.getElementById('mvtDateTo');
+    var emplacementEl = document.getElementById('mvtEmplacementFilter');
+    var categoryEl = document.getElementById('mvtCategoryFilter');
+    if (dateFromEl) dateFromEl.value = '';
+    if (dateToEl) dateToEl.value = '';
+    if (emplacementEl) emplacementEl.value = '';
+    if (categoryEl) categoryEl.value = '';
+    applyMovementFilters();
+}
+
+function initMovementFilters() {
+    ['mvtDateFrom', 'mvtDateTo', 'mvtEmplacementFilter', 'mvtCategoryFilter'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', applyMovementFilters);
+            el.addEventListener('change', applyMovementFilters);
+        }
+    });
+}
 
 let supplierContactIdx = 1;
 function ajouterLigneContact() {
