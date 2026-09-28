@@ -90,6 +90,23 @@
             {{ form.unit }}
           </div>
 
+          <!-- Stock Initial -->
+          <div>
+            <label class="block text-xs font-bold text-gray-400
+                          uppercase tracking-wider mb-2">
+              📦 Stock Initial (au départ)
+            </label>
+            {{ form.initial_quantity }}
+            {% if form.initial_quantity.errors %}
+              <p class="text-red-400 text-xs mt-1">
+                {{ form.initial_quantity.errors.0 }}
+              </p>
+            {% endif %}
+            <p class="text-gray-500 text-xs mt-1">
+              Quantité de départ, ne change plus après création
+            </p>
+          </div>
+
           <!-- Stock réel -->
           <div>
             <label class="block text-xs font-bold text-gray-400
@@ -178,6 +195,12 @@
         La <strong class="text-white">désignation</strong>
         doit être unique et descriptive
         (Ex: "Film BOPP 20µm Transparent")
+      </li>
+      <li>
+        Le <strong class="text-white">stock initial</strong>
+        représente la quantité de départ ; le
+        <strong class="text-white">stock réel</strong> est mis à jour
+        automatiquement par les mouvements
       </li>
       <li>
         Le <strong class="text-white">seuil d'alerte</strong>
