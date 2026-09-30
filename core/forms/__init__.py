@@ -9,7 +9,7 @@ from .crm import (
 from .prepress import ProductForm, ToolForm
 
 # Stock
-from .stock import SupplierForm, MaterialForm
+from .stock import SupplierForm, MaterialForm, StockImportForm
 
 # Machines
 from .machines import MachineForm, MachineMaintenanceForm, CompteurMachineForm, AtelierForm
@@ -63,7 +63,7 @@ __all__ = [
     # Prepress
     "ProductForm", "ToolForm",
     # Stock
-    "SupplierForm", "MaterialForm",
+    "SupplierForm", "MaterialForm", "StockImportForm",
     # Machines
     "MachineForm", "MachineMaintenanceForm", "CompteurMachineForm", "AtelierForm",
     # Production OF

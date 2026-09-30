@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<div class="hidden">{% csrf_token %}</div>
+
 <!-- ============================================================ -->
 <!-- EN-TÊTE MODULE STOCK AVANCÉ -->
 <!-- ============================================================ -->
@@ -9,9 +11,11 @@
         <div>
             <h1 class="text-3xl font-bold text-white tracking-wider">
                 📦 Module Stocks & Achats 
-                <span class="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 px-2 py-1 rounded ml-2">v2.0 Pro</span>
+                <span class="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 px-2 py-1 rounded ml-2">v2.1 Pro</span>
             </h1>
-            <p class="text-gray-400 text-sm mt-1">Gestion complète : lots, emplacements, mouvements, achats et prévisions intelligentes.</p>
+            <p class="text-gray-400 text-sm mt-1">
+                Le stock affiché correspond aux matières du <strong class="text-gray-200">Magasin Général</strong> : ce qui est transféré en Stock Tampon (Flexo / Hélio) est décompté.
+            </p>
         </div>
         <!-- KPI RAPIDES -->
         <div class="flex flex-wrap gap-3">
@@ -19,7 +23,7 @@
                 <div class="text-2xl font-black text-white" id="statTotalMatieres">{{ total_matieres }}</div>
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">Matières</div>
             </div>
-            <div class="bg-red-900/30 border border-red-500/40 rounded-lg px-4 py-2 text-center min-w-[90px] animate-pulse">
+            <div class="bg-red-900/30 border border-red-500/40 rounded-lg px-4 py-2 text-center min-w-[90px] {% if nb_alertes %}animate-pulse{% endif %}">
                 <div class="text-2xl font-black text-red-400">{{ nb_alertes }}</div>
                 <div class="text-[10px] text-red-400 uppercase tracking-wider">Alertes</div>
             </div>
@@ -37,7 +41,7 @@
             </div>
             <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
                 <div class="text-2xl font-black text-emerald-400">{{ valeur_stock_total|floatformat:0 }}</div>
-                <div class="text-[10px] text-emerald-400 uppercase tracking-wider">DA Valeur</div>
+                <div class="text-[10px] text-emerald-400 uppercase tracking-wider">Stock Valeur</div>
             </div>
         </div>
     </div>
@@ -52,7 +56,7 @@
         <span class="text-2xl">🚨</span>
         <div>
             <h4 class="text-white font-black text-sm uppercase">Alerte Système : Niveaux de Stock Critiques</h4>
-            <p class="text-red-300 text-xs mt-0.5">Il y a actuellement <strong>{{ nb_alertes }}</strong> produit(s) ayant atteint ou dépassé leur seuil minimal de sécurité.</p>
+            <p class="text-red-300 text-xs mt-0.5">Il y a actuellement <strong>{{ nb_alertes }}</strong> produit(s) sous le seuil de sécurité.</p>
         </div>
     </div>
     <div class="flex gap-2">
@@ -62,6 +66,27 @@
     </div>
 </div>
 {% endif %}
+
+<!-- EXPLICATION PÉDAGOGIQUE COMPLÈTE DE L'ATELIER -->
+<details class="mb-6 bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-xs text-gray-300">
+    <summary class="cursor-pointer font-bold text-cyan-400 flex items-center gap-2 outline-none select-none">
+        💡 Guide pratique : Comment utiliser ce module ?
+    </summary>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 text-gray-400 leading-relaxed">
+        <div>
+            <h4 class="font-bold text-gray-200 mb-1">1. Magasin Général & Disponibilité</h4>
+            <p>Seuls les lots qualifiés <span class="text-emerald-400 font-semibold">« Conformes »</span> sont intégrés au stock utilisable. Les matières transférées en atelier sont immédiatement décomptées.</p>
+        </div>
+        <div>
+            <h4 class="font-bold text-gray-200 mb-1">2. Journal & Contre-passation</h4>
+            <p>Pour assurer la traçabilité, un mouvement physique ne peut pas être supprimé. L'annulation d'un mouvement procède à une contre-passation comptable automatique avec motif obligatoire.</p>
+        </div>
+        <div>
+            <h4 class="font-bold text-gray-200 mb-1">3. Processus d'Achat Séquentiel</h4>
+            <p>Soumission de la DA → Validation direction → Émission du Bon de Commande (BC) → Réception (génère automatiquement des lots en attente de contrôle qualité).</p>
+        </div>
+    </div>
+</details>
 
 <!-- ============================================================ -->
 <!-- SECTION ALERTES STOCK — VERSION GRAPHIQUE MODERNE            -->
@@ -75,7 +100,7 @@
         <div>
             <div class="text-white font-black text-4xl leading-none">{{ nb_ruptures }}</div>
             <div class="text-red-200 font-bold text-sm uppercase tracking-wider mt-1">En Rupture Totale</div>
-            <div class="text-red-300 text-xs mt-1">Stock = 0 — Commander immédiatement</div>
+            <div class="text-red-300 text-xs mt-1">Stock dispo = 0 — Lancer DA immédiatement</div>
         </div>
     </div>
 
@@ -168,7 +193,7 @@
                         <th class="px-4 py-3 border-b border-slate-700">Désignation matière</th>
                         <th class="px-4 py-3 border-b border-slate-700 w-28">Catégorie</th>
                         <th class="px-4 py-3 border-b border-slate-700 w-32">Fournisseur</th>
-                        <th class="px-4 py-3 border-b border-slate-700 text-right w-32">Stock actuel</th>
+                        <th class="px-4 py-3 border-b border-slate-700 text-right w-32">Stock disponible</th>
                         <th class="px-4 py-3 border-b border-slate-700 text-right w-28">Seuil alerte</th>
                         <th class="px-4 py-3 border-b border-slate-700 min-w-[220px]">Niveau de stock</th>
                         <th class="px-4 py-3 border-b border-slate-700 text-center w-24">Action</th>
@@ -186,7 +211,7 @@
 
                         <td class="px-4 py-3">
                             <div class="font-bold text-cyan-400 text-sm">{{ a.name }}</div>
-                            <div class="text-gray-500 text-xs">ID #{{ a.id }}</div>
+                            <div class="text-gray-500 text-[10px]">ID #{{ a.id }}</div>
                         </td>
 
                         <td class="px-4 py-3">
@@ -982,7 +1007,7 @@
                                     {% if bc.statut == 'BROUILLON' %}
                                     <form method="post" action="{% url 'bc_envoyer' bc.id %}" class="inline">{% csrf_token %}
                                         <input type="hidden" name="tab" value="achats">
-                                        <button type="submit" class="text-[10px] bg-blue-600 hover:bg-blue-500 text-white py-1 px-2 rounded transition">📤 Envoyé</button>
+                                        <button type="submit" class="text-[10px] bg-blue-600 hover:bg-blue-500 text-white py-1 px-2 rounded transition">📤 Envoyer</button>
                                     </form>
                                     {% elif bc.statut == 'ENVOYE' or bc.statut == 'CONFIRME' %}
                                     <form method="post" action="{% url 'bc_reception' bc.id %}" class="inline">{% csrf_token %}
@@ -1631,10 +1656,13 @@ document.addEventListener('DOMContentLoaded', function() {
     else if (savedTab) { showTab(savedTab); }
     else { showTab('matieres'); }
     initAlertsListState();
+    
+    // Application dynamique et sécurisée des largeurs de jauge
     document.querySelectorAll('.progress-bar-fill').forEach(function(el) {
         var w = el.getAttribute('data-width');
         if (w !== null && w !== '') { el.style.width = w + '%'; }
     });
+    
     attachAjaxDeleteHandlers();
     applyAllFilters();
     initSortSystem();
@@ -2015,7 +2043,8 @@ if (ctx2 && typeof Chart !== 'undefined') {
             ]
         },
         options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 12 } } },
             scales: {
                 x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },

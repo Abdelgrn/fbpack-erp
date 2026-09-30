@@ -32,12 +32,14 @@ from .production_of import (
 )
 
 from .stock import (
-    stock_view, add_material, edit_material, delete_material, clear_all_stock,
+    stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+    bulk_delete_materials, bulk_delete_movements,
     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
-    stock_advanced_view, material_search_api, export_search_results,
+    stock_advanced_view, material_search_api, export_search_results, export_mouvements,
     location_list, location_add, location_delete, lot_list, lot_add,
-    lot_valider, lot_bloquer, lot_detail, mouvement_add, da_add, da_valider, da_refuser,
-    bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data
+    lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+    controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+    bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
 )
 
 from .machines import (

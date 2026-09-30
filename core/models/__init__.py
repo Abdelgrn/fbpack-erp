@@ -18,7 +18,7 @@ from .prepress import TechnicalProduct, Tooling
 
 # Stock
 from .stock import (
-    Supplier, Material, StockLocation, StockLot, StockMovement,
+    Supplier, SupplierContact, Material, StockLocation, StockLot, StockMovement,
     DemandeAchat, BonCommande, LigneBonCommande, StockSeuil
 )
 
@@ -114,6 +114,7 @@ def robust_import_local_data(specific_file=None):
         'core.usermodulepermission',
         'core.atelier',
         'core.supplier',
+        'core.suppliercontact',
         'core.client',
         'core.department',
         'core.position',
@@ -332,7 +333,7 @@ __all__ = [
     # Prepress
     'TechnicalProduct', 'Tooling',
     # Stock
-    'Supplier', 'Material', 'StockLocation', 'StockLot', 'StockMovement',
+    'Supplier', 'SupplierContact', 'Material', 'StockLocation', 'StockLot', 'StockMovement',
     'DemandeAchat', 'BonCommande', 'LigneBonCommande', 'StockSeuil',
     # Machines
     'Atelier', 'Machine', 'CompteurMachine',

@@ -5,19 +5,19 @@
 
   <!-- Header -->
   <div class="flex items-center gap-4 mb-6">
-    <a href="/stock/?tab=matieres"
+    <a href="{% url 'stock_advanced' %}?tab=stock"
        class="flex items-center gap-2 text-gray-400
               hover:text-white transition text-sm
               bg-slate-800 border border-slate-700
               px-3 py-2 rounded-lg">
-      ← Retour
+      ← Retour à la liste
     </a>
     <div>
       <h1 class="text-2xl font-bold text-white">
         📦 {{ title }}
       </h1>
       <p class="text-gray-400 text-sm mt-1">
-        Remplissez les informations de la matière première
+        Renseignez les informations de la matière première. Les champs marqués <span class="text-red-400">*</span> sont obligatoires.
       </p>
     </div>
   </div>
@@ -26,7 +26,7 @@
   {% if messages %}
     {% for message in messages %}
       <div class="mb-4 px-4 py-3 rounded-lg border
-        {% if 'Erreur' in message.message %}
+        {% if 'Erreur' in message.message or 'refusé' in message.message %}
           bg-red-900/30 border-red-500/40 text-red-400
         {% else %}
           bg-emerald-900/30 border-emerald-500/40 text-emerald-400
@@ -42,8 +42,7 @@
 
     <!-- Barre colorée en haut -->
     <div class="h-1 w-full"
-         style="background: linear-gradient(90deg,
-                #f0c040, #f59e0b, #ef4444);"></div>
+         style="background: linear-gradient(90deg, #f0c040, #f59e0b, #ef4444);"></div>
 
     <div class="p-6">
       <form method="POST">
@@ -53,101 +52,102 @@
 
           <!-- Désignation -->
           <div class="md:col-span-2">
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
-              Désignation
-              <span class="text-red-400 ml-1">*</span>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Désignation <span class="text-red-400 ml-1">*</span>
             </label>
             {{ form.name }}
             {% if form.name.errors %}
-              <p class="text-red-400 text-xs mt-1">
-                {{ form.name.errors.0 }}
-              </p>
+              <p class="text-red-400 text-xs mt-1">{{ form.name.errors.0 }}</p>
             {% endif %}
+            <p class="text-gray-500 text-xs mt-1">Nom complet (ex : "Film BOPP 20µm Transparent JPR")</p>
+          </div>
+
+          <!-- Code -->
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              🏷️ Code Produit
+            </label>
+            {{ form.code }}
+            {% if form.code.errors %}
+              <p class="text-red-400 text-xs mt-1">{{ form.code.errors.0 }}</p>
+            {% endif %}
+            <p class="text-gray-500 text-xs mt-1">Référence fournisseur ou code interne (ex : HSAU200019)</p>
           </div>
 
           <!-- Catégorie -->
           <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
-              Catégorie
-              <span class="text-red-400 ml-1">*</span>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Catégorie <span class="text-red-400 ml-1">*</span>
             </label>
             {{ form.category }}
             {% if form.category.errors %}
-              <p class="text-red-400 text-xs mt-1">
-                {{ form.category.errors.0 }}
-              </p>
+              <p class="text-red-400 text-xs mt-1">{{ form.category.errors.0 }}</p>
             {% endif %}
-          </div>
-
-          <!-- Unité -->
-          <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
-              Unité de mesure
-            </label>
-            {{ form.unit }}
           </div>
 
           <!-- Stock Initial -->
           <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
               📦 Stock Initial (au départ)
             </label>
             {{ form.initial_quantity }}
             {% if form.initial_quantity.errors %}
-              <p class="text-red-400 text-xs mt-1">
-                {{ form.initial_quantity.errors.0 }}
-              </p>
+              <p class="text-red-400 text-xs mt-1">{{ form.initial_quantity.errors.0 }}</p>
             {% endif %}
             <p class="text-gray-500 text-xs mt-1">
-              Quantité de départ, ne change plus après création
+              🔒 Quantité de référence au moment de la création. Ne change plus après.
             </p>
           </div>
 
           <!-- Stock réel -->
           <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
               Stock Réel (quantité actuelle)
             </label>
             {{ form.quantity }}
+            <p class="text-gray-500 text-xs mt-1">
+              ⚙️ Ce champ est ensuite mis à jour <strong>automatiquement</strong> par les mouvements d'entrée / sortie.
+            </p>
+          </div>
+
+          <!-- Unité -->
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Unité de mesure
+            </label>
+            {{ form.unit }}
+            <p class="text-gray-500 text-xs mt-1">Ex : kg, L, m, rouleau…</p>
           </div>
 
           <!-- Seuil alerte -->
           <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
               🔔 Seuil d'Alerte Minimum
             </label>
             {{ form.min_threshold }}
             <p class="text-gray-500 text-xs mt-1">
-              Une alerte rouge s'affiche sous ce seuil
+              Une alerte rouge s'affiche automatiquement dès que le stock utilisable passe sous ce niveau.
             </p>
           </div>
 
           <!-- Prix unitaire -->
           <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
-              Prix Unitaire (DA)
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              💰 Prix Unitaire (DA)
             </label>
             {{ form.price_per_unit }}
+            <p class="text-gray-500 text-xs mt-1">Sert au calcul de la valeur du stock.</p>
           </div>
 
           <!-- Fournisseur -->
-          <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
-              Fournisseur
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              🏢 Fournisseur principal
             </label>
             {{ form.supplier }}
             <p class="text-xs mt-2">
-              <a href="/stock/supplier/add/"
-                 class="text-yellow-400 hover:text-yellow-300
-                        underline underline-offset-2">
+              <a href="{% url 'add_supplier' %}"
+                 class="text-yellow-400 hover:text-yellow-300 underline underline-offset-2">
                 ➕ Ajouter un nouveau fournisseur
               </a>
             </p>
@@ -169,7 +169,7 @@
             💾 {{ btn_label|default:'Enregistrer' }}
           </button>
 
-          <a href="/stock/?tab=matieres"
+          <a href="{% url 'stock_advanced' %}?tab=stock"
              class="flex items-center gap-2 font-bold
                     px-6 py-3 rounded-xl transition
                     bg-slate-700 hover:bg-slate-600
@@ -184,33 +184,15 @@
   </div>
 
   <!-- Aide contextuelle -->
-  <div class="mt-4 bg-blue-900/20 border border-blue-500/30
-              rounded-xl p-4">
-    <p class="text-blue-400 text-xs font-bold mb-2">
-      💡 Conseils
-    </p>
-    <ul class="text-gray-400 text-xs space-y-1 list-disc
-               list-inside">
-      <li>
-        La <strong class="text-white">désignation</strong>
-        doit être unique et descriptive
-        (Ex: "Film BOPP 20µm Transparent")
-      </li>
-      <li>
-        Le <strong class="text-white">stock initial</strong>
-        représente la quantité de départ ; le
-        <strong class="text-white">stock réel</strong> est mis à jour
-        automatiquement par les mouvements
-      </li>
-      <li>
-        Le <strong class="text-white">seuil d'alerte</strong>
-        déclenche une notification rouge dans le tableau de bord
-      </li>
-      <li>
-        Vous pouvez configurer un
-        <strong class="text-white">seuil intelligent</strong>
-        après création depuis la liste des matières
-      </li>
+  <div class="mt-4 bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
+    <p class="text-blue-400 text-xs font-bold mb-2">💡 Comment ça marche ?</p>
+    <ul class="text-gray-400 text-xs space-y-1 list-disc list-inside">
+      <li>La <strong class="text-white">désignation</strong> doit être unique et descriptive.</li>
+      <li>Le <strong class="text-white">stock initial</strong> = la quantité au démarrage de l'ERP. Il ne change plus.</li>
+      <li>Le <strong class="text-white">stock réel</strong> est recalculé automatiquement à chaque mouvement (entrée, sortie, retour).</li>
+      <li>Le <strong class="text-white">seuil d'alerte</strong> déclenche une notification visible sur le tableau de bord principal.</li>
+      <li>Pour un <strong class="text-white">seuil intelligent</strong> (basé sur la consommation moyenne et le délai fournisseur), configurez-le après création depuis la fiche de la matière.</li>
+      <li>💡 Si vous supprimez cette matière plus tard, elle est <strong class="text-white">archivée</strong> et non effacée : l'historique de traçabilité est conservé.</li>
     </ul>
   </div>
 

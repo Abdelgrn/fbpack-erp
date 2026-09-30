@@ -161,6 +161,7 @@ urlpatterns = [
     path('stock/mouvement/bulk-delete/', bulk_delete_movements, name='bulk_delete_movements'),
     path('stock/search/api/', views.material_search_api, name='material_search_api'),
     path('stock/export/', views.export_search_results, name='export_search_results'),
+    path('stock/mouvements/export/', views.export_mouvements, name='export_mouvements'),
     
     # --- API SCANNER IA ---
     path('stock/api/scan-label/', scan_label_ai, name='scan_label_ai'),
@@ -176,6 +177,10 @@ urlpatterns = [
     path('stock/lot/<int:id>/valider/', views.lot_valider, name='lot_valider'),
     path('stock/lot/<int:id>/bloquer/', views.lot_bloquer, name='lot_bloquer'),
     path('stock/mouvement/add/', views.mouvement_add, name='mouvement_add'),
+    path('stock/mouvement/<int:id>/annuler/', views.mouvement_annuler, name='mouvement_annuler'),
+    path('stock/material/<int:id>/restore/', views.material_restore, name='material_restore'),
+    path('stock/controle-coherence/', views.controle_stock_view, name='controle_stock'),
+    path('stock/seuils/recalculer/', views.seuils_recalculer, name='seuils_recalculer'),
     path('stock/da/add/', views.da_add, name='da_add'),
     path('stock/da/<int:id>/valider/', views.da_valider, name='da_valider'),
     path('stock/da/<int:id>/refuser/', views.da_refuser, name='da_refuser'),

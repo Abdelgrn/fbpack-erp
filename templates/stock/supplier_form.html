@@ -5,19 +5,17 @@
 
   <!-- Header -->
   <div class="flex items-center gap-4 mb-6">
-    <a href="/stock/?tab=fournisseurs"
-       class="flex items-center gap-2 text-gray-400
-              hover:text-white transition text-sm
-              bg-slate-800 border border-slate-700
-              px-3 py-2 rounded-lg">
-      ← Retour
+    <a href="{% url 'stock_advanced' %}?tab=achats&sub=fournisseurs"
+       class="flex items-center gap-2 text-gray-400 hover:text-white transition text-sm
+              bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg">
+      ← Retour à l'annuaire
     </a>
     <div>
       <h1 class="text-2xl font-bold text-white">
         🏭 {{ title }}
       </h1>
       <p class="text-gray-400 text-sm mt-1">
-        Ajoutez un fournisseur à votre annuaire
+        Ajoutez ou modifiez un fournisseur de votre atelier.
       </p>
     </div>
   </div>
@@ -26,7 +24,7 @@
   {% if messages %}
     {% for message in messages %}
       <div class="mb-4 px-4 py-3 rounded-lg border
-        {% if 'Erreur' in message.message %}
+        {% if 'Erreur' in message.message or 'refusé' in message.message %}
           bg-red-900/30 border-red-500/40 text-red-400
         {% else %}
           bg-emerald-900/30 border-emerald-500/40 text-emerald-400
@@ -37,12 +35,10 @@
   {% endif %}
 
   <!-- Formulaire -->
-  <div class="bg-slate-800 border border-slate-700
-              rounded-2xl shadow-xl overflow-hidden">
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl overflow-hidden">
 
     <div class="h-1 w-full"
-         style="background: linear-gradient(90deg,
-                #3b82f6, #06b6d4);"></div>
+         style="background: linear-gradient(90deg, #3b82f6, #06b6d4);"></div>
 
     <div class="p-6">
       <form method="POST">
@@ -52,31 +48,28 @@
 
           <!-- Nom -->
           <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
-              Nom du Fournisseur
-              <span class="text-red-400 ml-1">*</span>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Nom du fournisseur <span class="text-red-400 ml-1">*</span>
             </label>
             {{ form.name }}
             {% if form.name.errors %}
-              <p class="text-red-400 text-xs mt-1">
-                {{ form.name.errors.0 }}
-              </p>
+              <p class="text-red-400 text-xs mt-1">{{ form.name.errors.0 }}</p>
             {% endif %}
+            <p class="text-gray-500 text-xs mt-1">Ex : SunChemical, GulfPack, JPR…</p>
           </div>
 
           <!-- Email -->
           <div>
-            <label class="block text-xs font-bold text-gray-400
-                          uppercase tracking-wider mb-2">
-              Email de Contact
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              ✉️ Email principal
             </label>
             {{ form.email }}
             {% if form.email.errors %}
-              <p class="text-red-400 text-xs mt-1">
-                {{ form.email.errors.0 }}
-              </p>
+              <p class="text-red-400 text-xs mt-1">{{ form.email.errors.0 }}</p>
             {% endif %}
+            <p class="text-gray-500 text-xs mt-1">
+              Contact commercial général. Vous pouvez ajouter des interlocuteurs supplémentaires depuis l'annuaire.
+            </p>
           </div>
 
         </div>
@@ -85,7 +78,6 @@
 
         <!-- Boutons -->
         <div class="flex flex-wrap gap-3">
-
           <button type="submit"
                   class="flex items-center gap-2 font-bold
                          px-6 py-3 rounded-xl transition
@@ -94,18 +86,27 @@
             💾 {{ btn_label|default:'Enregistrer' }}
           </button>
 
-          <a href="/stock/?tab=fournisseurs"
+          <a href="{% url 'stock_advanced' %}?tab=achats&sub=fournisseurs"
              class="flex items-center gap-2 font-bold
                     px-6 py-3 rounded-xl transition
                     bg-slate-700 hover:bg-slate-600
                     border border-slate-600 text-gray-300">
             ✖ Annuler
           </a>
-
         </div>
 
       </form>
     </div>
+  </div>
+
+  <!-- Aide contextuelle -->
+  <div class="mt-4 bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
+    <p class="text-blue-400 text-xs font-bold mb-2">💡 À savoir</p>
+    <ul class="text-gray-400 text-xs space-y-1 list-disc list-inside">
+      <li>Un fournisseur peut avoir <strong class="text-white">plusieurs interlocuteurs</strong> (commercial, transitaire, DG…).</li>
+      <li>Les <strong class="text-white">contacts multiples</strong> peuvent être ajoutés depuis la fiche fournisseur.</li>
+      <li>Supprimer un fournisseur = <strong class="text-white">l'archiver</strong>. Son historique de livraisons reste intact.</li>
+    </ul>
   </div>
 
 </div>
