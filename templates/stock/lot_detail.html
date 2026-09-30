@@ -13,23 +13,24 @@
 <!-- EN-TÊTE DE PAGE -->
 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
     <div>
-        <a href="{% url 'stock_advanced' %}?tab=lots" class="group text-gray-400 hover:text-white text-xs uppercase tracking-wider font-black transition flex items-center gap-2 mb-2">
+        <a href="{% url 'stock_advanced' %}?tab=stock#lots" class="group text-gray-400 hover:text-white text-xs uppercase tracking-wider font-black transition flex items-center gap-2 mb-2">
             <span class="transform group-hover:-translate-x-1 transition-transform">←</span> Retour aux lots
         </a>
         <h1 class="text-3xl font-black text-white flex items-center gap-3">
             🏷️ <span>Détail Lot : <span class="text-cyan-400">{{ lot.numero_lot }}</span></span>
         </h1>
+        <p class="text-gray-400 text-sm mt-1">Traçabilité complète : réception, contrôle qualité, mouvements et consommation.</p>
     </div>
     
     <!-- Badge de Statut Principal -->
-    <div class="flex items-center">
+    <div class="flex items-center gap-2">
         {% if lot.statut == 'CONFORME' %}
             <span class="text-xs font-black bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl border border-emerald-500/30 shadow-lg shadow-emerald-500/10 uppercase tracking-wider">
-                ✓ Conforme
+                ✓ Conforme — Utilisable
             </span>
         {% elif lot.statut == 'BLOQUE' %}
             <span class="text-xs font-black bg-red-500/10 text-red-400 px-4 py-2 rounded-xl border border-red-500/30 shadow-lg shadow-red-500/10 uppercase tracking-wider">
-                ✗ Bloqué
+                ✗ Bloqué — Non utilisable
             </span>
         {% elif lot.statut == 'EN_ATTENTE' %}
             <span class="text-xs font-black bg-amber-500/10 text-amber-400 px-4 py-2 rounded-xl border border-amber-500/30 shadow-lg shadow-amber-500/10 uppercase tracking-wider animate-pulse">
@@ -39,6 +40,14 @@
             <span class="text-xs font-black bg-purple-500/10 text-purple-400 px-4 py-2 rounded-xl border border-purple-500/30 shadow-lg shadow-purple-500/10 uppercase tracking-wider">
                 🔒 Quarantaine
             </span>
+        {% endif %}
+
+        {% if lot.is_expire %}
+        <span class="text-xs font-black bg-red-600 text-white px-3 py-2 rounded-xl uppercase animate-pulse">⛔ Périmé</span>
+        {% elif lot.date_expiration and lot.jours_avant_expiration <= 30 %}
+        <span class="text-xs font-black bg-orange-500/10 text-orange-400 px-3 py-2 rounded-xl border border-orange-500/30 uppercase">
+            ⏳ Périme dans {{ lot.jours_avant_expiration }} j
+        </span>
         {% endif %}
     </div>
 </div>
@@ -56,7 +65,7 @@
             <div class="space-y-3.5 text-xs">
                 <div class="flex justify-between items-center pb-2 border-b border-slate-800/60">
                     <span class="text-gray-400">Matière :</span>
-                    <span class="text-white font-black text-sm">{{ lot.material.name }}</span>
+                    <span class="text-white font-black text-sm text-right">{{ lot.material.name }}</span>
                 </div>
                 <div class="flex justify-between items-center pb-2 border-b border-slate-800/60">
                     <span class="text-gray-400">N° Lot :</span>
@@ -70,10 +79,35 @@
                     <span class="text-gray-400">Date réception :</span>
                     <span class="text-gray-200 font-medium">{{ lot.date_reception|date:"d/m/Y" }}</span>
                 </div>
+                {% if lot.date_expiration %}
+                <div class="flex justify-between items-center pb-2 border-b border-slate-800/60">
+                    <span class="text-gray-400">Date expiration :</span>
+                    <span class="{% if lot.is_expire %}text-red-400{% else %}text-gray-200{% endif %} font-medium">
+                        {{ lot.date_expiration|date:"d/m/Y" }}
+                    </span>
+                </div>
+                {% endif %}
                 <div class="flex justify-between items-center pb-3">
                     <span class="text-gray-400">Emplacement :</span>
                     <span class="text-white font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{{ lot.emplacement|default:"—" }}</span>
                 </div>
+
+                {% if lot.laize or lot.longueur %}
+                <div class="p-3 bg-slate-900/40 rounded-xl border border-slate-800/60 space-y-2">
+                    {% if lot.laize %}
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Laize :</span>
+                        <span class="text-gray-200 font-bold">{{ lot.laize }} mm</span>
+                    </div>
+                    {% endif %}
+                    {% if lot.longueur %}
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Longueur :</span>
+                        <span class="text-gray-200 font-bold">{{ lot.longueur }} m</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
 
                 <!-- Section Quantités -->
                 <div class="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-3">
@@ -126,6 +160,9 @@
 
             <!-- Actions conditionnelles d'approbation -->
             {% if lot.statut == 'EN_ATTENTE' %}
+                <div class="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3 text-[11px] text-yellow-300 mb-2">
+                    💡 Ce lot est physiquement présent en magasin mais <strong>ne peut pas être utilisé</strong> tant qu'il n'est pas validé.
+                </div>
                 <div class="flex gap-3">
                     <form method="post" action="{% url 'lot_valider' lot.id %}" class="flex-1">
                         {% csrf_token %}
@@ -133,7 +170,8 @@
                             ✓ Valider
                         </button>
                     </form>
-                    <form method="post" action="{% url 'lot_bloquer' lot.id %}" class="flex-1">
+                    <form method="post" action="{% url 'lot_bloquer' lot.id %}" class="flex-1"
+                          onsubmit="return confirm('Bloquer ce lot ? Il sera écarté du stock utilisable jusqu\'à décision.');">
                         {% csrf_token %}
                         <button type="submit" class="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white text-xs font-black py-2.5 rounded-xl tracking-wider uppercase transition shadow-lg shadow-red-500/20">
                             ✗ Bloquer
@@ -149,7 +187,7 @@
         <div>
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-base font-black text-white flex items-center gap-2">
-                    <span>🔄</span> Historique & Traçabilité de ce lot
+                    <span>🔄</span> Historique & traçabilité de ce lot
                 </h2>
                 <span class="text-[11px] font-bold text-gray-400 px-2.5 py-1 bg-slate-900 rounded-lg border border-slate-800">
                     {{ mouvements|length }} mouvement(s)
@@ -170,7 +208,7 @@
                     </thead>
                     <tbody class="divide-y divide-slate-800/60 text-xs">
                         {% for mv in mouvements %}
-                        <tr class="hover:bg-slate-800/40 transition">
+                        <tr class="hover:bg-slate-800/40 transition {% if mv.annule %}opacity-40 line-through{% endif %}">
                             <td class="px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
                                 {{ mv.date|date:"d/m/Y H:i" }}
                             </td>
@@ -181,7 +219,15 @@
                                     </span>
                                 {% elif mv.type == 'SORTIE' %}
                                     <span class="inline-flex items-center gap-1 font-black text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 text-[10px] uppercase">
-                                        ⬇ Sortie
+                                        ⬇ Sortie atelier
+                                    </span>
+                                {% elif mv.type == 'RETOUR' %}
+                                    <span class="inline-flex items-center gap-1 font-black text-blue-400 bg-blue-500/10 px-2.5 py-0.5 rounded-full border border-blue-500/20 text-[10px] uppercase">
+                                        ↩ Retour magasin
+                                    </span>
+                                {% elif mv.type == 'PERTE' %}
+                                    <span class="inline-flex items-center gap-1 font-black text-red-400 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20 text-[10px] uppercase">
+                                        ✗ Perte
                                     </span>
                                 {% else %}
                                     <span class="inline-flex items-center font-bold text-gray-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-[10px]">
@@ -197,7 +243,7 @@
                                     <div class="flex flex-col">
                                         <span class="text-white">⚙️ {{ mv.machine.name|default:"—" }}</span>
                                         {% if mv.of %}
-                                            <span class="text-[10px] text-cyan-400 font-medium">OF: {{ mv.of.of_number }}</span>
+                                            <span class="text-[10px] text-cyan-400 font-medium">OF: {{ mv.of }}</span>
                                         {% endif %}
                                     </div>
                                 {% else %}
@@ -209,6 +255,9 @@
                             </td>
                             <td class="px-4 py-3 text-gray-400 italic max-w-xs truncate" title="{{ mv.motif|default:'' }}">
                                 {{ mv.motif|default:"—" }}
+                                {% if mv.annule %}
+                                <div class="text-[10px] text-red-400 mt-1">↩ Annulé : {{ mv.motif_annulation }}</div>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
@@ -222,6 +271,10 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <div class="mt-4 bg-slate-900/40 border border-slate-800 rounded-lg p-3 text-[11px] text-gray-500">
+            💡 Chaque mouvement est <strong>irréversible</strong> : pour corriger, cliquez sur « ↩ Annuler » depuis le journal principal des mouvements. Une contre-passation est automatiquement générée avec un motif.
         </div>
     </div>
 
