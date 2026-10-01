@@ -7,6 +7,24 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-ultimate-erp-secret-key')
 DEBUG = 'RENDER' not in os.environ
 ALLOWED_HOSTS = ['*']
 
+# ==========================================
+# CONFIGURATION CSRF & SÉCURITÉ HTTPS RENDER
+# ==========================================
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.onrender.com',
+    'http://127.0.0.1',
+    'http://localhost',
+]
+
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+
+# ==========================================
+# APPLICATIONS INSTALLÉES
+# ==========================================
 IS_RENDER = os.environ.get('RENDER', False)
 
 if IS_RENDER:
@@ -71,10 +89,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fbpack.wsgi.application'
 
-if IS_RENDER and os.environ.get('DATABASE_URL'):
+# ==========================================
+# CONFIGURATION BASE DE DONNÉES SÉCURISÉE
+# ==========================================
+db_url = os.environ.get('DATABASE_URL')
+
+if db_url:
     DATABASES = {
         'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
+            default=db_url,
             conn_max_age=600,
             conn_health_checks=True,
         )
