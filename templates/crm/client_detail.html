@@ -29,6 +29,7 @@
             <a href="{% url 'add_commande' %}?client_id={{ client.id }}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Commande</a>
             <a href="{% url 'add_quote' %}?client_id={{ client.id }}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded transition text-sm">+ Devis</a>
             <a href="{% url 'add_interaction' client.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition text-sm">+ Interaction</a>
+            <a href="{% url 'kpi_client' client.id %}" class="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-2 px-4 rounded transition text-sm">📊 KPI Client</a>
             
             {% if client.status == 'PROSPECT' %}
             <a href="{% url 'convertir_prospect' client.id %}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded transition text-sm" onclick="return confirm('Convertir ce prospect en client actif ?')">→ Client Actif</a>

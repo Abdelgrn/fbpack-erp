@@ -1183,10 +1183,10 @@
 
                 <a
                     href="{% url 'dashboard' %}"
-                    class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 group {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
                 >
 
-                    <span class="mr-3 text-lg">📊</span>
+                    <span class="mr-3">📊</span>
 
                     Dashboard
                 </a>
@@ -1195,28 +1195,28 @@
                 {% if 'planning' in user_modules %}
                 <a
                     href="{% url 'planning' %}"
-                    class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}"
                 >
-                    <span class="mr-3 text-lg">📅</span>
+                    <span class="mr-3">📅</span>
                     Planning Gantt
                 </a>
                 {% endif %}
                 {% if 'reporting' in user_modules %}
                 <a
                     href="{% url 'reporting' %}"
-                    class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}"
                 >
-                    <span class="mr-3 text-lg">📈</span>
+                    <span class="mr-3">📈</span>
                     Reporting
                 </a>
                 {% endif %}
-                                {% if 'kpi' in user_modules or True %}
+                {% if 'kpi' in user_modules or True %}
                 <a
                     href="{% url 'kpi_dashboard' %}"
-                    class="nav-link flex items-center px-6 py-3 transition group {% if 'kpi' in request.path %}active{% endif %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 group {% if 'kpi' in request.path %}active{% endif %}"
                 >
 
-                    <span class="mr-3 text-lg">📊</span>
+                    <span class="mr-3">📊</span>
                     KPI & Data Analyse
                 </a>
 
@@ -1621,11 +1621,11 @@
                 class="flex-1 overflow-auto relative w-full h-full pb-16 md:pb-0 transition-colors duration-300 bg-darkbg"
             >
 
-                {% if messages %}
+                {% if messages_flash %}
 
                 <div class="px-4 md:px-8 pt-4">
 
-                    {% for message in messages %}
+                    {% for message in messages_flash %}
 
                     <div
                         class="mb-2 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
@@ -1875,7 +1875,7 @@
             </div>
         </div>
 
-        <!-- BULLE FLOTTANTE -->
+        <!-- BULLE FLOTTANTE AVEC BADGE CLIGNOTANT -->
         <button id="fb-chat-fab" type="button"
                 class="pointer-events-auto relative bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-full p-3.5 md:p-4 shadow-[0_4px_20px_rgba(6,182,212,0.4)] transition transform hover:scale-105 active:scale-95 border-2 border-slate-800">
             <svg class="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1883,7 +1883,7 @@
                       d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
             </svg>
             <span id="fb-chat-fab-badge"
-                  class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black rounded-full h-6 w-6 flex items-center justify-center border-2 border-slate-900 shadow-lg">0</span>
+                  class="chat-menu-badge hidden absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[11px] font-black rounded-full h-6 min-w-[24px] px-1 flex items-center justify-center border-2 border-slate-900 shadow-lg shadow-red-600/50">0</span>
         </button>
     </div>
 
@@ -2321,13 +2321,17 @@
                 if (fabBadge) {
                     fabBadge.textContent = label;
                     fabBadge.classList.remove('hidden');
+                    fabBadge.classList.add('pulse');
                 }
             } else {
                 badges.forEach(function (b) {
                     b.classList.add('hidden');
                     b.classList.remove('pulse');
                 });
-                if (fabBadge) fabBadge.classList.add('hidden');
+                if (fabBadge) {
+                    fabBadge.classList.add('hidden');
+                    fabBadge.classList.remove('pulse');
+                }
             }
             localStorage.setItem(UNREAD_KEY, String(unread));
         };

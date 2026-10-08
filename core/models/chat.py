@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+
 class ChatRoom(models.Model):
     TYPE_CHOICES = [
         ('GENERAL', 'Général'), ('PRODUCTION', 'Production'),
@@ -23,6 +24,9 @@ class ChatRoom(models.Model):
         verbose_name = "Salon de chat"
         verbose_name_plural = "Salons de chat"
 
+    def __str__(self):
+        return f"{self.icone} {self.name}"
+
 
 class ChatMessage(models.Model):
     TYPE_CHOICES = [
@@ -44,6 +48,14 @@ class ChatMessage(models.Model):
             return self.date_envoi.strftime("%H:%M")
         return ""
 
+    def __str__(self):
+        auteur = self.auteur.username if self.auteur else "Système"
+        room = self.room.name if self.room else "Chat"
+        contenu = (self.contenu or "").replace("\n", " ")
+        if len(contenu) > 90:
+            contenu = contenu[:90] + "..."
+        return f"{room} — {auteur} : {contenu}"
+
     class Meta:
         app_label = 'core'
         verbose_name = "Message"
@@ -60,3 +72,6 @@ class UserPresence(models.Model):
         app_label = 'core'
         verbose_name = "Présence utilisateur"
         verbose_name_plural = "Présences utilisateurs"
+
+    def __str__(self):
+        return f"{self.user.username} — {'En ligne' if self.is_online else 'Hors ligne'}"
