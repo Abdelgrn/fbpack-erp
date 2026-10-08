@@ -14,11 +14,18 @@ class SupplierForm(forms.ModelForm):
 class MaterialForm(forms.ModelForm):
     class Meta:
         model = Material
-        fields = ['name', 'code', 'category', 'initial_quantity', 'quantity', 'unit', 'min_threshold', 'supplier', 'price_per_unit']
+        fields = [
+            'name', 'code', 'category', 'densite_iso', 'micronage_standard', 'grammage', 'metrage_standard',
+            'initial_quantity', 'quantity', 'unit', 'min_threshold', 'supplier', 'price_per_unit'
+        ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500'}),
             'code': forms.TextInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500', 'placeholder': 'Ex: HSAU200019'}),
             'category': forms.Select(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500'}),
+            'densite_iso': forms.NumberInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500', 'step': '0.01'}),
+            'micronage_standard': forms.NumberInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500', 'placeholder': 'Ex: 12, 20, 30, 40 (µm)'}),
+            'grammage': forms.NumberInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500', 'placeholder': 'Ex: 70, 80, 90 (g/m²)'}),
+            'metrage_standard': forms.NumberInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500', 'placeholder': 'Ex: 6000, 10000 (m)'}),
             'initial_quantity': forms.NumberInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500', 'placeholder': 'Stock de départ'}),
             'quantity': forms.NumberInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500'}),
             'unit': forms.TextInput(attrs={'class': 'w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500'}),

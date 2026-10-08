@@ -74,21 +74,18 @@ class StockService:
         if quantite <= 0:
             raise ValueError("La quantité doit être strictement positive.")
 
-        # Validation de cohérence stock dispo
         if type_mvt in ['SORTIE', 'PERTE', 'RETOUR']:
             if lot and lot.quantite_restante < quantite:
                 raise ValueError(f"Le lot {lot.numero_lot} n'a pas assez de stock disponible (Reste: {lot.quantite_restante} kg).")
             if material.usable_quantity < quantite:
                 raise ValueError(f"La matière n'a pas assez de stock utilisable (Disponible: {material.usable_quantity} kg).")
 
-        # Création du mouvement physique
         mvt = StockMovement.objects.create(
             type=type_mvt, material=material, lot=lot, quantite=quantite,
             emplacement_source=src, emplacement_destination=dst,
             of=of, machine=machine, utilisateur=user, motif=motif
         )
 
-        # Mise à jour synchronisée des totaux
         if type_mvt == 'ENTREE':
             material.quantity = round(material.quantity + quantite, 3)
             if lot:
@@ -113,18 +110,15 @@ class StockService:
         mouvement.motif_annulation = motif_annulation
         mouvement.save()
 
-        # Contre-passation (Inversion stricte du flux d'origine)
         mat = mouvement.material
         lot = mouvement.lot
         qte = mouvement.quantite
 
         if mouvement.type == 'ENTREE':
-            # On retire ce qui était entré
             mat.quantity = round(mat.quantity - qte, 3)
             if lot:
                 lot.quantite_restante = round(lot.quantite_restante - qte, 3)
         elif mouvement.type in ['SORTIE', 'PERTE', 'RETOUR']:
-            # On réinjecte ce qui était sorti
             mat.quantity = round(mat.quantity + qte, 3)
             if lot:
                 lot.quantite_restante = round(lot.quantite_restante + qte, 3)
@@ -144,7 +138,6 @@ def controle_stock_view(request):
     ecarts = []
     
     for m in materials:
-        # Calcul théorique basé sur le Ledger des mouvements physiques non annulés
         entrees = StockMovement.objects.filter(material=m, type='ENTREE', annule=False).aggregate(total=Sum('quantite'))['total'] or 0.0
         sorties = StockMovement.objects.filter(material=m, type__in=['SORTIE', 'PERTE', 'RETOUR'], annule=False).aggregate(total=Sum('quantite'))['total'] or 0.0
         
@@ -174,7 +167,6 @@ def seuils_recalculer(request):
     recalculs = 0
 
     for m in materials:
-        # Somme des sorties réelles de production des 30 derniers jours
         conso_totale = StockMovement.objects.filter(
             material=m, type='SORTIE', annule=False, date__gte=date_limite
         ).aggregate(total=Sum('quantite'))['total'] or 0.0
@@ -197,7 +189,7 @@ def seuils_recalculer(request):
 @login_required
 def stock_advanced_view(request):
     try:
-        tab = request.GET.get('tab', 'stock')
+        tab = request.GET.get('tab', 'matieres')
         sub = request.GET.get('sub', 'da')
         search_query = request.GET.get('q', '').strip()
         category_filter = request.GET.get('category', '')
@@ -209,7 +201,6 @@ def stock_advanced_view(request):
         peut_gerer = can_manage_stock(request.user)
         peut_valider = can_validate_purchase(request.user)
 
-        # Filtrage des Matières Premières
         materials_list = Material.objects.select_related('supplier').filter(is_archived=archives)
 
         if search_query:
@@ -225,7 +216,6 @@ def stock_advanced_view(request):
         if low_stock_only:
             materials_list = [m for m in materials_list if m.is_low_stock()]
 
-        # Tri des Matières Premières
         if not isinstance(materials_list, list):
             if sort_by == 'name':
                 materials_list = materials_list.order_by('name')
@@ -238,12 +228,10 @@ def stock_advanced_view(request):
             else:
                 materials_list = sorted(materials_list, key=lambda x: (not x.is_low_stock(), x.usable_quantity))
 
-        # Pagination des matières
         paginator_mat = Paginator(materials_list, 20)
         page_mat_num = request.GET.get('page_mat', 1)
         materials_page = paginator_mat.get_page(page_mat_num)
 
-        # Calcul des Alertes pour le bandeau et le graphique
         all_active_materials = Material.objects.filter(is_archived=False)
         alertes_stock = []
         nb_ruptures = 0
@@ -310,14 +298,12 @@ def stock_advanced_view(request):
         cat_critique = [cat_stats['FILM']['critique'], cat_stats['INK']['critique'], cat_stats['GLUE']['critique'], cat_stats['SOLV']['critique']]
         cat_alerte = [cat_stats['FILM']['alerte'], cat_stats['INK']['alerte'], cat_stats['GLUE']['alerte'], cat_stats['SOLV']['alerte']]
 
-        # Péremptions dans les 30 jours
         lots_peremption = []
         lots_proches = StockLot.objects.filter(quantite_restante__gt=0, date_expiration__isnull=False).order_by('date_expiration')
         for lot in lots_proches:
             if lot.jours_avant_expiration <= 30:
                 lots_peremption.append(lot)
 
-        # Historique des Mouvements de stock avec filtres
         mouvements_list = StockMovement.objects.select_related('material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur').all()
         mvt_from = request.GET.get('mvt_from')
         mvt_to = request.GET.get('mvt_to')
@@ -346,7 +332,6 @@ def stock_advanced_view(request):
         page_mvt_num = request.GET.get('page_mvt', 1)
         mouvements_page = paginator_mvt.get_page(page_mvt_num)
 
-        # Prévisions de rupture intelligente
         previsions = []
         for m in all_active_materials:
             try:
@@ -367,13 +352,11 @@ def stock_advanced_view(request):
                 pass
         previsions.sort(key=lambda x: x['jours_restants'])
 
-        # Données complémentaires
         suppliers_list = Supplier.objects.filter(is_archived=False).order_by('name')
         locations = StockLocation.objects.filter(is_active=True)
         lots_a_traiter = StockLot.objects.filter(statut__in=['EN_ATTENTE', 'BLOQUE', 'QUARANTAINE']).order_by('-date_reception')
         lots_tous = StockLot.objects.all().order_by('-id')[:100]
         
-        # Achats
         da_statut = request.GET.get('da_statut', '')
         demandes = DemandeAchat.objects.all()
         if da_statut:
@@ -382,14 +365,21 @@ def stock_advanced_view(request):
         da_en_attente = DemandeAchat.objects.filter(statut='SOUMISE').count()
         bons_commande = BonCommande.objects.all().order_by('-date_commande')
 
-        # Valeur totale financière du stock conforme
         valeur_stock_total = sum(float(m.usable_quantity) * float(m.price_per_unit) for m in all_active_materials)
 
         context = {
             'tab': tab, 'sub': sub, 'search_query': search_query,
             'category_filter': category_filter, 'low_stock_only': low_stock_only,
             'supplier_filter': supplier_filter, 'sort': sort_by, 'archives': archives,
-            'materials': materials_page, 'total_matieres': all_active_materials.count(),
+            
+            'materials': materials_page, 
+            'all_materials': all_active_materials,
+            'materials_film': [m for m in all_active_materials if m.category == 'FILM'],
+            'materials_ink': [m for m in all_active_materials if m.category == 'INK'],
+            'materials_glue': [m for m in all_active_materials if m.category == 'GLUE'],
+            'materials_solv': [m for m in all_active_materials if m.category == 'SOLV'],
+            
+            'total_matieres': all_active_materials.count(),
             'alertes_stock': alertes_stock, 'nb_alertes': len(alertes_stock),
             'nb_ruptures': nb_ruptures, 'nb_critiques': nb_critiques,
             'nb_alertes_simples': nb_alertes_simples, 'top_alertes': alertes_stock[:5],
@@ -411,7 +401,7 @@ def stock_advanced_view(request):
             'valeur_stock_total': valeur_stock_total, 'categories': Material.CAT_CHOICES,
             'types_mouvement': StockMovement.TYPE_CHOICES,
             'peut_gerer': peut_gerer, 'peut_valider': peut_valider,
-            'qs_mat': f"tab=stock&q={search_query}&category={category_filter}&supplier={supplier_filter}&sort={sort_by}",
+            'qs_mat': f"tab=matieres&q={search_query}&category={category_filter}&supplier={supplier_filter}&sort={sort_by}",
             'qs_mvt': f"tab=mouvements&mvt_from={mvt_from or ''}&mvt_to={mvt_to or ''}&mvt_type={mvt_type or ''}&mvt_cat={mvt_cat or ''}&mvt_loc={mvt_loc or ''}&mvt_q={mvt_q or ''}&mvt_annules={request.GET.get('mvt_annules', '')}"
         }
         return render(request, 'stock/stock_advanced.html', context)
@@ -679,12 +669,10 @@ def mouvement_add(request):
             dst = StockLocation.objects.filter(id=dst_id).first() if dst_id else None
             machine_obj = Machine.objects.filter(id=machine_id).first() if machine_id else None
 
-            # Règle stricte : la sortie d'encre doit obligatoirement être liée à un OF et une machine
             if material.category == 'INK' and type_mvt == 'SORTIE':
                 if not of_id or not machine_id:
                     raise ValueError("La traçabilité stricte exige qu'une sortie d'encre soit liée à une machine et un Ordre de Fabrication.")
 
-            # FIFO / FEFO automatique si l'opérateur ne spécifie pas de lot
             if not lot and type_mvt in ['SORTIE', 'PERTE']:
                 lots_dispos = material.get_fefo_lots()
                 if not lots_dispos.exists():
@@ -825,7 +813,6 @@ def bc_add(request):
                     total += qte * prix
                 idx += 1
             
-            # Association à une DA éventuelle
             da_id = request.GET.get('da')
             if da_id:
                 da = DemandeAchat.objects.filter(id=da_id).first()
@@ -997,7 +984,9 @@ def material_search_api(request):
             'name': m.name,
             'code': m.code,
             'stock': m.usable_quantity,
-            'unit': m.unit
+            'unit': m.unit,
+            'thickness': m.thickness_or_grammage_display,
+            'metrage': m.metrage_display
         })
     return JsonResponse(results, safe=False)
 
@@ -1067,11 +1056,17 @@ def import_stock_view(request):
                 designation = ws.cell(row=row_idx, column=1).value
                 code_val = ws.cell(row=row_idx, column=2).value
                 fournisseur_name = ws.cell(row=row_idx, column=3).value
-                category = ws.cell(row=row_idx, column=4).value
-                qty_val = float(ws.cell(row=row_idx, column=5).value or 0)
-                unit = ws.cell(row=row_idx, column=6).value or 'kg'
-                seuil = float(ws.cell(row=row_idx, column=7).value or 50)
-                prix = float(ws.cell(row=row_idx, column=8).value or 0)
+                category = str(ws.cell(row=row_idx, column=4).value or '')
+                
+                # --- LECTURE DES COLONNES "Micronage / Grammage" (col 5) ET "Metrage (m)" (col 6) ---
+                mic_grm_val = ws.cell(row=row_idx, column=5).value
+                metrage = ws.cell(row=row_idx, column=6).value
+                
+                stock_initial = float(ws.cell(row=row_idx, column=7).value or 0)
+                qty_val = float(ws.cell(row=row_idx, column=8).value or stock_initial)
+                unit = ws.cell(row=row_idx, column=9).value or 'kg'
+                seuil = float(ws.cell(row=row_idx, column=10).value or 50)
+                prix = float(ws.cell(row=row_idx, column=11).value or 0)
 
                 if not designation:
                     continue
@@ -1081,16 +1076,40 @@ def import_stock_view(request):
                     if fournisseur_name:
                         supplier_obj, _ = Supplier.objects.get_or_create(name=fournisseur_name)
 
+                    mic_val = None
+                    gram_val = None
+                    if mic_grm_val is not None:
+                        desig_upper = str(designation).upper()
+                        cat_upper = str(category).upper()
+                        if 'PAPIER' in desig_upper or 'KRAFT' in desig_upper or 'COUCH' in desig_upper or 'PAPIER' in cat_upper:
+                            gram_val = float(mic_grm_val)
+                        else:
+                            mic_val = int(float(mic_grm_val))
+
+                    met_val = float(metrage) if metrage else None
+                    cat_code = 'FILM' if 'FILM' in str(category).upper() or 'PAPIER' in str(category).upper() else 'INK'
+
                     mat, created = Material.objects.get_or_create(
                         code=code_val,
                         defaults={
-                            'name': designation, 'category': 'FILM' if 'FILM' in str(category).upper() else 'INK',
-                            'quantity': qty_val, 'initial_quantity': qty_val, 'unit': unit,
-                            'min_threshold': seuil, 'price_per_unit': prix, 'supplier': supplier_obj
+                            'name': designation, 
+                            'category': cat_code,
+                            'micronage_standard': mic_val,
+                            'grammage': gram_val,
+                            'metrage_standard': met_val,
+                            'quantity': qty_val, 
+                            'initial_quantity': stock_initial, 
+                            'unit': unit,
+                            'min_threshold': seuil, 
+                            'price_per_unit': prix, 
+                            'supplier': supplier_obj
                         }
                     )
                     if not created:
                         mat.quantity = qty_val
+                        if mic_val is not None: mat.micronage_standard = mic_val
+                        if gram_val is not None: mat.grammage = gram_val
+                        if met_val is not None: mat.metrage_standard = met_val
                         mat.save()
 
                     success_count += 1
@@ -1106,11 +1125,25 @@ def import_stock_view(request):
 
 @login_required
 def download_template_stock(request):
+    """Génère le bon template Excel à jour pour le Stock Matières"""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Template Stock"
-    ws.append(['Designation', 'Code', 'Fournisseur', 'Categorie (Film/Encre/Colle/Solvant)', 'Stock_Initial', 'Stock_Reel', 'Unite', 'Seuil_Min', 'Prix_Unitaire'])
-    ws.append(['SOLVAPRINT TF EP YELLOW', 'HSAU200019', 'SunChemical', 'Encre', 500, 500, 'kg', 100, 1200])
+    
+    # En-têtes exacts
+    ws.append([
+        'Designation', 'Code', 'Fournisseur', 'Categorie (Film/Encre/Colle/Solvant)', 
+        'Micronage / Grammage', 'Metrage (m)', 'Stock_Initial', 'Stock_Reel', 
+        'Unite', 'Seuil_Min', 'Prix_Unitaire'
+    ])
+    
+    # Exemple 1 : Film avec Micronage
+    ws.append(['BOPP TRANSPARENT 20UM', 'BOPP20', 'SunChemical', 'Film/Papier', 20, 6000, 500, 500, 'kg', 100, 1200])
+    # Exemple 2 : Papier avec Grammage
+    ws.append(['PAPIER KRAFT BLANCHI 70G', 'KRAFT70', 'JPR', 'Film/Papier', 70, 5000, 1000, 1000, 'kg', 200, 1500])
+    # Exemple 3 : Encre (sans micronage ni métrage)
+    ws.append(['ENCRE BLUE CYAN HP RG', '03.043.CX.SVR', 'Chemigold', 'Encre', '', '', 50, 50, 'kg', 20, 2500])
+
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="template_stock_matieres.xlsx"'
     wb.save(response)
@@ -1119,10 +1152,26 @@ def download_template_stock(request):
 
 @login_required
 def download_template_special_prod(request):
+    """Génère le bon template Excel complet à jour pour la Production Spéciale"""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Template Prod"
-    ws.append(['Date', 'Produit', 'Support', 'Qte_Lancee', 'Lot', 'Laize'])
+    
+    # En-têtes complets (18 colonnes)
+    ws.append([
+        'Date', 'Produit', 'Support', 'Qte_Lancee', 'Lot', 'Laize', 'Client', 
+        'Equipe (A/B/C)', 'Machine', 'H_Debut', 'H_Fin', 'Prod_ML', 
+        'Dec_Demarrage', 'Dec_Lisiere', 'Dec_Jonction', 'Dec_Transport', 
+        'Prod_KG', 'Rebobinage_KG'
+    ])
+    
+    # Ligne d'exemple
+    ws.append([
+        '2025-01-15', 'Sachet Pâtes 1Kg', 'BOPP 20', 500, 'L2025-01', 820, 
+        'Client X', 'A', 'Flexo 1', '08:00', '16:00', 4500, 
+        2.5, 3.0, 0.5, 1.0, 480, 0
+    ])
+    
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="template_production.xlsx"'
     wb.save(response)
@@ -1135,9 +1184,14 @@ def export_search_results(request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Stock"
-    ws.append(['Désignation', 'Code', 'Catégorie', 'Stock Réel', 'Unité', 'Seuil Min', 'Prix/U', 'Valeur'])
+    ws.append(['Désignation', 'Code', 'Catégorie', 'Micronage / Grammage', 'Métrage (m)', 'Stock Réel', 'Unité', 'Seuil Min', 'Prix/U', 'Valeur'])
     for m in materials:
-        ws.append([m.name, m.code, m.get_category_display(), m.usable_quantity, m.unit, m.min_threshold, m.price_per_unit, m.usable_quantity * float(m.price_per_unit)])
+        ws.append([
+            m.name, m.code, m.get_category_display(),
+            m.thickness_or_grammage_display, m.metrage_display,
+            m.usable_quantity, m.unit, m.min_threshold, m.price_per_unit,
+            m.usable_quantity * float(m.price_per_unit)
+        ])
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="stock_matiere.xlsx"'
     wb.save(response)

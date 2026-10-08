@@ -98,8 +98,150 @@
                 </div>
             </div>
 
+            <!-- ========================================== -->
+            <!-- CALCULATEUR 100% AUTOMATIQUE                 -->
+            <!-- kg + m² + métrages linéaires                 -->
+            <!-- ========================================== -->
+            <div class="bg-indigo-900/40 rounded-xl p-5 border border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)] mb-8">
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+                    <div>
+                        <h3 class="text-indigo-300 font-bold text-lg flex items-center gap-2">
+                            <span>🧠</span> Assistant Calculateur 100% Automatique
+                        </h3>
+                        <p class="text-xs text-indigo-200 mt-1">
+                            Saisissez <strong>uniquement</strong> : Quantité · Laize bobine · Laize imprimée · Support (Film/Papier).
+                            Auto : densité, microns, grammage, % perte lisières, <strong>poids (kg)</strong>, <strong>surface (m²)</strong>, <strong>métrage linéaire (m)</strong>.
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="toggleDensityGuide()" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 font-bold py-1.5 px-3 rounded-lg text-xs transition">
+                            📚 Guide Densités
+                        </button>
+                        <button type="button" onclick="toggleCalculator()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 px-4 rounded-lg text-sm transition">
+                            Ouvrir le Calculateur
+                        </button>
+                    </div>
+                </div>
+
+                <!-- GUIDE DENSITÉS -->
+                <div id="density-guide-panel" class="hidden my-4 p-4 bg-slate-950/90 rounded-lg border border-indigo-500/40 text-xs text-gray-300">
+                    <h4 class="font-bold text-indigo-400 mb-2 text-sm flex items-center gap-2">
+                        <span>ℹ️</span> Référentiel Technique + Formules ERP
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                        <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+                            <strong class="text-white block mb-1">BOPP / OPP (Films)</strong>
+                            • Transparent / Met : <span class="text-yellow-400 font-mono">0.91 g/cm³</span><br>
+                            • Mat Cavité : <span class="text-yellow-400 font-mono">0.75 g/cm³</span><br>
+                            • Blanc Nacré : <span class="text-yellow-400 font-mono">0.65 g/cm³</span>
+                        </div>
+                        <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+                            <strong class="text-white block mb-1">PET & Alu (Films)</strong>
+                            • PET Trans/Met : <span class="text-yellow-400 font-mono">1.40 g/cm³</span><br>
+                            • Feuille Alu : <span class="text-yellow-400 font-mono">2.70 g/cm³</span>
+                        </div>
+                        <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+                            <strong class="text-white block mb-1">Polyéthylène PE (Films)</strong>
+                            • PE Trans (LDPE) : <span class="text-yellow-400 font-mono">0.92 g/cm³</span><br>
+                            • PE Blanc (TiO₂) : <span class="text-yellow-400 font-mono">1.00 g/cm³</span><br>
+                            • PEHD (HDPE) : <span class="text-yellow-400 font-mono">0.95 g/cm³</span>
+                        </div>
+                        <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+                            <strong class="text-white block mb-1">Papiers (Sacs Farine, etc.)</strong>
+                            • Kraft Blanc : <span class="text-yellow-400 font-mono">0.75 g/cm³</span> (70g, 80g)<br>
+                            • Papier Couché : <span class="text-yellow-400 font-mono">1.15 g/cm³</span> (90g, 115g)<br>
+                            <span class="text-emerald-400 text-[10px]">👉 Le système calcule tout automatiquement !</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1 text-yellow-300 font-mono text-[11px] bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3">
+                        <div><strong class="text-white">% Perte</strong> = (Laize bobine − Laize imprimée) ÷ Laize bobine × 100
+                            &nbsp;→&nbsp; Ex : 1200 − 1100 = <strong>8,33 %</strong></div>
+                        <div><strong class="text-white">Surface m²</strong> = (Kg × 1000) ÷ Grammage total &nbsp;|&nbsp; ou via pièces × dev × laize</div>
+                        <div><strong class="text-white">Métrage linéaire (m)</strong> = Surface m² ÷ (Laize imprimée mm ÷ 1000)</div>
+                        <div><strong class="text-white">Poids kg</strong> = Surface × grammage ÷ 1000 &nbsp;(+ pertes machine/lisières)</div>
+                    </div>
+                </div>
+
+                <div id="erp-calculator-panel" class="hidden mt-4 pt-4 border-t border-indigo-500/30">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <!-- Type de commande -->
+                        <div class="md:col-span-4 flex gap-4 bg-slate-900/50 p-3 rounded border border-slate-700">
+                            <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
+                                <input type="radio" name="calc_type" value="POIDS" checked class="text-indigo-500 focus:ring-indigo-500" onchange="updateCalcType()">
+                                Bobines (Vente au Poids)
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
+                                <input type="radio" name="calc_type" value="PIECES" class="text-indigo-500 focus:ring-indigo-500" onchange="updateCalcType()">
+                                Sacs Farine / Étiquettes (Vente à la Pièce)
+                            </label>
+                        </div>
+
+                        <!-- SAISIE UTILISATEUR UNIQUEMENT -->
+                        <div>
+                            <label class="block text-emerald-300 text-xs font-bold mb-1" id="lbl_qte">Quantité cible (Kg) *</label>
+                            <input type="number" id="calc_qte" class="w-full bg-slate-900 text-white border border-emerald-500/50 rounded p-2 text-sm focus:border-emerald-400" value="1000" oninput="recalcPerteAndPreview()">
+                        </div>
+                        <div>
+                            <label class="block text-emerald-300 text-xs font-bold mb-1">Laize Bobine (mm) *</label>
+                            <input type="number" id="calc_laize_bobine" class="w-full bg-slate-900 text-white border border-emerald-500/50 rounded p-2 text-sm focus:border-emerald-400" value="1200" oninput="recalcPerteAndPreview()">
+                            <p class="text-[10px] text-gray-500 mt-1">Largeur bobine mère</p>
+                        </div>
+                        <div>
+                            <label class="block text-emerald-300 text-xs font-bold mb-1">Laize Imprimée (mm) *</label>
+                            <input type="number" id="calc_laize_utile" class="w-full bg-slate-900 text-white border border-emerald-500/50 rounded p-2 text-sm focus:border-emerald-400" value="1100" oninput="recalcPerteAndPreview()">
+                            <p class="text-[10px] text-gray-500 mt-1">Largeur utile / print</p>
+                        </div>
+                        <div>
+                            <label class="block text-yellow-300 text-xs font-bold mb-1">% Perte auto (lisières)</label>
+                            <input type="text" id="calc_perte_auto_display" readonly
+                                   class="w-full bg-yellow-900/30 text-yellow-300 font-mono font-bold border border-yellow-500/40 rounded p-2 text-sm text-center cursor-not-allowed"
+                                   value="8.33 %">
+                            <p class="text-[10px] text-yellow-500/80 mt-1">Calculé automatiquement</p>
+                        </div>
+
+                        <div id="div_dev" class="hidden">
+                            <label class="block text-indigo-300 text-xs font-bold mb-1">Développement (mm)</label>
+                            <input type="number" id="calc_dev" class="w-full bg-slate-900 text-white border border-slate-700 rounded p-2 text-sm focus:border-indigo-500" value="276">
+                        </div>
+                        <div id="div_poses" class="hidden">
+                            <label class="block text-indigo-300 text-xs font-bold mb-1">Nombre de poses</label>
+                            <input type="number" id="calc_poses" class="w-full bg-slate-900 text-white border border-slate-700 rounded p-2 text-sm focus:border-indigo-500" value="12">
+                        </div>
+                    </div>
+
+                    <!-- Couches Structure -->
+                    <div class="mt-4">
+                        <h4 class="text-white text-sm font-bold mb-2">Structure / Recette Multicouche — choisissez uniquement le support (Film/Papier)</h4>
+                        <div id="layers-container" class="space-y-3">
+                            <!-- Les couches seront injectées ici par JS -->
+                        </div>
+                        <button type="button" onclick="addLayer()" class="mt-3 text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded transition">
+                            + Ajouter une couche (Complexage / Papier)
+                        </button>
+                    </div>
+
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" onclick="runERPMath()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded shadow transition">
+                            1. Lancer la Simulation (Calcul)
+                        </button>
+                        <button type="button" onclick="injectIntoForm()" id="btn-inject" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-6 rounded shadow transition hidden">
+                            2. Valider et Générer les lignes (Stock)
+                        </button>
+                    </div>
+
+                    <!-- Résultat visuel du calcul -->
+                    <div id="calc-results" class="mt-4 hidden bg-slate-900/80 p-4 rounded border border-indigo-500/30">
+                        <h4 class="text-indigo-400 font-bold mb-3 text-lg border-b border-indigo-500/30 pb-2">Rapport d'analyse Technique</h4>
+                        <!-- KPI : Poids / m² / ML -->
+                        <div id="calc-kpi-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4"></div>
+                        <ul id="calc-results-list" class="text-sm text-gray-300 space-y-2"></ul>
+                    </div>
+                </div>
+            </div>
+            <!-- ========================================== -->
+
             <!-- TABLEAU DES LIGNES DE COMMANDE -->
-            <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-700 mb-8">
+            <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-700 mb-8" id="lignes-section">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
                     <div>
                         <h3 class="text-white font-bold text-base flex items-center gap-2">
@@ -165,66 +307,530 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // API Check stock dynamique lors de la sélection de la matière
-    function checkStockRow(row) {
-        const matSelect = row.querySelector('select[name$="-material"]');
-        const qteInput = row.querySelector('input[name$="-quantite"]');
-        const feedback = row.querySelector('.stock-live-feedback');
+// ==========================================
+// 1. LOGIQUE NATIVE (Vérification Ligne par Ligne)
+// ==========================================
+function checkStockRow(row) {
+    const matSelect = row.querySelector('select[name$="-material"]');
+    const qteInput = row.querySelector('input[name$="-quantite"]');
+    const feedback = row.querySelector('.stock-live-feedback');
 
-        if (!matSelect || !feedback) return;
-        const matId = matSelect.value;
-        const qte = qteInput ? parseFloat(qteInput.value || 0) : 0;
+    if (!matSelect || !feedback) return;
+    const matId = matSelect.value;
+    const qte = qteInput ? parseFloat(qteInput.value || 0) : 0;
 
-        if (!matId) {
-            feedback.classList.add('hidden');
-            return;
-        }
-
-        fetch(`/crm/api/stock-check/?material_id=${matId}&quantite=${qte}`)
-            .then(res => res.json())
-            .then(data => {
-                feedback.classList.remove('hidden', 'text-green-400', 'text-red-400');
-                if (data.disponible) {
-                    feedback.classList.add('text-green-400');
-                    feedback.textContent = `✓ Stock OK (${data.stock} ${data.unit} dispo)`;
-                } else {
-                    feedback.classList.add('text-red-400');
-                    feedback.textContent = `⚠️ Stock insuffisant (${data.stock} ${data.unit} dispo / besoin ${qte})`;
-                }
-            })
-            .catch(() => feedback.classList.add('hidden'));
+    if (!matId) {
+        feedback.classList.add('hidden');
+        return;
     }
 
-    // Calcul du total ligne
-    function calcLigneTotal(row) {
-        const qte = parseFloat(row.querySelector('input[name$="-quantite"]')?.value || 0);
-        const pu = parseFloat(row.querySelector('input[name$="-prix_unitaire"]')?.value || 0);
-        const rem = parseFloat(row.querySelector('input[name$="-remise"]')?.value || 0);
+    fetch(`/crm/api/stock-check/?material_id=${matId}&quantite=${qte}`)
+        .then(res => res.json())
+        .then(data => {
+            feedback.classList.remove('hidden', 'text-green-400', 'text-red-400');
+            if (data.disponible) {
+                feedback.classList.add('text-green-400');
+                feedback.textContent = `✓ Stock OK (${data.stock} ${data.unit} dispo)`;
+            } else {
+                feedback.classList.add('text-red-400');
+                feedback.textContent = `⚠️ Stock insuffisant (${data.stock} ${data.unit} dispo / besoin ${qte})`;
+            }
+        })
+        .catch(() => feedback.classList.add('hidden'));
+}
 
-        const total = qte * pu * (1 - rem / 100);
-        const totalCell = row.querySelector('.ligne-total');
-        if (totalCell) {
-            totalCell.textContent = Math.round(total).toLocaleString('fr-FR') + ' DA';
-        }
+function calcLigneTotal(row) {
+    const qte = parseFloat(row.querySelector('input[name$="-quantite"]')?.value || 0);
+    const pu = parseFloat(row.querySelector('input[name$="-prix_unitaire"]')?.value || 0);
+    const rem = parseFloat(row.querySelector('input[name$="-remise"]')?.value || 0);
+
+    const total = qte * pu * (1 - rem / 100);
+    const totalCell = row.querySelector('.ligne-total');
+    if (totalCell) {
+        totalCell.textContent = Math.round(total).toLocaleString('fr-FR') + ' DA';
     }
+}
 
-    // Attacher listeners
+function bindRowEvents(row) {
+    const matSelect = row.querySelector('select[name$="-material"]');
+    const qteInput = row.querySelector('input[name$="-quantite"]');
+    const puInput = row.querySelector('input[name$="-prix_unitaire"]');
+    const remInput = row.querySelector('input[name$="-remise"]');
+
+    if (matSelect) matSelect.addEventListener('change', () => checkStockRow(row));
+    if (qteInput) qteInput.addEventListener('input', () => { checkStockRow(row); calcLigneTotal(row); });
+    if (puInput) puInput.addEventListener('input', () => calcLigneTotal(row));
+    if (remInput) remInput.addEventListener('input', () => calcLigneTotal(row));
+}
+
+document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.ligne-row').forEach(row => {
-        const matSelect = row.querySelector('select[name$="-material"]');
-        const qteInput = row.querySelector('input[name$="-quantite"]');
-        const puInput = row.querySelector('input[name$="-prix_unitaire"]');
-        const remInput = row.querySelector('input[name$="-remise"]');
-
-        if (matSelect) matSelect.addEventListener('change', () => checkStockRow(row));
-        if (qteInput) qteInput.addEventListener('input', () => { checkStockRow(row); calcLigneTotal(row); });
-        if (puInput) puInput.addEventListener('input', () => calcLigneTotal(row));
-        if (remInput) remInput.addEventListener('input', () => calcLigneTotal(row));
-
-        // Initial
+        bindRowEvents(row);
         checkStockRow(row);
         calcLigneTotal(row);
     });
+
+    // Initialiser la première couche du calculateur
+    addLayer();
+    recalcPerteAndPreview();
 });
+
+
+// ==========================================
+// 2. MOTEUR DE CALCUL ERP 100% AUTOMATIQUE
+//    dens/µ/g/m² + % perte + kg + m² + ML
+// ==========================================
+let layerCount = 0;
+let lastCalculatedLayers = [];
+
+/**
+ * PARSEUR INTELLIGENT DE MATÉRIAU
+ * Lit le texte ("BOPP Mat 25µ", "Papier Kraft 70g")
+ * → Densité + Microns + Grammage
+ */
+function parseMaterialData(text) {
+    const n = (text || '').toUpperCase();
+    const data = { density: 0.91, mic: null, grm2: null, type: 'FILM' };
+
+    // 1. Famille & Densité
+    if (n.includes('KRAFT')) { data.density = 0.75; data.type = 'PAPIER'; }
+    else if (n.includes('COUCH') || n.includes('COUCHÉ')) { data.density = 1.15; data.type = 'PAPIER'; }
+    else if (n.includes('PAPIER') || n.includes('PAPER')) { data.density = 0.80; data.type = 'PAPIER'; }
+    else if (n.includes('ALU') || n.includes('ALUMINIUM')) { data.density = 2.70; }
+    else if (n.includes('PET') || n.includes('POLYESTER')) { data.density = 1.40; }
+    else if (n.includes('PEHD') || n.includes('HDPE')) { data.density = 0.95; }
+    else if (n.includes('PE ') || n.includes('LDPE') || n.includes('POLYETHYLENE') || n.includes('LLDPE')) {
+        data.density = (n.includes('BLANC') || n.includes('OPAQUE') || n.includes('TIO2') || n.includes('TIO²') || n.includes('TIO')) ? 1.00 : 0.92;
+    }
+    else if (n.includes('OPP') || n.includes('BOPP')) {
+        if (n.includes('BLANC') || n.includes('NACRE') || n.includes('NACRÉ') || n.includes('CAVIT')) data.density = 0.65;
+        else if (n.includes('MAT')) data.density = 0.75;
+        else data.density = 0.91; // Transparent / Métallisé
+    }
+
+    // 2. Micronage (20µ, 20 u, 20mic, 20 my, 20 µm)
+    const micMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(µ|u|mic|micron|my|um)/i);
+    if (micMatch) {
+        data.mic = parseFloat(String(micMatch[1]).replace(',', '.'));
+    }
+
+    // 3. Grammage (70g, 70 gr, 70g/m2)
+    const grmMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(g|gr|grm|g\/m2|g\/m²)/i);
+    if (grmMatch) {
+        data.grm2 = parseFloat(String(grmMatch[1]).replace(',', '.'));
+    }
+
+    // 4. Fallback chiffre isolé ("BOPP 20", "Kraft 70")
+    if (!data.mic && !data.grm2) {
+        const numMatch = text.match(/(?:^|\s|-|_|:)(\d{2,3})(?:\s|-|_|$)/);
+        if (numMatch) {
+            const val = parseFloat(numMatch[1]);
+            if (data.type === 'PAPIER' && val >= 30) {
+                data.grm2 = val;
+            } else if (val >= 6 && val <= 250) {
+                data.mic = val;
+            }
+        }
+    }
+    return data;
+}
+
+/** Perte lisières auto : (bobine - utile) / bobine * 100 */
+function computeAutoPerte() {
+    const bobine = parseFloat(document.getElementById('calc_laize_bobine')?.value || 0);
+    const utile = parseFloat(document.getElementById('calc_laize_utile')?.value || 0);
+    if (!bobine || bobine <= 0) return 0;
+    if (utile <= 0) return 0;
+    if (utile >= bobine) return 0;
+    return ((bobine - utile) / bobine) * 100;
+}
+
+function recalcPerteAndPreview() {
+    const perte = computeAutoPerte();
+    const display = document.getElementById('calc_perte_auto_display');
+    if (display) display.value = perte.toFixed(2) + ' %';
+
+    // Injecter sur toutes les couches (champs lecture seule)
+    for (let i = 1; i <= layerCount; i++) {
+        const p = document.getElementById('perte-' + i);
+        if (p) p.value = perte.toFixed(2);
+    }
+}
+
+function toggleCalculator() {
+    const panel = document.getElementById('erp-calculator-panel');
+    panel.classList.toggle('hidden');
+}
+
+function toggleDensityGuide() {
+    const panel = document.getElementById('density-guide-panel');
+    panel.classList.toggle('hidden');
+}
+
+function updateCalcType() {
+    const type = document.querySelector('input[name="calc_type"]:checked').value;
+    const devDiv = document.getElementById('div_dev');
+    const posesDiv = document.getElementById('div_poses');
+    const lblQte = document.getElementById('lbl_qte');
+
+    if (type === 'PIECES') {
+        devDiv.classList.remove('hidden');
+        posesDiv.classList.remove('hidden');
+        lblQte.textContent = 'Quantité cible (Pièces) *';
+    } else {
+        devDiv.classList.add('hidden');
+        posesDiv.classList.add('hidden');
+        lblQte.textContent = 'Quantité cible (Kg) *';
+    }
+}
+
+/** Filtre strict : Films & Papiers uniquement (comme Ordonnancement) */
+function generateFilteredOptions() {
+    const matSelect = document.querySelector('select[name$="-material"]');
+    if (!matSelect) return '<option value="">-- Sélectionnez une matière --</option>';
+
+    let options = '<option value="">-- Sélectionnez une matière --</option>';
+    let matchCount = 0;
+
+    Array.from(matSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        const text = opt.text.toUpperCase();
+        // Filtre : Film / Papier uniquement (pas encre, solvant, colle pure, etc.)
+        if (
+            text.includes('FILM') || text.includes('BOBINE') ||
+            text.includes('BOPP') || text.includes('OPP') ||
+            text.includes('PET') || text.includes('PEHD') || text.includes('HDPE') ||
+            text.includes('LDPE') || text.includes('LLDPE') ||
+            text.includes(' PE') || text.startsWith('PE ') || text.includes('-PE') || text.includes('/PE') ||
+            text.includes('ALU') || text.includes('ALUMINIUM') ||
+            text.includes('PAPIER') || text.includes('PAPER') ||
+            text.includes('KRAFT') || text.includes('COUCH')
+        ) {
+            options += `<option value="${opt.value}">${opt.text}</option>`;
+            matchCount++;
+        }
+    });
+
+    // Fallback sécurité si le filtre cache tout
+    if (matchCount === 0) {
+        return matSelect.innerHTML;
+    }
+    return options;
+}
+
+function addLayer() {
+    layerCount++;
+    const container = document.getElementById('layers-container');
+    const optionsHTML = generateFilteredOptions();
+    const perteInit = computeAutoPerte().toFixed(2);
+
+    const html = `
+        <div class="flex flex-wrap items-end gap-3 bg-slate-800 p-3 rounded-lg border border-slate-600 relative" id="layer-${layerCount}">
+            <div class="text-indigo-400 font-bold w-full md:w-20 text-sm mb-1 md:mb-0">Couche ${layerCount}</div>
+
+            <div class="flex-1 min-w-[220px]">
+                <label class="block text-[10px] text-emerald-300 uppercase font-bold tracking-wider mb-1">Support Film/Papier (seule saisie)</label>
+                <select id="mat-${layerCount}" class="w-full bg-slate-950 text-white border border-emerald-500/50 rounded p-1.5 text-xs focus:border-emerald-400 transition-colors" onchange="autoFillDensity(${layerCount})">
+                    ${optionsHTML}
+                </select>
+            </div>
+
+            <div class="w-20">
+                <label class="block text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1" title="Auto depuis le nom">µ auto</label>
+                <input type="number" id="mic-${layerCount}" readonly
+                       class="w-full bg-slate-950/80 text-gray-300 border border-slate-700 rounded p-1.5 text-xs text-center cursor-not-allowed"
+                       value="20">
+            </div>
+
+            <div class="w-20">
+                <label class="block text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1" title="Auto ISO">Densité</label>
+                <input type="number" id="den-${layerCount}" readonly
+                       class="w-full bg-slate-950/80 text-gray-300 border border-slate-700 rounded p-1.5 text-xs text-center cursor-not-allowed"
+                       value="0.91" step="0.01">
+            </div>
+
+            <div class="w-24">
+                <label class="block text-[10px] text-yellow-500/80 uppercase font-bold tracking-wider mb-1" title="Auto">g/m² auto</label>
+                <input type="number" id="grm2-input-${layerCount}" readonly
+                       class="w-full bg-slate-900 text-yellow-400 font-mono font-bold border border-yellow-500/40 rounded p-1.5 text-xs text-center cursor-not-allowed"
+                       value="18.2" step="0.1">
+            </div>
+
+            <div class="w-20">
+                <label class="block text-[10px] text-yellow-500/80 uppercase font-bold tracking-wider mb-1" title="Auto lisières">% Perte</label>
+                <input type="number" id="perte-${layerCount}" readonly
+                       class="w-full bg-yellow-900/20 text-yellow-300 font-mono font-bold border border-yellow-500/40 rounded p-1.5 text-xs text-center cursor-not-allowed"
+                       value="${perteInit}" step="0.01">
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+// MISE À JOUR IA LORS DE LA SÉLECTION DU MENU DÉROULANT
+function autoFillDensity(idx) {
+    const sel = document.getElementById('mat-' + idx);
+    const text = sel ? sel.options[sel.selectedIndex].text : '';
+
+    if (!text || text.includes('-- Simulation') || text.includes('-- Sélect')) return;
+
+    const data = parseMaterialData(text);
+
+    const denInput = document.getElementById('den-' + idx);
+    const micInput = document.getElementById('mic-' + idx);
+    const grm2Input = document.getElementById('grm2-input-' + idx);
+
+    if (denInput) denInput.value = data.density;
+
+    if (data.grm2 && !data.mic) {
+        // Papier en grammage direct
+        if (grm2Input) grm2Input.value = data.grm2;
+        if (micInput && data.density > 0) micInput.value = Math.round(data.grm2 / data.density);
+    } else if (data.mic) {
+        // Film en microns
+        if (micInput) micInput.value = data.mic;
+        if (grm2Input) grm2Input.value = (data.mic * data.density).toFixed(1);
+    } else {
+        // Pas de chiffre : garde µ courant, recalcule g/m²
+        const mic = parseFloat(micInput?.value || 20);
+        if (grm2Input) grm2Input.value = (mic * data.density).toFixed(1);
+    }
+
+    // Perte toujours resync
+    const p = document.getElementById('perte-' + idx);
+    if (p) p.value = computeAutoPerte().toFixed(2);
+
+    // Effet visuel IA
+    if (sel) {
+        sel.classList.add('ring-2', 'ring-emerald-400');
+        setTimeout(() => sel.classList.remove('ring-2', 'ring-emerald-400'), 600);
+    }
+}
+
+function fmt(n, d) {
+    if (n == null || isNaN(n)) return '—';
+    return Number(n).toLocaleString('fr-FR', { maximumFractionDigits: d != null ? d : 0 });
+}
+
+function runERPMath() {
+    recalcPerteAndPreview();
+
+    const type = document.querySelector('input[name="calc_type"]:checked').value;
+    const qte = parseFloat(document.getElementById('calc_qte').value) || 0;
+    const laizeUtile = parseFloat(document.getElementById('calc_laize_utile').value) || 0;
+    const laizeBobine = parseFloat(document.getElementById('calc_laize_bobine').value) || 0;
+    const dev = parseFloat(document.getElementById('calc_dev')?.value || 0);
+    const poses = parseFloat(document.getElementById('calc_poses')?.value || 1);
+    const perteAuto = computeAutoPerte();
+
+    let totalGrm2 = 0;
+    lastCalculatedLayers = [];
+
+    // Etape 1 : grammage total structure
+    for (let i = 1; i <= layerCount; i++) {
+        const matSelect = document.getElementById('mat-' + i);
+        const mic = parseFloat(document.getElementById('mic-' + i)?.value || 0);
+        const den = parseFloat(document.getElementById('den-' + i)?.value || 0);
+        const grm2 = parseFloat(document.getElementById('grm2-input-' + i)?.value || (mic * den));
+        const perte = parseFloat(document.getElementById('perte-' + i)?.value || perteAuto);
+
+        totalGrm2 += grm2;
+        // Colle entre couches (complexage) ~ 3 g/m²
+        if (i > 1) totalGrm2 += 3;
+
+        const hasMaterial = !!(matSelect && matSelect.value);
+        const name = hasMaterial ? matSelect.options[matSelect.selectedIndex].text : `Couche ${i} (Simulation)`;
+
+        lastCalculatedLayers.push({
+            mat_id: matSelect ? matSelect.value : null,
+            mat_name: name,
+            mic: mic,
+            den: den,
+            grm2: grm2,
+            perte: perte,
+            ordre: i,
+            has_material: hasMaterial
+        });
+    }
+
+    // Etape 2 : Surface utile (m²)
+    let surfaceM2 = 0;
+    if (type === 'POIDS') {
+        surfaceM2 = totalGrm2 > 0 ? (qte * 1000) / totalGrm2 : 0;
+    } else {
+        const repetitions = qte / (poses || 1);
+        const metrageLineairePieces = repetitions * (dev / 1000);
+        surfaceM2 = metrageLineairePieces * ((laizeUtile || laizeBobine) / 1000);
+    }
+
+    // Etape 3 : Métrages linéaires
+    const laizeUtileM = (laizeUtile || laizeBobine) / 1000;
+    const laizeBobineM = laizeBobine / 1000;
+    const metrageLineaireM = laizeUtileM > 0 ? (surfaceM2 / laizeUtileM) : 0;
+    const metrageLineaireBobineM = laizeBobineM > 0 ? (surfaceM2 / laizeBobineM) : 0;
+
+    // Etape 4 : Poids fini
+    const poidsTotalFini = (surfaceM2 * totalGrm2) / 1000;
+
+    // KPI cards
+    const kpi = document.getElementById('calc-kpi-cards');
+    if (kpi) {
+        kpi.innerHTML = `
+            <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-xl p-3 text-center">
+                <div class="text-[10px] uppercase tracking-wider text-emerald-300 font-bold">Poids structure</div>
+                <div class="text-2xl font-black text-emerald-400 font-mono mt-1">${fmt(Math.round(poidsTotalFini))} <span class="text-sm">kg</span></div>
+                <div class="text-[10px] text-emerald-200/70 mt-1">produit fini théorique</div>
+            </div>
+            <div class="bg-cyan-900/30 border border-cyan-500/40 rounded-xl p-3 text-center">
+                <div class="text-[10px] uppercase tracking-wider text-cyan-300 font-bold">Surface</div>
+                <div class="text-2xl font-black text-cyan-400 font-mono mt-1">${fmt(Math.round(surfaceM2))} <span class="text-sm">m²</span></div>
+                <div class="text-[10px] text-cyan-200/70 mt-1">aire utile à produire</div>
+            </div>
+            <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-3 text-center">
+                <div class="text-[10px] uppercase tracking-wider text-yellow-300 font-bold">Métrage linéaire</div>
+                <div class="text-2xl font-black text-yellow-400 font-mono mt-1">${fmt(Math.round(metrageLineaireM))} <span class="text-sm">m</span></div>
+                <div class="text-[10px] text-yellow-200/70 mt-1">sur laize ${fmt(laizeUtile, 0)} mm</div>
+            </div>
+        `;
+    }
+
+    const ul = document.getElementById('calc-results-list');
+
+    ul.innerHTML = `
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2">
+            <span class="text-indigo-200">Laizes</span>
+            <strong class="text-white font-mono">${fmt(laizeBobine, 0)} mm bobine → ${fmt(laizeUtile, 0)} mm utile</strong>
+        </li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2">
+            <span class="text-indigo-200">% Perte lisières (auto)</span>
+            <strong class="text-yellow-300 font-mono">${perteAuto.toFixed(2)} %</strong>
+        </li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2">
+            <span class="text-indigo-200">Grammage Structure Complète</span>
+            <strong class="text-white font-mono">${totalGrm2.toFixed(1)} g/m²</strong>
+        </li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2">
+            <span class="text-indigo-200">Surface totale (m²)</span>
+            <strong class="text-cyan-300 font-mono">${fmt(surfaceM2, 2)} m²</strong>
+        </li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2">
+            <span class="text-indigo-200">Métrage linéaire utile</span>
+            <strong class="text-yellow-300 font-mono">${fmt(metrageLineaireM, 2)} m</strong>
+        </li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2">
+            <span class="text-indigo-200">Métrage linéaire bobine mère</span>
+            <strong class="text-gray-300 font-mono">${fmt(metrageLineaireBobineM, 2)} m</strong>
+            <span class="text-[10px] text-gray-500 ml-1">(réf. ${fmt(laizeBobine, 0)} mm)</span>
+        </li>
+    `;
+
+    if (type === 'PIECES') {
+        ul.innerHTML += `
+        <li class="mt-3 p-3 bg-yellow-900/30 border border-yellow-500/50 rounded-lg text-center shadow-inner">
+            <span class="block text-yellow-300 text-xs uppercase tracking-wider mb-1">Poids total théorique du produit fini à livrer</span>
+            <strong class="text-2xl text-yellow-400 font-black">~ ${fmt(Math.round(poidsTotalFini))} Kg</strong>
+        </li>`;
+    }
+
+    ul.innerHTML += `<div class="mt-4 text-xs text-indigo-300 font-bold uppercase tracking-wider mb-2">Détail des consommations (Poids + m² + ML — pertes incluses)</div>`;
+
+    let allLayersHaveMaterial = true;
+
+    lastCalculatedLayers.forEach(layer => {
+        const poidsTheorique = (surfaceM2 * layer.grm2) / 1000;
+        const poidsReel = layer.perte < 100 ? poidsTheorique / (1 - layer.perte / 100) : poidsTheorique;
+        const surfaceBrute = layer.perte < 100 ? surfaceM2 / (1 - layer.perte / 100) : surfaceM2;
+        const mlBrut = laizeBobineM > 0 ? surfaceBrute / laizeBobineM : 0;
+        const mlUtile = metrageLineaireM;
+
+        layer.poids_final_calcul = poidsReel;
+        layer.surface_m2 = surfaceM2;
+        layer.ml_utile = mlUtile;
+        layer.ml_brut = mlBrut;
+
+        if (!layer.has_material) allLayersHaveMaterial = false;
+
+        ul.innerHTML += `
+            <li class="bg-slate-900 p-3 rounded border border-slate-800">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <span class="font-bold text-white">Couche ${layer.ordre} :</span>
+                        <span class="text-gray-300 ml-1 truncate inline-block align-bottom max-w-[240px]">${layer.mat_name}</span>
+                        <span class="text-[10px] text-yellow-400 block font-mono mt-0.5">
+                            ${layer.mic}µ · d=${layer.den} · ${layer.grm2.toFixed(1)} g/m² · perte ${layer.perte.toFixed(2)}%
+                        </span>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <strong class="text-emerald-400 text-lg font-mono">${fmt(Math.round(poidsReel))} kg</strong>
+                        <span class="text-[10px] text-gray-400 block">+${layer.perte.toFixed(1)}% lisières</span>
+                    </div>
+                </div>
+                <div class="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
+                    <div class="bg-slate-950/80 rounded p-1.5 border border-slate-800">
+                        <div class="text-gray-500 uppercase text-[9px]">Surface</div>
+                        <div class="text-cyan-300 font-mono font-bold">${fmt(Math.round(surfaceM2))} m²</div>
+                    </div>
+                    <div class="bg-slate-950/80 rounded p-1.5 border border-slate-800">
+                        <div class="text-gray-500 uppercase text-[9px]">ML utile</div>
+                        <div class="text-yellow-300 font-mono font-bold">${fmt(Math.round(mlUtile))} m</div>
+                    </div>
+                    <div class="bg-slate-950/80 rounded p-1.5 border border-slate-800">
+                        <div class="text-gray-500 uppercase text-[9px]">ML + lisières</div>
+                        <div class="text-orange-300 font-mono font-bold">${fmt(Math.round(mlBrut))} m</div>
+                    </div>
+                </div>
+            </li>`;
+    });
+
+    document.getElementById('calc-results').classList.remove('hidden');
+
+    const btnInject = document.getElementById('btn-inject');
+    if (allLayersHaveMaterial) {
+        btnInject.classList.remove('hidden', 'opacity-50', 'cursor-not-allowed');
+        btnInject.disabled = false;
+        btnInject.innerHTML = '2. Valider et Générer les lignes (Stock)';
+    } else {
+        btnInject.classList.remove('hidden');
+        btnInject.innerHTML = '⚠️ Sélectionnez les matières pour générer les lignes';
+        btnInject.disabled = true;
+        btnInject.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+function injectIntoForm() {
+    if (lastCalculatedLayers.length === 0) return;
+
+    const rows = document.querySelectorAll('.ligne-row');
+    let injectCount = 0;
+
+    lastCalculatedLayers.forEach((layer, index) => {
+        if (!layer.has_material) return;
+
+        if (index < rows.length) {
+            const row = rows[index];
+            const matSelect = row.querySelector('select[name$="-material"]');
+            const qteInput = row.querySelector('input[name$="-quantite"]');
+            const desInput = row.querySelector('input[name$="-designation"]');
+
+            if (matSelect && qteInput) {
+                matSelect.value = layer.mat_id;
+                qteInput.value = Math.round(layer.poids_final_calcul);
+
+                if (desInput && !desInput.value) {
+                    const operation = layer.ordre === 1 ? 'Impression' : 'Complexage / Façonnage';
+                    desInput.value = `C${layer.ordre} ${operation}: ${fmt(Math.round(layer.poids_final_calcul))}kg · ${fmt(Math.round(layer.surface_m2 || 0))}m² · ${fmt(Math.round(layer.ml_utile || 0))}ml (${layer.grm2.toFixed(1)}g/m²)`;
+                }
+
+                matSelect.dispatchEvent(new Event('change'));
+                qteInput.dispatchEvent(new Event('input'));
+                injectCount++;
+            }
+        }
+    });
+
+    if (injectCount > 0) {
+        document.getElementById('lignes-section').scrollIntoView({ behavior: 'smooth' });
+    }
+}
 </script>
 {% endblock %}

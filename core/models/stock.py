@@ -47,6 +47,17 @@ class Material(models.Model):
     name = models.CharField("Désignation", max_length=200)
     code = models.CharField("Code Produit", max_length=100, blank=True, default='', db_index=True)
     category = models.CharField(max_length=10, choices=CAT_CHOICES)
+    
+    # --- MOTEUR TECHNIQUE & AUTO-CLASSIFICATION ---
+    densite_iso = models.FloatField("Densité (g/cm³) ISO", default=1.0, help_text="OPP=0.91, PET=1.39, PE=0.92, ALU=2.70, PAPIER=1.0")
+    micronage_standard = models.IntegerField("Micronage (µm)", null=True, blank=True, help_text="Ex: 12, 15, 20, 30, 40...")
+    grammage = models.FloatField("Grammage (g/m²)", null=True, blank=True, help_text="Ex: 70, 80, 90 g/m² (Papiers/Cartons)")
+    metrage_standard = models.FloatField("Métrage / Longueur (m)", null=True, blank=True, help_text="Métrage standard de la bobine en mètres")
+    
+    # NOUVEAU CHAMP : Le tag automatique
+    sous_categorie = models.CharField("Sous-catégorie (Auto)", max_length=50, blank=True, null=True)
+    # ----------------------------------------------
+
     initial_quantity = models.FloatField("Stock Initial (au départ)", default=0)
     quantity = models.FloatField("Stock Réel")  # Représente le stock physique total en Magasin Général
     unit = models.CharField("Unité", max_length=10, default='kg')
@@ -65,6 +76,36 @@ class Material(models.Model):
     def __str__(self):
         return f"{self.name} ({self.code})" if self.code else self.name
 
+    # =========================================================================
+    # LE CERVEAU D'AUTO-CLASSIFICATION À CHAQUE SAUVEGARDE
+    # =========================================================================
+    def save(self, *args, **kwargs):
+        if self.category == 'FILM' and self.name:
+            n = self.name.upper()
+            if 'KRAFT' in n:
+                self.sous_categorie = 'KRAFT'
+            elif 'COUCH' in n:
+                self.sous_categorie = 'COUCHÉ'
+            elif 'PAPIER' in n or 'PAPER' in n:
+                self.sous_categorie = 'PAPIER'
+            elif 'ALU' in n or 'ALUMINIUM' in n:
+                self.sous_categorie = 'ALUMINIUM'
+            elif 'PET' in n or 'POLYESTER' in n:
+                self.sous_categorie = 'PET'
+            elif 'PEHD' in n or 'HDPE' in n:
+                self.sous_categorie = 'PEHD'
+            elif 'PE ' in n or 'LDPE' in n or 'LLDPE' in n or n.startswith('PE-') or n.startswith('PE'):
+                self.sous_categorie = 'PE'
+            elif 'OPP' in n or 'BOPP' in n:
+                self.sous_categorie = 'BOPP'
+            else:
+                self.sous_categorie = 'AUTRE'
+        elif self.category != 'FILM':
+            self.sous_categorie = None  # On vide la sous-catégorie si c'est une encre/colle/solvant
+            
+        super().save(*args, **kwargs)
+    # =========================================================================
+
     def is_low_stock(self):
         return self.usable_quantity <= self.min_threshold
 
@@ -81,18 +122,29 @@ class Material(models.Model):
 
     @property
     def usable_quantity(self):
-        # Uniquement les lots CONFORMES sont utilisables par la production
         total = self.lots.filter(statut='CONFORME').aggregate(total=Sum('quantite_restante'))['total'] or 0.0
         return float(total)
 
     @property
     def quantite_bloquee(self):
-        # Lots bloqués, en quarantaine ou en attente de contrôle
         total = self.lots.exclude(statut='CONFORME').aggregate(total=Sum('quantite_restante'))['total'] or 0.0
         return float(total)
 
+    @property
+    def thickness_or_grammage_display(self):
+        if self.micronage_standard:
+            return f"{self.micronage_standard} µm"
+        elif self.grammage:
+            return f"{self.grammage:.1f}".rstrip('0').rstrip('.') + " g/m²"
+        return "—"
+
+    @property
+    def metrage_display(self):
+        if self.metrage_standard:
+            return f"{int(self.metrage_standard) if self.metrage_standard.is_integer() else self.metrage_standard} m"
+        return "—"
+
     def get_fefo_lots(self):
-        # FEFO: Expire le plus tôt en premier. Si pas de date d'expiration, FIFO (date de réception)
         return self.lots.filter(statut='CONFORME', quantite_restante__gt=0).order_by(
             F('date_expiration').asc(nulls_last=True),
             'date_reception'

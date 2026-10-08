@@ -16,19 +16,19 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
                 <div>
                     <span class="block text-[10px] text-gray-500 uppercase font-bold">Client</span>
-                    <span class="text-white font-bold">{{ of.client.name }}</span>
+                    <span class="text-white font-bold text-base">{{ of.client.name }}</span>
                 </div>
                 <div>
                     <span class="block text-[10px] text-gray-500 uppercase font-bold">Produit</span>
-                    <span class="text-cyan-400">{{ of.produit.name }}</span>
+                    <span class="text-cyan-400 font-bold text-base">{{ of.produit.name }}</span>
                 </div>
                 <div>
-                    <span class="block text-[10px] text-gray-500 uppercase font-bold">Quantité</span>
-                    <span class="text-yellow-400 font-mono">{{ of.quantite_prevue|floatformat:0 }} kg</span>
+                    <span class="block text-[10px] text-gray-500 uppercase font-bold">Quantité Prévue</span>
+                    <span class="text-yellow-400 font-mono font-bold text-base">{{ of.quantite_prevue|floatformat:"-2" }} kg</span>
                 </div>
                 <div>
                     <span class="block text-[10px] text-gray-500 uppercase font-bold">Délai Commercial</span>
-                    <span class="text-white">{{ of.date_prevue_fin|date:"d/m/Y"|default:"-" }}</span>
+                    <span class="text-white font-bold text-base">{{ of.date_prevue_fin|date:"d/m/Y"|default:"-" }}</span>
                 </div>
             </div>
         </div>
@@ -51,28 +51,132 @@
         <form method="post" class="django-form-container" id="form-ordonnancer" novalidate>
             {% csrf_token %}
 
-            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-5 mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- BLOC 1 : NUMERO DE LOT -->
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label class="block text-yellow-400 text-sm font-bold mb-2 uppercase tracking-wider">
-                        🏷️ Numéro de Lot (Planification)
-                    </label>
+                    <label class="block text-yellow-400 text-sm font-bold mb-2 uppercase tracking-wider">🏷️ Numéro de Lot</label>
                     <input type="text" name="numero_lot" id="id_numero_lot_of" value="{{ of.numero_lot|default_if_none:'' }}"
                            placeholder="Ex: 08CN70"
-                           class="w-full bg-slate-900 border border-yellow-500/50 rounded-lg px-4 py-2 text-white font-mono text-lg focus:border-yellow-400 focus:outline-none">
-                    <p class="text-xs text-gray-400 mt-2">Ce lot se propage automatiquement sur toutes les étapes.</p>
+                           class="w-full bg-slate-900 border border-yellow-500/50 rounded-lg px-4 py-2.5 text-white font-mono text-lg focus:border-yellow-400 focus:outline-none">
+                    <p class="text-xs text-gray-400 mt-2">Propagé automatiquement sur toutes les étapes.</p>
                 </div>
-
-                <!-- BLOC 2 : SÉLECTEUR DE SEMAINE (Dimanche → Jeudi) -->
                 <div>
-                    <label class="block text-cyan-400 text-sm font-bold mb-2 uppercase tracking-wider flex items-center gap-2">
-                        📅 Planifier pour la Semaine Cible
-                    </label>
+                    <label class="block text-cyan-400 text-sm font-bold mb-2 uppercase tracking-wider">📅 Semaine cible</label>
                     <input type="week" id="id_semaine_cible" value="{{ current_week_str }}"
-                           class="w-full bg-slate-900 border border-cyan-500/50 rounded-lg px-4 py-2 text-white font-mono text-lg focus:border-cyan-400 focus:outline-none cursor-pointer">
-                    <p class="text-xs text-cyan-300/70 mt-2">⚡ Semaine fb.pack = <strong>Dimanche → Jeudi</strong>. Les dates se remplissent auto (Étape 1 = Dimanche, Étape 2 = Lundi…).</p>
+                           class="w-full bg-slate-900 border border-cyan-500/50 rounded-lg px-4 py-2.5 text-white font-mono text-lg focus:border-cyan-400 focus:outline-none cursor-pointer">
+                    <p class="text-xs text-cyan-300/70 mt-2">Dimanche → Jeudi. Dates auto par étape.</p>
                 </div>
             </div>
+
+            <!-- GÉNÉRATEUR 100% AUTO AVEC POIDS + M² + ML -->
+            <div class="bg-indigo-900/40 rounded-xl p-6 border border-indigo-500/50 mb-8">
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+                    <div>
+                        <h3 class="text-indigo-300 font-bold text-lg flex items-center gap-2">🧠 Assistant 100% Automatique (Kg, m², ML)</h3>
+                        <p class="text-xs text-indigo-200 mt-1">
+                            Saisie : <strong>Qté + Laize bobine + Laize imprimée + Support</strong>.
+                            Calculs auto : <strong>Densité, µ, g/m², % perte, Poids (kg), Surface (m²), Métrage linéaire (m)</strong>.
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="toggleDensityGuide()" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 font-bold py-1.5 px-3 rounded-lg text-xs transition">
+                            📚 Guide Densités
+                        </button>
+                        <button type="button" onclick="toggleCalculator()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg text-sm">
+                            Ouvrir / Fermer le générateur
+                        </button>
+                    </div>
+                </div>
+
+                <div id="density-guide-panel" class="hidden my-4 p-4 bg-slate-950/90 rounded-lg border border-indigo-500/40 text-xs text-gray-300">
+                    <h4 class="font-bold text-indigo-400 mb-2 text-sm">ℹ️ Référentiel + Formules ERP</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                        <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+                            <strong class="text-white block mb-1">BOPP / OPP</strong>
+                            Trans/Met 0.91 · Mat 0.75 · Blanc 0.65
+                        </div>
+                        <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+                            <strong class="text-white block mb-1">PET & Alu</strong>
+                            PET 1.40 · Alu 2.70
+                        </div>
+                        <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+                            <strong class="text-white block mb-1">PE</strong>
+                            LDPE 0.92 · Blanc 1.00 · HDPE 0.95
+                        </div>
+                        <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+                            <strong class="text-white block mb-1">Papiers</strong>
+                            Kraft 0.75 · Couché 1.15
+                        </div>
+                    </div>
+                    <div class="space-y-1 text-yellow-300 font-mono text-[11px] bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-2">
+                        <div>• % Perte = (Laize bobine − Laize imprimée) ÷ Laize bobine × 100</div>
+                        <div>• Surface (m²) = (Kg × 1000) ÷ Grammage Total (g/m²)</div>
+                        <div>• Métrage linéaire (m) = Surface (m²) ÷ (Laize Imprimée mm ÷ 1000)</div>
+                    </div>
+                </div>
+
+                <div id="erp-calculator-panel" class="hidden pt-4 border-t border-indigo-500/30">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div class="md:col-span-4 flex gap-6 bg-slate-900/60 p-3 rounded-lg border border-slate-700">
+                            <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
+                                <input type="radio" name="calc_type" value="POIDS" checked onchange="updateCalcType()"> OF au Poids (Kg)
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
+                                <input type="radio" name="calc_type" value="PIECES" onchange="updateCalcType()"> OF à la Pièce
+                            </label>
+                        </div>
+
+                        <div>
+                            <label class="block text-emerald-300 text-xs font-bold mb-1" id="lbl_qte">Quantité OF (Kg) *</label>
+                            <input type="number" id="calc_qte" class="w-full bg-slate-900 text-white border border-emerald-500/50 rounded-lg p-2.5 text-sm font-mono" value="{{ of.quantite_prevue|floatformat:'-2'|default:'1000' }}" oninput="recalcPerteAndPreview()">
+                        </div>
+                        <div>
+                            <label class="block text-emerald-300 text-xs font-bold mb-1">Laize Bobine (mm) *</label>
+                            <input type="number" id="calc_laize_bobine" class="w-full bg-slate-900 text-white border border-emerald-500/50 rounded-lg p-2.5 text-sm font-mono" value="1200" oninput="recalcPerteAndPreview()">
+                        </div>
+                        <div>
+                            <label class="block text-emerald-300 text-xs font-bold mb-1">Laize Imprimée (mm) *</label>
+                            <input type="number" id="calc_laize_utile" class="w-full bg-slate-900 text-white border border-emerald-500/50 rounded-lg p-2.5 text-sm font-mono" value="{{ of.laize|floatformat:'-2'|default:'1100' }}" oninput="recalcPerteAndPreview()">
+                        </div>
+                        <div>
+                            <label class="block text-yellow-300 text-xs font-bold mb-1">% Perte auto (lisières)</label>
+                            <input type="text" id="calc_perte_auto_display" readonly class="w-full bg-yellow-900/30 text-yellow-300 font-mono font-bold border border-yellow-500/40 rounded-lg p-2.5 text-sm text-center cursor-not-allowed" value="—">
+                        </div>
+
+                        <div id="div_dev" class="hidden">
+                            <label class="block text-indigo-300 text-xs font-bold mb-1">Développement (mm)</label>
+                            <input type="number" id="calc_dev" class="w-full bg-slate-900 text-white border border-slate-700 rounded-lg p-2.5 text-sm font-mono" value="{{ of.developpement|floatformat:'-2'|default:'276' }}">
+                        </div>
+                        <div id="div_poses" class="hidden">
+                            <label class="block text-indigo-300 text-xs font-bold mb-1">Poses</label>
+                            <input type="number" id="calc_poses" class="w-full bg-slate-900 text-white border border-slate-700 rounded-lg p-2.5 text-sm font-mono" value="1">
+                        </div>
+                    </div>
+
+                    <h4 class="text-white text-sm font-bold mb-3 mt-4">Couches → Étapes (support uniquement)</h4>
+                    <div id="layers-container" class="space-y-3 mb-4"></div>
+                    <button type="button" onclick="addLayer()" class="text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 font-bold py-2 px-4 rounded-lg mb-4">+ Ajouter une couche</button>
+
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <label class="flex items-center gap-2 text-sm text-emerald-300 font-bold cursor-pointer">
+                            <input type="checkbox" id="auto-decoupe" checked class="w-4 h-4 rounded"> + Étape Découpe finale
+                        </label>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="runERPMath()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-5 rounded-lg text-sm">1. Calculer</button>
+                            <button type="button" onclick="injectIntoForm()" id="btn-inject" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-5 rounded-lg text-sm hidden">2. Injecter dans le Planning</button>
+                        </div>
+                    </div>
+
+                    <div id="calc-results" class="mt-4 hidden bg-slate-900/90 p-4 rounded-lg border border-indigo-500/30">
+                        <h4 class="text-indigo-400 font-bold mb-3 text-lg border-b border-indigo-500/30 pb-2">Rapport d'Analyse Technique Complexe</h4>
+                        
+                        <!-- CARTES KPI SICE -->
+                        <div id="calc-kpi-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4"></div>
+                        
+                        <ul id="calc-results-list" class="text-sm text-gray-300 space-y-2"></ul>
+                    </div>
+                </div>
+            </div>
+            <!-- ========== FIN GÉNÉRATEUR ========== -->
 
             {{ formset.management_form }}
 
@@ -80,391 +184,581 @@
                 {% for etape_form in formset %}
                 <div class="etape-planif-row bg-slate-800 rounded-xl border border-slate-600 p-5 relative transition-all hover:border-blue-500">
                     {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
-
                     <div class="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
                         <div class="flex items-center gap-4">
                             <div class="bg-slate-900 text-gray-400 h-8 w-8 rounded-full flex items-center justify-center font-bold border border-slate-700 etape-numero">
                                 {{ etape_form.instance.numero_etape|default:forloop.counter }}
                             </div>
-                            <h3 class="text-white font-bold text-lg">{{ etape_form.instance.get_nom_display|default:"Étape" }}</h3>
+                            <h3 class="text-white font-bold text-lg etape-title">{{ etape_form.instance.get_nom_display|default:"Étape" }}</h3>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="text-[10px] uppercase font-bold px-2 py-1 rounded bg-slate-900 border border-slate-700 text-gray-400">
-                                {{ etape_form.instance.get_statut_display|default:"Nouveau" }}
-                            </span>
-                            <button type="button" class="btn-supprimer-etape bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 rounded-lg px-3 py-1 text-xs font-bold transition flex items-center gap-1" title="Supprimer cette étape">
-                                🗑️ <span class="hidden sm:inline">Supprimer</span>
-                            </button>
+                            <span class="text-[10px] uppercase font-bold px-2 py-1 rounded bg-slate-900 border border-slate-700 text-gray-400">{{ etape_form.instance.get_statut_display|default:"Nouveau" }}</span>
+                            <button type="button" class="btn-supprimer-etape bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 rounded-lg px-3 py-1 text-xs font-bold">🗑️ Supprimer</button>
                         </div>
                     </div>
-
-                    <div class="hidden">
-                        {{ etape_form.DELETE }}
-                    </div>
-
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-                        <div class="md:col-span-2">
-                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Machine</label>
-                            {{ etape_form.machine }}
-                        </div>
-                        <div>
-                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Date prévue</label>
-                            {{ etape_form.date_planifiee }}
-                        </div>
-                        <div>
-                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase tracking-wider">Shift</label>
-                            {{ etape_form.shift }}
-                        </div>
-                        <div>
-                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase tracking-wider">Équipe</label>
-                            {{ etape_form.equipe }}
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div>
-                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase tracking-wider">Heure début (24H ex: 08:00)</label>
-                            {{ etape_form.heure_debut_planifiee }}
-                        </div>
-                        <div>
-                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase tracking-wider">Heure fin (24H ex: 16:00)</label>
-                            {{ etape_form.heure_fin_planifiee }}
-                        </div>
-                        <div>
-                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">Ordre passage</label>
-                            {{ etape_form.ordre_passage }}
-                        </div>
-                        <div>
-                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">Lot étape</label>
-                            {{ etape_form.numero_lot_etape }}
-                        </div>
-                    </div>
-
-                    <details class="group bg-slate-900/50 rounded-lg">
-                        <summary class="cursor-pointer text-xs font-bold text-gray-400 p-3 hover:text-white transition">
-                            ▶ Détails techniques (Support, Qté, Dév)
-                        </summary>
-                        <div class="p-4 pt-0 grid grid-cols-2 md:grid-cols-5 gap-4">
-                            <div class="hidden">{{ etape_form.numero_etape }}</div>
-                            <div class="hidden">{{ etape_form.process_type }}</div>
-                            <div class="hidden">{{ etape_form.atelier }}</div>
-                            <div class="hidden">{{ etape_form.operateur }}</div>
-                            <div class="hidden">{{ etape_form.nom_etape }}</div>
-                            <div class="hidden">{{ etape_form.genere_semi_produit }}</div>
-                            <div class="hidden">{{ etape_form.notes }}</div>
-                            <div>
-                                <label class="text-[10px] text-gray-500 uppercase font-bold">Support</label>
-                                {{ etape_form.support }}
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-gray-500 uppercase font-bold">Qté Entrée</label>
-                                {{ etape_form.quantite_entree }}
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-gray-500 uppercase font-bold">Qté ML</label>
-                                {{ etape_form.quantite_ml }}
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-gray-500 uppercase font-bold">Dév (mm)</label>
-                                {{ etape_form.developpement }}
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-gray-500 uppercase font-bold">Nb Bobines</label>
-                                {{ etape_form.nb_bobines }}
-                            </div>
-                            <div class="col-span-2 md:col-span-5">
-                                <label class="text-[10px] text-gray-500 uppercase font-bold">Observation</label>
-                                {{ etape_form.observation }}
-                            </div>
-                        </div>
-                    </details>
-                </div>
-                {% empty %}
-                <div class="text-center py-12 bg-slate-900/80 rounded-xl border border-amber-500/30 p-8" id="empty-state-message">
-                    <div class="text-amber-400 text-3xl mb-3">⚠️</div>
-                    <h3 class="text-white text-lg font-bold mb-2">Aucune étape de production définie sur cet OF</h3>
-                    <p class="text-gray-400 text-sm max-w-md mx-auto mb-6">
-                        Le commercial a créé cet OF sans ajouter d'étapes d'ateliers. Vous pouvez générer la séquence standard en un clic, ou ajouter les étapes manuellement.
-                    </p>
-                    <a href="?generer_etapes=1" class="bg-amber-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 px-8 rounded-lg shadow-lg shadow-amber-500/20 transition uppercase text-sm tracking-wider inline-flex items-center gap-2">
-                        <span>⚡</span> Générer automatiquement les étapes (Extrusion, Flexo, Découpe...)
-                    </a>
-                </div>
-                {% endfor %}
-            </div>
-
-            <!-- TEMPLATE VIDE POUR CLONAGE -->
-            <div id="empty-form-template" style="display:none;">
-                <div class="etape-planif-row bg-slate-800 rounded-xl border border-green-600 p-5 relative transition-all hover:border-green-500">
-                    {% with formset.empty_form as etape_form %}
-                    {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
-
-                    <div class="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
-                        <div class="flex items-center gap-4">
-                            <div class="bg-slate-900 text-green-400 h-8 w-8 rounded-full flex items-center justify-center font-bold border border-green-700 etape-numero">#</div>
-                            <h3 class="text-white font-bold text-lg">Nouvelle Étape</h3>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-[10px] uppercase font-bold px-2 py-1 rounded bg-green-900/50 border border-green-500/40 text-green-400">Nouveau</span>
-                            <button type="button" class="btn-supprimer-etape bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 rounded-lg px-3 py-1 text-xs font-bold transition flex items-center gap-1">
-                                🗑️ <span class="hidden sm:inline">Supprimer</span>
-                            </button>
-                        </div>
-                    </div>
-
                     <div class="hidden">{{ etape_form.DELETE }}</div>
 
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                         <div class="md:col-span-2">
-                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Machine</label>
+                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase">Machine</label>
                             {{ etape_form.machine }}
                         </div>
                         <div>
-                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase tracking-wider">Date prévue</label>
+                            <label class="block text-blue-400 text-xs font-bold mb-1 uppercase">Date prévue</label>
                             {{ etape_form.date_planifiee }}
                         </div>
                         <div>
-                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase tracking-wider">Shift</label>
+                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase">Shift</label>
                             {{ etape_form.shift }}
                         </div>
                         <div>
-                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase tracking-wider">Équipe</label>
+                            <label class="block text-emerald-400 text-xs font-bold mb-1 uppercase">Équipe</label>
                             {{ etape_form.equipe }}
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div>
-                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase tracking-wider">Heure début (24H)</label>
+                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase">Heure début</label>
                             {{ etape_form.heure_debut_planifiee }}
                         </div>
                         <div>
-                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase tracking-wider">Heure fin (24H)</label>
+                            <label class="block text-yellow-400 text-xs font-bold mb-1 uppercase">Heure fin</label>
                             {{ etape_form.heure_fin_planifiee }}
                         </div>
                         <div>
-                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">Ordre passage</label>
+                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase">Ordre</label>
                             {{ etape_form.ordre_passage }}
                         </div>
                         <div>
-                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase tracking-wider">Lot étape</label>
+                            <label class="block text-gray-400 text-xs font-bold mb-1 uppercase">Lot étape</label>
                             {{ etape_form.numero_lot_etape }}
                         </div>
                     </div>
 
-                    <details class="group bg-slate-900/50 rounded-lg">
-                        <summary class="cursor-pointer text-xs font-bold text-gray-400 p-3 hover:text-white transition">▶ Détails techniques</summary>
-                        <div class="p-4 pt-0 grid grid-cols-2 md:grid-cols-5 gap-4">
-                            <div class="hidden">{{ etape_form.numero_etape }}</div>
-                            <div class="hidden">{{ etape_form.process_type }}</div>
-                            <div class="hidden">{{ etape_form.atelier }}</div>
-                            <div class="hidden">{{ etape_form.operateur }}</div>
-                            <div class="hidden">{{ etape_form.nom_etape }}</div>
-                            <div class="hidden">{{ etape_form.genere_semi_produit }}</div>
-                            <div class="hidden">{{ etape_form.notes }}</div>
-                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Support</label>{{ etape_form.support }}</div>
-                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Qté Entrée</label>{{ etape_form.quantite_entree }}</div>
-                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Qté ML</label>{{ etape_form.quantite_ml }}</div>
-                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Dév (mm)</label>{{ etape_form.developpement }}</div>
-                            <div><label class="text-[10px] text-gray-500 uppercase font-bold">Nb Bobines</label>{{ etape_form.nb_bobines }}</div>
-                            <div class="col-span-2 md:col-span-5"><label class="text-[10px] text-gray-500 uppercase font-bold">Observation</label>{{ etape_form.observation }}</div>
+                    <div class="bg-slate-900/70 rounded-xl border border-emerald-500/20 p-4">
+                        <p class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">📦 Données techniques (remplies par le calculateur)</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="hidden">{{ etape_form.numero_etape }}{{ etape_form.process_type }}{{ etape_form.atelier }}{{ etape_form.operateur }}{{ etape_form.nom_etape }}{{ etape_form.genere_semi_produit }}{{ etape_form.notes }}{{ etape_form.unite_sortie }}{{ etape_form.nb_bobines }}</div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Matière / Support</label>
+                                {{ etape_form.support }}
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-yellow-400 uppercase font-bold mb-1">Poids Entrée (Kg)</label>
+                                {{ etape_form.quantite_entree }}
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Dév. (mm)</label>
+                                {{ etape_form.developpement }}
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-cyan-400 uppercase font-bold mb-1">Qté Sortie (m/ML)</label>
+                                {{ etape_form.quantite_ml }}
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Observation atelier</label>
+                                {{ etape_form.observation }}
+                            </div>
                         </div>
-                    </details>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-12 bg-slate-900/80 rounded-xl border border-amber-500/30 p-8" id="empty-state-message">
+                    <h3 class="text-white text-lg font-bold mb-2">Aucune étape</h3>
+                    <p class="text-gray-400 text-sm">Utilisez le générateur ci-dessus, puis « Injecter ».</p>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div id="empty-form-template" style="display:none;">
+                <div class="etape-planif-row bg-slate-800 rounded-xl border border-emerald-600 p-5 relative">
+                    {% with formset.empty_form as etape_form %}
+                    {% for hidden in etape_form.hidden_fields %}{{ hidden }}{% endfor %}
+                    <div class="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
+                        <div class="flex items-center gap-4">
+                            <div class="bg-slate-900 text-emerald-400 h-8 w-8 rounded-full flex items-center justify-center font-bold border border-emerald-700 etape-numero">#</div>
+                            <h3 class="text-white font-bold text-lg etape-title">Nouvelle Étape</h3>
+                        </div>
+                        <button type="button" class="btn-supprimer-etape bg-red-600/20 hover:bg-red-600 text-red-400 border border-red-500/40 rounded-lg px-3 py-1 text-xs font-bold">🗑️</button>
+                    </div>
+                    <div class="hidden">{{ etape_form.DELETE }}</div>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                        <div class="md:col-span-2"><label class="block text-emerald-400 text-xs font-bold mb-1 uppercase">Machine</label>{{ etape_form.machine }}</div>
+                        <div><label class="block text-blue-400 text-xs font-bold mb-1 uppercase">Date</label>{{ etape_form.date_planifiee }}</div>
+                        <div><label class="block text-emerald-400 text-xs font-bold mb-1 uppercase">Shift</label>{{ etape_form.shift }}</div>
+                        <div><label class="block text-emerald-400 text-xs font-bold mb-1 uppercase">Équipe</label>{{ etape_form.equipe }}</div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div><label class="block text-yellow-400 text-xs font-bold mb-1 uppercase">Début</label>{{ etape_form.heure_debut_planifiee }}</div>
+                        <div><label class="block text-yellow-400 text-xs font-bold mb-1 uppercase">Fin</label>{{ etape_form.heure_fin_planifiee }}</div>
+                        <div><label class="block text-gray-400 text-xs font-bold mb-1 uppercase">Ordre</label>{{ etape_form.ordre_passage }}</div>
+                        <div><label class="block text-gray-400 text-xs font-bold mb-1 uppercase">Lot</label>{{ etape_form.numero_lot_etape }}</div>
+                    </div>
+                    <div class="bg-slate-900/70 rounded-xl border border-emerald-500/20 p-4">
+                        <p class="text-xs font-bold text-emerald-400 uppercase mb-3">📦 Données techniques</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="hidden">{{ etape_form.numero_etape }}{{ etape_form.process_type }}{{ etape_form.atelier }}{{ etape_form.operateur }}{{ etape_form.nom_etape }}{{ etape_form.genere_semi_produit }}{{ etape_form.notes }}{{ etape_form.unite_sortie }}{{ etape_form.nb_bobines }}</div>
+                            <div class="md:col-span-2"><label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Matière / Support</label>{{ etape_form.support }}</div>
+                            <div><label class="block text-[10px] text-yellow-400 uppercase font-bold mb-1">Poids Entrée (Kg)</label>{{ etape_form.quantite_entree }}</div>
+                            <div><label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Dév. (mm)</label>{{ etape_form.developpement }}</div>
+                            <div><label class="block text-[10px] text-cyan-400 uppercase font-bold mb-1">Qté Sortie</label>{{ etape_form.quantite_ml }}</div>
+                            <div class="md:col-span-3"><label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Observation</label>{{ etape_form.observation }}</div>
+                        </div>
+                    </div>
                     {% endwith %}
                 </div>
             </div>
 
-            <div class="mt-6 flex justify-center">
-                <button type="button" id="btn-ajouter-etape" class="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white border-2 border-dashed border-green-500/50 hover:border-green-500 rounded-xl px-6 py-3 font-bold transition flex items-center gap-2 uppercase text-sm tracking-wider">
-                    <span class="text-xl">➕</span> Ajouter une étape
-                </button>
+            <div class="mt-8 flex justify-center">
+                <button type="button" id="btn-ajouter-etape" class="bg-gray-600/20 hover:bg-gray-600 text-gray-400 border-2 border-dashed border-gray-500/50 rounded-xl px-6 py-3 font-bold text-sm">➕ Étape manuelle</button>
             </div>
 
             <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-700">
-                <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg transition">Annuler</a>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-8 rounded-lg shadow-lg shadow-blue-500/20 transition uppercase tracking-wider text-sm flex items-center gap-2">
-                    <span>📅</span> Valider le Planning
-                </button>
+                <a href="{% url 'of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-lg">Annuler</a>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-8 rounded-lg">💾 Enregistrer le Planning</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-const SHIFT_HOURS = {
-    'MATIN': ['08:00', '16:00'],
-    'SOIR':  ['16:00', '00:00'],
-    'NUIT':  ['00:00', '08:00']
-};
+const filmsData = JSON.parse('{{ form.get_films_json|escapejs }}' || '[]');
+const SHIFT_HOURS = { 'MATIN': ['08:00','16:00'], 'SOIR': ['16:00','00:00'], 'NUIT': ['00:00','08:00'] };
+let layerCount = 0;
+let lastCalculatedLayers = [];
 
 function applyShiftHours(row) {
-    const shiftSel = row.querySelector('select[name$="-shift"]');
-    const hDeb = row.querySelector('input[name$="-heure_debut_planifiee"]');
-    const hFin = row.querySelector('input[name$="-heure_fin_planifiee"]');
-    if (!shiftSel || !hDeb || !hFin) return;
-    const val = shiftSel.value;
-    if (SHIFT_HOURS[val]) {
-        hDeb.value = SHIFT_HOURS[val][0];
-        hFin.value = SHIFT_HOURS[val][1];
-    }
+    const s = row.querySelector('select[name$="-shift"]');
+    const d = row.querySelector('input[name$="-heure_debut_planifiee"]');
+    const f = row.querySelector('input[name$="-heure_fin_planifiee"]');
+    if (s && d && f && SHIFT_HOURS[s.value]) { d.value = SHIFT_HOURS[s.value][0]; f.value = SHIFT_HOURS[s.value][1]; }
 }
-
-/* =========================================================
-   SEMAINE fb.pack = DIMANCHE → JEUDI
-   input type=week donne une semaine ISO (lundi).
-   On prend le DIMANCHE (= lundi ISO - 1 jour).
-   ========================================================= */
 function getSundayOfWeek(weekStr) {
     if (!weekStr) return null;
-    const parts = weekStr.split('-W');
-    if (parts.length !== 2) return null;
-
-    const year = parseInt(parts[0], 10);
-    const week = parseInt(parts[1], 10);
-
-    // Lundi ISO de la semaine
-    const jan4 = new Date(year, 0, 4);
-    const dayOfWeek = jan4.getDay() || 7; // Dimanche JS = 0 → 7
-    const monday = new Date(jan4);
-    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (week - 1) * 7);
-
-    // Dimanche = veille du lundi ISO
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() - 1);
-    return sunday;
+    const p = weekStr.split('-W'); if (p.length !== 2) return null;
+    const y = +p[0], w = +p[1];
+    const jan4 = new Date(y, 0, 4);
+    const dow = jan4.getDay() || 7;
+    const mon = new Date(jan4); mon.setDate(jan4.getDate() - dow + 1 + (w - 1) * 7);
+    const sun = new Date(mon); sun.setDate(mon.getDate() - 1);
+    return sun;
 }
-
 function formatDateISO(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
 }
-
 function appliquerDatesParSemaine() {
-    const weekPicker = document.getElementById('id_semaine_cible');
-    if (!weekPicker || !weekPicker.value) return;
-
-    const startSunday = getSundayOfWeek(weekPicker.value);
-    if (!startSunday) return;
-
-    // Jours ouvrés fb.pack : Dimanche(+0), Lundi(+1), Mardi(+2), Mercredi(+3), Jeudi(+4)
-    // Si plus de 5 étapes → on continue sur les jours suivants
-    let visibleIndex = 0;
-    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(function(row) {
+    const wp = document.getElementById('id_semaine_cible'); if (!wp || !wp.value) return;
+    const start = getSundayOfWeek(wp.value); if (!start) return;
+    let i = 0;
+    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(row => {
         if (row.style.display === 'none') return;
-        const deleteInput = row.querySelector('input[name$="-DELETE"]');
-        if (deleteInput && deleteInput.checked) return;
-
-        const dateInput = row.querySelector('input[name$="-date_planifiee"]');
-        if (dateInput) {
-            const stepDate = new Date(startSunday);
-            stepDate.setDate(startSunday.getDate() + visibleIndex);
-            dateInput.value = formatDateISO(stepDate);
-        }
-        visibleIndex++;
+        const del = row.querySelector('input[name$="-DELETE"]'); if (del && del.checked) return;
+        const di = row.querySelector('input[name$="-date_planifiee"]');
+        if (di) { const d = new Date(start); d.setDate(start.getDate() + i); di.value = formatDateISO(d); }
+        i++;
     });
 }
-
 function propagerNumeroLot() {
-    const numeroLotOF = document.getElementById('id_numero_lot_of');
-    if (!numeroLotOF) return;
-    const valeur = numeroLotOF.value.trim();
-
-    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(function(row) {
-        if (row.style.display === 'none') return;
-        const inputLotEtape = row.querySelector('input[name$="-numero_lot_etape"]');
-        if (inputLotEtape) inputLotEtape.value = valeur;
+    const v = (document.getElementById('id_numero_lot_of') || {}).value || '';
+    document.querySelectorAll('#etapes-container input[name$="-numero_lot_etape"]').forEach(inp => {
+        if (inp.closest('.etape-planif-row')?.style.display !== 'none') inp.value = v.trim();
     });
 }
-
 function renuméroterEtapes() {
-    let visibleIndex = 1;
-    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(function(row) {
+    let i = 1;
+    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(row => {
         if (row.style.display === 'none') return;
-        const deleteInput = row.querySelector('input[name$="-DELETE"]');
-        if (deleteInput && deleteInput.checked) return;
-
-        const numDiv = row.querySelector('.etape-numero');
-        if (numDiv) numDiv.textContent = visibleIndex;
-
-        const numEtapeInput = row.querySelector('input[name$="-numero_etape"]');
-        if (numEtapeInput) numEtapeInput.value = visibleIndex;
-
-        const ordrePassageInput = row.querySelector('input[name$="-ordre_passage"]');
-        if (ordrePassageInput) ordrePassageInput.value = visibleIndex;
-
-        visibleIndex++;
+        const del = row.querySelector('input[name$="-DELETE"]'); if (del && del.checked) return;
+        const n = row.querySelector('.etape-numero'); if (n) n.textContent = i;
+        const ne = row.querySelector('input[name$="-numero_etape"]'); if (ne) ne.value = i;
+        const op = row.querySelector('input[name$="-ordre_passage"]'); if (op) op.value = i;
+        i++;
+    });
+}
+function attacherEvenementsRow(row) {
+    const s = row.querySelector('select[name$="-shift"]');
+    if (s) s.addEventListener('change', () => applyShiftHours(row));
+    const btn = row.querySelector('.btn-supprimer-etape');
+    if (btn) btn.addEventListener('click', () => {
+        if (!confirm('Supprimer cette étape ?')) return;
+        const del = row.querySelector('input[name$="-DELETE"]'); if (del) del.checked = true;
+        row.style.display = 'none'; renuméroterEtapes();
     });
 }
 
-function attacherEvenementsRow(row) {
-    const shiftSel = row.querySelector('select[name$="-shift"]');
-    if (shiftSel) {
-        shiftSel.addEventListener('change', function() { applyShiftHours(row); });
+function parseMaterialData(text) {
+    const n = (text || '').toUpperCase();
+    const data = { density: 0.91, mic: null, grm2: null, type: 'FILM' };
+
+    if (n.includes('KRAFT')) { data.density = 0.75; data.type = 'PAPIER'; }
+    else if (n.includes('COUCH')) { data.density = 1.15; data.type = 'PAPIER'; }
+    else if (n.includes('PAPIER') || n.includes('PAPER')) { data.density = 0.80; data.type = 'PAPIER'; }
+    else if (n.includes('ALU')) data.density = 2.70;
+    else if (n.includes('PET')) data.density = 1.40;
+    else if (n.includes('PEHD') || n.includes('HDPE')) data.density = 0.95;
+    else if (n.includes('PE ') || n.includes('LDPE') || n.includes('LLDPE') || n.includes('POLYETHYLENE')) {
+        data.density = (n.includes('BLANC') || n.includes('OPAQUE') || n.includes('TIO')) ? 1.00 : 0.92;
+    } else if (n.includes('OPP') || n.includes('BOPP')) {
+        if (n.includes('BLANC') || n.includes('NACRE') || n.includes('CAVIT')) data.density = 0.65;
+        else if (n.includes('MAT')) data.density = 0.75;
+        else data.density = 0.91;
     }
 
-    const btnSup = row.querySelector('.btn-supprimer-etape');
-    if (btnSup) {
-        btnSup.addEventListener('click', function() {
-            if (!confirm("Confirmer la suppression de cette étape ?")) return;
-            const deleteInput = row.querySelector('input[name$="-DELETE"]');
-            if (deleteInput) deleteInput.checked = true;
-            row.style.display = 'none';
-            renuméroterEtapes();
-        });
+    const micMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(µ|u|mic|micron|my|um)/i);
+    if (micMatch) data.mic = parseFloat(String(micMatch[1]).replace(',', '.'));
+
+    const grmMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(g|gr|grm|g\/m2|g\/m²)/i);
+    if (grmMatch) data.grm2 = parseFloat(String(grmMatch[1]).replace(',', '.'));
+
+    if (!data.mic && !data.grm2) {
+        const numMatch = text.match(/(?:^|\s|-|_|:)(\d{2,3})(?:\s|-|_|$)/);
+        if (numMatch) {
+            const val = parseFloat(numMatch[1]);
+            if (data.type === 'PAPIER' && val >= 30) data.grm2 = val;
+            else if (val >= 6 && val <= 250) data.mic = val;
+        }
     }
+    return data;
+}
+
+function computeAutoPerte() {
+    const bobine = parseFloat(document.getElementById('calc_laize_bobine')?.value || 0);
+    const utile = parseFloat(document.getElementById('calc_laize_utile')?.value || 0);
+    if (!bobine || bobine <= 0 || utile <= 0 || utile >= bobine) return 0;
+    return ((bobine - utile) / bobine) * 100;
+}
+
+function recalcPerteAndPreview() {
+    const perte = computeAutoPerte();
+    const display = document.getElementById('calc_perte_auto_display');
+    if (display) display.value = perte.toFixed(2) + ' %';
+    for (let i = 1; i <= layerCount; i++) {
+        const p = document.getElementById('perte-' + i);
+        if (p) p.value = perte.toFixed(2);
+    }
+}
+
+function updateCalcType() {
+    const type = document.querySelector('input[name="calc_type"]:checked').value;
+    document.getElementById('div_dev').classList.toggle('hidden', type !== 'PIECES');
+    document.getElementById('div_poses').classList.toggle('hidden', type !== 'PIECES');
+    document.getElementById('lbl_qte').textContent = type === 'PIECES' ? 'Quantité (Pièces) *' : 'Quantité OF (Kg) *';
+}
+
+function toggleCalculator() { document.getElementById('erp-calculator-panel').classList.toggle('hidden'); }
+function toggleDensityGuide() { document.getElementById('density-guide-panel').classList.toggle('hidden'); }
+
+function generateFilteredOptions() {
+    let options = '<option value="">-- Sélectionnez une matière du stock --</option>';
+    filmsData.forEach(f => {
+        const text = f.nom.toUpperCase();
+        if (text.includes('FILM') || text.includes('BOBINE') || text.includes('BOPP') || text.includes('OPP') || 
+            text.includes('PET') || text.includes('PEHD') || text.includes('LDPE') || text.includes('PE ') || 
+            text.includes('ALU') || text.includes('PAPIER') || text.includes('KRAFT') || text.includes('COUCH')) {
+            
+            const stockLabel = f.stock <= 0 ? '⚠️ RUPTURE' : `${f.stock} ${f.unite}`;
+            options += `<option value="${f.nom}">${f.nom} — Stock: ${stockLabel}</option>`;
+        }
+    });
+    return options;
+}
+
+function addLayer() {
+    layerCount++;
+    const defOp = layerCount === 1 ? 'Impression' : 'Complexage';
+    const perteInit = computeAutoPerte().toFixed(2);
+    document.getElementById('layers-container').insertAdjacentHTML('beforeend', `
+        <div class="flex flex-wrap items-end gap-3 bg-slate-800 p-3 rounded-xl border border-slate-600" id="layer-${layerCount}">
+            <div class="w-32">
+                <label class="block text-[10px] text-indigo-300 font-bold uppercase mb-1">Opération</label>
+                <select id="op-${layerCount}" class="w-full bg-indigo-950 text-indigo-200 border border-indigo-500/40 rounded-lg p-2 text-sm font-bold">
+                    <option value="Extrusion">Extrusion</option>
+                    <option value="Impression" ${defOp==='Impression'?'selected':''}>Impression</option>
+                    <option value="Complexage" ${defOp==='Complexage'?'selected':''}>Complexage</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-[10px] text-emerald-400 font-bold uppercase mb-1">Support (seule saisie)</label>
+                <select id="mat-${layerCount}" class="w-full bg-slate-950 text-white border border-emerald-500/50 rounded-lg p-2 text-sm focus:outline-none" onchange="autoFillDensity(${layerCount})">
+                    ${generateFilteredOptions()}
+                </select>
+            </div>
+            <div class="w-20">
+                <label class="block text-[10px] text-gray-500 font-bold uppercase mb-1">µ auto</label>
+                <input type="number" id="mic-${layerCount}" readonly class="w-full bg-slate-950/80 text-gray-300 border border-slate-700 rounded-lg p-2 text-sm font-mono text-center cursor-not-allowed" value="20">
+            </div>
+            <div class="w-20">
+                <label class="block text-[10px] text-gray-500 font-bold uppercase mb-1">Densité</label>
+                <input type="number" id="den-${layerCount}" readonly class="w-full bg-slate-950/80 text-gray-300 border border-slate-700 rounded-lg p-2 text-sm font-mono text-center cursor-not-allowed" value="0.91" step="0.01">
+            </div>
+            <div class="w-24">
+                <label class="block text-[10px] text-yellow-500/80 font-bold uppercase mb-1">g/m² auto</label>
+                <input type="number" id="grm2-${layerCount}" readonly class="w-full bg-slate-900 text-yellow-400 font-bold border border-yellow-500/40 rounded-lg p-2 text-sm font-mono text-center cursor-not-allowed" value="18.2" step="0.1">
+            </div>
+            <div class="w-20">
+                <label class="block text-[10px] text-yellow-500/80 font-bold uppercase mb-1">% Perte</label>
+                <input type="number" id="perte-${layerCount}" readonly class="w-full bg-yellow-900/20 text-yellow-300 font-mono font-bold border border-yellow-500/40 rounded-lg p-2 text-sm text-center cursor-not-allowed" value="${perteInit}" step="0.01">
+            </div>
+        </div>`);
+}
+
+function autoFillDensity(i) {
+    const sel = document.getElementById('mat-' + i);
+    const t = sel ? sel.options[sel.selectedIndex].text : '';
+    if (!t || t.includes('--')) return;
+    const data = parseMaterialData(t);
+    document.getElementById('den-' + i).value = data.density;
+    const micInput = document.getElementById('mic-' + i);
+    const grm2Input = document.getElementById('grm2-' + i);
+    if (data.grm2 && !data.mic) {
+        grm2Input.value = data.grm2;
+        if (data.density > 0) micInput.value = Math.round(data.grm2 / data.density);
+    } else if (data.mic) {
+        micInput.value = data.mic;
+        grm2Input.value = (data.mic * data.density).toFixed(1);
+    } else {
+        const mic = parseFloat(micInput.value || 20);
+        grm2Input.value = (mic * data.density).toFixed(1);
+    }
+    document.getElementById('perte-' + i).value = computeAutoPerte().toFixed(2);
+    sel.classList.add('ring-2', 'ring-emerald-400');
+    setTimeout(() => sel.classList.remove('ring-2', 'ring-emerald-400'), 500);
+}
+
+function fmt(n, d) {
+    if (n == null || isNaN(n)) return '—';
+    return Number(n).toLocaleString('fr-FR', { maximumFractionDigits: d != null ? d : 0 });
+}
+
+function runERPMath() {
+    recalcPerteAndPreview();
+    const type = document.querySelector('input[name="calc_type"]:checked').value;
+    const qte = +document.getElementById('calc_qte').value || 0;
+    const laizeUtile = +document.getElementById('calc_laize_utile').value || 0;
+    const laizeBobine = +document.getElementById('calc_laize_bobine').value || 0;
+    const dev = +document.getElementById('calc_dev').value || 0;
+    const poses = +document.getElementById('calc_poses').value || 1;
+    const perteAuto = computeAutoPerte();
+
+    let totalGrm2 = 0;
+    lastCalculatedLayers = [];
+    for (let i = 1; i <= layerCount; i++) {
+        const op = document.getElementById('op-' + i)?.value || (i === 1 ? 'Impression' : 'Complexage');
+        const sel = document.getElementById('mat-' + i);
+        const name = (sel && sel.value) ? sel.value : ('Couche ' + i);
+        const mic = +document.getElementById('mic-' + i)?.value || 0;
+        const den = +document.getElementById('den-' + i)?.value || 0;
+        const grm2 = +document.getElementById('grm2-' + i)?.value || (mic * den);
+        const perte = +document.getElementById('perte-' + i)?.value || perteAuto;
+        totalGrm2 += grm2;
+        if (i > 1) totalGrm2 += 3;
+        lastCalculatedLayers.push({ operation: op, mat_name: name, grm2, perte, mic, den });
+    }
+
+    let surface = 0;
+    if (type === 'POIDS') surface = (qte * 1000) / (totalGrm2 || 1);
+    else surface = (qte / poses) * (dev / 1000) * ((laizeUtile || laizeBobine) / 1000);
+    
+    const laizeUtileM = (laizeUtile || laizeBobine) / 1000;
+    const laizeBobineM = laizeBobine / 1000;
+    const metrageLineaireM = laizeUtileM > 0 ? (surface / laizeUtileM) : 0;
+    const metrageLineaireBobineM = laizeBobineM > 0 ? (surface / laizeBobineM) : 0;
+    const poidsFini = (surface * totalGrm2) / 1000;
+
+    // KPI Cards
+    const kpi = document.getElementById('calc-kpi-cards');
+    if (kpi) {
+        kpi.innerHTML = `
+            <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-xl p-3 text-center">
+                <div class="text-[10px] uppercase tracking-wider text-emerald-300 font-bold">Poids Structure</div>
+                <div class="text-2xl font-black text-emerald-400 font-mono mt-1">${fmt(Math.round(poidsFini))} <span class="text-sm">kg</span></div>
+                <div class="text-[10px] text-emerald-200/70 mt-1">produit fini théorique</div>
+            </div>
+            <div class="bg-cyan-900/30 border border-cyan-500/40 rounded-xl p-3 text-center">
+                <div class="text-[10px] uppercase tracking-wider text-cyan-300 font-bold">Surface Totale</div>
+                <div class="text-2xl font-black text-cyan-400 font-mono mt-1">${fmt(Math.round(surface))} <span class="text-sm">m²</span></div>
+                <div class="text-[10px] text-cyan-200/70 mt-1">aire utile à fabriquer</div>
+            </div>
+            <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-3 text-center">
+                <div class="text-[10px] uppercase tracking-wider text-yellow-300 font-bold">Métrage Linéaire</div>
+                <div class="text-2xl font-black text-yellow-400 font-mono mt-1">${fmt(Math.round(metrageLineaireM))} <span class="text-sm">m</span></div>
+                <div class="text-[10px] text-yellow-200/70 mt-1">sur laize ${fmt(laizeUtile,0)} mm</div>
+            </div>
+        `;
+    }
+
+    const ul = document.getElementById('calc-results-list');
+    ul.innerHTML = `
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2"><span>Laizes</span><strong class="font-mono">${fmt(laizeBobine,0)} → ${fmt(laizeUtile,0)} mm</strong></li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2"><span>% Perte lisières auto</span><strong class="text-yellow-300 font-mono">${perteAuto.toFixed(2)} %</strong></li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2"><span>Grammage structure</span><strong class="font-mono">${totalGrm2.toFixed(1)} g/m²</strong></li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2"><span>Surface Totale (m²)</span><strong class="text-cyan-300 font-mono">${fmt(surface, 2)} m²</strong></li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2"><span>Métrage linéaire utile (m)</span><strong class="text-yellow-300 font-mono">${fmt(metrageLineaireM, 2)} m</strong></li>
+        <li class="flex justify-between border-b border-indigo-500/20 pb-2"><span>Métrage linéaire bobine mère (m)</span><strong class="text-gray-300 font-mono">${fmt(metrageLineaireBobineM, 2)} m</strong></li>
+    `;
+    
+    if (type === 'PIECES') {
+        ul.innerHTML += `<li class="text-center p-2 bg-yellow-900/20 rounded border border-yellow-500/30 my-2">Poids fini ≈ <strong class="text-yellow-400 text-xl">${Math.round(poidsFini).toLocaleString('fr-FR')} kg</strong></li>`;
+    }
+
+    ul.innerHTML += `<div class="mt-4 text-xs text-indigo-300 font-bold uppercase tracking-wider mb-2">Détail par étape (poids + ml + m²)</div>`;
+
+    let allOk = true;
+    lastCalculatedLayers.forEach((L, idx) => {
+        const poidsTheo = (surface * L.grm2) / 1000;
+        const poidsReel = L.perte < 100 ? poidsTheo / (1 - L.perte / 100) : poidsTheo;
+        const surfaceBrute = L.perte < 100 ? surface / (1 - L.perte / 100) : surface;
+        const mlBrut = laizeBobineM > 0 ? surfaceBrute / laizeBobineM : 0;
+        const mlUtile = metrageLineaireM;
+
+        L.poids_kg = poidsReel;
+        L.surface_m2 = surface;
+        L.ml_utile = mlUtile;
+        L.ml_brut = mlBrut;
+
+        if (!L.mat_name || L.mat_name.includes('Couche ')) allOk = false;
+
+        ul.innerHTML += `
+            <li class="bg-slate-900 p-3 rounded border border-slate-800">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <strong class="text-white">${L.operation}</strong> — <span class="text-gray-300">${L.mat_name}</span>
+                        <span class="text-[10px] text-yellow-400 block font-mono mt-0.5">${L.mic}µ · d=${L.den} · ${L.grm2.toFixed(1)}g/m² · perte ${L.perte.toFixed(2)}%</span>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <strong class="text-emerald-400 font-mono text-lg">${fmt(Math.round(poidsReel))} kg</strong>
+                    </div>
+                </div>
+                <div class="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
+                    <div class="bg-slate-950/80 rounded p-1.5 border border-slate-800">
+                        <div class="text-gray-500 uppercase text-[9px]">Surface</div>
+                        <div class="text-cyan-300 font-mono font-bold">${fmt(Math.round(surface))} m²</div>
+                    </div>
+                    <div class="bg-slate-950/80 rounded p-1.5 border border-slate-800">
+                        <div class="text-gray-500 uppercase text-[9px]">ML utile</div>
+                        <div class="text-yellow-300 font-mono font-bold">${fmt(Math.round(mlUtile))} m</div>
+                    </div>
+                    <div class="bg-slate-950/80 rounded p-1.5 border border-slate-800">
+                        <div class="text-gray-500 uppercase text-[9px]">ML + lisières</div>
+                        <div class="text-orange-300 font-mono font-bold">${fmt(Math.round(mlBrut))} m</div>
+                    </div>
+                </div>
+            </li>`;
+    });
+
+    document.getElementById('calc-results').classList.remove('hidden');
+    document.getElementById('calc-results').dataset.poidsFini = poidsFini;
+
+    const btn = document.getElementById('btn-inject');
+    if (allOk) {
+        btn.classList.remove('hidden', 'opacity-50', 'cursor-not-allowed');
+        btn.disabled = false;
+        btn.innerHTML = '2. Injecter dans le Planning';
+    } else {
+        btn.classList.remove('hidden');
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        btn.innerHTML = '⚠️ Sélectionnez les supports pour injecter';
+    }
+}
+
+function injectIntoForm() {
+    if (!lastCalculatedLayers.length) runERPMath();
+    if (!lastCalculatedLayers.length) { alert('Ajoutez au moins une couche et calculez.'); return; }
+
+    const steps = lastCalculatedLayers.map(L => ({
+        titre: L.operation,
+        sous: L.mat_name,
+        support: `${L.mat_name} (${L.grm2.toFixed(1)} g/m², perte ${L.perte.toFixed(1)}%)`,
+        poids: Math.round(L.poids_kg),
+        quantite_ml: Math.round(L.ml_utile || 0),
+        nom: `${L.operation} — ${L.mat_name}`,
+        isDecoupe: false
+    }));
+
+    if (document.getElementById('auto-decoupe')?.checked) {
+        const pf = Math.round(parseFloat(document.getElementById('calc-results').dataset.poidsFini) || 0);
+        steps.push({ titre: 'Découpe / Façonnage', sous: 'Produit fini', support: 'Produit Fini Complexé', poids: pf, quantite_ml: 0, nom: 'Découpe / Façonnage', isDecoupe: true });
+    }
+
+    const btnAdd = document.getElementById('btn-ajouter-etape');
+    let rows = [...document.querySelectorAll('#etapes-container .etape-planif-row')].filter(r => r.style.display !== 'none');
+
+    steps.forEach((st, idx) => {
+        let row = rows[idx];
+        if (!row && btnAdd) {
+            btnAdd.click();
+            rows = [...document.querySelectorAll('#etapes-container .etape-planif-row')].filter(r => r.style.display !== 'none');
+            row = rows[rows.length - 1];
+        }
+        if (!row) return;
+
+        const h3 = row.querySelector('.etape-title');
+        if (h3) h3.innerHTML = st.isDecoupe
+            ? `<span class="text-orange-400 font-bold">Découpe / Façonnage</span>`
+            : `<span class="text-emerald-400 font-bold">${st.titre}</span> <span class="text-xs text-gray-400">(${st.sous})</span>`;
+
+        const set = (sel, val) => { const el = row.querySelector(sel); if (el) el.value = val; };
+        set('input[name$="-nom_etape"]', st.nom);
+        set('input[name$="-support"]', st.support);
+        set('input[name$="-quantite_entree"]', st.poids);
+        set('input[name$="-quantite_ml"]', st.quantite_ml);
+
+        const devVal = document.getElementById('calc_dev')?.value;
+        if (devVal) set('input[name$="-developpement"]', Math.round(parseFloat(devVal) || 0));
+
+        const obs = row.querySelector('textarea[name$="-observation"]');
+        if (obs && !obs.value) obs.value = st.isDecoupe ? 'Étape finale façonnage' : `Auto : ${st.poids} kg | ${st.quantite_ml} m.lin.`;
+
+        const mach = row.querySelector('select[name$="-machine"]');
+        if (mach) mach.classList.add('ring-2', 'ring-emerald-400', 'border-emerald-500');
+
+        row.classList.add('border-emerald-500');
+    });
+
+    propagerNumeroLot();
+    appliquerDatesParSemaine();
+    renuméroterEtapes();
+    document.getElementById('etapes-container').scrollIntoView({ behavior: 'smooth' });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(function(row) {
-        attacherEvenementsRow(row);
-        const shiftSel = row.querySelector('select[name$="-shift"]');
-        const hDeb = row.querySelector('input[name$="-heure_debut_planifiee"]');
-        if (shiftSel && shiftSel.value && hDeb && !hDeb.value) applyShiftHours(row);
+    ['calc_qte','calc_laize_bobine','calc_laize_utile','calc_dev'].forEach(id => {
+        const el = document.getElementById(id); 
+        if (el && el.value) { const v = parseFloat(String(el.value).replace(',','.')); if (!isNaN(v)) el.value = v; }
     });
+    document.querySelectorAll('#etapes-container .etape-planif-row').forEach(row => {
+        attacherEvenementsRow(row);
+        const s = row.querySelector('select[name$="-shift"]');
+        const h = row.querySelector('input[name$="-heure_debut_planifiee"]');
+        if (s?.value && h && !h.value) applyShiftHours(row);
+    });
+    document.getElementById('id_semaine_cible')?.addEventListener('change', appliquerDatesParSemaine);
+    const lot = document.getElementById('id_numero_lot_of');
+    if (lot) { lot.addEventListener('input', propagerNumeroLot); lot.addEventListener('change', propagerNumeroLot); }
 
-    const weekPicker = document.getElementById('id_semaine_cible');
-    if (weekPicker) {
-        weekPicker.addEventListener('change', appliquerDatesParSemaine);
-    }
-
-    const numeroLotOF = document.getElementById('id_numero_lot_of');
-    if (numeroLotOF) {
-        numeroLotOF.addEventListener('input', propagerNumeroLot);
-        numeroLotOF.addEventListener('change', propagerNumeroLot);
-        setTimeout(function() {
-            if (numeroLotOF.value.trim()) {
-                document.querySelectorAll('input[name$="-numero_lot_etape"]').forEach(function(input) {
-                    if (!input.value.trim()) input.value = numeroLotOF.value.trim();
-                });
-            }
-        }, 100);
-    }
-
-    const btnAjouter = document.getElementById('btn-ajouter-etape');
+    const btnAdd = document.getElementById('btn-ajouter-etape');
     const container = document.getElementById('etapes-container');
     const template = document.getElementById('empty-form-template');
     const totalForms = document.querySelector('input[name="etapes-TOTAL_FORMS"]');
     const emptyState = document.getElementById('empty-state-message');
-
-    if (btnAjouter && container && template && totalForms) {
-        btnAjouter.addEventListener('click', function() {
+    if (btnAdd && container && template && totalForms) {
+        btnAdd.addEventListener('click', () => {
             if (emptyState) emptyState.style.display = 'none';
-            const currentIndex = parseInt(totalForms.value);
-            let newHtml = template.innerHTML.replace(/__prefix__/g, currentIndex);
-            const temp = document.createElement('div');
-            temp.innerHTML = newHtml.trim();
-            const newRow = temp.firstElementChild;
+            const idx = parseInt(totalForms.value, 10);
+            const wrap = document.createElement('div');
+            wrap.innerHTML = template.innerHTML.replace(/__prefix__/g, idx).trim();
+            const newRow = wrap.firstElementChild;
             container.appendChild(newRow);
-            totalForms.value = currentIndex + 1;
+            totalForms.value = idx + 1;
             attacherEvenementsRow(newRow);
-            propagerNumeroLot();
-            appliquerDatesParSemaine();
-            renuméroterEtapes();
-            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            propagerNumeroLot(); appliquerDatesParSemaine(); renuméroterEtapes();
         });
     }
+    
+    addLayer();
+    recalcPerteAndPreview();
 });
 </script>
 {% endblock %}

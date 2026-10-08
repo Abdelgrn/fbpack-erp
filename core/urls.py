@@ -5,8 +5,13 @@ from django.conf.urls.static import static
 from . import views
 from .views import of_views
 from .views import production_speciale as prod_views
+
+# MODULE KPI
+from .kpi import views as kpi_analytics
+
 # IMPORT DIRECT SÉCURISÉ DU SCANNER IA, DE L'IMPORT STOCK ET DES SUPPRESSIONS MULTIPLES
 from .views.stock import scan_label_ai, import_stock_view, bulk_delete_materials, bulk_delete_movements
+
 
 urlpatterns = [
     # ==========================================
@@ -20,6 +25,11 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('reporting/', views.reporting, name='reporting'),
     path('stock/import/', import_stock_view, name='import_stock'),
+
+    # ==========================================
+    # KPI GÉNÉRAL & DATA ANALYSE
+    # ==========================================
+    path('kpi/', kpi_analytics.kpi_dashboard, name='kpi_dashboard'),
 
     # ==========================================
     # CRM — CLIENTS
@@ -70,6 +80,10 @@ urlpatterns = [
     path('crm/commande/<int:id>/stock/', views.commande_check_stock, name='commande_check_stock'),
     path('crm/commande/<int:id>/creer-of/', views.commande_creer_of, name='commande_creer_of'),
 
+    # Alias conservé pour les liens utilisant le nom "creer_of".
+    # Le nom original "commande_creer_of" reste disponible.
+    path('crm/commande/<int:id>/creer-of/', views.commande_creer_of, name='creer_of'),
+
     # ==========================================
     # CRM — DEMANDES DE PRIX
     # ==========================================
@@ -89,6 +103,18 @@ urlpatterns = [
     path('crm/api/stock-check/', views.api_check_material_stock, name='api_check_material_stock'),
 
     # ==========================================
+    # COMPATIBILITÉ DES LIENS OF EXISTANTS
+    # ==========================================
+    # Le Gantt utilise le nom "of_create".
+    # Réutilisation de la vue de création CRM existante.
+    path('of/create/', views.crm_of_create, name='of_create'),
+
+    # Le dashboard et certains templates utilisent "of_detail".
+    # La vue existante attend un argument nommé "of_id".
+    # Ces liens ouvrent la fiche OF du CRM.
+    path('of/<int:of_id>/', views.crm_of_detail, name='of_detail'),
+
+    # ==========================================
     # MODULE PLANIFICATION & ORDONNANCEMENT
     # ==========================================
     path('planification/', of_views.planning_atelier_view, name='planning_atelier'),
@@ -97,17 +123,11 @@ urlpatterns = [
     path('planification/ordonnancer/<int:of_id>/', of_views.planification_ordonnancer, name='planification_ordonnancer'),
     path('planification/export-excel/', of_views.export_planning_excel, name='export_planning_excel'),
 
-    # Alias de compatibilité
-    path('crm/of/alias-list/', views.crm_of_list, name='of_list_alias'),
-    path('crm/of/alias-create/', views.crm_of_create, name='of_create'),
-    path('crm/of/alias-<int:of_id>/', views.crm_of_detail, name='of_detail'),
-    path('crm/of/alias-<int:of_id>/edit/', views.crm_of_edit, name='of_edit'),
-    path('crm/of/alias-<int:of_id>/statut/<str:nouveau_statut>/', views.crm_of_changer_statut, name='of_changer_statut'),
-
     # ==========================================
-    # PRÉPRESSE & OUTILS
+    # PRÉPRESSE & OUTILS (MIS À JOUR AVEC TRI PAR CLIENT)
     # ==========================================
     path('prepress/', views.prepress_view, name='prepress_view'),
+    path('prepress/client/<int:client_id>/', views.prepress_client_products, name='prepress_client_products'), # <-- NOUVEAU ICI
     path('prepress/add/', views.add_product, name='add_product'),
     path('prepress/edit/<int:id>/', views.edit_product, name='edit_product'),
     path('tools/add/', views.add_tool, name='add_tool'),
@@ -162,7 +182,7 @@ urlpatterns = [
     path('stock/search/api/', views.material_search_api, name='material_search_api'),
     path('stock/export/', views.export_search_results, name='export_search_results'),
     path('stock/mouvements/export/', views.export_mouvements, name='export_mouvements'),
-    
+
     # --- API SCANNER IA ---
     path('stock/api/scan-label/', scan_label_ai, name='scan_label_ai'),
 
@@ -210,13 +230,13 @@ urlpatterns = [
     path('prod/base/', prod_views.prod_base, name='prod_base'),
     path('prod/qualite/', prod_views.prod_detail_qualite, name='prod_detail_qualite'),
     path('prod/synthese/', prod_views.prod_synthese_temps, name='prod_synthese_temps'),
-    
+
     path('prod/qualite/export/', prod_views.export_qualite_excel, name='export_qualite_excel'),
     path('prod/synthese/export/', prod_views.export_synthese_excel, name='export_synthese_excel'),
-    
+
     path('prod/tracabilite/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_search'),
     path('prod/tracabilite/<str:numero_lot>/', prod_views.prod_tracabilite_lot, name='prod_tracabilite_lot'),
-    
+
     path('prod/synthese/calculer/', prod_views.prod_calculer_temps, name='prod_calculer_temps'),
     path('prod/synthese/calculer/save/', prod_views.prod_calculer_temps_save, name='prod_calculer_temps_save'),
     path('prod/synthese/calculer/<int:id>/delete/', prod_views.prod_calculer_temps_delete, name='prod_calculer_temps_delete'),
@@ -299,6 +319,10 @@ urlpatterns = [
     path('chat/api/notify/', views.send_system_notification, name='send_system_notification'),
     path('chat/api/notifications/', views.chat_notifications_api, name='chat_notifications_api'),
 
+    # --- Widget flottant (Salons + Privés) ---
+    path('chat/api/widget/', views.chat_widget_data, name='chat_widget_data'),
+    path('chat/api/private/<int:user_id>/', views.chat_private_api, name='chat_private_api'),
+
     # ==========================================
     # MAINTENANCE AVANCÉE
     # ==========================================
@@ -336,6 +360,7 @@ urlpatterns = [
     path('maintenance/machine/<int:machine_id>/delete/', views.maintenance_machine_delete, name='maintenance_machine_delete'),
     path('maintenance/calendrier/', views.maintenance_calendrier, name='maintenance_calendrier'),
 ]
+
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

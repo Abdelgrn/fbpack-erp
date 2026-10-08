@@ -2,8 +2,9 @@ from django import forms
 from django.forms import inlineformset_factory
 from core.models import (
     OrdreFabrication, EtapeProduction, SuiviProduction, SemiProduit,
-    ConsommationMatiere, ProcessType, Client, TechnicalProduct, Machine, Atelier
+    ConsommationMatiere, ProcessType, Client, TechnicalProduct, Machine, Atelier, Material
 )
+import json
 
 
 class OrdreFabricationForm(forms.ModelForm):
@@ -46,6 +47,23 @@ class OrdreFabricationForm(forms.ModelForm):
         self.fields['bat_file'].required = False
         self.fields['fiche_technique'].required = False
 
+    # --- PONT JSON POUR LE CALCULATEUR FRONT-END ---
+    def get_films_json(self):
+        """Récupère uniquement les matières de type FILM/PAPIER pour l'ordonnancement."""
+        films = Material.objects.filter(category='FILM', is_archived=False).values(
+            'id', 'name', 'code', 'quantity', 'unit'
+        ).order_by('name')
+        liste = []
+        for f in films:
+            nom_complet = f"{f['name']} ({f['code']})" if f['code'] else f['name']
+            liste.append({
+                'id': f['id'],
+                'nom': nom_complet,
+                'stock': float(f['quantity'] or 0),
+                'unite': f['unit']
+            })
+        return json.dumps(liste)
+
 
 class EtapeProductionForm(forms.ModelForm):
     class Meta:
@@ -78,14 +96,29 @@ class EtapeProductionForm(forms.ModelForm):
             'atelier': forms.Select(attrs={'class': 'form-select atelier-select'}),
             'machine': forms.Select(attrs={'class': 'form-select'}),
             'operateur': forms.Select(attrs={'class': 'form-select'}),
-            
-            # Cacher formellement les anciens champs globaux si jamais ils s'affichent par erreur
-            'quantite_entree': forms.HiddenInput(),
-            'support': forms.HiddenInput(),
-            'developpement': forms.HiddenInput(),
-            'quantite_ml': forms.HiddenInput(),
-            'unite_sortie': forms.HiddenInput(),
-            'nb_bobines': forms.HiddenInput(),
+
+            # --- CHAMPS TECHNIQUES VISIBLES (injection calculateur) ---
+            'quantite_entree': forms.NumberInput(attrs={
+                'class': 'w-full bg-slate-950 border border-yellow-500/50 rounded-lg p-2.5 text-sm text-yellow-400 font-bold font-mono',
+                'step': '0.01', 'min': '0', 'placeholder': 'Kg matière'
+            }),
+            'support': forms.TextInput(attrs={
+                'class': 'w-full bg-slate-950 border border-slate-600 rounded-lg p-2.5 text-sm text-white',
+                'placeholder': 'Ex: OPP 20 TRS / Kraft 70g'
+            }),
+            'developpement': forms.NumberInput(attrs={
+                'class': 'w-full bg-slate-950 border border-slate-600 rounded-lg p-2.5 text-sm text-white font-mono',
+                'step': '0.1', 'min': '0', 'placeholder': 'mm'
+            }),
+            'quantite_ml': forms.NumberInput(attrs={
+                'class': 'w-full bg-slate-950 border border-cyan-500/40 rounded-lg p-2.5 text-sm text-cyan-300 font-mono',
+                'step': '0.01', 'min': '0', 'placeholder': 'ML / pcs'
+            }),
+            'unite_sortie': forms.Select(attrs={'class': 'form-select'}),
+            'nb_bobines': forms.NumberInput(attrs={
+                'class': 'w-full bg-slate-950 border border-slate-600 rounded-lg p-2.5 text-sm text-white font-mono',
+                'min': '0', 'placeholder': 'Nb'
+            }),
             
             'numero_lot_etape': forms.TextInput(attrs={'class': 'form-control'}),
             'observation': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),

@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- EN-TÊTE -->
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+        <div>
+            <h1 class="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                📊 <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">Tableau de Bord</span>
+            </h1>
+            <p class="text-slate-400 text-sm md:text-base mt-2">Vue transversale ERP — Production · CRM · Pré-presse · Stock · Maintenance</p>
+        </div>
+        <div class="bg-slate-800/60 border border-slate-700/50 backdrop-blur-md rounded-2xl px-6 py-5 shadow-2xl shadow-black/20">
+            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Chiffre d'Affaires Validé</div>
+            <div class="text-4xl font-mono font-extrabold text-emerald-400 tracking-tight">{{ ca_global|floatformat:0 }} <span class="text-xl text-slate-400 font-medium">DA</span></div>
+            <div class="text-xs text-slate-500 mt-1">{{ nb_commandes_global }} commandes actives</div>
+        </div>
+    </div>
+
+    <!-- KPI RAPIDES -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10">
+        <div class="relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-slate-900 border border-blue-500/20 rounded-2xl p-6 shadow-xl shadow-blue-900/10 group hover:-translate-y-1 transition-transform duration-300">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
+            <div class="text-xs text-blue-300 uppercase tracking-widest font-bold mb-2">Clients</div>
+            <div class="text-4xl font-extrabold text-white mb-1">{{ clients_stats.total }}</div>
+            <div class="text-xs text-slate-400">Actifs <b class="text-emerald-400">{{ clients_stats.actifs }}</b> · VIP <b class="text-purple-400">{{ clients_stats.vip }}</b></div>
+        </div>
+        <div class="relative overflow-hidden bg-gradient-to-br from-cyan-600/20 to-slate-900 border border-cyan-500/20 rounded-2xl p-6 shadow-xl shadow-cyan-900/10 group hover:-translate-y-1 transition-transform duration-300">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
+            <div class="text-xs text-cyan-300 uppercase tracking-widest font-bold mb-2">Produits Techniques</div>
+            <div class="text-4xl font-extrabold text-white mb-1">{{ produits_tech.total }}</div>
+            <div class="text-xs text-slate-400">Fiches techniques créées</div>
+        </div>
+        <div class="relative overflow-hidden bg-gradient-to-br from-emerald-600/20 to-slate-900 border border-emerald-500/20 rounded-2xl p-6 shadow-xl shadow-emerald-900/10 group hover:-translate-y-1 transition-transform duration-300">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
+            <div class="text-xs text-emerald-300 uppercase tracking-widest font-bold mb-2">Stock Matériaux</div>
+            <div class="text-4xl font-extrabold text-white mb-1">{{ stock_total.total_items }}</div>
+            <div class="text-xs text-slate-400">Quantité: <b class="text-emerald-300">{{ stock_total.total_qte|floatformat:1|default:"0" }}</b></div>
+        </div>
+        <div class="relative overflow-hidden bg-gradient-to-br from-amber-600/20 to-slate-900 border border-amber-500/20 rounded-2xl p-6 shadow-xl shadow-amber-900/10 group hover:-translate-y-1 transition-transform duration-300">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
+            <div class="text-xs text-amber-300 uppercase tracking-widest font-bold mb-2">Production</div>
+            <div class="text-4xl font-extrabold text-white mb-1">{{ fiches_stats.total_fiches }}</div>
+            <div class="text-xs text-slate-400">Déchet moyen <b class="text-amber-300">{{ fiches_stats.dechet_moyen|floatformat:1|default:"0" }} kg</b></div>
+        </div>
+    </div>
+
+    <!-- GRILLE PRINCIPALE -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- COLONNE GAUCHE : TOP CLIENTS -->
+        <div class="lg:col-span-2 bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white shadow-lg">🏆</div>
+                <h2 class="text-xl font-extrabold text-white">Top Clients <span class="text-amber-400">par CA</span></h2>
+            </div>
+
+            {% if top_clients_commande %}
+            <div class="overflow-x-auto rounded-2xl border border-slate-700/30">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-900/80 text-xs uppercase tracking-wider text-slate-400">
+                        <tr>
+                            <th class="text-left px-4 py-3.5 font-bold">Client</th>
+                            <th class="text-left px-4 py-3.5 font-bold">Segment</th>
+                            <th class="text-center px-4 py-3.5 font-bold">Cmd</th>
+                            <th class="text-right px-4 py-3.5 font-bold">CA (DA)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        {% for c in top_clients_commande %}
+                        <tr class="hover:bg-slate-700/30 transition-colors">
+                            <td class="px-4 py-3.5">
+                                <a href="#" class="font-bold text-white hover:text-amber-400 transition-colors block">{{ c.client__name }}</a>
+                                <span class="text-[10px] text-slate-500 font-mono">{{ c.client__code_client }}</span>
+                            </td>
+                            <td class="px-4 py-3.5 text-slate-300">{{ c.client__name }}</td>
+                            <td class="px-4 py-3.5 text-center font-mono text-white">{{ c.nb_cmd }}</td>
+                            <td class="px-4 py-3.5 text-right font-mono font-extrabold text-amber-400">{{ c.ca|floatformat:0 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-5 pt-5 border-t border-slate-700/40 flex flex-wrap gap-6 text-xs text-slate-400 font-medium">
+                <span>Opportunités: <b class="text-cyan-400 font-bold">{{ opportunites_stats.total }}</b></span>
+                <span>Gagnées: <b class="text-emerald-400 font-bold">{{ opportunites_stats.gagnees }}</b></span>
+                <span>Perdues: <b class="text-red-400 font-bold">{{ opportunites_stats.perdues }}</b></span>
+            </div>
+            {% else %}
+            <div class="flex items-center justify-center py-16 text-slate-500">Aucune commande enregistrée</div>
+            {% endif %}
+        </div>
+
+        <!-- COLONNE DROITE : PRODUITS -->
+        <div class="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
+            <h2 class="text-xl font-extrabold text-white mb-6 flex items-center gap-3">📦 <span class="text-cyan-400">Top Produits</span></h2>
+            {% if top_produits_vendus %}
+            <div class="space-y-3">
+                {% for p in top_produits_vendus %}
+                <a href="#" class="block bg-slate-900/40 hover:bg-slate-900/70 border border-slate-700/40 hover:border-cyan-500/40 rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-cyan-900/10">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="font-bold text-white text-base">{{ p.produit__name|default:"Produit" }}</div>
+                            <div class="text-xs text-slate-500 font-mono mt-1">{{ p.produit__ref_internal }}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-extrabold text-cyan-300">{{ p.qte_totale|floatformat:1 }}</div>
+                            <div class="text-[10px] text-slate-500 font-medium">{{ p.nb_lignes }} lignes</div>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="flex items-center justify-center py-16 text-slate-500">Aucun produit commandé</div>
+            {% endif %}
+        </div>
+
+        <!-- DÉCHETS -->
+        <div class="lg:col-span-3 bg-gradient-to-br from-rose-900/20 via-slate-800/60 to-slate-800/60 backdrop-blur-xl border border-rose-900/20 rounded-3xl p-8 shadow-2xl">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white shadow-lg">🔥</div>
+                <h2 class="text-xl font-extrabold text-white">Produits avec le plus de <span class="text-red-400">Déchets</span> &amp; Temps</h2>
+            </div>
+            <div class="overflow-x-auto rounded-2xl border border-slate-700/30">
+                <table class="w-full text-sm text-slate-200">
+                    <thead class="bg-slate-900/80 text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        <tr>
+                            <th class="text-left px-5 py-4">Produit</th>
+                            <th class="text-center px-5 py-4">Fiches</th>
+                            <th class="text-right px-5 py-4">Déchets (kg)</th>
+                            <th class="text-right px-5 py-4">Durée Moy. (min)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/40">
+                        {% for d in produits_dechets %}
+                        <tr class="hover:bg-slate-700/20 transition-colors">
+                            <td class="px-5 py-4 font-semibold text-white">{{ d.designation_produit }}</td>
+                            <td class="px-5 py-4 text-center font-mono text-cyan-300">{{ d.nb_fiches }}</td>
+                            <td class="px-5 py-4 text-right font-mono font-extrabold text-red-400">{{ d.total_dechets|floatformat:2|default:"0" }}</td>
+                            <td class="px-5 py-4 text-right font-mono text-slate-400">{{ d.duree_moyenne|floatformat:0|default:"—" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="px-5 py-10 text-center text-slate-500">Aucune donnée de production disponible</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- MACHINES -->
+        <div class="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl">
+            <h2 class="text-lg font-extrabold text-white mb-5 flex items-center gap-2">⚙️ Machines</h2>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-700/40 pb-3">
+                    <span class="text-slate-400 text-sm">Total</span>
+                    <span class="font-extrabold text-white text-xl">{{ machines_stats.total }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 text-sm">Actives</span>
+                    <span class="font-extrabold text-emerald-400 text-xl">{{ machines_stats.actives }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- OUTILLAGE PRÉPRESSE : CORRIGÉ -->
+        <div class="lg:col-span-2 bg-gradient-to-br from-amber-950/40 via-slate-800/70 to-slate-900/80 backdrop-blur-xl border border-amber-500/20 rounded-3xl p-8 shadow-2xl shadow-amber-900/10">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-white text-lg shadow-lg">⚙️</div>
+                <h2 class="text-xl font-extrabold text-white">Outillage <span class="text-amber-400">Prépresse</span></h2>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mb-8">
+                <div class="bg-slate-900/50 border border-slate-700/60 rounded-2xl p-5 text-center hover:border-amber-400/30 transition-colors">
+                    <div class="text-3xl font-extrabold text-white mb-1">{{ tooling_stats.total }}</div>
+                    <div class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Total Outillages</div>
+                </div>
+                <div class="bg-slate-900/50 border border-blue-500/20 rounded-2xl p-5 text-center hover:border-blue-400/40 transition-colors">
+                    <div class="text-3xl font-extrabold text-blue-400 mb-1">{{ tooling_stats.cylindres }}</div>
+                    <div class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Cylindres (Hélio)</div>
+                </div>
+                <div class="bg-slate-900/50 border border-purple-500/20 rounded-2xl p-5 text-center hover:border-purple-400/40 transition-colors">
+                    <div class="text-3xl font-extrabold text-purple-400 mb-1">{{ tooling_stats.cliches }}</div>
+                    <div class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Clichés (Flexo)</div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-2xl border border-slate-700/40">
+                <table class="w-full text-sm text-slate-200">
+                    <thead class="bg-slate-900/80 text-[11px] uppercase tracking-widest text-slate-400 font-extrabold">
+                        <tr>
+                            <th class="text-left px-5 py-4">Réf. / Code</th>
+                            <th class="text-left px-5 py-4">Type</th>
+                            <th class="text-left px-5 py-4">Produit Lié</th>
+                            <th class="text-right px-5 py-4">Tours</th>
+                            <th class="text-right px-5 py-4">Durée Vie</th>
+                            <th class="text-right px-5 py-4">Usure</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/30">
+                        {% for t in top_tooling %}
+                        <tr class="hover:bg-slate-800/40 transition-colors">
+                            <td class="px-5 py-4 font-mono text-xs font-bold text-amber-300">{{ t.serial_number }}</td>
+                            <td class="px-5 py-4">
+                                {% if t.tool_type == 'CYL' %}
+                                    <span class="bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide">Cylindre</span>
+                                {% else %}
+                                    <span class="bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide">Cliché</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-xs">
+                                {% if t.product %}
+                                    <span class="font-bold text-white block">{{ t.product.ref_internal }}</span>
+                                    <span class="text-slate-500 block text-[11px]">{{ t.product.name }}</span>
+                                {% else %}
+                                    <span class="text-slate-600">Non lié</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-right font-mono font-bold text-white">{{ t.current_impressions }}</td>
+                            <td class="px-5 py-4 text-right font-mono text-slate-400">{{ t.max_impressions }}</td>
+                            <td class="px-5 py-4 text-right">
+                                <div class="inline-flex items-center gap-3">
+                                    <span class="text-xs font-extrabold 
+                                        {% if t.wear_percent >= 90 %}text-red-400
+                                        {% elif t.wear_percent >= 70 %}text-amber-400
+                                        {% else %}text-emerald-400{% endif %}">
+                                        {{ t.wear_percent }}%
+                                    </span>
+                                    <div class="w-16 h-2 bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                                        <div class="h-full w-full rounded-full 
+                                            {% if t.wear_percent >= 90 %}bg-gradient-to-r from-red-500 to-red-400
+                                            {% elif t.wear_percent >= 70 %}bg-gradient-to-r from-amber-400 to-amber-300
+                                            {% else %}bg-gradient-to-r from-emerald-400 to-emerald-300{% endif %}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-5 py-10 text-center text-slate-500 text-sm">Aucun outillage enregistré</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- STOCK -->
+        <div class="bg-gradient-to-br from-purple-950/40 to-slate-900/80 border border-purple-500/20 rounded-3xl p-8 shadow-2xl">
+            <h2 class="text-xl font-extrabold text-white mb-5 flex items-center gap-3">📦 <span class="text-purple-300">Stock</span> Matériaux</h2>
+            <div class="bg-slate-900/40 rounded-2xl p-6 border border-slate-700/40">
+                <p class="text-2xl font-extrabold text-white">{{ stock_total.total_items }} <span class="text-base font-medium text-slate-400">références</span></p>
+                <p class="text-sm text-slate-400 mt-2">Quantité totale : <b class="text-purple-300">{{ stock_total.total_qte|floatformat:1|default:"0" }}</b></p>
+            </div>
+            <p class="text-xs text-slate-600 mt-4">Module Stock intégré. Consultez le module Stock &amp; Achats pour plus de détails.</p>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

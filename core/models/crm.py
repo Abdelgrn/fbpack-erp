@@ -73,7 +73,6 @@ class Client(models.Model):
     date_creation = models.DateField("Date d'entrée", default=timezone.now)
     notes = models.TextField("Notes internes", blank=True)
 
-    # --- AJOUTS CRM MODERNE ---
     source_prospect = models.CharField(
         "Source du prospect", max_length=20, choices=SOURCE_CHOICES, blank=True, default=''
     )
@@ -130,12 +129,28 @@ class Client(models.Model):
         return self.status == 'PROSPECT'
 
     def convertir_en_client(self):
-        """Convertit un prospect en client actif."""
         if self.status == 'PROSPECT':
             self.status = 'ACTIVE'
             self.date_conversion = timezone.now().date()
             self.save(update_fields=['status', 'date_conversion'])
         return self
+
+    def get_produits_stats(self):
+        """Calcule les statistiques des produits commandés par ce client."""
+        from django.db.models import Sum, Count, Max
+        lignes = LigneCommandeClient.objects.filter(
+            commande__client=self
+        ).exclude(commande__statut='ANNULEE')
+        
+        stats = lignes.values(
+            'produit__id', 'produit__name', 'produit__ref_internal', 'designation'
+        ).annotate(
+            total_quantite=Sum('quantite'),
+            nb_commandes=Count('commande', distinct=True),
+            derniere_date=Max('commande__date_commande'),
+            unite_commun=Max('unite')
+        ).order_by('-total_quantite')
+        return stats
 
 
 class ClientContact(models.Model):
@@ -234,7 +249,6 @@ class Opportunite(models.Model):
     motif_perte = models.CharField("Motif de perte", max_length=200, blank=True)
     notes = models.TextField("Notes", blank=True)
 
-    # --- AJOUTS CRM MODERNE ---
     produit_demande = models.ForeignKey(
         'core.TechnicalProduct', on_delete=models.SET_NULL, null=True, blank=True,
         verbose_name="Produit demandé", related_name='opportunites'
@@ -268,7 +282,6 @@ class Opportunite(models.Model):
         return round(float(self.valeur_estimee) * self.probabilite / 100, 2)
 
     def stock_disponible_pour_opportunite(self):
-        """Vérifie si le stock matière est suffisant pour cette opportunité."""
         if not self.material_principal:
             return {'disponible': None, 'stock': 0, 'besoin': self.quantite_estimee, 'message': 'Aucune matière liée'}
         stock = self.material_principal.quantity or 0
@@ -285,7 +298,6 @@ class Opportunite(models.Model):
 
 
 class CommandeClient(models.Model):
-    """Commande client commerciale — reliée au stock et à la production (OF)."""
     STATUT_CHOICES = [
         ('BROUILLON', 'Brouillon'),
         ('CONFIRMEE', 'Confirmée'),
@@ -370,7 +382,6 @@ class CommandeClient(models.Model):
         super().save(*args, **kwargs)
 
     def recalculer_montants(self):
-        """Recalcule montant_ht et montant_total à partir des lignes."""
         total = sum(float(l.montant_ligne) for l in self.lignes.all())
         self.montant_ht = total
         remise = float(self.remise_globale or 0)
@@ -378,10 +389,6 @@ class CommandeClient(models.Model):
         self.save(update_fields=['montant_ht', 'montant_total'])
 
     def verifier_stock_global(self):
-        """
-        Vérifie la disponibilité stock pour toutes les lignes.
-        Retourne un dict résumé pour le commercial.
-        """
         resultats = []
         tout_ok = True
         for ligne in self.lignes.select_related('material', 'produit').all():
@@ -425,13 +432,10 @@ class CommandeClient(models.Model):
         return sum(l.quantite for l in self.lignes.all())
 
     def peut_creer_of(self):
-        """True si on peut générer un OF depuis cette commande."""
         return self.statut in ('CONFIRMEE', 'EN_PRODUCTION') and not self.of_lie_id
 
 
 class LigneCommandeClient(models.Model):
-    """Ligne de commande client avec vérification stock matière."""
-
     commande = models.ForeignKey(
         CommandeClient, on_delete=models.CASCADE, related_name='lignes', verbose_name="Commande"
     )
@@ -451,6 +455,12 @@ class LigneCommandeClient(models.Model):
     date_livraison = models.DateField("Date livraison ligne", null=True, blank=True)
     notes = models.TextField("Notes", blank=True)
 
+    type_calcul = models.CharField("Type Calcul", max_length=20, default='STANDARD', choices=[('STANDARD', 'Standard'), ('POIDS', 'Bobines (Poids)'), ('PIECES', 'Sacs/Étiquettes (Pièces)')])
+    laize_fabrication = models.FloatField("Laize (mm)", default=0, null=True, blank=True)
+    developpement_fabrication = models.FloatField("Développement (mm)", default=0, null=True, blank=True)
+    poses_fabrication = models.IntegerField("Nombre poses", default=1, null=True, blank=True)
+    structure_json = models.TextField("Structure Technique JSON", blank=True, null=True)
+
     class Meta:
         app_label = 'core'
         verbose_name = "Ligne commande client"
@@ -467,10 +477,6 @@ class LigneCommandeClient(models.Model):
         return round(brut * (1 - remise / 100), 2)
 
     def verifier_stock(self):
-        """
-        Vérifie si le stock matière est suffisant pour cette ligne.
-        Utilisé par le commercial pour voir la dispo en temps réel.
-        """
         if not self.material:
             return {
                 'ligne_id': self.id,
@@ -509,7 +515,6 @@ class LigneCommandeClient(models.Model):
 
 
 class DemandePrix(models.Model):
-    """Demande de prix client (avant devis formel)."""
     STATUT_CHOICES = [
         ('NOUVELLE', 'Nouvelle'),
         ('EN_ETUDE', 'En étude'),
@@ -584,3 +589,28 @@ class DemandePrix(models.Model):
                 num = 1
             self.reference = f"DP{annee}-{num:04d}"
         super().save(*args, **kwargs)
+
+
+class ClientProductPrice(models.Model):
+    UNITE_CHOICES = [
+        ('kg', 'Kilogramme (kg)'),
+        ('piece', 'Pièce / Étiquette'),
+        ('ml', 'Mètre Linéaire (ml)'),
+        ('forfait', 'Forfait global'),
+    ]
+    
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='tarifs_specifiques')
+    product = models.ForeignKey('core.TechnicalProduct', on_delete=models.CASCADE, related_name='tarifs_commerciaux')
+    prix_unitaire = models.DecimalField("Prix Unitaire (DA)", max_digits=14, decimal_places=2, default=0)
+    unite = models.CharField("Unité", max_length=20, choices=UNITE_CHOICES, default='kg')
+    remise_specifique = models.DecimalField("Remise spécifique (%)", max_digits=5, decimal_places=2, default=0)
+    date_application = models.DateField("Applicable depuis", default=timezone.now)
+
+    class Meta:
+        app_label = 'core'
+        verbose_name = "Tarif Client / Produit"
+        verbose_name_plural = "Tarifs Clients / Produits"
+        unique_together = ('client', 'product')
+
+    def __str__(self):
+        return f"{self.product.name} — {self.prix_unitaire} DA/{self.unite} ({self.client.name})"

@@ -1,73 +1,280 @@
 {% extends 'base.html' %}
-
 {% block content %}
-<div class="max-w-4xl mx-auto mt-6">
-    <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl p-8">
-        
-        <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
-            <h2 class="text-2xl font-bold text-white">{{ titre }}</h2>
-            <a href="{% url 'prepress_view' %}" class="text-gray-400 hover:text-white transition">✖ Fermer</a>
-        </div>
+<div class="max-w-6xl mx-auto my-6 space-y-6">
 
-        <!-- IMPORTANT : enctype est OBLIGATOIRE pour l'envoi de fichiers -->
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- CLIENT (Pleine largeur) -->
-                <div class="col-span-2">
-                    <label class="block text-gray-400 text-sm font-bold mb-2">Client</label>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <a href="{% url 'prepress_view' %}"
+           class="text-gray-400 hover:text-white text-sm font-bold flex items-center gap-2 bg-slate-800 px-4 py-2 rounded-xl border border-slate-700 transition">
+            ⬅️ Annuler & Retour
+        </a>
+        <h1 class="text-2xl font-black text-white">{{ titre }}</h1>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-6" id="ficheTechForm">
+        {% csrf_token %}
+
+        <!-- BLOC 1 : EN-TÊTE -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-700 pb-4">
+                <h2 class="text-lg font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+                    <span>📄</span> En-tête Fiche Technique Flexo
+                </h2>
+                <div class="w-full md:w-1/2 bg-blue-500/10 p-3 rounded-xl border border-blue-500/30">
+                    <label class="block text-xs font-bold text-blue-400 mb-1.5">📎 Joindre PDF (Fiche Technique / BAT)</label>
+                    {{ form.artwork_file }}
+                    {% if form.instance.pk and form.instance.artwork_file %}
+                    <a href="{{ form.instance.artwork_file.url }}" target="_blank" class="inline-block mt-2 text-[11px] text-blue-300 hover:text-white underline">
+                        📄 Voir le fichier actuel
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Client *</label>
                     {{ form.client }}
                 </div>
-
-                <!-- REF & NOM -->
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-2">Référence Interne</label>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Référence Interne (Code) *</label>
                     {{ form.ref_internal }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-2">Désignation Produit</label>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Article (Désignation) *</label>
                     {{ form.name }}
                 </div>
-
-                <!-- DETAILS TECHNIQUES -->
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-2">Structure</label>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Graveur</label>
+                    {{ form.graveur }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Référence Graveur</label>
+                    {{ form.ref_graveur }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Type de Dossier</label>
+                    {{ form.type_dossier }}
+                </div>
+
+                <!-- BAT / VERSION / OBSOLÈTE -->
+                <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700">
+                    <label class="block text-xs font-bold text-yellow-400 mb-1">Statut d'approbation BAT</label>
+                    {{ form.bat_status }}
+                </div>
+                <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700">
+                    <label class="block text-xs font-bold text-cyan-400 mb-1">Version Fiche</label>
+                    {{ form.version }}
+                </div>
+                <div class="bg-red-900/10 p-3 rounded-xl border border-red-500/20 flex flex-col justify-center items-center">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        {{ form.is_obsolete }}
+                        <span class="text-sm font-bold text-red-400">Classer comme Obsolète</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOC 2 : MESURES -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl space-y-6">
+            <h2 class="text-lg font-extrabold text-white uppercase tracking-wider border-b border-slate-700 pb-3 flex items-center gap-2">
+                <span>📏</span> Mesures & Spécifications Clichés / Bobine
+            </h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Pas (mm)</label>
+                    {{ form.cut_length_mm }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Nombre de Poses (Pas)</label>
+                    {{ form.nb_poses_pas }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Développement (mm)</label>
+                    {{ form.developpement_mm }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Structure</label>
                     {{ form.structure_type }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-2">Nombre de Couleurs</label>
-                    {{ form.num_colors }}
-                </div>
-
-                <!-- DIMENSIONS -->
-                <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-2">Laize (mm)</label>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Laize (mm)</label>
                     {{ form.width_mm }}
                 </div>
                 <div>
-                    <label class="block text-gray-400 text-sm font-bold mb-2">Pas de coupe (mm)</label>
-                    {{ form.cut_length_mm }}
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Nombre de Poses (Laize)</label>
+                    {{ form.nb_poses_laize }}
                 </div>
-
-                <!-- FICHIER (Pleine largeur) -->
-                <div class="col-span-2 border-t border-slate-700 pt-4 mt-2">
-                    <label class="block text-neon text-sm font-bold mb-2">Fichier Graphique (PDF/AI)</label>
-                    {{ form.artwork_file }}
-                    <p class="text-xs text-gray-500 mt-1">Formats acceptés : PDF, AI, JPG.</p>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Laize Gravure (mm)</label>
+                    {{ form.laize_gravure_mm }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Nombre de Couleurs</label>
+                    {{ form.num_colors }}
                 </div>
             </div>
 
-            <!-- BOUTONS -->
-            <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-slate-700">
-                <a href="{% url 'prepress_view' %}" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded transition">
-                    Annuler
-                </a>
-                <button type="submit" class="bg-neon hover:bg-yellow-500 text-slate-900 font-bold py-2 px-6 rounded shadow-lg shadow-yellow-500/20 transition">
-                    💾 Enregistrer
-                </button>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700/60">
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Support d'Impression</label>
+                    {{ form.support_impression }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Impression (ex: CELLO EMAIL)</label>
+                    {{ form.impression }}
+                </div>
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-1">Spot (dimensions mm × mm)</label>
+                    {{ form.spot }}
+                </div>
             </div>
-        </form>
-    </div>
+        </div>
+
+        <!-- BLOC 3 : SENS + SPOT VISUELS -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl space-y-8">
+            <h2 class="text-lg font-extrabold text-white flex items-center gap-2 border-b border-slate-700 pb-3">
+                <span>🎨</span> Données Techniques (Impression / Prépresse)
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-4">Sens de défilement</label>
+                    <div class="flex flex-wrap gap-4">
+                        {% for i in "12345678" %}
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.sens_bobine.html_name }}" value="{{ i }}" class="peer hidden" {% if form.sens_bobine.value == i %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center min-w-[56px]">
+                                <span class="text-red-400 font-black text-lg">{{ i }}</span>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-3">Norme flexo 1 → 8 (identique à l’OF)</p>
+                </div>
+
+                <div>
+                    <label class="text-gray-400 text-xs uppercase font-bold block mb-4">Placement Spot</label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.spot_placement.html_name }}" value="1" class="peer hidden" {% if form.spot_placement.value == '1' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center w-[68px] h-[88px]">
+                                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                                    <text x="20" y="35" fill="#f8fafc" font-size="36" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                    <rect x="0" y="42" width="10" height="6" fill="#f8fafc"/>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.spot_placement.html_name }}" value="2" class="peer hidden" {% if form.spot_placement.value == '2' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center w-[68px] h-[88px]">
+                                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                                    <text x="20" y="35" fill="#f8fafc" font-size="36" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                    <rect x="15" y="42" width="10" height="6" fill="#f8fafc"/>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.spot_placement.html_name }}" value="3" class="peer hidden" {% if form.spot_placement.value == '3' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center w-[68px] h-[88px]">
+                                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                                    <text x="20" y="35" fill="#f8fafc" font-size="36" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                    <rect x="30" y="42" width="10" height="6" fill="#f8fafc"/>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer group">
+                            <input type="radio" name="{{ form.spot_placement.html_name }}" value="4" class="peer hidden" {% if form.spot_placement.value == '4' %}checked{% endif %}>
+                            <div class="border-2 border-slate-600 rounded-xl p-3 bg-slate-900 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-slate-500 transition-all flex justify-center items-center w-[68px] h-[88px]">
+                                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                                    <text x="20" y="35" fill="#f8fafc" font-size="36" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+                                    <rect x="30" y="0" width="10" height="6" fill="#f8fafc"/>
+                                </svg>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOC 4 : TABLEAU COULEURS -->
+        {% if formset %}
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl space-y-4">
+            <h2 class="text-lg font-extrabold text-white flex items-center justify-between border-b border-slate-700 pb-3">
+                <span class="flex items-center gap-2"><span>🎨</span> Tableau des Encres</span>
+                <span class="text-xs text-gray-400 normal-case font-normal">(Jusqu’à 8 groupes)</span>
+            </h2>
+
+            {{ formset.management_form }}
+
+            <div class="overflow-x-auto rounded-xl border border-slate-700">
+                <table class="w-full text-left text-xs text-gray-300">
+                    <thead class="bg-slate-900 text-gray-300 uppercase font-extrabold border-b border-slate-700">
+                        <tr>
+                            <th class="p-3 w-14 text-center">N°</th>
+                            <th class="p-3">Couleur</th>
+                            <th class="p-3">Anilox</th>
+                            <th class="p-3">Adhésif</th>
+                            <th class="p-3">Viscosité</th>
+                            <th class="p-3">Type Encre</th>
+                            <th class="p-3">Formule Encre</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        {% for color_form in formset %}
+                        <tr class="hover:bg-slate-700/30 transition">
+                            <td class="p-2 text-center font-bold text-cyan-400">
+                                {{ color_form.id }}
+                                {{ color_form.ordre }}
+                            </td>
+                            <td class="p-1.5">{{ color_form.nom_couleur }}</td>
+                            <td class="p-1.5">{{ color_form.anilox }}</td>
+                            <td class="p-1.5">{{ color_form.adhesif }}</td>
+                            <td class="p-1.5">{{ color_form.viscosite }}</td>
+                            <td class="p-1.5">{{ color_form.type_encre }}</td>
+                            <td class="p-1.5">{{ color_form.formule_encre }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
+            <a href="{% url 'prepress_view' %}"
+               class="text-center bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-xl transition">
+                Annuler
+            </a>
+            <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 px-8 rounded-xl shadow-lg shadow-blue-500/20 transition transform hover:-translate-y-0.5">
+                💾 Enregistrer la Fiche Technique
+            </button>
+        </div>
+    </form>
 </div>
+
+<style>
+    #ficheTechForm input[type="text"],
+    #ficheTechForm input[type="number"],
+    #ficheTechForm input[type="date"],
+    #ficheTechForm input[type="file"],
+    #ficheTechForm select,
+    #ficheTechForm textarea {
+        width: 100%;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgb(71, 85, 105);
+        color: white;
+        border-radius: 0.75rem;
+        padding: 0.6rem 0.85rem;
+        font-size: 0.875rem;
+    }
+    #ficheTechForm input:focus,
+    #ficheTechForm select:focus,
+    #ficheTechForm textarea:focus {
+        outline: none;
+        border-color: rgb(59, 130, 246);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+    }
+</style>
 {% endblock %}

@@ -5,7 +5,7 @@
 
   <!-- Header -->
   <div class="flex items-center gap-4 mb-6">
-    <a href="{% url 'stock_advanced' %}?tab=stock"
+    <a href="{% url 'stock_advanced' %}?tab=matieres"
        class="flex items-center gap-2 text-gray-400
               hover:text-white transition text-sm
               bg-slate-800 border border-slate-700
@@ -84,6 +84,37 @@
               <p class="text-red-400 text-xs mt-1">{{ form.category.errors.0 }}</p>
             {% endif %}
           </div>
+
+          <!-- ======================================================== -->
+          <!-- NOUVEAU BLOC : DONNÉES TECHNIQUES (Films & Papiers)      -->
+          <!-- ======================================================== -->
+          <div class="md:col-span-2 bg-slate-900/50 p-4 rounded-xl border border-cyan-500/30 hidden" id="tech-fields-container">
+              <h3 class="text-sm font-bold text-cyan-400 mb-3 flex items-center gap-2">
+                  <span>📐</span> Données Techniques (Films & Papiers)
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                      <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Densité ISO</label>
+                      {{ form.densite_iso }}
+                  </div>
+                  <div>
+                      <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Microns (µm)</label>
+                      {{ form.micronage_standard }}
+                  </div>
+                  <div>
+                      <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Grammage (g/m²)</label>
+                      {{ form.grammage }}
+                  </div>
+                  <div>
+                      <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Métrage (m)</label>
+                      {{ form.metrage_standard }}
+                  </div>
+              </div>
+              <p class="text-[10px] text-gray-500 mt-2">
+                Ces données sont utilisées pour automatiser l'analyse de production (poids, surface, % pertes) dans l'Ordonnancement et le CRM.
+              </p>
+          </div>
+          <!-- ======================================================== -->
 
           <!-- Stock Initial -->
           <div>
@@ -169,7 +200,7 @@
             💾 {{ btn_label|default:'Enregistrer' }}
           </button>
 
-          <a href="{% url 'stock_advanced' %}?tab=stock"
+          <a href="{% url 'stock_advanced' %}?tab=matieres"
              class="flex items-center gap-2 font-bold
                     px-6 py-3 rounded-xl transition
                     bg-slate-700 hover:bg-slate-600
@@ -197,5 +228,26 @@
   </div>
 
 </div>
+
+<!-- SCRIPT POUR AFFICHER/MASQUER LES CHAMPS TECHNIQUES -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const categorySelect = document.getElementById('{{ form.category.id_for_label }}');
+        const techContainer = document.getElementById('tech-fields-container');
+
+        function toggleTechFields() {
+            if (categorySelect && categorySelect.value === 'FILM') {
+                techContainer.classList.remove('hidden');
+            } else {
+                techContainer.classList.add('hidden');
+            }
+        }
+
+        if (categorySelect) {
+            categorySelect.addEventListener('change', toggleTechFields);
+            toggleTechFields(); // Vérification initiale au chargement
+        }
+    });
+</script>
 
 {% endblock %}

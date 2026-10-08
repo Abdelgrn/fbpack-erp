@@ -301,7 +301,7 @@
             font-weight: 800;
         }
 
-        .chat-menu-badge.pulse {
+        .chat-menu-badge.pulse, .pulse {
 
             animation:
                 chatBadgePulse 1.2s ease-in-out infinite;
@@ -1031,25 +1031,6 @@
                 0 4px 12px rgba(15, 23, 42, 0.06) !important;
         }
 
-
-        /* ============================================================ */
-        /* PWA TOAST LIGHT                                                */
-        /* ============================================================ */
-
-        html:not(.dark) #global-chat-toast > div {
-
-            background-color: #ffffff !important;
-
-            color: #1e293b !important;
-
-            border-color: #e2e8f0 !important;
-        }
-
-        html:not(.dark) #global-chat-toast-body {
-
-            color: #475569 !important;
-        }
-
     </style>
 </head>
 
@@ -1208,43 +1189,38 @@
                     <span class="mr-3 text-lg">📊</span>
 
                     Dashboard
-
                 </a>
-
                 {% endif %}
 
-
                 {% if 'planning' in user_modules %}
-
                 <a
                     href="{% url 'planning' %}"
                     class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'planning' %}active{% endif %}"
                 >
-
                     <span class="mr-3 text-lg">📅</span>
-
                     Planning Gantt
-
                 </a>
-
                 {% endif %}
-
-
                 {% if 'reporting' in user_modules %}
-
                 <a
                     href="{% url 'reporting' %}"
                     class="nav-link flex items-center px-6 py-3 transition group {% if request.resolver_match.url_name == 'reporting' %}active{% endif %}"
                 >
-
                     <span class="mr-3 text-lg">📈</span>
-
                     Reporting
+                </a>
+                {% endif %}
+                                {% if 'kpi' in user_modules or True %}
+                <a
+                    href="{% url 'kpi_dashboard' %}"
+                    class="nav-link flex items-center px-6 py-3 transition group {% if 'kpi' in request.path %}active{% endif %}"
+                >
 
+                    <span class="mr-3 text-lg">📊</span>
+                    KPI & Data Analyse
                 </a>
 
                 {% endif %}
-
 
                 {% if 'crm' in user_modules or 'prepress' in user_modules or 'planification' in user_modules or 'production' in user_modules or 'stock' in user_modules %}
 
@@ -1636,7 +1612,6 @@
 
             </header>
 
-
             <!-- ======================================================== -->
             <!-- MAIN                                                        -->
             <!-- ======================================================== -->
@@ -1821,60 +1796,603 @@
 
     </div>
 
-
     <!-- ================================================================ -->
-    <!-- TOAST CHAT                                                       -->
+    <!-- WIDGET CHAT GLOBAL — SALONS + PRIVÉS (STYLE MESSENGER)           -->
     <!-- ================================================================ -->
 
-    <div
-        id="global-chat-toast"
-        class="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[9999] hidden max-w-sm w-72 md:w-96"
-    >
+    {% if 'chat' in user_modules %}
+    <div id="fb-global-chat-widget" class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-[9990] flex flex-col items-end pointer-events-none">
 
-        <div
-            class="bg-slate-900 border border-neon/40 shadow-2xl rounded-xl px-4 py-3 text-white flex items-start gap-3"
-        >
+        <!-- Panneau -->
+        <div id="fb-chat-panel"
+             class="hidden pointer-events-auto w-[340px] md:w-[390px] h-[520px] max-h-[75vh] bg-slate-900 border border-slate-700 shadow-[0_10px_40px_rgba(0,0,0,0.55)] rounded-2xl flex flex-col overflow-hidden mb-4 transition-all origin-bottom-right transform scale-95 opacity-0 duration-200">
 
-            <span
-                class="text-2xl shrink-0"
-                id="global-chat-toast-icon"
-            >
-                💬
-            </span>
-
-            <div class="min-w-0 flex-1">
-
-                <p
-                    id="global-chat-toast-title"
-                    class="font-bold text-neon text-sm"
-                ></p>
-
-                <p
-                    id="global-chat-toast-body"
-                    class="text-gray-300 text-sm mt-0.5 break-words"
-                ></p>
-
-                <a
-                    id="global-chat-toast-link"
-                    href="{% url 'chat_home' %}"
-                    class="inline-block mt-2 text-xs text-cyan-400 hover:underline"
-                >
-                    Ouvrir le chat →
-                </a>
-
+            <!-- HEADER -->
+            <div class="bg-slate-800 p-3 flex items-center justify-between border-b border-slate-700 shrink-0">
+                <div class="flex items-center gap-2 min-w-0">
+                    <button id="fb-chat-back-btn" type="button"
+                            class="hidden text-gray-400 hover:text-white p-1 rounded-lg hover:bg-slate-700 transition shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                        </svg>
+                    </button>
+                    <span id="fb-chat-title-icon" class="text-xl shrink-0">💬</span>
+                    <h3 id="fb-chat-title" class="text-white font-bold text-sm truncate">Messages</h3>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <a href="{% url 'chat_home' %}" class="text-gray-400 hover:text-cyan-400 p-1 rounded-lg hover:bg-slate-700 transition" title="Plein écran">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                        </svg>
+                    </a>
+                    <button id="fb-chat-close-btn" type="button" class="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-slate-700 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
-            <button
-                type="button"
-                onclick="window.FBChatNotif && window.FBChatNotif.closeToast()"
-                class="text-gray-500 hover:text-white text-lg leading-none shrink-0"
-            >
-                &times;
-            </button>
+            <!-- ONGLETS (vue liste uniquement) -->
+            <div id="fb-chat-tabs" class="flex border-b border-slate-700 bg-slate-900 shrink-0">
+                <button type="button" id="fb-tab-salons"
+                        class="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-cyan-400 border-b-2 border-cyan-400 transition">
+                    📢 Salons
+                </button>
+                <button type="button" id="fb-tab-prives"
+                        class="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-500 border-b-2 border-transparent hover:text-gray-300 transition">
+                    👤 Privés
+                </button>
+            </div>
 
+            <!-- VUE LISTE -->
+            <div id="fb-chat-list-view" class="flex-1 overflow-hidden flex flex-col min-h-0">
+                <!-- Liste Salons -->
+                <div id="fb-list-salons" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+                <!-- Liste Privés + Annuaire -->
+                <div id="fb-list-prives" class="hidden flex-1 overflow-y-auto p-2 space-y-1"></div>
+            </div>
+
+            <!-- VUE CONVERSATION -->
+            <div id="fb-chat-messages-area" class="hidden flex-1 overflow-y-auto p-3 space-y-3 bg-slate-950 flex flex-col min-h-0"></div>
+
+            <!-- INPUT -->
+            <div id="fb-chat-input-area" class="hidden p-3 bg-slate-800 border-t border-slate-700 shrink-0">
+                <form id="fb-chat-form" class="flex gap-2">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                    <input type="hidden" id="fb-chat-active-room-slug" value="">
+                    <input type="text" id="fb-chat-input"
+                           class="flex-1 bg-slate-900 text-white text-sm border border-slate-600 rounded-full px-4 py-2 focus:outline-none focus:border-cyan-500 transition"
+                           placeholder="Écrire un message..." autocomplete="off">
+                    <button type="submit"
+                            class="bg-cyan-600 hover:bg-cyan-500 text-white rounded-full w-10 h-10 flex items-center justify-center transition shrink-0 shadow-lg">
+                        <svg class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
         </div>
 
+        <!-- BULLE FLOTTANTE -->
+        <button id="fb-chat-fab" type="button"
+                class="pointer-events-auto relative bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-full p-3.5 md:p-4 shadow-[0_4px_20px_rgba(6,182,212,0.4)] transition transform hover:scale-105 active:scale-95 border-2 border-slate-800">
+            <svg class="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+            <span id="fb-chat-fab-badge"
+                  class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black rounded-full h-6 w-6 flex items-center justify-center border-2 border-slate-900 shadow-lg">0</span>
+        </button>
     </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="global-chat-toast"
+         class="fixed bottom-24 md:bottom-28 right-4 md:right-8 z-[9999] hidden max-w-sm w-72 md:w-80 transition-all duration-300 transform translate-y-4 opacity-0">
+        <div class="bg-slate-900 border border-cyan-500/50 shadow-[0_5px_25px_rgba(0,0,0,0.5)] rounded-2xl p-3 text-white flex items-start gap-3 cursor-pointer hover:bg-slate-800 transition"
+             onclick="document.getElementById('global-chat-toast-link').click()">
+            <div id="global-chat-toast-icon"
+                 class="h-10 w-10 shrink-0 bg-slate-800 rounded-full flex items-center justify-center text-xl border border-slate-700">💬</div>
+            <div class="min-w-0 flex-1 pt-0.5">
+                <p id="global-chat-toast-title" class="font-bold text-cyan-400 text-sm truncate"></p>
+                <p id="global-chat-toast-body" class="text-gray-300 text-xs mt-0.5 line-clamp-2 leading-snug"></p>
+                <a id="global-chat-toast-link" href="#" class="hidden"></a>
+            </div>
+            <button type="button" onclick="event.stopPropagation(); window.FBChatNotif && window.FBChatNotif.closeToast()"
+                    class="text-gray-500 hover:text-white p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        const CURRENT_USER = "{{ user.username|escapejs }}";
+        const CSRF = "{{ csrf_token }}";
+
+        /* ---- DOM ---- */
+        const fab = document.getElementById('fb-chat-fab');
+        const panel = document.getElementById('fb-chat-panel');
+        const btnClose = document.getElementById('fb-chat-close-btn');
+        const btnBack = document.getElementById('fb-chat-back-btn');
+        const tabs = document.getElementById('fb-chat-tabs');
+        const tabSalons = document.getElementById('fb-tab-salons');
+        const tabPrives = document.getElementById('fb-tab-prives');
+        const listView = document.getElementById('fb-chat-list-view');
+        const listSalons = document.getElementById('fb-list-salons');
+        const listPrives = document.getElementById('fb-list-prives');
+        const msgArea = document.getElementById('fb-chat-messages-area');
+        const inputArea = document.getElementById('fb-chat-input-area');
+        const chatForm = document.getElementById('fb-chat-form');
+        const chatInput = document.getElementById('fb-chat-input');
+        const activeSlug = document.getElementById('fb-chat-active-room-slug');
+        const titleEl = document.getElementById('fb-chat-title');
+        const titleIcon = document.getElementById('fb-chat-title-icon');
+        const fabBadge = document.getElementById('fb-chat-fab-badge');
+
+        let widgetOpen = false;
+        let activeTab = 'salons';
+        let widgetData = null;
+        let lastMsgIdInRoom = 0;
+
+        /* ---- UI open/close ---- */
+        function openPanel() {
+            widgetOpen = true;
+            panel.classList.remove('hidden');
+            setTimeout(function () {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            fab.classList.add('hidden');
+            unread = 0;
+            updateBadge();
+            loadWidgetData();
+            showListView();
+        }
+        function closePanel() {
+            widgetOpen = false;
+            panel.classList.remove('scale-100', 'opacity-100');
+            panel.classList.add('scale-95', 'opacity-0');
+            setTimeout(function () {
+                panel.classList.add('hidden');
+                fab.classList.remove('hidden');
+            }, 200);
+        }
+        if (fab) fab.addEventListener('click', openPanel);
+        if (btnClose) btnClose.addEventListener('click', closePanel);
+
+        function showListView() {
+            listView.classList.remove('hidden');
+            tabs.classList.remove('hidden');
+            msgArea.classList.add('hidden');
+            inputArea.classList.add('hidden');
+            btnBack.classList.add('hidden');
+            titleEl.textContent = 'Messages';
+            titleIcon.textContent = '💬';
+            activeSlug.value = '';
+            lastMsgIdInRoom = 0;
+            switchTab(activeTab);
+        }
+        function showChatView(name, icon) {
+            listView.classList.add('hidden');
+            tabs.classList.add('hidden');
+            msgArea.classList.remove('hidden');
+            inputArea.classList.remove('hidden');
+            btnBack.classList.remove('hidden');
+            titleEl.textContent = name;
+            titleIcon.textContent = icon || '💬';
+        }
+        if (btnBack) btnBack.addEventListener('click', showListView);
+
+        /* ---- Tabs ---- */
+        function switchTab(tab) {
+            activeTab = tab;
+            if (tab === 'salons') {
+                tabSalons.className = 'flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-cyan-400 border-b-2 border-cyan-400 transition';
+                tabPrives.className = 'flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-500 border-b-2 border-transparent hover:text-gray-300 transition';
+                listSalons.classList.remove('hidden');
+                listPrives.classList.add('hidden');
+            } else {
+                tabPrives.className = 'flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-cyan-400 border-b-2 border-cyan-400 transition';
+                tabSalons.className = 'flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-500 border-b-2 border-transparent hover:text-gray-300 transition';
+                listPrives.classList.remove('hidden');
+                listSalons.classList.add('hidden');
+            }
+        }
+        if (tabSalons) tabSalons.addEventListener('click', function () { switchTab('salons'); });
+        if (tabPrives) tabPrives.addEventListener('click', function () { switchTab('prives'); });
+
+        /* ---- Load bootstrap data ---- */
+        function loadWidgetData() {
+            fetch('/chat/api/widget/', {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                widgetData = data;
+                renderSalons(data.rooms || []);
+                renderPrives(data.private_rooms || [], data.users || []);
+            })
+            .catch(function () {
+                listSalons.innerHTML = '<p class="text-center text-xs text-red-400 py-6">Erreur de chargement</p>';
+            });
+        }
+
+        function renderSalons(rooms) {
+            if (!rooms.length) {
+                listSalons.innerHTML = '<p class="text-center text-xs text-gray-500 py-6">Aucun salon</p>';
+                return;
+            }
+            listSalons.innerHTML = rooms.map(function (r) {
+                const last = r.last_message
+                    ? '<div class="text-[10px] text-gray-500 truncate">' + esc(r.last_author ? r.last_author + ': ' : '') + esc(r.last_message) + '</div>'
+                    : '<div class="text-[10px] text-gray-600">Aucun message</div>';
+                return (
+                    '<button type="button" class="w-full text-left p-3 hover:bg-slate-800 rounded-xl flex items-center gap-3 transition group" ' +
+                    'data-slug="' + escAttr(r.slug) + '" data-name="' + escAttr(r.name) + '" data-icon="' + escAttr(r.icone) + '">' +
+                    '<div class="h-11 w-11 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-xl group-hover:scale-110 transition shadow-lg shrink-0">' + (r.icone || '💬') + '</div>' +
+                    '<div class="flex-1 min-w-0">' +
+                    '<div class="flex items-center justify-between gap-2">' +
+                    '<div class="text-gray-200 font-bold text-sm truncate">' + esc(r.name) + '</div>' +
+                    '<div class="text-[9px] text-gray-600 shrink-0">' + (r.messages_count || 0) + ' msg</div>' +
+                    '</div>' + last +
+                    '</div></button>'
+                );
+            }).join('');
+
+            listSalons.querySelectorAll('button[data-slug]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    openRoom(btn.getAttribute('data-slug'), btn.getAttribute('data-name'), btn.getAttribute('data-icon'));
+                });
+            });
+        }
+
+        function renderPrives(privateRooms, users) {
+            let html = '';
+
+            /* Conversations privées existantes */
+            if (privateRooms.length) {
+                html += '<div class="px-2 py-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Discussions</div>';
+                html += privateRooms.map(function (r) {
+                    const dot = r.is_online
+                        ? '<span class="absolute bottom-0 right-0 h-3 w-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>'
+                        : '';
+                    const last = '<div class="text-[10px] text-gray-500 truncate">' + esc(r.last_message || '') + '</div>';
+                    return (
+                        '<button type="button" class="w-full text-left p-3 hover:bg-slate-800 rounded-xl flex items-center gap-3 transition group" ' +
+                        'data-slug="' + escAttr(r.slug) + '" data-name="' + escAttr(r.name) + '" data-icon="👤">' +
+                        '<div class="relative h-11 w-11 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-lg">' +
+                        esc((r.name || '?').charAt(0).toUpperCase()) + dot +
+                        '</div>' +
+                        '<div class="flex-1 min-w-0">' +
+                        '<div class="flex items-center justify-between gap-2">' +
+                        '<div class="text-gray-200 font-bold text-sm truncate">' + esc(r.name) + '</div>' +
+                        '<div class="text-[9px] text-gray-600 shrink-0">' + esc(r.last_time || '') + '</div>' +
+                        '</div>' + last +
+                        '</div></button>'
+                    );
+                }).join('');
+            }
+
+            /* Annuaire pour démarrer un nouveau DM */
+            html += '<div class="px-2 py-2 mt-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-t border-slate-800">Nouvelle discussion</div>';
+            if (!users.length) {
+                html += '<p class="text-center text-xs text-gray-500 py-4">Aucun collègue</p>';
+            } else {
+                html += users.map(function (u) {
+                    const dot = u.is_online
+                        ? '<span class="absolute bottom-0 right-0 h-2.5 w-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>'
+                        : '<span class="absolute bottom-0 right-0 h-2.5 w-2.5 bg-gray-600 border-2 border-slate-900 rounded-full"></span>';
+                    return (
+                        '<button type="button" class="w-full text-left p-2.5 hover:bg-slate-800 rounded-xl flex items-center gap-3 transition" data-user-id="' + u.id + '">' +
+                        '<div class="relative h-9 w-9 rounded-full bg-slate-700 flex items-center justify-center text-gray-300 font-bold text-xs shrink-0">' +
+                        esc(u.username.charAt(0).toUpperCase()) + dot +
+                        '</div>' +
+                        '<div class="flex-1 min-w-0">' +
+                        '<div class="text-gray-200 text-sm font-medium truncate">' + esc(u.username) + '</div>' +
+                        '<div class="text-[10px] ' + (u.is_online ? 'text-emerald-400' : 'text-gray-600') + '">' +
+                        (u.is_online ? 'En ligne' : 'Hors ligne') +
+                        '</div></div>' +
+                        '<span class="text-[10px] text-cyan-400 font-bold">Message</span>' +
+                        '</button>'
+                    );
+                }).join('');
+            }
+
+            listPrives.innerHTML = html;
+
+            listPrives.querySelectorAll('button[data-slug]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    openRoom(btn.getAttribute('data-slug'), btn.getAttribute('data-name'), '👤');
+                });
+            });
+            listPrives.querySelectorAll('button[data-user-id]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    startPrivate(parseInt(btn.getAttribute('data-user-id'), 10));
+                });
+            });
+        }
+
+        /* ---- Ouvrir salon / privé ---- */
+        window.fbOpenChatRoom = function (slug, name, icon) {
+            if (!widgetOpen) openPanel();
+            setTimeout(function () { openRoom(slug, name, icon || '💬'); }, widgetOpen ? 0 : 220);
+        };
+
+        function openRoom(slug, name, icon) {
+            activeSlug.value = slug;
+            showChatView(name, icon);
+            msgArea.innerHTML = '<div class="text-center text-xs text-gray-500 mt-auto py-4">Chargement…</div>';
+            lastMsgIdInRoom = 0;
+
+            fetch('/chat/api/messages/' + encodeURIComponent(slug) + '/?last_id=0', {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                msgArea.innerHTML = '';
+                const msgs = data.messages || [];
+                if (!msgs.length) {
+                    msgArea.innerHTML = '<div class="text-center text-xs text-gray-600 mt-auto py-4">Début de la discussion</div>';
+                } else {
+                    msgs.forEach(function (m) {
+                        appendMsg(m, m.auteur === CURRENT_USER);
+                        if (m.id > lastMsgIdInRoom) lastMsgIdInRoom = m.id;
+                    });
+                }
+                msgArea.scrollTop = msgArea.scrollHeight;
+                setTimeout(function () { chatInput.focus(); }, 80);
+            })
+            .catch(function () {
+                msgArea.innerHTML = '<div class="text-center text-xs text-red-400 mt-auto py-4">Erreur de chargement</div>';
+            });
+        }
+
+        function startPrivate(userId) {
+            fetch('/chat/api/private/' + userId + '/', {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    openRoom(data.room_slug, data.room_name, data.room_icone || '👤');
+                }
+            })
+            .catch(function () {});
+        }
+
+        /* ---- Messages UI ---- */
+        function appendMsg(msg, isMe) {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex w-full ' + (isMe ? 'justify-end' : 'justify-start');
+            const bubble = document.createElement('div');
+            bubble.className = 'max-w-[85%] px-3 py-2 text-sm shadow-md ' +
+                (isMe
+                    ? 'bg-cyan-600 text-white rounded-2xl rounded-br-sm'
+                    : 'bg-slate-800 text-gray-200 rounded-2xl rounded-bl-sm border border-slate-700');
+            if (!isMe) {
+                const a = document.createElement('div');
+                a.className = 'text-[10px] font-bold text-cyan-400 mb-0.5';
+                a.textContent = msg.auteur || '';
+                bubble.appendChild(a);
+            }
+            const t = document.createElement('div');
+            t.className = 'break-words leading-snug';
+            t.textContent = msg.contenu || '';
+            bubble.appendChild(t);
+            const time = document.createElement('div');
+            time.className = 'text-[9px] opacity-60 mt-1 text-right ' + (isMe ? 'text-cyan-100' : 'text-gray-400');
+            time.textContent = msg.timestamp || '';
+            bubble.appendChild(time);
+            wrap.appendChild(bubble);
+            msgArea.appendChild(wrap);
+            msgArea.scrollTop = msgArea.scrollHeight;
+        }
+
+        /* ---- Envoi ---- */
+        if (chatForm) {
+            chatForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const text = (chatInput.value || '').trim();
+                const slug = activeSlug.value;
+                if (!text || !slug) return;
+                chatInput.value = '';
+
+                appendMsg({
+                    auteur: CURRENT_USER,
+                    contenu: text,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                }, true);
+
+                const body = new URLSearchParams();
+                body.append('room_slug', slug);
+                body.append('message', text);
+
+                fetch('/chat/api/send/', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': CSRF,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: body.toString()
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.message_id && data.message_id > lastMsgIdInRoom) {
+                        lastMsgIdInRoom = data.message_id;
+                    }
+                })
+                .catch(function () {});
+            });
+        }
+
+        /* ---- Helpers ---- */
+        function esc(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function escAttr(s) {
+            return esc(s).replace(/'/g, '&#39;');
+        }
+
+        /* ============================================================ */
+        /* NOTIFICATIONS GLOBALES (polling)                              */
+        /* ============================================================ */
+        const STORAGE_KEY = 'fbpack_chat_last_id';
+        const UNREAD_KEY = 'fbpack_chat_unread';
+        const POLL_MS = 3000;
+        const isOnChatPage = window.location.pathname.indexOf('/chat') !== -1;
+
+        let audioCtx = null;
+        let toastTimer = null;
+        window.unread = parseInt(localStorage.getItem(UNREAD_KEY) || '0', 10) || 0;
+        let lastId = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
+        let polling = false;
+
+        function playBeep() {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!audioCtx && AC) audioCtx = new AC();
+                if (!audioCtx) return;
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.3);
+            } catch (e) {}
+        }
+
+        window.FBChatNotif = {
+            closeToast: function () {
+                const toast = document.getElementById('global-chat-toast');
+                if (!toast) return;
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(function () { toast.classList.add('hidden'); }, 300);
+            },
+            showToast: function (title, body, slug, icon) {
+                document.getElementById('global-chat-toast-title').textContent = title;
+                document.getElementById('global-chat-toast-body').textContent = body;
+                if (icon) document.getElementById('global-chat-toast-icon').textContent = icon;
+                const link = document.getElementById('global-chat-toast-link');
+                link.onclick = function (e) {
+                    e.preventDefault();
+                    window.FBChatNotif.closeToast();
+                    if (slug) window.fbOpenChatRoom(slug, title, icon || '💬');
+                };
+                const toast = document.getElementById('global-chat-toast');
+                toast.classList.remove('hidden');
+                setTimeout(function () {
+                    toast.classList.remove('translate-y-4', 'opacity-0');
+                    toast.classList.add('translate-y-0', 'opacity-100');
+                }, 10);
+                playBeep();
+                if (toastTimer) clearTimeout(toastTimer);
+                toastTimer = setTimeout(window.FBChatNotif.closeToast, 5000);
+            }
+        };
+
+        window.updateBadge = function () {
+            const badges = document.querySelectorAll('.chat-menu-badge');
+            if (unread > 0 && !isOnChatPage && !widgetOpen) {
+                const label = unread > 99 ? '99+' : String(unread);
+                badges.forEach(function (b) {
+                    b.textContent = label;
+                    b.classList.remove('hidden');
+                    b.classList.add('pulse');
+                });
+                if (fabBadge) {
+                    fabBadge.textContent = label;
+                    fabBadge.classList.remove('hidden');
+                }
+            } else {
+                badges.forEach(function (b) {
+                    b.classList.add('hidden');
+                    b.classList.remove('pulse');
+                });
+                if (fabBadge) fabBadge.classList.add('hidden');
+            }
+            localStorage.setItem(UNREAD_KEY, String(unread));
+        };
+
+        function poll(init) {
+            if (polling) return;
+            polling = true;
+            let url = '/chat/api/notifications/?last_id=' + encodeURIComponent(lastId || 0);
+            if (init) url += '&init=1';
+
+            fetch(url, {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (init) {
+                    const mid = parseInt(data.max_id || data.latest_id || 0, 10) || 0;
+                    if (mid > 0) {
+                        lastId = mid;
+                        localStorage.setItem(STORAGE_KEY, String(lastId));
+                    }
+                    if (isOnChatPage) unread = 0;
+                    updateBadge();
+                    return;
+                }
+
+                if (data.messages && data.messages.length) {
+                    data.messages.forEach(function (message) {
+                        if (message.id > lastId) lastId = message.id;
+
+                        /* Si on est dans la bonne conversation ouverte → injecter */
+                        if (widgetOpen && activeSlug.value && activeSlug.value === message.room_slug) {
+                            appendMsg(message, false);
+                            if (message.id > lastMsgIdInRoom) lastMsgIdInRoom = message.id;
+                            playBeep();
+                        } else if (!isOnChatPage) {
+                            unread++;
+                            window.FBChatNotif.showToast(
+                                message.room_name || (message.is_direct ? 'Message privé' : 'Nouveau message'),
+                                (message.auteur || '') + ': ' + (message.contenu || ''),
+                                message.room_slug,
+                                message.room_icone || (message.is_direct ? '👤' : '💬')
+                            );
+                        }
+                    });
+                    localStorage.setItem(STORAGE_KEY, String(lastId));
+                    updateBadge();
+                }
+
+                if (data.max_id && parseInt(data.max_id, 10) > lastId && !(data.messages && data.messages.length)) {
+                    lastId = parseInt(data.max_id, 10);
+                    localStorage.setItem(STORAGE_KEY, String(lastId));
+                }
+            })
+            .catch(function () {})
+            .finally(function () { polling = false; });
+        }
+
+        updateBadge();
+        poll(true);
+        setInterval(function () { poll(false); }, POLL_MS);
+    })();
+    </script>
+    {% endif %}
 
 
     <!-- ================================================================ -->
@@ -2891,318 +3409,6 @@
     })();
 
     </script>
-
-
-    <!-- ================================================================ -->
-    <!-- NOTIFICATIONS CHAT                                                -->
-    <!-- ================================================================ -->
-
-    {% if 'chat' in user_modules %}
-
-    <script>
-
-    (function () {
-
-        const STORAGE_KEY =
-            'fbpack_chat_last_id';
-
-        const UNREAD_KEY =
-            'fbpack_chat_unread';
-
-        const POLL_MS =
-            4000;
-
-
-        const isOnChatPage =
-            window.location.pathname
-                .indexOf('/chat') !== -1;
-
-
-        let audioCtx = null;
-
-        let toastTimer = null;
-
-        let unread =
-            parseInt(
-                localStorage.getItem(
-                    UNREAD_KEY
-                ) || '0',
-                10
-            ) || 0;
-
-
-        let lastId =
-            parseInt(
-                localStorage.getItem(
-                    STORAGE_KEY
-                ) || '0',
-                10
-            ) || 0;
-
-
-        let polling = false;
-
-
-        /* AUDIO */
-
-        function getAudioContext() {
-
-            if (!audioCtx) {
-
-                const AC =
-                    window.AudioContext ||
-                    window.webkitAudioContext;
-
-
-                if (AC) {
-
-                    audioCtx =
-                        new AC();
-                }
-            }
-
-
-            if (
-                audioCtx &&
-                audioCtx.state === 'suspended'
-            ) {
-
-                audioCtx
-                    .resume()
-                    .catch(function () {});
-            }
-
-
-            return audioCtx;
-        }
-
-
-        /* BADGE */
-
-        function updateBadge() {
-
-            const badges =
-                document.querySelectorAll(
-                    '.chat-menu-badge'
-                );
-
-
-            if (
-                unread > 0 &&
-                !isOnChatPage
-            ) {
-
-                badges.forEach(function (badge) {
-
-                    badge.textContent =
-                        unread > 99
-                            ? '99+'
-                            : String(unread);
-
-                    badge.classList.remove(
-                        'hidden'
-                    );
-
-                    badge.classList.add(
-                        'pulse'
-                    );
-
-                });
-
-
-            } else {
-
-                badges.forEach(function (badge) {
-
-                    badge.classList.add(
-                        'hidden'
-                    );
-
-                    badge.classList.remove(
-                        'pulse'
-                    );
-
-                });
-
-            }
-
-
-            localStorage.setItem(
-                UNREAD_KEY,
-                String(unread)
-            );
-        }
-
-
-        /* POLLING */
-
-        function poll(init) {
-
-            if (polling) {
-                return;
-            }
-
-
-            polling = true;
-
-
-            let url =
-                '/chat/api/notifications/?last_id=' +
-                encodeURIComponent(
-                    lastId || 0
-                );
-
-
-            if (init) {
-
-                url += '&init=1';
-            }
-
-
-            fetch(
-                url,
-                {
-                    credentials: 'same-origin',
-
-                    headers: {
-                        'X-Requested-With':
-                            'XMLHttpRequest'
-                    }
-                }
-            )
-            .then(function (response) {
-
-                return response.json();
-
-            })
-            .then(function (data) {
-
-
-                if (init) {
-
-                    const mid =
-                        parseInt(
-                            data.max_id ||
-                            data.latest_id ||
-                            0,
-                            10
-                        ) || 0;
-
-
-                    if (mid > 0) {
-
-                        lastId = mid;
-
-                        localStorage.setItem(
-                            STORAGE_KEY,
-                            String(lastId)
-                        );
-                    }
-
-
-                    if (isOnChatPage) {
-
-                        unread = 0;
-                    }
-
-
-                    updateBadge();
-
-                    return;
-                }
-
-
-                if (
-                    data.messages &&
-                    data.messages.length
-                ) {
-
-                    data.messages.forEach(
-                        function (message) {
-
-                            if (
-                                message.id >
-                                lastId
-                            ) {
-
-                                lastId =
-                                    message.id;
-                            }
-
-                        }
-                    );
-
-
-                    localStorage.setItem(
-                        STORAGE_KEY,
-                        String(lastId)
-                    );
-
-
-                    if (!isOnChatPage) {
-
-                        unread +=
-                            data.messages.length;
-
-                        updateBadge();
-                    }
-                }
-
-
-                if (
-                    data.max_id &&
-                    parseInt(
-                        data.max_id,
-                        10
-                    ) > lastId &&
-                    !(
-                        data.messages &&
-                        data.messages.length
-                    )
-                ) {
-
-                    lastId =
-                        parseInt(
-                            data.max_id,
-                            10
-                        );
-
-
-                    localStorage.setItem(
-                        STORAGE_KEY,
-                        String(lastId)
-                    );
-                }
-
-            })
-            .catch(function () {})
-            .finally(function () {
-
-                polling = false;
-            });
-        }
-
-
-        updateBadge();
-
-        poll(true);
-
-
-        setInterval(
-            function () {
-
-                poll(false);
-
-            },
-            POLL_MS
-        );
-
-    })();
-
-    </script>
-
-    {% endif %}
-
 
 </body>
 </html>

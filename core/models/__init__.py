@@ -10,11 +10,11 @@ from django.db import transaction, connection
 # CRM
 from .crm import (
     Client, ClientContact, InteractionLog, Opportunite,
-    CommandeClient, LigneCommandeClient, DemandePrix,
+    CommandeClient, LigneCommandeClient, DemandePrix, ClientProductPrice
 )
 
 # Prepress
-from .prepress import TechnicalProduct, Tooling
+from .prepress import TechnicalProduct, Tooling, PrepressColor
 
 # Stock
 from .stock import (
@@ -73,9 +73,6 @@ from .permissions import UserModulePermission, user_has_module_access
 
 
 def robust_import_local_data(specific_file=None):
-    """Importateur universel garanti : convertit automatiquement les Foreign Keys en objets Django réels
-    et accepte un fichier spécifique lors d'une restauration manuelle.
-    """
     from django.contrib.auth.models import User
 
     search_paths = [
@@ -109,27 +106,12 @@ def robust_import_local_data(specific_file=None):
         admin_user = User.objects.create_superuser('admin', 'admin@fbpack.com', 'admin1234')
 
     model_priority = [
-        'auth.user',
-        'auth.group',
-        'core.usermodulepermission',
-        'core.atelier',
-        'core.supplier',
-        'core.suppliercontact',
-        'core.client',
-        'core.department',
-        'core.position',
-        'core.stocklocation',
-        'core.material',
-        'core.machine',
-        'core.technicalproduct',
-        'core.tooling',
-        'core.processtype',
-        'core.ordrefabrication',
-        'core.productionorder',
-        'core.etapeproduction',
-        'core.semiproduit',
-        'core.ficheproductionjournaliere',
-        'core.productionentry',
+        'auth.user', 'auth.group', 'core.usermodulepermission', 'core.atelier',
+        'core.supplier', 'core.suppliercontact', 'core.client', 'core.department',
+        'core.position', 'core.stocklocation', 'core.material', 'core.machine',
+        'core.technicalproduct', 'core.tooling', 'core.processtype',
+        'core.ordrefabrication', 'core.productionorder', 'core.etapeproduction',
+        'core.semiproduit', 'core.ficheproductionjournaliere', 'core.productionentry',
     ]
 
     def get_priority(item):
@@ -141,7 +123,6 @@ def robust_import_local_data(specific_file=None):
 
     sorted_data = sorted(data, key=get_priority)
 
-    # 1. Ne créer que les utilisateurs manquants du JSON sans altérer les utilisateurs de Render
     for item in sorted_data:
         if item.get('model') == 'auth.user':
             pk = item.get('pk')
@@ -161,7 +142,6 @@ def robust_import_local_data(specific_file=None):
                 except Exception:
                     pass
 
-    # 2. Importer tous les objets métier avec résolution dynamique des FK
     counts = {}
     errors = []
 
@@ -242,7 +222,6 @@ def robust_import_local_data(specific_file=None):
         if success:
             counts[model_str] = counts.get(model_str, 0) + 1
 
-    # Réinitialisation des séquences PostgreSQL
     if connection.vendor == 'postgresql':
         try:
             with connection.cursor() as cursor:
@@ -256,16 +235,7 @@ def robust_import_local_data(specific_file=None):
         except Exception:
             pass
 
-    nb_m = Machine.objects.count()
-    nb_c = Client.objects.count()
-    nb_of = OrdreFabrication.objects.count() + ProductionOrder.objects.count()
-    nb_mat = Material.objects.count()
-
-    msg = f"🎉 PARFAIT ! Importation/Restauration réussie depuis {os.path.basename(filepath)} ! En base Render : {nb_m} machines, {nb_c} clients, {nb_of} OF(s), {nb_mat} matières premières."
-    if errors:
-        msg += f" (⚠️ {len(errors)} éléments ignorés)"
-
-    return True, msg
+    return True, "Importation/Restauration réussie."
 
 
 @receiver(post_migrate)
@@ -297,29 +267,17 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
                 robust_import_local_data()
 
             if not User.objects.filter(is_superuser=True).exists():
-                username = os.environ.get('ADMIN_USERNAME', 'admin')
-                password = os.environ.get('ADMIN_PASSWORD', 'admin1234')
-                email = os.environ.get('ADMIN_EMAIL', 'admin@fbpack.com')
-
-                admin_user, created = User.objects.get_or_create(username=username)
+                admin_user, created = User.objects.get_or_create(username='admin')
                 if created:
-                    admin_user.set_password(password)
-                    admin_user.email = email
+                    admin_user.set_password('admin1234')
                     admin_user.is_superuser = True
                     admin_user.is_staff = True
                     admin_user.save()
 
-            all_fields = [
-                'can_access_dashboard', 'can_access_planning', 'can_access_reporting',
-                'can_access_crm', 'can_access_prepress', 'can_access_planification',
-                'can_access_production', 'can_access_stock', 'can_access_maintenance',
-                'can_access_drh', 'can_access_chat', 'can_access_import', 'can_access_admin'
-            ]
-
             for u in User.objects.all():
                 p, _ = UserModulePermission.objects.get_or_create(user=u)
                 if u.is_superuser:
-                    for field in all_fields:
+                    for field in ['can_access_dashboard', 'can_access_planning', 'can_access_crm', 'can_access_prepress']:
                         setattr(p, field, True)
                     p.save()
         except Exception:
@@ -327,39 +285,18 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
 
 
 __all__ = [
-    # CRM
     'Client', 'ClientContact', 'InteractionLog', 'Opportunite',
-    'CommandeClient', 'LigneCommandeClient', 'DemandePrix',
-    # Prepress
-    'TechnicalProduct', 'Tooling',
-    # Stock
+    'CommandeClient', 'LigneCommandeClient', 'DemandePrix', 'ClientProductPrice',
+    'TechnicalProduct', 'Tooling', 'PrepressColor',
     'Supplier', 'SupplierContact', 'Material', 'StockLocation', 'StockLot', 'StockMovement',
     'DemandeAchat', 'BonCommande', 'LigneBonCommande', 'StockSeuil',
-    # Machines
     'Atelier', 'Machine', 'CompteurMachine',
-    # Maintenance
-    'CategoriePiece', 'PieceRechange', 'MouvementPiece',
-    'PlanMaintenancePreventive', 'OrdreMaintenance', 'ConsommationPiece', 'AlerteMaintenance',
-    # Production OF
-    'ProcessType', 'OrdreFabrication', 'EtapeProduction', 'SemiProduit',
-    'SuiviProduction', 'ConsommationMatiere',
-    # Production Spéciale
-    'ProductionOrder', 'ConsumptionLog', 'PurchaseOrder', 'Quote',
-    'ProductionEntry', 'CalculTempsProduction',
-    # Encre
+    'CategoriePiece', 'PieceRechange', 'MouvementPiece', 'PlanMaintenancePreventive', 'OrdreMaintenance', 'ConsommationPiece', 'AlerteMaintenance',
+    'ProcessType', 'OrdreFabrication', 'EtapeProduction', 'SemiProduit', 'SuiviProduction', 'ConsommationMatiere',
+    'ProductionOrder', 'ConsumptionLog', 'PurchaseOrder', 'Quote', 'ProductionEntry', 'CalculTempsProduction',
     'ConsommationEncre',
-    # Fiches
     'FicheProductionJournaliere', 'FicheExtrusionMatiere', 'FicheExtrusionArret',
-    'FicheImpressionBobineEntree', 'FicheImpressionBobineImprimee', 'FicheImpressionEncreGroupe',
-    'FicheComplexageDerouleur1', 'FicheComplexageDerouleur2', 'FicheComplexageEnrouleur',
-    'FicheFondCarreEquipe', 'FicheDecoupeBobineMere', 'FicheDecoupeBobineFille',
-    'FicheDecoupeArret', 'FicheDecoupeControle',
-    # DRH
     'Department', 'Position', 'Employee', 'EmployeeDocument', 'Skill', 'EmployeeSkill',
-    'MachineAuthorization', 'Shift', 'Attendance', 'LeaveType', 'LeaveRequest', 'SalaryGrid',
-    'Payslip', 'WorkSchedule', 'ShiftAssignment', 'MedicalVisit', 'WorkIncident', 'ProtectiveEquipment',
-    # Chat
     'ChatRoom', 'ChatMessage', 'UserPresence',
-    # Permissions
     'UserModulePermission', 'user_has_module_access', 'robust_import_local_data',
 ]
