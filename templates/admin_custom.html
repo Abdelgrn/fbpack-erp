@@ -67,6 +67,7 @@
     <div class="glass rounded-xl border border-slate-700 overflow-hidden mb-8">
         <div class="p-4 border-b border-slate-700 bg-slate-800/50">
             <h2 class="text-lg font-bold text-white">👥 Utilisateurs & Permissions</h2>
+            <p class="text-xs text-gray-500 mt-1">Astuce : pour ajouter un module à un collègue, cliquez ✏️ — laissez le mot de passe vide, il ne changera pas.</p>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full">
@@ -122,7 +123,7 @@
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex items-center justify-center gap-2">
-                                <button class="btn-edit-user p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded transition" title="Modifier">
+                                <button class="btn-edit-user p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded transition" title="Modifier (sans changer le mot de passe)">
                                     ✏️
                                 </button>
                                 {% if not item.user.is_superuser %}
@@ -210,7 +211,7 @@
             <button onclick="closeAddModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
         
-        <form method="post" action="{% url 'admin_add_user' %}" class="p-6 django-form-container">
+        <form method="post" action="{% url 'admin_add_user' %}" class="p-6 django-form-container" autocomplete="off">
             {% csrf_token %}
             
             <div class="mb-6">
@@ -218,15 +219,15 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-gray-300 mb-2">Nom d'utilisateur *</label>
-                        <input type="text" name="username" required>
+                        <input type="text" name="username" required autocomplete="off">
                     </div>
                     <div>
                         <label class="block text-sm text-gray-300 mb-2">Email</label>
-                        <input type="email" name="email">
+                        <input type="email" name="email" autocomplete="off">
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm text-gray-300 mb-2">Mot de passe *</label>
-                        <input type="password" name="password" required>
+                        <label class="block text-sm text-gray-300 mb-2">Mot de passe * <span class="text-gray-500 font-normal">(obligatoire à la création)</span></label>
+                        <input type="password" name="password" required autocomplete="new-password">
                     </div>
                 </div>
                 <div class="flex gap-4 mt-4">
@@ -284,7 +285,7 @@
             <button onclick="closeEditModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
         
-        <form id="edit-user-form" method="post" class="p-6 django-form-container">
+        <form id="edit-user-form" method="post" class="p-6 django-form-container" autocomplete="off">
             {% csrf_token %}
             
             <div class="mb-6">
@@ -292,15 +293,27 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-gray-300 mb-2">Nom d'utilisateur</label>
-                        <input type="text" name="username" id="edit-username">
+                        <input type="text" name="username" id="edit-username" autocomplete="off">
                     </div>
                     <div>
                         <label class="block text-sm text-gray-300 mb-2">Email</label>
-                        <input type="email" name="email" id="edit-email">
+                        <input type="email" name="email" id="edit-email" autocomplete="off">
                     </div>
                     <div class="md:col-span-2">
-                        <label class="block text-sm text-gray-300 mb-2">Nouveau mot de passe (laisser vide pour ne pas changer)</label>
-                        <input type="password" name="password">
+                        <label class="block text-sm text-gray-300 mb-2">
+                            Mot de passe
+                            <span class="text-emerald-400 font-normal">— optionnel</span>
+                        </label>
+                        <!-- IMPORTANT : pas de required + autocomplete new-password pour éviter l'autofill navigateur -->
+                        <input type="password" name="password" id="edit-password"
+                               placeholder="Laisser VIDE pour conserver le mot de passe actuel"
+                               autocomplete="new-password"
+                               value="">
+                        <p class="mt-2 text-xs text-emerald-400/90 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                            🔐 <strong>Vous n’avez PAS besoin du mot de passe</strong> pour ajouter/retirer des modules.
+                            Laissez ce champ vide → l’utilisateur garde son mot de passe actuel.
+                            Remplissez-le uniquement si vous voulez le réinitialiser.
+                        </p>
                     </div>
                 </div>
                 <div class="flex gap-4 mt-4">
@@ -340,7 +353,7 @@
             
             <div class="flex gap-3">
                 <button type="submit" class="flex-1 bg-neon hover:bg-yellow-500 text-black font-bold py-3 rounded-lg transition">
-                    ✅ Enregistrer
+                    ✅ Enregistrer (sans toucher au mot de passe si vide)
                 </button>
                 <button type="button" onclick="closeEditModal()" 
                         class="px-6 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition">
@@ -419,6 +432,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('edit-email').value = email;
             document.getElementById('edit-is-staff').checked = isStaff;
             document.getElementById('edit-is-active').checked = isActive;
+
+            // Toujours vider le champ mot de passe à l'ouverture (évite autofill navigateur)
+            var pwd = document.getElementById('edit-password');
+            if (pwd) {
+                pwd.value = '';
+                pwd.setAttribute('autocomplete', 'new-password');
+            }
 
             var cbs = document.querySelectorAll('.edit-module-cb');
             for (var j = 0; j < cbs.length; j++) {

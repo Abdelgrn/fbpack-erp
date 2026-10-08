@@ -20,7 +20,7 @@ from .crm import (
 )
 
 from .prepress import (
-    prepress_view, add_product, edit_product, add_tool, edit_tool
+    prepress_view, prepress_client_products, add_product, edit_product, add_tool, edit_tool
 )
 
 from .production_of import (
@@ -75,7 +75,8 @@ from .drh import (
 )
 
 from .chat import (
-    chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification, chat_private_init, chat_notifications_api
+    chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+    chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
 )
 
 from .maintenance import (

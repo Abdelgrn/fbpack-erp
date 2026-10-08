@@ -17,8 +17,9 @@ from django.contrib.auth.models import User
 
 from ..models import (
     Client, TechnicalProduct, Tooling, Quote, ProductionOrder, Machine,
-    Material, ConsommationEncre, ProductionEntry
+    Material, ConsommationEncre, ProductionEntry, Supplier
 )
+from .stock import StockService
 
 
 # ===========================================================================
@@ -67,11 +68,16 @@ def normalize_header(h):
 
 COLUMN_CANDIDATES = {
     'Designation': ['designation', 'nom', 'name', 'produit', 'article', 'libelle'],
+    'Code': ['code', 'code_produit', 'ref', 'reference'],
+    'Fournisseur': ['fournisseur', 'supplier', 'fournisseur_nom'],
     'Categorie': ['categorie', 'category', 'type', 'famille', 'type_produit'],
-    'Quantite': ['quantite', 'qte', 'stock', 'quantity', 'qte_stock'],
+    'Micronage_Grammage': ['micronage_grammage', 'micronage / grammage', 'micronage', 'grammage', 'epaisseur', 'microns'],
+    'Metrage': ['metrage', 'metrage_m', 'metrage_(m)', 'longueur', 'longueur_m'],
+    'Stock_Initial': ['stock_initial', 'stock_de_depart', 'initial_quantity', 'initial'],
+    'Stock_Reel': ['stock_reel', 'stock_actuel', 'quantite', 'qte', 'stock', 'quantity', 'qte_stock'],
     'Unite': ['unite', 'unit', 'uom'],
     'Seuil_Min': ['seuil_min', 'seuil', 'min', 'seuil_minimum', 'stock_min', 'stock_minimum'],
-    'Prix': ['prix', 'prix_unitaire', 'price', 'prix_unite', 'pu'],
+    'Prix_Unitaire': ['prix_unitaire', 'prix', 'price', 'prix_unite', 'pu'],
 }
 
 def build_column_rename_map(columns):
@@ -92,7 +98,7 @@ CATEGORY_KEYWORDS = {
     'INK': ['encre', 'ink', 'tinta'],
     'SOLV': ['solvant', 'solv', 'diluant', 'thinner'],
     'GLUE': ['colle', 'glue', 'adhesif', 'adhesive'],
-    'FILM': ['film', 'papier', 'support', 'paper', 'bobine'],
+    'FILM': ['film', 'papier', 'support', 'paper', 'bobine', 'kraft', 'couche'],
 }
 
 def _text_matches_category(text):
@@ -255,7 +261,7 @@ def map_region_from_ville(ville):
 
     ouest = [
         'ORAN', 'RELIZANE', 'GHLIZANE', 'MOSTAGANEM', 'MASCARA', 'SAIDA',
-        'TIARET', 'TLEMCEN', 'SIDI BEL ABBES', 'SIDI BEL ABBES', 'SBA',
+        'TIARET', 'TLEMCEN', 'SIDI BEL ABBES', 'SBA',
         'AIN TEMOUCHENT', 'TEMOUCHENT', 'MAGHNIA', 'ARZEW', 'ES SENIA',
         'BIR EL DJIR', 'ES-SENIA', 'GHAZAOUET', 'NEDROMA',
     ]
@@ -300,13 +306,11 @@ def map_region_from_ville(ville):
 def resolve_commercial_user(commercial_raw):
     """
     Recherche uniquement parmi les utilisateurs ayant accès au module CRM.
-    Si aucun n'est trouvé, retourne None (ne crée plus d'utilisateur automatiquement).
     """
     raw = safe_str(commercial_raw)
     if not raw:
         return None
 
-    # Recherche uniquement parmi les utilisateurs CRM
     crm_users = get_crm_users_queryset()
 
     candidates = [
@@ -334,7 +338,6 @@ def resolve_commercial_user(commercial_raw):
 
 @login_required
 def import_stock_view(request):
-    # Charge uniquement les utilisateurs ayant accès au module CRM
     crm_users = get_crm_users_queryset()
 
     context = {
@@ -363,32 +366,91 @@ def import_stock_view(request):
                 if colonnes_reconnues:
                     details.append(f"ℹ️ Colonnes Excel reconnues et mappées : {colonnes_reconnues}")
                 else:
-                    details.append("⚠️ Aucune colonne standard reconnue — vérifiez les en-têtes de votre fichier Excel.")
+                    details.append("⚠️ Analyse basée sur les en-têtes standard.")
 
                 for idx, row in df.iterrows():
                     try:
-                        designation = str(row.get('Designation', 'Inconnu')).strip()
-                        if designation in ('', '0', 'nan'):
+                        designation = str(row.get('Designation', row.get('designation', 'Inconnu'))).strip()
+                        if designation in ('', '0', 'nan', 'None'):
                             designation = 'Inconnu'
 
-                        raw_cat = str(row.get('Categorie', '')).strip()
-                        if raw_cat in ('0', 'nan', 'None'):
-                            raw_cat = ''
+                        code_val = str(row.get('Code', row.get('code', ''))).strip()
+                        if code_val in ('0', 'nan', 'None'): code_val = ''
+
+                        fournisseur_name = str(row.get('Fournisseur', row.get('fournisseur', ''))).strip()
+                        if fournisseur_name in ('0', 'nan', 'None'): fournisseur_name = ''
+
+                        raw_cat = str(row.get('Categorie', row.get('categorie', ''))).strip()
+                        if raw_cat in ('0', 'nan', 'None'): raw_cat = ''
+
+                        # --- LECTURE DES COLONNES "Micronage / Grammage" (col 5) ET "Metrage (m)" (col 6) ---
+                        mic_grm_val = row.get('Micronage_Grammage', row.get('Micronage / Grammage', row.get('Micronage', row.get('Grammage', None))))
+                        metrage = row.get('Metrage', row.get('Metrage (m)', row.get('metrage', None)))
+
+                        stock_initial = float(row.get('Stock_Initial', row.get('stock_initial', 0)) or 0)
+                        qty_val = float(row.get('Stock_Reel', row.get('Quantite', row.get('quantite', stock_initial))) or stock_initial)
+                        unit = str(row.get('Unite', row.get('unite', 'kg'))).strip() or 'kg'
+                        seuil = float(row.get('Seuil_Min', row.get('seuil', 50)) or 50)
+                        prix = float(row.get('Prix_Unitaire', row.get('Prix', row.get('prix', 0))) or 0)
+
+                        if not designation or designation == 'Inconnu':
+                            continue
+
+                        supplier_obj = None
+                        if fournisseur_name:
+                            supplier_obj, _ = Supplier.objects.get_or_create(name=fournisseur_name)
+
+                        mic_val = None
+                        gram_val = None
+                        if mic_grm_val not in (None, '', 'nan', 'None'):
+                            try:
+                                val_f = float(mic_grm_val)
+                                desig_upper = str(designation).upper()
+                                cat_upper = str(raw_cat).upper()
+                                if 'PAPIER' in desig_upper or 'KRAFT' in desig_upper or 'COUCH' in desig_upper or 'PAPIER' in cat_upper:
+                                    gram_val = val_f
+                                else:
+                                    mic_val = int(val_f)
+                            except (ValueError, TypeError):
+                                pass
+
+                        met_val = None
+                        if metrage not in (None, '', 'nan', 'None'):
+                            try:
+                                met_val = float(metrage)
+                            except (ValueError, TypeError):
+                                pass
 
                         cat_code, cat_source = detect_material_category(raw_cat, designation)
 
-                        Material.objects.update_or_create(
-                            name=designation,
-                            defaults={
-                                'category': cat_code,
-                                'quantity': float(row.get('Quantite', 0) or 0),
-                                'unit': str(row.get('Unite', 'kg')).strip() or 'kg',
-                                'min_threshold': float(row.get('Seuil_Min', 0) or 0),
-                                'price_per_unit': float(row.get('Prix', 0) or 0)
-                            }
-                        )
+                        defaults = {
+                            'name': designation,
+                            'category': cat_code,
+                            'quantity': qty_val,
+                            'initial_quantity': stock_initial,
+                            'unit': unit,
+                            'min_threshold': seuil,
+                            'price_per_unit': prix,
+                            'supplier': supplier_obj
+                        }
+                        if mic_val is not None: defaults['micronage_standard'] = mic_val
+                        if gram_val is not None: defaults['grammage'] = gram_val
+                        if met_val is not None: defaults['metrage_standard'] = met_val
+
+                        if code_val:
+                            mat, created = Material.objects.update_or_create(
+                                code=code_val,
+                                defaults=defaults
+                            )
+                        else:
+                            mat, created = Material.objects.update_or_create(
+                                name=designation,
+                                defaults=defaults
+                            )
+
                         count += 1
-                        details.append(f"Ligne {idx+2}: ✅ {designation} importé en [{cat_code}] — détecté via {cat_source}")
+                        act = "créé" if created else "mis à jour"
+                        details.append(f"Ligne {idx+2}: ✅ {designation} [{cat_code}] {act} — mic/grm: {mic_val or gram_val or '—'}, métrage: {met_val or '—'}")
                     except Exception as e:
                         errors += 1
                         details.append(f"Ligne {idx+2}: ❌ {str(e)}")
@@ -400,7 +462,6 @@ def import_stock_view(request):
                 selected_commercial_id = request.POST.get('commercial_id')
                 forced_commercial = None
                 if selected_commercial_id:
-                    # Vérifie que le commercial sélectionné a bien accès au CRM
                     forced_commercial = get_crm_users_queryset().filter(id=selected_commercial_id).first()
 
                 if forced_commercial:
@@ -737,6 +798,7 @@ def import_stock_view(request):
 
 
 def download_template_special_prod(request):
+    """Génère le bon template Excel complet à jour pour la Production Spéciale (18 colonnes)"""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Production Speciale"
@@ -759,7 +821,7 @@ def download_template_special_prod(request):
         cell.alignment = Alignment(horizontal='center')
         cell.border = tb
     example = [
-        '15/01/2025', 'Sac Lait 1L', 'PEBD 50μ', 500, 'LOT-001', 320,
+        '15/01/2025', 'Sac Lait 1L', 'BOPP 20', 500, 'LOT-001', 320,
         'Laiterie Atlas', 'A', 'IMP-01', '08:00', '16:30', 12000,
         5.2, 3.1, 1.5, 2.0, 485, 10
     ]
@@ -781,10 +843,15 @@ def download_template_special_prod(request):
 
 
 def download_template_stock(request):
+    """Génère le bon template Excel à jour pour le Stock Matières (11 colonnes avec Micronage/Grammage)"""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Stock Matieres"
-    headers = ['Designation', 'Categorie', 'Quantite', 'Unite', 'Seuil_Min', 'Prix']
+    headers = [
+        'Designation', 'Code', 'Fournisseur', 'Categorie (Film/Encre/Colle/Solvant)', 
+        'Micronage / Grammage', 'Metrage (m)', 'Stock_Initial', 'Stock_Reel', 
+        'Unite', 'Seuil_Min', 'Prix_Unitaire'
+    ]
     hf = Font(name='Arial', bold=True, color='FFFFFF', size=11)
     hfill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
     tb = Border(
@@ -798,11 +865,9 @@ def download_template_stock(request):
         cell.alignment = Alignment(horizontal='center')
         cell.border = tb
     examples = [
-        ['Encre Noir Flexo', 'Encre', 120, 'kg', 20, 850],
-        ['Encre Magenta Helio', 'Encre', 45, 'kg', 15, 920],
-        ['Film PEBD 50µ', 'Film', 3200, 'kg', 500, 210],
-        ['Colle PU Bi-Composant', 'Colle', 60, 'kg', 10, 640],
-        ['Solvant Metoxyn', 'Solvant', 200, 'l', 40, 180],
+        ['BOPP TRANSPARENT 20UM', 'BOPP20', 'SunChemical', 'Film/Papier', 20, 6000, 500, 500, 'kg', 100, 1200],
+        ['PAPIER KRAFT BLANCHI 70G', 'KRAFT70', 'JPR', 'Film/Papier', 70, 5000, 1000, 1000, 'kg', 200, 1500],
+        ['ENCRE BLUE CYAN HP RG', '03.043.CX.SVR', 'Chemigold', 'Encre', '', '', 50, 50, 'kg', 20, 2500],
     ]
     ef = PatternFill(start_color='E8F5E9', end_color='E8F5E9', fill_type='solid')
     for row_idx, ex in enumerate(examples, 2):

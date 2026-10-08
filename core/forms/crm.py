@@ -260,6 +260,9 @@ class LigneCommandeClientForm(forms.ModelForm):
         fields = [
             'produit', 'material', 'designation', 'quantite', 'unite',
             'prix_unitaire', 'remise', 'date_livraison', 'notes',
+            # --- AJOUTS MOTEUR DE CALCUL ERP ---
+            'type_calcul', 'laize_fabrication', 'developpement_fabrication',
+            'poses_fabrication', 'structure_json'
         ]
         widgets = {
             'produit': forms.Select(attrs={'class': 'form-select'}),
@@ -271,6 +274,12 @@ class LigneCommandeClientForm(forms.ModelForm):
             'remise': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0, 'max': 100}),
             'date_livraison': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'notes': forms.TextInput(attrs={'class': 'form-control'}),
+            # --- MASQUÉS POUR SAUVEGARDE SILENCIEUSE ---
+            'type_calcul': forms.HiddenInput(),
+            'laize_fabrication': forms.HiddenInput(),
+            'developpement_fabrication': forms.HiddenInput(),
+            'poses_fabrication': forms.HiddenInput(),
+            'structure_json': forms.HiddenInput(),
         }
 
     def __init__(self, *args, **kwargs):
@@ -289,7 +298,7 @@ LigneCommandeClientFormSet = inlineformset_factory(
     CommandeClient,
     LigneCommandeClient,
     form=LigneCommandeClientForm,
-    extra=3,
+    extra=6,  # 🚀 Augmenté à 6 pour accueillir largement toutes les couches du Moteur de Calcul
     can_delete=True,
     min_num=0,
     validate_min=False,

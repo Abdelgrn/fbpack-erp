@@ -102,9 +102,11 @@ def admin_add_user(request):
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '')
+        password = request.POST.get('password', '').strip()
         is_staff = request.POST.get('is_staff') == 'on'
         is_active = request.POST.get('is_active') == 'on'
+
+        # Création : mot de passe OBLIGATOIRE
         if username and password:
             if not User.objects.filter(username=username).exists():
                 u = User.objects.create_user(username=username, email=email, password=password)
@@ -123,36 +125,73 @@ def admin_add_user(request):
             else:
                 messages.error(request, f"❌ Le nom d'utilisateur '{username}' existe déjà.")
         else:
-            messages.error(request, "❌ Nom d'utilisateur et mot de passe obligatoires.")
+            messages.error(request, "❌ Nom d'utilisateur et mot de passe obligatoires pour la création.")
     return redirect('admin_view')
 
 
 @login_required
 @staff_member_required
 def admin_edit_user(request, user_id):
+    """
+    Modification d'un utilisateur :
+    - modules / email / staff / actif : toujours modifiables
+    - mot de passe : OPTIONNEL
+      → si vide  = on GARDE l'ancien mot de passe (le manager n'a pas besoin de le connaître)
+      → si rempli = on change uniquement le mot de passe
+    """
     u = get_object_or_404(User, id=user_id)
+
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '')
+        password = request.POST.get('password', '').strip()  # peut être vide
         is_staff = request.POST.get('is_staff') == 'on'
         is_active = request.POST.get('is_active') == 'on'
-        u.username = username or u.username
+
+        # Sécurité : ne pas retomber sur un username déjà pris par un autre compte
+        if username and username != u.username and User.objects.filter(username=username).exclude(id=u.id).exists():
+            messages.error(request, f"❌ Le nom d'utilisateur '{username}' est déjà utilisé.")
+            return redirect('admin_view')
+
+        # Infos de base (sans toucher au mot de passe)
+        if username:
+            u.username = username
         u.email = email
-        u.is_staff = is_staff
-        u.is_active = is_active
+
+        # Ne pas retirer is_staff / is_active d'un superuser par erreur de case
+        if not u.is_superuser:
+            u.is_staff = is_staff
+            u.is_active = is_active
+
+        password_changed = False
+        # >>> CLÉ MÉTIER : mot de passe optionnel à l'édition <<<
         if password:
             u.set_password(password)
+            password_changed = True
+
         u.save()
 
+        # Modules ERP (indépendants du mot de passe)
         perms, created = UserModulePermission.objects.get_or_create(user=u)
         for module_code, _ in MODULES_LIST:
             field_name = f'can_access_{module_code}'
+            # Les superusers gardent tout ; on enregistre quand même les cases pour cohérence
             value = request.POST.get(f'module_{module_code}') == 'on'
             setattr(perms, field_name, value)
         perms.save()
 
-        messages.success(request, f"✅ Utilisateur '{u.username}' mis à jour !")
+        if password_changed:
+            messages.success(
+                request,
+                f"✅ Utilisateur '{u.username}' mis à jour (modules + nouveau mot de passe)."
+            )
+        else:
+            messages.success(
+                request,
+                f"✅ Utilisateur '{u.username}' mis à jour. "
+                f"Le mot de passe existant a été conservé (aucune saisie requise)."
+            )
+
     return redirect('admin_view')
 
 
@@ -218,7 +257,7 @@ def export_database_backup(request):
     """Génère un fichier JSON de sauvegarde TOTALE ET ABSOLUE de l'ERP."""
     token = request.GET.get('token', '')
     secret_key = getattr(settings, 'SECRET_KEY', 'django-ultimate-erp-secret-key')
-    
+
     if not (request.user.is_authenticated and request.user.is_superuser or (token and token == secret_key)):
         return JsonResponse({'error': 'Accès non autorisé'}, status=403)
 

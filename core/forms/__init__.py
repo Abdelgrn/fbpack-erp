@@ -6,7 +6,7 @@ from .crm import (
 )
 
 # Prepress
-from .prepress import ProductForm, ToolForm
+from .prepress import ProductForm, ToolForm, PrepressColorForm, PrepressColorFormSet
 
 # Stock
 from .stock import SupplierForm, MaterialForm, StockImportForm
@@ -61,7 +61,7 @@ __all__ = [
     "CommandeClientForm", "LigneCommandeClientForm", "LigneCommandeClientFormSet",
     "DemandePrixForm", "ClientImportForm",
     # Prepress
-    "ProductForm", "ToolForm",
+    "ProductForm", "ToolForm", "PrepressColorForm", "PrepressColorFormSet",
     # Stock
     "SupplierForm", "MaterialForm", "StockImportForm",
     # Machines

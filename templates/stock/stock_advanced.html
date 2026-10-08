@@ -3,6 +3,18 @@
 {% block content %}
 <div class="hidden">{% csrf_token %}</div>
 
+<style>
+    /* Zones rechargées en AJAX : transition douce, pas de clignotement */
+    .ajax-zone { transition: opacity .15s ease; }
+    .ajax-zone.is-loading { opacity: .45; pointer-events: none; }
+    #ajaxTopBar {
+        position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 9999; opacity: 0;
+        background: linear-gradient(90deg, #22d3ee, #facc15);
+        transition: width .4s ease, opacity .25s ease;
+    }
+</style>
+<div id="ajaxTopBar"></div>
+
 <!-- ============================================================ -->
 <!-- EN-TÊTE MODULE STOCK AVANCÉ -->
 <!-- ============================================================ -->
@@ -11,7 +23,7 @@
         <div>
             <h1 class="text-3xl font-bold text-white tracking-wider">
                 📦 Module Stocks & Achats 
-                <span class="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 px-2 py-1 rounded ml-2">v2.1 Pro</span>
+                <span class="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 px-2 py-1 rounded ml-2">v2.2 Pro</span>
             </h1>
             <p class="text-gray-400 text-sm mt-1">
                 Le stock affiché correspond aux matières du <strong class="text-gray-200">Magasin Général</strong> : ce qui est transféré en Stock Tampon (Flexo / Hélio) est décompté.
@@ -60,7 +72,7 @@
         </div>
     </div>
     <div class="flex gap-2">
-        <button onclick="showTab('matieres'); selectSortAlertFirst();" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
+        <button onclick="voirAlertesEnPriorite()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
             👁️ Voir les alertes en priorité
         </button>
     </div>
@@ -344,10 +356,38 @@
 
 
 <!-- ============================================================ -->
-<!-- ONGLET 1 : MATIÈRES PREMIÈRES -->
+<!-- ONGLET 1 : MATIÈRES PREMIÈRES (SEPARÉES EN 4 UNIVERS DISTINCTS) -->
 <!-- ============================================================ -->
 <div id="tab-matieres" class="tab-content block">
+
+    <!-- ZONE AJAX #1 : BARRE D'UNIVERS (rechargée sans recharger la page) -->
+    <div id="materialsUniverseZone" class="ajax-zone">
+        <div class="flex items-center gap-2 bg-slate-900 p-2.5 rounded-xl border border-slate-700 mb-6 overflow-x-auto shadow-inner">
+            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 hidden sm:inline">Univers :</span>
+            
+            <button type="button" onclick="filterMatCategory('ALL')" class="mat-cat-tab-btn px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 whitespace-nowrap {% if not category_filter %}bg-yellow-500 text-slate-900 font-extrabold shadow{% else %}bg-slate-800 hover:bg-slate-700 text-gray-300 border border-slate-700{% endif %}">
+                🌐 Toutes ({{ total_matieres }})
+            </button>
+            
+            <button type="button" onclick="filterMatCategory('FILM')" class="mat-cat-tab-btn px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 whitespace-nowrap {% if category_filter == 'FILM' %}bg-blue-600 text-white font-extrabold shadow border border-blue-400{% else %}bg-slate-800 hover:bg-slate-700 text-blue-400 border border-blue-500/30{% endif %}">
+                📜 Films & Papiers ({{ materials_film|length }})
+            </button>
+            
+            <button type="button" onclick="filterMatCategory('INK')" class="mat-cat-tab-btn px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 whitespace-nowrap {% if category_filter == 'INK' %}bg-pink-600 text-white font-extrabold shadow border border-pink-400{% else %}bg-slate-800 hover:bg-slate-700 text-pink-400 border border-pink-500/30{% endif %}">
+                🎨 Encres ({{ materials_ink|length }})
+            </button>
+            
+            <button type="button" onclick="filterMatCategory('GLUE')" class="mat-cat-tab-btn px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 whitespace-nowrap {% if category_filter == 'GLUE' %}bg-emerald-600 text-white font-extrabold shadow border border-emerald-400{% else %}bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30{% endif %}">
+                🧪 Colles ({{ materials_glue|length }})
+            </button>
+            
+            <button type="button" onclick="filterMatCategory('SOLV')" class="mat-cat-tab-btn px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 whitespace-nowrap {% if category_filter == 'SOLV' %}bg-purple-600 text-white font-extrabold shadow border border-purple-400{% else %}bg-slate-800 hover:bg-slate-700 text-purple-400 border border-purple-500/30{% endif %}">
+                💧 Solvants ({{ materials_solv|length }})
+            </button>
+        </div>
+    </div>
     
+    <!-- FORMULAIRE DE RECHERCHE (reste en place : le focus n'est jamais perdu pendant la frappe) -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-5">
         <form method="get" action="{% url 'stock_advanced' %}" id="searchForm">
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
@@ -367,12 +407,10 @@
                             autocomplete="off"
                         >
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
-                        {% if search_query %}
-                        <button type="button" onclick="clearSearch()" 
-                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                        <button type="button" id="clearSearchBtn" onclick="clearSearch()" 
+                            class="{% if not search_query %}hidden{% endif %} absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
                             ✕
                         </button>
-                        {% endif %}
                     </div>
                 </div>
                 
@@ -427,11 +465,11 @@
                             class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-3 px-4 rounded-lg shadow transition">
                             🔍 Filtrer
                         </button>
-                        <a href="{% url 'stock_advanced' %}?tab=matieres" 
+                        <button type="button" onclick="resetMaterialFilters()"
                             class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg transition flex items-center justify-center"
                             title="Réinitialiser">
                             ↺
-                        </a>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -441,180 +479,249 @@
         
         <div id="liveSearchResults" class="hidden mt-4 bg-slate-900 border border-slate-600 rounded-lg max-h-80 overflow-y-auto"></div>
     </div>
-    
-    <div class="flex justify-between items-end mb-4 flex-wrap gap-3">
-        <div>
-            <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                📦 Matières Premières
-                {% if search_query %}
-                <span class="text-sm font-normal text-cyan-400">
-                    — Recherche : "{{ search_query }}"
-                </span>
-                {% endif %}
-            </h2>
-            <p class="text-sm text-gray-400 mt-1">
-                <span class="text-cyan-400 font-bold" id="visibleMaterialsCount">{{ materials|length }}</span> matière(s) affichée(s)
-            </p>
-        </div>
 
-        <div class="flex gap-3 items-end flex-wrap">
+    <!-- ZONE AJAX #2 : TITRE + TRI + TABLEAU + PAGINATION -->
+    <div id="materialsAjaxZone" class="ajax-zone">
+        <div class="flex justify-between items-end mb-4 flex-wrap gap-3">
             <div>
-                <label class="block text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">
-                    ↕ Trier par
-                </label>
-                <select id="sortSelect" 
-                        class="bg-slate-800 border-2 border-slate-600 hover:border-cyan-500 rounded-lg px-3 py-2.5 text-white text-xs font-bold focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition cursor-pointer appearance-none pr-9"
-                        style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%2338bdf8%27 stroke-width=%272%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem;">
-                    <option value="default">📋 Ordre par défaut</option>
-                    <option value="name_asc">🔤 Nom (A → Z)</option>
-                    <option value="name_desc">🔤 Nom (Z → A)</option>
-                    <option value="date_desc">📅 Plus récent d'abord</option>
-                    <option value="date_asc">📅 Plus ancien d'abord</option>
-                    <option value="stock_asc">📊 Stock (min → max)</option>
-                    <option value="stock_desc">📊 Stock (max → min)</option>
-                    <option value="price_asc">💰 Prix (bas → haut)</option>
-                    <option value="price_desc">💰 Prix (haut → bas)</option>
-                    <option value="alert_first">⚠️ Alertes en premier</option>
-                </select>
+                <h2 class="text-xl font-bold text-white flex items-center gap-2" id="matSectionTitle">
+                    {% if category_filter == 'FILM' %}📜 Univers Films & Papiers (Bobines)
+                    {% elif category_filter == 'INK' %}🎨 Univers Encres (Atelier Impression)
+                    {% elif category_filter == 'GLUE' %}🧪 Univers Colles (Atelier Complexage)
+                    {% elif category_filter == 'SOLV' %}💧 Univers Solvants & Additifs
+                    {% else %}📦 Toutes les Matières Premières{% endif %}
+                    
+                    {% if search_query %}
+                    <span class="text-sm font-normal text-cyan-400">
+                        — Recherche : "{{ search_query }}"
+                    </span>
+                    {% endif %}
+                </h2>
+                <p class="text-sm text-gray-400 mt-1">
+                    <span class="text-cyan-400 font-bold" id="visibleMaterialsCount">{{ materials|length }}</span> matière(s) affichée(s)
+                    {% if materials.paginator.count %}
+                    <span class="text-gray-500">({{ materials.start_index }}–{{ materials.end_index }} sur {{ materials.paginator.count }})</span>
+                    {% endif %}
+                </p>
             </div>
 
-            <button onclick="openLabelScanner('lot')" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm flex items-center gap-2 animate-pulse">
-                📷 Scan Étiquette (IA)
-            </button>
+            <div class="flex gap-3 items-end flex-wrap">
+                <div>
+                    <label class="block text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">
+                        ↕ Trier par
+                    </label>
+                    <select id="sortSelect" 
+                            class="bg-slate-800 border-2 border-slate-600 hover:border-cyan-500 rounded-lg px-3 py-2.5 text-white text-xs font-bold focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition cursor-pointer appearance-none pr-9"
+                            style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%2338bdf8%27 stroke-width=%272%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem;">
+                        <option value="default">📋 Ordre par défaut</option>
+                        <option value="name_asc">🔤 Nom (A → Z)</option>
+                        <option value="name_desc">🔤 Nom (Z → A)</option>
+                        <option value="date_desc">📅 Plus récent d'abord</option>
+                        <option value="date_asc">📅 Plus ancien d'abord</option>
+                        <option value="stock_asc">📊 Stock (min → max)</option>
+                        <option value="stock_desc">📊 Stock (max → min)</option>
+                        <option value="price_asc">💰 Prix (bas → haut)</option>
+                        <option value="price_desc">💰 Prix (haut → bas)</option>
+                        <option value="alert_first">⚠️ Alertes en premier</option>
+                    </select>
+                </div>
 
-            <a href="{% url 'export_search_results' %}?q={{ search_query }}&category={{ category_filter }}" 
-                class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm flex items-center gap-2">
-                📊 Export Excel
-            </a>
-            <a href="{% url 'add_material' %}" 
-                class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 px-4 rounded-lg shadow transition text-sm">
-                + Nouvelle Matière
-            </a>
+                <button onclick="openLabelScanner('lot')" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm flex items-center gap-2 animate-pulse">
+                    📷 Scan Étiquette (IA)
+                </button>
+
+                <a href="{% url 'export_search_results' %}?q={{ search_query }}&category={{ category_filter }}" 
+                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm flex items-center gap-2">
+                    📊 Export Excel
+                </a>
+                <a href="{% url 'add_material' %}" 
+                    class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 px-4 rounded-lg shadow transition text-sm">
+                    + Nouvelle Matière
+                </a>
+            </div>
         </div>
-    </div>
-    
-    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse" id="materialsTable">
-                <thead>
-                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
-                        <th class="p-4 border-b border-slate-700 w-12 text-center">
-                            <input type="checkbox" id="selectAllMaterialsAdv" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer" title="Tout sélectionner">
-                        </th>
-                        <th class="p-4 border-b border-slate-700">Désignation</th>
-                        <th class="p-4 border-b border-slate-700">Catégorie</th>
-                        <th class="p-4 border-b border-slate-700">Stock Initial <span class="text-[9px] text-gray-500 normal-case block font-normal">(au départ)</span></th>
-                        <th class="p-4 border-b border-slate-700">Stock Réel <span class="text-[9px] text-gray-500 normal-case block font-normal">(aujourd'hui)</span></th>
-                        <th class="p-4 border-b border-slate-700">Seuil Alerte</th>
-                        <th class="p-4 border-b border-slate-700">Seuil Intelligent</th>
-                        <th class="p-4 border-b border-slate-700">Lots actifs</th>
-                        <th class="p-4 border-b border-slate-700">Fournisseur</th>
-                        <th class="p-4 border-b border-slate-700">Prix/U</th>
-                        <th class="p-4 border-b border-slate-700 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="text-gray-200 text-sm" id="materialsTbody">
-                    {% for m in materials %}
-                    <tr class="hover:bg-slate-700/50 transition-all duration-300 border-b border-slate-700/50 material-row {% if m.is_low_stock %}bg-red-500/5 border-l-4 border-l-red-500{% endif %}"
-                        data-name="{{ m.name|lower }}"
-                        data-category="{{ m.category }}"
-                        data-supplier-id="{{ m.supplier.id|default:'' }}"
-                        data-supplier="{{ m.supplier.name|default:''|lower }}"
-                        data-low-stock="{% if m.is_low_stock %}true{% else %}false{% endif %}"
-                        data-initial-stock="{{ m.initial_quantity|default:0 }}"
-                        data-stock="{{ m.quantity|default:0 }}"
-                        data-price="{{ m.price_per_unit|default:0 }}"
-                        data-created-at="{{ m.created_at|date:'U'|default:m.id }}"
-                        data-original-order="{{ forloop.counter }}">
-                        <td class="p-4 text-center align-middle">
-                            <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox-adv w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer">
-                        </td>
-                        <td class="p-4 font-bold text-cyan-400">
-                            {{ m.name }}
-                            {% if m.code %}<div class="text-[10px] text-gray-500 font-mono">{{ m.code }}</div>{% endif %}
-                            {% if m.is_low_stock %}
-                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-ping ml-1" title="Alerte : Seuil critique atteint !"></span>
+        
+        <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="materialsTable">
+                    <thead>
+                        <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                            <th class="p-4 border-b border-slate-700 w-12 text-center">
+                                <input type="checkbox" id="selectAllMaterialsAdv" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer" title="Tout sélectionner">
+                            </th>
+                            <th class="p-4 border-b border-slate-700">Désignation</th>
+                            <th class="p-4 border-b border-slate-700">Catégorie</th>
+                            {% if category_filter == 'FILM' %}
+                            <th class="p-4 border-b border-slate-700 text-cyan-400 font-extrabold">Micronage / Grammage</th>
+                            <th class="p-4 border-b border-slate-700 text-yellow-400 font-extrabold">Métrage (m)</th>
                             {% endif %}
-                        </td>
-                        <td class="p-4">
-                            {% if m.category == 'FILM' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800">{{ m.get_category_display }}</span>
-                            {% elif m.category == 'INK' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-pink-950 text-pink-400 border border-pink-800">{{ m.get_category_display }}</span>
-                            {% elif m.category == 'GLUE' %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">{{ m.get_category_display }}</span>
-                            {% else %}
-                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">{{ m.get_category_display }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4 text-slate-300 font-semibold">
-                            {{ m.initial_quantity|floatformat:"-2" }} {{ m.unit }}
-                        </td>
-                        <td class="p-4 font-bold {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
-                            {{ m.quantity }} {{ m.unit }}
-                            {% if m.is_low_stock %}
-                            <span class="ml-1 text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 font-black">ALERTE</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4 text-gray-400 font-semibold">{{ m.min_threshold }} {{ m.unit }}</td>
-                        <td class="p-4">
-                            {% with seuil=m.seuil_intelligent %}
-                            {% if seuil %}
-                            <div class="text-yellow-400 text-xs font-bold">{{ seuil.seuil_calcule }} kg</div>
-                            <div class="text-gray-500 text-[10px]">≈ {{ seuil.jours_de_stock|floatformat:0 }}j de stock</div>
-                            {% else %}
-                            <button type="button" 
-                                data-seuil-id="{{ m.id }}" 
-                                data-seuil-name="{{ m.name }}"
-                                class="btn-seuil-trigger text-[10px] text-blue-400 border border-blue-400/30 px-2 py-1 rounded hover:bg-blue-400/10 transition">
-                                + Configurer
-                            </button>
-                            {% endif %}
-                            {% endwith %}
-                        </td>
-                        <td class="p-4">
-                            <span class="text-white font-bold">{{ m.lots.count }}</span>
-                            <span class="text-gray-500 text-xs ml-1">lots</span>
-                        </td>
-                        <td class="p-4 text-gray-400">{{ m.supplier.name|default:"—" }}</td>
-                        <td class="p-4 text-yellow-400 font-bold">{{ m.price_per_unit|floatformat:2 }} DA</td>
-                        <td class="p-4 text-right">
-                            <div class="flex justify-end gap-1.5 items-center">
-                                <a href="{% url 'edit_material' m.id %}" 
-                                    class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition flex items-center gap-1">
-                                    ✏️ Éditer
-                                </a>
+                            <th class="p-4 border-b border-slate-700">Stock Initial <span class="text-[9px] text-gray-500 normal-case block font-normal">(au départ)</span></th>
+                            <th class="p-4 border-b border-slate-700">Stock Réel <span class="text-[9px] text-gray-500 normal-case block font-normal">(aujourd'hui)</span></th>
+                            <th class="p-4 border-b border-slate-700">Seuil Alerte</th>
+                            <th class="p-4 border-b border-slate-700">Seuil Intelligent</th>
+                            <th class="p-4 border-b border-slate-700">Lots actifs</th>
+                            <th class="p-4 border-b border-slate-700">Fournisseur</th>
+                            <th class="p-4 border-b border-slate-700">Prix/U</th>
+                            <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-200 text-sm" id="materialsTbody">
+                        {% for m in materials %}
+                        <tr class="hover:bg-slate-700/50 transition-all duration-300 border-b border-slate-700/50 material-row {% if m.is_low_stock %}bg-red-500/5 border-l-4 border-l-red-500{% endif %}"
+                            data-name="{{ m.name|lower }}"
+                            data-category="{{ m.category }}"
+                            data-supplier-id="{{ m.supplier.id|default:'' }}"
+                            data-supplier="{{ m.supplier.name|default:''|lower }}"
+                            data-low-stock="{% if m.is_low_stock %}true{% else %}false{% endif %}"
+                            data-initial-stock="{{ m.initial_quantity|default:0 }}"
+                            data-stock="{{ m.quantity|default:0 }}"
+                            data-price="{{ m.price_per_unit|default:0 }}"
+                            data-created-at="{{ m.created_at|date:'U'|default:m.id }}"
+                            data-original-order="{{ forloop.counter }}">
+                            <td class="p-4 text-center align-middle">
+                                <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox-adv w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer">
+                            </td>
+                            <td class="p-4 font-bold text-cyan-400">
+                                {{ m.name }}
+                                {% if m.code %}<div class="text-[10px] text-gray-500 font-mono">{{ m.code }}</div>{% endif %}
+                                {% if m.is_low_stock %}
+                                <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-ping ml-1" title="Alerte : Seuil critique atteint !"></span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4">
+    {% if m.category == 'FILM' %}
+        <span class="text-xs font-bold px-2 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800">{{ m.get_category_display }}</span>
+        
+        <!-- BADGE SOUS-CATÉGORIE AUTOMATIQUE (BOPP, KRAFT, PE, PET, ALU...) -->
+        {% if m.sous_categorie %}
+            <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/20 text-yellow-300 border border-yellow-500/40 ml-1 uppercase">
+                {{ m.sous_categorie }}
+            </span>
+        {% endif %}
 
+    {% elif m.category == 'INK' %}
+        <span class="text-xs font-bold px-2 py-1 rounded-full bg-pink-950 text-pink-400 border border-pink-800">{{ m.get_category_display }}</span>
+    {% elif m.category == 'GLUE' %}
+        <span class="text-xs font-bold px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">{{ m.get_category_display }}</span>
+    {% else %}
+        <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">{{ m.get_category_display }}</span>
+    {% endif %}
+                            </td>
+                            
+                            {% if category_filter == 'FILM' %}
+                            <td class="p-4 font-mono font-bold text-cyan-300">
+                                {% if m.micronage_standard %}
+                                    <span class="bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-1 rounded text-xs">{{ m.micronage_standard }} µm</span>
+                                {% elif m.grammage %}
+                                    <span class="bg-yellow-950 text-yellow-300 border border-yellow-800 px-2 py-1 rounded text-xs">{{ m.grammage|floatformat:"-1" }} g/m²</span>
+                                {% else %}
+                                    <span class="text-gray-600 text-xs">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 font-mono font-bold text-yellow-300">
+                                {% if m.metrage_standard %}
+                                    <span class="bg-slate-900 border border-yellow-500/30 px-2 py-1 rounded text-xs">{{ m.metrage_standard|floatformat:"-1" }} m</span>
+                                {% else %}
+                                    <span class="text-gray-600 text-xs">—</span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+
+                            <td class="p-4 text-slate-300 font-semibold font-mono">
+                                {{ m.initial_quantity|floatformat:"-2" }} {{ m.unit }}
+                            </td>
+                            <td class="p-4 font-bold font-mono {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
+                                {{ m.quantity }} {{ m.unit }}
+                                {% if m.is_low_stock %}
+                                <span class="ml-1 text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 font-black">ALERTE</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-gray-400 font-semibold font-mono">{{ m.min_threshold }} {{ m.unit }}</td>
+                            <td class="p-4">
+                                {% with seuil=m.seuil_intelligent %}
+                                {% if seuil %}
+                                <div class="text-yellow-400 text-xs font-bold font-mono">{{ seuil.seuil_calcule }} kg</div>
+                                <div class="text-gray-500 text-[10px]">≈ {{ seuil.jours_de_stock|floatformat:0 }}j de stock</div>
+                                {% else %}
                                 <button type="button" 
-                                    data-da-id="{{ m.id }}" 
-                                    data-da-name="{{ m.name }}" 
-                                    data-da-seuil="{{ m.min_threshold }}" 
-                                    data-da-unit="{{ m.unit }}"
-                                    class="btn-da-trigger text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 py-1 px-2.5 rounded border border-blue-500/30 transition flex items-center gap-1"
-                                    title="Créer une Demande d'Achat">
-                                    🛒 DA
+                                    data-seuil-id="{{ m.id }}" 
+                                    data-seuil-name="{{ m.name }}"
+                                    class="btn-seuil-trigger text-[10px] text-blue-400 border border-blue-400/30 px-2 py-1 rounded hover:bg-blue-400/10 transition">
+                                    + Configurer
                                 </button>
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="p-4">
+                                <span class="text-white font-bold font-mono">{{ m.lots.count }}</span>
+                                <span class="text-gray-500 text-xs ml-1">lots</span>
+                            </td>
+                            <td class="p-4 text-gray-400">{{ m.supplier.name|default:"—" }}</td>
+                            <td class="p-4 text-yellow-400 font-bold font-mono">{{ m.price_per_unit|floatformat:2 }} DA</td>
+                            <td class="p-4 text-right">
+                                <div class="flex justify-end gap-1.5 items-center">
+                                    <a href="{% url 'edit_material' m.id %}" 
+                                        class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition flex items-center gap-1">
+                                        ✏️ Éditer
+                                    </a>
 
-                                <form method="POST" action="{% url 'delete_material' m.id %}" class="inline delete-material-form" data-confirm-name="{{ m.name }}">
-                                    {% csrf_token %}
-                                    <button type="submit"
-                                        class="text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 py-1 px-2.5 rounded border border-red-500/30 transition flex items-center gap-1"
-                                        title="Supprimer cette matière première">
-                                        🗑️ Supprimer
+                                    <button type="button" 
+                                        data-da-id="{{ m.id }}" 
+                                        data-da-name="{{ m.name }}" 
+                                        data-da-seuil="{{ m.min_threshold }}" 
+                                        data-da-unit="{{ m.unit }}"
+                                        class="btn-da-trigger text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 py-1 px-2.5 rounded border border-blue-500/30 transition flex items-center gap-1"
+                                        title="Créer une Demande d'Achat">
+                                        🛒 DA
                                     </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="11" class="p-8 text-center" id="noMaterialRow">
-                            <div class="text-gray-500 italic">Aucune matière enregistrée.</div>
-                        </td>
-                    </tr>
+
+                                    <form method="POST" action="{% url 'delete_material' m.id %}" class="inline delete-material-form" data-confirm-name="{{ m.name }}">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                            class="text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 py-1 px-2.5 rounded border border-red-500/30 transition flex items-center gap-1"
+                                            title="Supprimer cette matière première">
+                                            🗑️ Supprimer
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="13" class="p-8 text-center" id="noMaterialRow">
+                                <div class="text-gray-500 italic">Aucune matière enregistrée dans cette catégorie.</div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINATION FLUIDE (AJAX) -->
+            {% if materials.has_other_pages %}
+            <div class="p-4 border-t border-slate-700 bg-slate-900/50 flex flex-wrap items-center justify-between gap-3">
+                <div class="text-xs text-gray-400 font-medium">
+                    Page <strong class="text-white">{{ materials.number }}</strong> sur <strong class="text-white">{{ materials.paginator.num_pages }}</strong>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    {% if materials.has_previous %}
+                    <a href="?{{ qs_mat }}&page_mat={{ materials.previous_page_number }}" data-zone="materialsAjaxZone" class="ajax-page-link px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-bold transition">« Précédent</a>
+                    {% endif %}
+                    
+                    {% for p in materials.paginator.page_range %}
+                        {% if p == materials.number %}
+                        <span class="px-3 py-1.5 bg-cyan-500 text-slate-900 text-xs rounded-lg font-black shadow">{{ p }}</span>
+                        {% elif p == 1 or p == materials.paginator.num_pages or p > materials.number|add:"-3" and p < materials.number|add:"3" %}
+                        <a href="?{{ qs_mat }}&page_mat={{ p }}" data-zone="materialsAjaxZone" class="ajax-page-link px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-gray-300 text-xs rounded-lg font-bold transition">{{ p }}</a>
+                        {% endif %}
                     {% endfor %}
-                </tbody>
-            </table>
+
+                    {% if materials.has_next %}
+                    <a href="?{{ qs_mat }}&page_mat={{ materials.next_page_number }}" data-zone="materialsAjaxZone" class="ajax-page-link px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-bold transition">Suivant »</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -669,14 +776,14 @@
                         <td class="p-3 text-gray-400">{{ lot.date_reception|date:"d/m/Y" }}</td>
                         <td class="p-3 text-gray-400">{{ lot.fournisseur.name|default:"—" }}</td>
                         <td class="p-3 text-gray-400">{{ lot.emplacement.name|default:"—" }}</td>
-                        <td class="p-3 text-gray-300">{{ lot.quantite_initiale }} kg</td>
-                        <td class="p-3 font-bold text-emerald-400">{{ lot.quantite_restante }} kg</td>
+                        <td class="p-3 text-gray-300 font-mono">{{ lot.quantite_initiale }} kg</td>
+                        <td class="p-3 font-bold text-emerald-400 font-mono">{{ lot.quantite_restante }} kg</td>
                         <td class="p-3">
                             <div class="flex items-center gap-2">
                                 <div class="w-16 bg-slate-700 rounded-full h-1.5 overflow-hidden">
                                     <div class="progress-bar-fill bg-yellow-500 h-1.5 rounded-full" data-width="{{ lot.taux_consommation }}"></div>
                                 </div>
-                                <span class="text-xs text-gray-400">{{ lot.taux_consommation }}%</span>
+                                <span class="text-xs text-gray-400 font-mono">{{ lot.taux_consommation }}%</span>
                             </div>
                         </td>
                         <td class="p-3">
@@ -782,68 +889,97 @@
         </div>
     </div>
 
-    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse" id="movementsTable">
-                <thead>
-                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
-                        <th class="p-3 border-b border-slate-700 w-12 text-center">
-                            <input type="checkbox" id="selectAllMovementsAdv" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer" title="Tout sélectionner">
-                        </th>
-                        <th class="p-3 border-b border-slate-700">Date</th>
-                        <th class="p-3 border-b border-slate-700">Type</th>
-                        <th class="p-3 border-b border-slate-700">Matière</th>
-                        <th class="p-3 border-b border-slate-700">Lot</th>
-                        <th class="p-3 border-b border-slate-700">Quantité</th>
-                        <th class="p-3 border-b border-slate-700">Source → Destination</th>
-                        <th class="p-3 border-b border-slate-700">Machine / OF</th>
-                        <th class="p-3 border-b border-slate-700">Utilisateur</th>
-                        <th class="p-3 border-b border-slate-700">Motif</th>
-                    </tr>
-                </thead>
-                <tbody class="text-gray-200 text-sm" id="movementsTbody">
-                    {% for mv in mouvements %}
-                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50 movement-row"
-                        data-mvt-id="{{ mv.id }}"
-                        data-date="{{ mv.date|date:'Y-m-d' }}"
-                        data-emplacement-src="{{ mv.emplacement_source.name|default:''|lower }}"
-                        data-emplacement-dst="{{ mv.emplacement_destination.name|default:''|lower }}"
-                        data-category="{{ mv.material.category|default:'' }}">
-                        <td class="p-3 text-center align-middle">
-                            <input type="checkbox" name="selected_movements" value="{{ mv.id }}" class="movement-checkbox-adv w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer">
-                        </td>
-                        <td class="p-3 text-gray-400 whitespace-nowrap">{{ mv.date|date:"d/m/Y H:i" }}</td>
-                        <td class="p-3">
-                            {% if mv.type == 'ENTREE' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">⬆ Entrée</span>
-                            {% elif mv.type == 'SORTIE' %}<span class="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">⬇ Sortie</span>
-                            {% elif mv.type == 'TRANSFERT' %}<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">↔ Transfert</span>
-                            {% elif mv.type == 'AJUSTEMENT' %}<span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">⚙ Ajust.</span>
-                            {% elif mv.type == 'PERTE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Perte</span>
-                            {% else %}<span class="text-[10px] bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ mv.get_type_display }}</span>{% endif %}
-                        </td>
-                        <td class="p-3 font-bold text-cyan-400">{{ mv.material.name }}</td>
-                        <td class="p-3 text-xs text-gray-400">{{ mv.lot.numero_lot|default:"—" }}</td>
-                        <td class="p-3 font-bold {% if mv.type == 'ENTREE' %}text-emerald-400{% else %}text-red-400{% endif %}">
-                            {% if mv.type == 'ENTREE' %}+{% else %}-{% endif %}{{ mv.quantite }} kg
-                        </td>
-                        <td class="p-3 text-xs text-gray-400">
-                            {% if mv.emplacement_source %}{{ mv.emplacement_source.name }}{% else %}—{% endif %}
-                            →
-                            {% if mv.emplacement_destination %}{{ mv.emplacement_destination.name }}{% else %}—{% endif %}
-                        </td>
-                        <td class="p-3 text-xs text-gray-400">
-                            {% if mv.machine %}{{ mv.machine.name }}{% endif %}
-                            {% if mv.of %}/ OF {{ mv.of.of_number }}{% endif %}
-                            {% if not mv.machine and not mv.of %}—{% endif %}
-                        </td>
-                        <td class="p-3 text-xs text-gray-400">{{ mv.utilisateur.username|default:"—" }}</td>
-                        <td class="p-3 text-xs text-gray-500 max-w-[200px] truncate">{{ mv.motif|default:"—" }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="10" class="p-8 text-center text-gray-500 italic">Aucun mouvement enregistré.</td></tr>
+    <!-- ZONE AJAX #3 : TABLEAU DES MOUVEMENTS + PAGINATION -->
+    <div id="movementsAjaxZone" class="ajax-zone">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="movementsTable">
+                    <thead>
+                        <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                            <th class="p-3 border-b border-slate-700 w-12 text-center">
+                                <input type="checkbox" id="selectAllMovementsAdv" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer" title="Tout sélectionner">
+                            </th>
+                            <th class="p-3 border-b border-slate-700">Date</th>
+                            <th class="p-3 border-b border-slate-700">Type</th>
+                            <th class="p-3 border-b border-slate-700">Matière</th>
+                            <th class="p-3 border-b border-slate-700">Lot</th>
+                            <th class="p-3 border-b border-slate-700">Quantité</th>
+                            <th class="p-3 border-b border-slate-700">Source → Destination</th>
+                            <th class="p-3 border-b border-slate-700">Machine / OF</th>
+                            <th class="p-3 border-b border-slate-700">Utilisateur</th>
+                            <th class="p-3 border-b border-slate-700">Motif</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-200 text-sm" id="movementsTbody">
+                        {% for mv in mouvements %}
+                        <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50 movement-row"
+                            data-mvt-id="{{ mv.id }}"
+                            data-date="{{ mv.date|date:'Y-m-d' }}"
+                            data-emplacement-src="{{ mv.emplacement_source.name|default:''|lower }}"
+                            data-emplacement-dst="{{ mv.emplacement_destination.name|default:''|lower }}"
+                            data-category="{{ mv.material.category|default:'' }}">
+                            <td class="p-3 text-center align-middle">
+                                <input type="checkbox" name="selected_movements" value="{{ mv.id }}" class="movement-checkbox-adv w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer">
+                            </td>
+                            <td class="p-3 text-gray-400 whitespace-nowrap">{{ mv.date|date:"d/m/Y H:i" }}</td>
+                            <td class="p-3">
+                                {% if mv.type == 'ENTREE' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">⬆ Entrée</span>
+                                {% elif mv.type == 'SORTIE' %}<span class="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">⬇ Sortie</span>
+                                {% elif mv.type == 'TRANSFERT' %}<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">↔ Transfert</span>
+                                {% elif mv.type == 'AJUSTEMENT' %}<span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">⚙ Ajust.</span>
+                                {% elif mv.type == 'PERTE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Perte</span>
+                                {% else %}<span class="text-[10px] bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ mv.get_type_display }}</span>{% endif %}
+                            </td>
+                            <td class="p-3 font-bold text-cyan-400">{{ mv.material.name }}</td>
+                            <td class="p-3 text-xs text-gray-400">{{ mv.lot.numero_lot|default:"—" }}</td>
+                            <td class="p-3 font-bold font-mono {% if mv.type == 'ENTREE' %}text-emerald-400{% else %}text-red-400{% endif %}">
+                                {% if mv.type == 'ENTREE' %}+{% else %}-{% endif %}{{ mv.quantite }} kg
+                            </td>
+                            <td class="p-3 text-xs text-gray-400">
+                                {% if mv.emplacement_source %}{{ mv.emplacement_source.name }}{% else %}—{% endif %}
+                                →
+                                {% if mv.emplacement_destination %}{{ mv.emplacement_destination.name }}{% else %}—{% endif %}
+                            </td>
+                            <td class="p-3 text-xs text-gray-400">
+                                {% if mv.machine %}{{ mv.machine.name }}{% endif %}
+                                {% if mv.of %}/ OF {{ mv.of.of_number }}{% endif %}
+                                {% if not mv.machine and not mv.of %}—{% endif %}
+                            </td>
+                            <td class="p-3 text-xs text-gray-400">{{ mv.utilisateur.username|default:"—" }}</td>
+                            <td class="p-3 text-xs text-gray-500 max-w-[200px] truncate">{{ mv.motif|default:"—" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="10" class="p-8 text-center text-gray-500 italic">Aucun mouvement enregistré.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if mouvements.has_other_pages %}
+            <div class="p-4 border-t border-slate-700 bg-slate-900/50 flex flex-wrap items-center justify-between gap-3">
+                <div class="text-xs text-gray-400 font-medium">
+                    Page <strong class="text-white">{{ mouvements.number }}</strong> sur <strong class="text-white">{{ mouvements.paginator.num_pages }}</strong>
+                    <span class="text-gray-500">— {{ mouvements.paginator.count }} mouvement(s)</span>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    {% if mouvements.has_previous %}
+                    <a href="?{{ qs_mvt }}&page_mvt={{ mouvements.previous_page_number }}" data-zone="movementsAjaxZone" class="ajax-page-link px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-bold transition">« Précédent</a>
+                    {% endif %}
+
+                    {% for p in mouvements.paginator.page_range %}
+                        {% if p == mouvements.number %}
+                        <span class="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-lg font-black shadow">{{ p }}</span>
+                        {% elif p == 1 or p == mouvements.paginator.num_pages or p > mouvements.number|add:"-3" and p < mouvements.number|add:"3" %}
+                        <a href="?{{ qs_mvt }}&page_mvt={{ p }}" data-zone="movementsAjaxZone" class="ajax-page-link px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-gray-300 text-xs rounded-lg font-bold transition">{{ p }}</a>
+                        {% endif %}
                     {% endfor %}
-                </tbody>
-            </table>
+
+                    {% if mouvements.has_next %}
+                    <a href="?{{ qs_mvt }}&page_mvt={{ mouvements.next_page_number }}" data-zone="movementsAjaxZone" class="ajax-page-link px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-bold transition">Suivant »</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -925,7 +1061,7 @@
                         <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
                             <td class="p-3 font-bold text-cyan-400">{{ da.reference }}</td>
                             <td class="p-3 text-white">{{ da.material.name }}</td>
-                            <td class="p-3 font-bold text-yellow-400">{{ da.quantite_demandee }} kg</td>
+                            <td class="p-3 font-bold text-yellow-400 font-mono">{{ da.quantite_demandee }} kg</td>
                             <td class="p-3">
                                 {% if da.urgence == 'CRITIQUE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">!! Critique</span>
                                 {% elif da.urgence == 'URGENTE' %}<span class="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">! Urgente</span>
@@ -993,8 +1129,8 @@
                             <td class="p-3 text-white">{{ bc.fournisseur.name }}</td>
                             <td class="p-3 text-gray-400">{{ bc.date_commande|date:"d/m/Y" }}</td>
                             <td class="p-3 text-gray-400">{{ bc.date_livraison_prevue|date:"d/m/Y"|default:"—" }}</td>
-                            <td class="p-3 text-center text-white">{{ bc.nb_lignes }}</td>
-                            <td class="p-3 font-bold text-yellow-400">{{ bc.montant_total|floatformat:0 }} DA</td>
+                            <td class="p-3 text-center text-white font-mono">{{ bc.nb_lignes }}</td>
+                            <td class="p-3 font-bold text-yellow-400 font-mono">{{ bc.montant_total|floatformat:0 }} DA</td>
                             <td class="p-3">
                                 {% if bc.statut == 'BROUILLON' %}<span class="text-[10px] bg-slate-600 text-gray-300 px-2 py-1 rounded">Brouillon</span>
                                 {% elif bc.statut == 'ENVOYE' %}<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">📤 Envoyé</span>
@@ -1103,7 +1239,7 @@
                         </td>
 
                         <td class="p-4 text-center text-white font-bold align-top">
-                            <span class="bg-slate-700/80 px-3 py-1 rounded-full border border-slate-600 text-xs">
+                            <span class="bg-slate-700/80 px-3 py-1 rounded-full border border-slate-600 text-xs font-mono">
                                 {{ s.stocklot_set.count }}
                             </span>
                         </td>
@@ -1249,7 +1385,7 @@
                     <label class="block text-xs text-gray-400 mb-1">Lier à une matière existante (optionnel)</label>
                     <select name="material" id="lotMaterialSelect" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="">— Aucune (créer plus tard) —</option>
-                        {% for m in materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
+                        {% for m in all_materials|default:materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
                     </select>
                 </div>
                 <div>
@@ -1342,7 +1478,7 @@
                     <label class="block text-xs text-gray-400 mb-1">Matière *</label>
                     <select name="material" id="mouvementMaterialSelect" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="" data-stock="0" data-unit="kg">— Choisir une matière —</option>
-                        {% for m in materials %}
+                        {% for m in all_materials|default:materials %}
                         <option value="{{ m.id }}" data-stock="{{ m.quantity }}" data-unit="{{ m.unit }}">{{ m.name }} (Stock actuel: {{ m.quantity }} {{ m.unit }})</option>
                         {% endfor %}
                     </select>
@@ -1430,7 +1566,7 @@
             <div>
                 <label class="block text-xs text-gray-400 mb-1">Matière *</label>
                 <select name="material" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
-                    {% for m in materials %}<option value="{{ m.id }}">{{ m.name }} (stock: {{ m.quantity }} kg)</option>{% endfor %}
+                    {% for m in all_materials|default:materials %}<option value="{{ m.id }}">{{ m.name }} (stock: {{ m.quantity }} kg)</option>{% endfor %}
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-4">
@@ -1494,7 +1630,7 @@
                 <div id="lignesBC" class="space-y-2">
                     <div class="grid grid-cols-3 gap-2 ligne-bc">
                         <select name="material_1" class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
-                            {% for m in materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
+                            {% for m in all_materials|default:materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
                         </select>
                         <input type="number" name="quantite_1" placeholder="Qté (kg)" min="0" step="0.1" class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
                         <input type="number" name="prix_1" placeholder="Prix DA/kg" min="0" step="0.01" class="bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
@@ -1633,17 +1769,19 @@
 {{ cat_critique_json|json_script:"cat-critique-data" }}
 {{ cat_alerte_json|json_script:"cat-alerte-data" }}
 
-
 <!-- ============================================================ -->
 <!-- SCRIPTS -->
 <!-- ============================================================ -->
 <script>
+// ============================================================
+// INITIALISATION
+// ============================================================
 window.addEventListener('beforeunload', function() {
     sessionStorage.setItem('stock_scroll_pos', window.scrollY);
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    const savedPos = sessionStorage.getItem('stock_scroll_pos');
+    var savedPos = sessionStorage.getItem('stock_scroll_pos');
     if (savedPos) {
         window.scrollTo(0, parseInt(savedPos, 10));
         sessionStorage.removeItem('stock_scroll_pos');
@@ -1656,22 +1794,285 @@ document.addEventListener('DOMContentLoaded', function() {
     else if (savedTab) { showTab(savedTab); }
     else { showTab('matieres'); }
     initAlertsListState();
-    
+
     // Application dynamique et sécurisée des largeurs de jauge
+    applyProgressBars();
+
+    attachAjaxDeleteHandlers();
+    restoreSortPreference();
+    initMouvementStockValidation();
+    initMovementFilters();
+    initMaterialFilterInputs();
+    updateBulkBarAdv();
+    updateBulkBarMvt();
+});
+
+function applyProgressBars() {
     document.querySelectorAll('.progress-bar-fill').forEach(function(el) {
         var w = el.getAttribute('data-width');
         if (w !== null && w !== '') { el.style.width = w + '%'; }
     });
+}
+
+// ============================================================
+// 🌟 NAVIGATION AJAX FLUIDE (pagination / filtres / univers)
+//    - aucune rechargement de page
+//    - l'onglet actif est conservé
+//    - la position de défilement est conservée
+//    - le bouton Retour du navigateur fonctionne
+// ============================================================
+var ALL_ZONES = ['materialsUniverseZone', 'materialsAjaxZone', 'movementsAjaxZone'];
+var MAT_ZONES = ['materialsUniverseZone', 'materialsAjaxZone'];
+var ajaxController = null;
+var topBarTimer = null;
+
+function showTopBar() {
+    var bar = document.getElementById('ajaxTopBar');
+    if (!bar) return;
+    clearTimeout(topBarTimer);
+    bar.style.transition = 'none';
+    bar.style.width = '0';
+    bar.style.opacity = '1';
+    void bar.offsetWidth;
+    bar.style.transition = 'width .6s ease, opacity .25s ease';
+    bar.style.width = '70%';
+}
+
+function hideTopBar() {
+    var bar = document.getElementById('ajaxTopBar');
+    if (!bar) return;
+    bar.style.width = '100%';
+    topBarTimer = setTimeout(function() {
+        bar.style.opacity = '0';
+        topBarTimer = setTimeout(function() { bar.style.width = '0'; }, 300);
+    }, 150);
+}
+
+function setZonesLoading(ids, on) {
+    ids.forEach(function(id) {
+        var z = document.getElementById(id);
+        if (z) z.classList.toggle('is-loading', on);
+    });
+}
+
+function afterZoneRender(zoneId) {
+    if (zoneId === 'materialsAjaxZone') {
+        attachAjaxDeleteHandlers();
+        restoreSortPreference();
+        updateBulkBarAdv();
+    } else if (zoneId === 'movementsAjaxZone') {
+        applyMovementFilters();
+        updateBulkBarMvt();
+    }
+}
+
+// Charge `url` en arrière-plan et remplace uniquement les zones demandées.
+// Retourne une Promise<boolean> (true = succès).
+function ajaxLoad(url, zoneIds, opts) {
+    opts = opts || {};
+    if (ajaxController) ajaxController.abort();
+    var ctrl = new AbortController();
+    ajaxController = ctrl;
+    setZonesLoading(zoneIds, true);
+    showTopBar();
+
+    return fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        signal: ctrl.signal
+    })
+    .then(function(response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.text();
+    })
+    .then(function(html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        // Vérifie que TOUTES les zones demandées existent dans la réponse
+        for (var i = 0; i < zoneIds.length; i++) {
+            if (!doc.getElementById(zoneIds[i])) { throw new Error('zone-missing'); }
+        }
+        zoneIds.forEach(function(id) {
+            var fresh = doc.getElementById(id);
+            var current = document.getElementById(id);
+            if (fresh && current) {
+                current.innerHTML = fresh.innerHTML;
+                afterZoneRender(id);
+            }
+        });
+        if (opts.push !== false) {
+            try { history.pushState({ stockAjax: true }, '', url); } catch (e) {}
+        }
+        return true;
+    })
+    .catch(function(err) {
+        if (err && err.name === 'AbortError') return false;
+        // Filet de sécurité : en cas de problème, on retombe sur le chargement classique
+        window.location.href = url;
+        return false;
+    })
+    .then(function(ok) {
+        if (ctrl === ajaxController) {
+            setZonesLoading(ALL_ZONES, false);
+            hideTopBar();
+        }
+        return ok;
+    });
+}
+
+// Ne fait défiler que si le haut de la zone est au-dessus de l'écran (sinon : on ne bouge pas)
+function scrollZoneIntoView(zoneId) {
+    var z = document.getElementById(zoneId);
+    var mainScroll = document.getElementById('fb-main-content'); // Le VRAI conteneur qui défile
     
-    attachAjaxDeleteHandlers();
-    applyAllFilters();
-    initSortSystem();
-    initMouvementStockValidation();
-    initBulkSelectionAdv();
-    initBulkSelectionMovementsAdv();
-    initMovementFilters();
+    if (!z || !mainScroll) return;
+    
+    // On calcule la distance entre le haut du tableau et le haut de la zone de défilement
+    var containerTop = mainScroll.getBoundingClientRect().top;
+    var elementTop = z.getBoundingClientRect().top;
+    
+    // On fait défiler la zone centrale doucement, avec une marge de 20px pour que ce soit beau
+    mainScroll.scrollBy({
+        top: (elementTop - containerTop) - 20,
+        behavior: 'smooth'
+    });
+}
+
+// Clic sur un lien de pagination → AJAX
+document.addEventListener('click', function(e) {
+    var a = e.target.closest ? e.target.closest('a.ajax-page-link') : null;
+    if (!a) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return; // laisser ouvrir dans un nouvel onglet
+    e.preventDefault();
+    var zoneId = a.getAttribute('data-zone');
+    // On fusionne les paramètres du lien avec l'URL courante (garde la page des autres tableaux)
+    var target = new URL(a.getAttribute('href'), window.location.href);
+    var merged = new URL(window.location.href);
+    target.searchParams.forEach(function(v, k) { merged.searchParams.set(k, v); });
+    ajaxLoad(merged.toString(), [zoneId]).then(function(ok) {
+        if (ok) scrollZoneIntoView(zoneId);
+    });
 });
 
+// Bouton Retour / Avancer du navigateur
+window.addEventListener('popstate', function() {
+    syncFormFromUrl();
+    var t = new URLSearchParams(window.location.search).get('tab');
+    if (t) showTab(t);
+    ajaxLoad(window.location.href, ALL_ZONES, { push: false });
+});
+
+function syncFormFromUrl() {
+    var p = new URLSearchParams(window.location.search);
+    var q = document.getElementById('searchInput');
+    var cat = document.getElementById('categoryFilter');
+    var sup = document.getElementById('supplierFilter');
+    var low = document.getElementById('lowStockFilter');
+    if (q) q.value = p.get('q') || '';
+    if (cat) cat.value = p.get('category') || '';
+    if (sup) sup.value = p.get('supplier') || '';
+    if (low) low.checked = (p.get('low_stock') === 'on');
+    toggleClearSearchBtn();
+}
+
+// ------------------------------------------------------------
+// Filtres matières (recherche, catégorie, fournisseur, stock faible)
+// ------------------------------------------------------------
+function submitMaterialFilters() {
+    var params = new URLSearchParams(window.location.search);
+    ['q', 'category', 'supplier', 'low_stock', 'page_mat'].forEach(function(k) { params.delete(k); });
+    var q = document.getElementById('searchInput');
+    var cat = document.getElementById('categoryFilter');
+    var sup = document.getElementById('supplierFilter');
+    var low = document.getElementById('lowStockFilter');
+    params.set('tab', 'matieres');
+    if (q && q.value.trim()) params.set('q', q.value.trim());
+    if (cat && cat.value) params.set('category', cat.value);
+    if (sup && sup.value) params.set('supplier', sup.value);
+    if (low && low.checked) params.set('low_stock', 'on');
+    return ajaxLoad(window.location.pathname + '?' + params.toString(), MAT_ZONES);
+}
+
+// Clic sur un « Univers » (Films / Encres / Colles / Solvants)
+function filterMatCategory(catCode) {
+    var categorySelect = document.getElementById('categoryFilter');
+    if (categorySelect) categorySelect.value = (catCode === 'ALL') ? '' : catCode;
+    submitMaterialFilters();
+}
+
+function toggleClearSearchBtn() {
+    var q = document.getElementById('searchInput');
+    var btn = document.getElementById('clearSearchBtn');
+    if (!q || !btn) return;
+    btn.classList.toggle('hidden', !q.value);
+}
+
+function initMaterialFilterInputs() {
+    var form = document.getElementById('searchForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitMaterialFilters();
+        });
+    }
+    var q = document.getElementById('searchInput');
+    if (q) {
+        var timer = null;
+        q.addEventListener('input', function() {
+            toggleClearSearchBtn();
+            clearTimeout(timer);
+            timer = setTimeout(submitMaterialFilters, 350); // recherche « live » côté serveur, sans perdre le focus
+        });
+    }
+}
+
+function clearSearch() {
+    var q = document.getElementById('searchInput');
+    if (q) { q.value = ''; q.focus(); }
+    toggleClearSearchBtn();
+    submitMaterialFilters();
+}
+
+function resetMaterialFilters() {
+    var q = document.getElementById('searchInput');
+    var cat = document.getElementById('categoryFilter');
+    var sup = document.getElementById('supplierFilter');
+    var low = document.getElementById('lowStockFilter');
+    if (q) q.value = '';
+    if (cat) cat.value = '';
+    if (sup) sup.value = '';
+    if (low) low.checked = false;
+    toggleClearSearchBtn();
+    submitMaterialFilters();
+}
+
+// ------------------------------------------------------------
+// Délégation d'événements (survit aux remplacements de zones)
+// ------------------------------------------------------------
+document.addEventListener('change', function(e) {
+    var t = e.target;
+    if (!t) return;
+    if (t.id === 'categoryFilter' || t.id === 'supplierFilter' || t.id === 'lowStockFilter') {
+        submitMaterialFilters();
+    } else if (t.id === 'sortSelect') {
+        sortMaterials();
+    } else if (t.id === 'selectAllMaterialsAdv') {
+        document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv').forEach(function(cb) {
+            cb.checked = t.checked;
+        });
+        updateBulkBarAdv();
+    } else if (t.classList && t.classList.contains('material-checkbox-adv')) {
+        updateBulkBarAdv();
+    } else if (t.id === 'selectAllMovementsAdv') {
+        document.querySelectorAll('.movement-checkbox-adv').forEach(function(cb) { cb.checked = t.checked; });
+        updateBulkBarMvt();
+    } else if (t.classList && t.classList.contains('movement-checkbox-adv')) {
+        updateBulkBarMvt();
+    }
+});
+
+// ============================================================
+// FILTRES MOUVEMENTS (côté client sur la page affichée)
+// ============================================================
 function applyMovementFilters() {
     var dateFromEl = document.getElementById('mvtDateFrom');
     var dateToEl = document.getElementById('mvtDateTo');
@@ -1726,6 +2127,9 @@ function initMovementFilters() {
     });
 }
 
+// ============================================================
+// FOURNISSEURS : lignes de contact dynamiques
+// ============================================================
 let supplierContactIdx = 1;
 function ajouterLigneContact() {
     supplierContactIdx++;
@@ -1747,6 +2151,9 @@ function ajouterLigneContact() {
     container.appendChild(div);
 }
 
+// ============================================================
+// VALIDATION DU FORMULAIRE DE MOUVEMENT
+// ============================================================
 function initMouvementStockValidation() {
     const form = document.getElementById('mouvementForm');
     if (!form) return;
@@ -1783,9 +2190,36 @@ function initMouvementStockValidation() {
     }
 }
 
+// ============================================================
+// ONGLETS
+// ============================================================
 function selectSortAlertFirst() {
     const sortSelect = document.getElementById('sortSelect');
     if (sortSelect) { sortSelect.value = 'alert_first'; sortMaterials(); }
+}
+
+function voirAlertesEnPriorite() {
+    // 1. Bascule sur l'onglet matières
+    showTab('matieres');
+
+    // 2. Ouvre automatiquement la liste des alertes si elle était masquée
+    applyAlertsListVisibility('visible');
+    try { localStorage.setItem('alertsListState', 'visible'); } catch(e){}
+
+    // 3. Trie les matières pour mettre les alertes en premier
+    selectSortAlertFirst();
+
+    // 4. Fait défiler la zone centrale centrale (fb-main-content) doucement vers le tableau
+    const target = document.getElementById('corpsTableauAlertes') || document.getElementById('tableAlertes');
+    const mainScroll = document.getElementById('fb-main-content');
+    if (target && mainScroll) {
+        var containerTop = mainScroll.getBoundingClientRect().top;
+        var elementTop = target.getBoundingClientRect().top;
+        mainScroll.scrollBy({
+            top: (elementTop - containerTop) - 20,
+            behavior: 'smooth'
+        });
+    }
 }
 
 function showTab(tabName) {
@@ -1819,6 +2253,9 @@ function showSubTab(name) {
     }
 }
 
+// ============================================================
+// LISTE D'ALERTES (afficher / masquer)
+// ============================================================
 function initAlertsListState() {
     var state = 'hidden';
     try { state = localStorage.getItem('alertsListState') || 'hidden'; } catch(e){}
@@ -1853,6 +2290,9 @@ function toggleListeAlertes() {
     applyAlertsListVisibility(newState);
 }
 
+// ============================================================
+// SUPPRESSION (ARCHIVAGE) D'UNE MATIÈRE — sans recharger la page
+// ============================================================
 function attachAjaxDeleteHandlers() {
     document.querySelectorAll('.delete-material-form').forEach(function(form) {
         form.removeEventListener('submit', handleMaterialDelete);
@@ -1874,52 +2314,19 @@ function handleMaterialDelete(e) {
             row.style.opacity = '0';
             row.style.transform = 'scale(0.95)';
             setTimeout(function() {
-                row.remove();
-                var remaining = document.querySelectorAll('.material-row:not([style*="display: none"])').length;
                 var totalStat = document.getElementById('statTotalMatieres');
-                var countStat = document.getElementById('visibleMaterialsCount');
-                if (countStat) countStat.textContent = remaining;
                 if (totalStat && parseInt(totalStat.textContent, 10) > 0) totalStat.textContent = parseInt(totalStat.textContent, 10) - 1;
-                updateBulkBarAdv();
+                // Recharge la page courante du tableau pour re-remplir proprement la pagination
+                ajaxLoad(window.location.href, MAT_ZONES, { push: false });
             }, 300);
         } else { alert('❌ Erreur lors de la suppression.'); }
     })
     .catch(function() { form.submit(); });
 }
 
-function applyAllFilters() {
-    var searchInput = document.getElementById('searchInput');
-    var categoryFilter = document.getElementById('categoryFilter');
-    var supplierFilter = document.getElementById('supplierFilter');
-    var lowStockFilter = document.getElementById('lowStockFilter');
-    var q = (searchInput ? searchInput.value : '').toLowerCase().trim();
-    var cat = (categoryFilter ? categoryFilter.value : '').toUpperCase();
-    var suppId = (supplierFilter ? supplierFilter.value : '');
-    var lowOnly = (lowStockFilter ? lowStockFilter.checked : false);
-    var visibleCount = 0;
-    document.querySelectorAll('.material-row').forEach(function(row) {
-        var name = (row.dataset.name || '').toLowerCase();
-        var category = (row.dataset.category || '').toUpperCase();
-        var supplierId = (row.dataset.supplierId || '');
-        var supplierName = (row.dataset.supplier || '').toLowerCase();
-        var isLow = (row.dataset.lowStock === 'true');
-        var matchQ = !q || name.includes(q) || category.toLowerCase().includes(q) || supplierName.includes(q);
-        var matchCat = !cat || category === cat;
-        var matchSupp = !suppId || supplierId === suppId;
-        var matchLow = !lowOnly || isLow;
-        if (matchQ && matchCat && matchSupp && matchLow) { row.style.display = ''; visibleCount++; }
-        else { row.style.display = 'none'; }
-    });
-    var visibleCounter = document.getElementById('visibleMaterialsCount');
-    if (visibleCounter) visibleCounter.textContent = visibleCount;
-    updateBulkBarAdv();
-}
-
-['searchInput', 'categoryFilter', 'supplierFilter', 'lowStockFilter'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) { el.addEventListener('input', applyAllFilters); el.addEventListener('change', applyAllFilters); }
-});
-
+// ============================================================
+// TRI (côté client, sur la page affichée) — réappliqué après chaque chargement AJAX
+// ============================================================
 function sortMaterials() {
     var sortSelect = document.getElementById('sortSelect');
     if (!sortSelect) return;
@@ -1946,49 +2353,38 @@ function sortMaterials() {
             default: return parseInt(a.dataset.originalOrder || 0, 10) - parseInt(b.dataset.originalOrder || 0, 10);
         }
     });
-    rows.forEach(function(row) { row.style.transition = 'opacity 0.15s ease'; row.style.opacity = '0.3'; tbody.appendChild(row); });
-    setTimeout(function() { rows.forEach(function(row) { row.style.opacity = '1'; }); }, 100);
+    rows.forEach(function(row) { tbody.appendChild(row); });
     try { localStorage.setItem('stock_sort_preference', criteria); } catch (e) {}
 }
 
-function initSortSystem() {
+function restoreSortPreference() {
     var sortSelect = document.getElementById('sortSelect');
     if (!sortSelect) return;
-    sortSelect.addEventListener('change', sortMaterials);
     try {
         var savedSort = localStorage.getItem('stock_sort_preference');
         if (savedSort && savedSort !== 'default') { sortSelect.value = savedSort; sortMaterials(); }
     } catch (e) {}
 }
 
-var searchForm = document.getElementById('searchForm');
-if (searchForm) { searchForm.addEventListener('submit', function(e) { e.preventDefault(); applyAllFilters(); }); }
-
-function clearSearch() {
-    var searchInput = document.getElementById('searchInput');
-    var categoryFilter = document.getElementById('categoryFilter');
-    var supplierFilter = document.getElementById('supplierFilter');
-    var lowStockFilter = document.getElementById('lowStockFilter');
-    if (searchInput) searchInput.value = '';
-    if (categoryFilter) categoryFilter.value = '';
-    if (supplierFilter) supplierFilter.value = '';
-    if (lowStockFilter) lowStockFilter.checked = false;
-    applyAllFilters();
-}
-
+// ============================================================
+// BOUTONS DA / SEUIL (délégation)
+// ============================================================
 document.addEventListener('click', function(e) {
-    var daBtn = e.target.closest('.btn-da-trigger');
+    var daBtn = e.target.closest ? e.target.closest('.btn-da-trigger') : null;
     if (daBtn) {
         ouvrirDA(daBtn.getAttribute('data-da-id'), daBtn.getAttribute('data-da-name'), parseFloat(daBtn.getAttribute('data-da-seuil') || 0), daBtn.getAttribute('data-da-unit'));
         return;
     }
-    var seuilBtn = e.target.closest('.btn-seuil-trigger');
+    var seuilBtn = e.target.closest ? e.target.closest('.btn-seuil-trigger') : null;
     if (seuilBtn) {
         openSeuilModal(seuilBtn.getAttribute('data-seuil-id'), seuilBtn.getAttribute('data-seuil-name'));
         return;
     }
 });
 
+// ============================================================
+// GRAPHIQUES
+// ============================================================
 function getJsonData(id) {
     var el = document.getElementById(id);
     if (!el) return [];
@@ -2054,6 +2450,9 @@ if (ctx2 && typeof Chart !== 'undefined') {
     });
 }
 
+// ============================================================
+// LOTS / BC / SEUIL / MODALS
+// ============================================================
 function filterLots(statut) {
     document.querySelectorAll('.lot-row').forEach(function(row) {
         if (statut === 'ALL' || row.dataset.statut === statut) row.style.display = '';
@@ -2122,6 +2521,9 @@ function ouvrirDA(materialId, materialName, seuil, unite) {
     showTab('achats');
 }
 
+// ============================================================
+// SCANNER D'ÉTIQUETTE IA
+// ============================================================
 let currentScanTarget = 'lot';
 function openLabelScanner(target = 'lot') {
     currentScanTarget = target;
@@ -2269,7 +2671,7 @@ function fillMouvementForm(data) {
 }
 
 // ============================================================
-// GESTION DU MULTI-SELECT & DES ACTIONS EN LOT : MATIÈRES
+// ACTIONS EN LOT : MATIÈRES
 // ============================================================
 function updateBulkBarAdv() {
     const visibleChecked = document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv:checked');
@@ -2277,9 +2679,9 @@ function updateBulkBarAdv() {
     const bulkBar = document.getElementById('bulkActionsBarAdv');
     const selectedCountSpan = document.getElementById('selectedCountAdv');
     const selectAll = document.getElementById('selectAllMaterialsAdv');
-    
+
     if (selectedCountSpan) selectedCountSpan.textContent = checkedCount;
-    
+
     if (bulkBar) {
         if (checkedCount > 0) {
             bulkBar.classList.remove('hidden');
@@ -2296,29 +2698,8 @@ function updateBulkBarAdv() {
     }
 }
 
-function initBulkSelectionAdv() {
-    const selectAll = document.getElementById('selectAllMaterialsAdv');
-    if (selectAll) {
-        selectAll.addEventListener('change', function() {
-            const visibleCheckboxes = document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv');
-            visibleCheckboxes.forEach(cb => {
-                cb.checked = selectAll.checked;
-            });
-            updateBulkBarAdv();
-        });
-    }
-
-    document.addEventListener('change', function(e) {
-        if (e.target && e.target.classList.contains('material-checkbox-adv')) {
-            updateBulkBarAdv();
-        }
-    });
-}
-
 function unselectAllMaterialsAdv() {
-    document.querySelectorAll('.material-checkbox-adv').forEach(cb => {
-        cb.checked = false;
-    });
+    document.querySelectorAll('.material-checkbox-adv').forEach(cb => { cb.checked = false; });
     const selectAll = document.getElementById('selectAllMaterialsAdv');
     if (selectAll) selectAll.checked = false;
     updateBulkBarAdv();
@@ -2353,21 +2734,18 @@ function bulkDeleteMaterialsAdv() {
                     row.style.transition = 'all 0.3s ease';
                     row.style.opacity = '0';
                     row.style.transform = 'scale(0.95)';
-                    setTimeout(() => row.remove(), 300);
                 }
             });
-
             setTimeout(() => {
-                const remaining = document.querySelectorAll('.material-row:not([style*="display: none"])').length;
                 const totalStat = document.getElementById('statTotalMatieres');
-                const countStat = document.getElementById('visibleMaterialsCount');
-                if (countStat) countStat.textContent = remaining;
                 if (totalStat) {
                     const currentTotal = parseInt(totalStat.textContent, 10) || 0;
                     totalStat.textContent = Math.max(0, currentTotal - ids.length);
                 }
                 unselectAllMaterialsAdv();
-            }, 350);
+                // Recharge la page courante pour que la pagination reste exacte
+                ajaxLoad(window.location.href, MAT_ZONES, { push: false });
+            }, 320);
         } else {
             alert('❌ ' + (data.message || 'Erreur lors de la suppression groupée.'));
         }
@@ -2379,7 +2757,7 @@ function bulkDeleteMaterialsAdv() {
 }
 
 // ============================================================
-// GESTION DU MULTI-SELECT & DES ACTIONS EN LOT : MOUVEMENTS
+// ACTIONS EN LOT : MOUVEMENTS
 // ============================================================
 function updateBulkBarMvt() {
     const checkedBoxes = document.querySelectorAll('.movement-checkbox-adv:checked');
@@ -2387,9 +2765,9 @@ function updateBulkBarMvt() {
     const bulkBar = document.getElementById('bulkActionsBarMvt');
     const selectedCountSpan = document.getElementById('selectedCountMvt');
     const selectAll = document.getElementById('selectAllMovementsAdv');
-    
+
     if (selectedCountSpan) selectedCountSpan.textContent = checkedCount;
-    
+
     if (bulkBar) {
         if (checkedCount > 0) {
             bulkBar.classList.remove('hidden');
@@ -2406,29 +2784,8 @@ function updateBulkBarMvt() {
     }
 }
 
-function initBulkSelectionMovementsAdv() {
-    const selectAll = document.getElementById('selectAllMovementsAdv');
-    if (selectAll) {
-        selectAll.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.movement-checkbox-adv');
-            checkboxes.forEach(cb => {
-                cb.checked = selectAll.checked;
-            });
-            updateBulkBarMvt();
-        });
-    }
-
-    document.addEventListener('change', function(e) {
-        if (e.target && e.target.classList.contains('movement-checkbox-adv')) {
-            updateBulkBarMvt();
-        }
-    });
-}
-
 function unselectAllMovementsAdv() {
-    document.querySelectorAll('.movement-checkbox-adv').forEach(cb => {
-        cb.checked = false;
-    });
+    document.querySelectorAll('.movement-checkbox-adv').forEach(cb => { cb.checked = false; });
     const selectAll = document.getElementById('selectAllMovementsAdv');
     if (selectAll) selectAll.checked = false;
     updateBulkBarMvt();
@@ -2463,13 +2820,13 @@ function bulkDeleteMovementsAdv() {
                     row.style.transition = 'all 0.3s ease';
                     row.style.opacity = '0';
                     row.style.transform = 'scale(0.95)';
-                    setTimeout(() => row.remove(), 300);
                 }
             });
-
             setTimeout(() => {
                 unselectAllMovementsAdv();
-            }, 350);
+                // L'annulation modifie aussi les stocks : on recharge matières + mouvements
+                ajaxLoad(window.location.href, ALL_ZONES, { push: false });
+            }, 320);
         } else {
             alert('❌ ' + (data.message || 'Erreur lors de la suppression groupée.'));
         }

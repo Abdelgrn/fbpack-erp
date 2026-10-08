@@ -2,119 +2,80 @@
 
 {% block content %}
 <!-- EN-TÊTE DU MODULE -->
-<div class="mb-6">
-    <h1 class="text-3xl font-bold text-white tracking-wider">📦 Module Stocks & Achats</h1>
-    <p class="text-gray-400 text-sm mt-1">Gérez vos matières premières, vos consommations d'encre et votre annuaire fournisseurs.</p>
+<div class="mb-6 flex justify-between items-end flex-wrap gap-4">
+    <div>
+        <h1 class="text-3xl font-bold text-white tracking-wider">📦 Module Stocks & Achats</h1>
+        <p class="text-gray-400 text-sm mt-1">Gérez vos matières premières par catégories isolées, vos consommations et vos fournisseurs.</p>
+    </div>
+    <a href="{% url 'add_material' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 px-6 rounded-lg shadow-lg shadow-yellow-500/20 transition uppercase text-sm tracking-wider">
+        + Nouvelle Matière
+    </a>
 </div>
 
-<!-- BARRE D'ONGLETS (TABS) -->
-<div class="flex border-b border-slate-700 mb-6 gap-2">
-    <button onclick="showTab('materials')" id="tabBtn-materials" class="tab-btn px-6 py-3 text-sm font-bold border-b-2 border-yellow-500 text-yellow-500 transition">
-        📦 Matières Premières
+<!-- BARRE D'ONGLETS (TABS) INTELLIGENTE -->
+<div class="flex border-b border-slate-700 mb-6 gap-2 overflow-x-auto hide-scrollbar">
+    <button onclick="showTab('films')" id="tabBtn-films" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-blue-500 text-blue-500 transition whitespace-nowrap">
+        📜 Films & Papiers
     </button>
-    <button onclick="showTab('consos')" id="tabBtn-consos" class="tab-btn px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">
-        🧪 Conso. Encres & Solvants
+    <button onclick="showTab('inks')" id="tabBtn-inks" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        🎨 Encres
     </button>
-    <button onclick="showTab('suppliers')" id="tabBtn-suppliers" class="tab-btn px-6 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition">
+    <button onclick="showTab('glues')" id="tabBtn-glues" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        🧪 Colles
+    </button>
+    <button onclick="showTab('solvs')" id="tabBtn-solvs" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        💧 Solvants
+    </button>
+    <button onclick="showTab('consos')" id="tabBtn-consos" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        📊 Historique Consommations
+    </button>
+    <button onclick="showTab('suppliers')" id="tabBtn-suppliers" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
         🏭 Fournisseurs
     </button>
 </div>
 
 <!-- ========================================== -->
-<!-- ONGLET 1 : MATIÈRES PREMIÈRES -->
+<!-- ONGLET 1 : FILMS & PAPIERS -->
 <!-- ========================================== -->
-<div id="tab-materials" class="tab-content block">
-    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
-        <h2 class="text-xl font-bold text-white">Liste des Matières</h2>
-        <a href="{% url 'add_material' %}" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2 px-4 rounded shadow transition">
-            + Nouvelle Matière
-        </a>
-    </div>
-    
+<div id="tab-films" class="tab-content block">
     <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="p-4 bg-slate-900/50 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-blue-400">📜 Bobines de Films & Papiers (Ordonnancement)</h2>
+            <span class="text-xs text-gray-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">Seuls ces articles apparaissent dans le Planning</span>
+        </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
-                        <!-- Case de sélection globale -->
                         <th class="p-4 border-b border-slate-700 w-12 text-center">
-                            <input type="checkbox" id="selectAllMaterials" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer">
+                            <input type="checkbox" class="selectAll-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer">
                         </th>
                         <th class="p-4 border-b border-slate-700">Désignation</th>
-                        <th class="p-4 border-b border-slate-700">Catégorie</th>
+                        <th class="p-4 border-b border-slate-700">Code Article</th>
                         <th class="p-4 border-b border-slate-700">Stock Réel</th>
-                        <th class="p-4 border-b border-slate-700">Seuil d'alerte</th>
-                        <th class="p-4 border-b border-slate-700">Fournisseur</th>
+                        <th class="p-4 border-b border-slate-700">Seuil</th>
                         <th class="p-4 border-b border-slate-700 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="text-gray-200 text-sm">
-                    {% for m in materials %}
+                    {% for m in materials_film %}
                     <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
-                        <!-- Case de sélection individuelle -->
                         <td class="p-4 text-center align-middle">
-                            <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer">
+                            <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500 cursor-pointer">
                         </td>
-                        <td class="p-4 font-bold text-cyan-400">{{ m.name }}</td>
-                        <td class="p-4">
-                            {% if m.category == 'FILM' %}
-                                <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800">
-                                    {{ m.get_category_display }}
-                                </span>
-                            {% elif m.category == 'INK' %}
-                                <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-pink-950 text-pink-400 border border-pink-800">
-                                    {{ m.get_category_display }}
-                                </span>
-                            {% elif m.category == 'GLUE' %}
-                                <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
-                                    {{ m.get_category_display }}
-                                </span>
-                            {% else %}
-                                <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">
-                                    {{ m.get_category_display }}
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4 font-bold {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
+                        <td class="p-4 font-bold text-white">{{ m.name }}</td>
+                        <td class="p-4 text-gray-400 font-mono">{{ m.code|default:"-" }}</td>
+                        <td class="p-4 font-bold font-mono {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
                             {{ m.quantity }} {{ m.unit }}
-                            {% if m.is_low_stock %}
-                                <span class="ml-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 font-black">⚠️ ALERTE</span>
-                            {% endif %}
+                            {% if m.is_low_stock %}<span class="ml-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30">⚠️ ALERTE</span>{% endif %}
                         </td>
-                        <td class="p-4 text-gray-400">{{ m.min_threshold }} {{ m.unit }}</td>
-                        <td class="p-4 text-gray-300">{{ m.supplier.name|default:"-" }}</td>
+                        <td class="p-4 text-gray-400 font-mono">{{ m.min_threshold }} {{ m.unit }}</td>
                         <td class="p-4 text-right">
-                            <div class="flex justify-end items-center gap-2">
-                                <a href="{% url 'edit_material' m.id %}" 
-                                   class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">
-                                    ✏️ Éditer
-                                </a>
-                                
-                                <a href="{% url 'stock_advanced' %}?tab=achats" 
-                                   class="text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 py-1 px-2.5 rounded border border-blue-500/30 transition"
-                                   title="Créer une Demande d'Achat">
-                                    🛒 DA
-                                </a>
-
-                                <!-- 🔴 BOUTON SUPPRIMER -->
-                                <form method="POST" action="{% url 'delete_material' m.id %}" class="inline">
-                                    {% csrf_token %}
-                                    <button type="submit" 
-                                            onclick="return confirm('⚠️ Êtes-vous sûr de vouloir supprimer la matière {{ m.name|escapejs }} ? Cette action est irréversible.');"
-                                            class="text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 py-1 px-2.5 rounded border border-red-500/30 transition flex items-center gap-1"
-                                            title="Supprimer cette matière">
-                                        🗑️ Supprimer
-                                    </button>
-                                </form>
-                            </div>
+                            <a href="{% url 'edit_material' m.id %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1.5 px-3 rounded-lg transition">✏️ Éditer</a>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr>
-                        <td colspan="7" class="p-8 text-center text-gray-500 italic">
-                            Aucune matière enregistrée.
-                        </td>
-                    </tr>
+                    <tr><td colspan="6" class="p-8 text-center text-gray-500 italic">Aucun film enregistré.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -123,7 +84,151 @@
 </div>
 
 <!-- ========================================== -->
-<!-- ONGLET 2 : CONSOMMATIONS -->
+<!-- ONGLET 2 : ENCRES -->
+<!-- ========================================== -->
+<div id="tab-inks" class="tab-content hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="p-4 bg-slate-900/50 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-pink-400">🎨 Encres (Atelier Impression)</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700 w-12 text-center">
+                            <input type="checkbox" class="selectAll-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-pink-500 focus:ring-pink-500 cursor-pointer">
+                        </th>
+                        <th class="p-4 border-b border-slate-700">Désignation</th>
+                        <th class="p-4 border-b border-slate-700">Code Couleur</th>
+                        <th class="p-4 border-b border-slate-700">Stock Réel</th>
+                        <th class="p-4 border-b border-slate-700">Seuil</th>
+                        <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for m in materials_ink %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-4 text-center align-middle">
+                            <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-pink-500 focus:ring-pink-500 cursor-pointer">
+                        </td>
+                        <td class="p-4 font-bold text-white">{{ m.name }}</td>
+                        <td class="p-4 text-gray-400 font-mono">{{ m.code|default:"-" }}</td>
+                        <td class="p-4 font-bold font-mono {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
+                            {{ m.quantity }} {{ m.unit }}
+                            {% if m.is_low_stock %}<span class="ml-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30">⚠️ ALERTE</span>{% endif %}
+                        </td>
+                        <td class="p-4 text-gray-400 font-mono">{{ m.min_threshold }} {{ m.unit }}</td>
+                        <td class="p-4 text-right">
+                            <a href="{% url 'edit_material' m.id %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1.5 px-3 rounded-lg transition">✏️ Éditer</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="p-8 text-center text-gray-500 italic">Aucune encre enregistrée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ONGLET 3 : COLLES -->
+<!-- ========================================== -->
+<div id="tab-glues" class="tab-content hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="p-4 bg-slate-900/50 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-emerald-400">🧪 Colles & Résines (Atelier Complexage)</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700 w-12 text-center">
+                            <input type="checkbox" class="selectAll-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500 cursor-pointer">
+                        </th>
+                        <th class="p-4 border-b border-slate-700">Désignation</th>
+                        <th class="p-4 border-b border-slate-700">Code / Réf</th>
+                        <th class="p-4 border-b border-slate-700">Stock Réel</th>
+                        <th class="p-4 border-b border-slate-700">Seuil</th>
+                        <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for m in materials_glue %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-4 text-center align-middle">
+                            <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500 cursor-pointer">
+                        </td>
+                        <td class="p-4 font-bold text-white">{{ m.name }}</td>
+                        <td class="p-4 text-gray-400 font-mono">{{ m.code|default:"-" }}</td>
+                        <td class="p-4 font-bold font-mono {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
+                            {{ m.quantity }} {{ m.unit }}
+                            {% if m.is_low_stock %}<span class="ml-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30">⚠️ ALERTE</span>{% endif %}
+                        </td>
+                        <td class="p-4 text-gray-400 font-mono">{{ m.min_threshold }} {{ m.unit }}</td>
+                        <td class="p-4 text-right">
+                            <a href="{% url 'edit_material' m.id %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1.5 px-3 rounded-lg transition">✏️ Éditer</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="p-8 text-center text-gray-500 italic">Aucune colle enregistrée.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ONGLET 4 : SOLVANTS -->
+<!-- ========================================== -->
+<div id="tab-solvs" class="tab-content hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div class="p-4 bg-slate-900/50 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-purple-400">💧 Solvants & Additifs</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
+                        <th class="p-4 border-b border-slate-700 w-12 text-center">
+                            <input type="checkbox" class="selectAll-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-purple-500 focus:ring-purple-500 cursor-pointer">
+                        </th>
+                        <th class="p-4 border-b border-slate-700">Désignation</th>
+                        <th class="p-4 border-b border-slate-700">Code Article</th>
+                        <th class="p-4 border-b border-slate-700">Stock Réel</th>
+                        <th class="p-4 border-b border-slate-700">Seuil</th>
+                        <th class="p-4 border-b border-slate-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for m in materials_solv %}
+                    <tr class="hover:bg-slate-700/50 transition border-b border-slate-700/50">
+                        <td class="p-4 text-center align-middle">
+                            <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox w-4 h-4 rounded border-slate-700 bg-slate-900 text-purple-500 focus:ring-purple-500 cursor-pointer">
+                        </td>
+                        <td class="p-4 font-bold text-white">{{ m.name }}</td>
+                        <td class="p-4 text-gray-400 font-mono">{{ m.code|default:"-" }}</td>
+                        <td class="p-4 font-bold font-mono {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
+                            {{ m.quantity }} {{ m.unit }}
+                            {% if m.is_low_stock %}<span class="ml-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30">⚠️ ALERTE</span>{% endif %}
+                        </td>
+                        <td class="p-4 text-gray-400 font-mono">{{ m.min_threshold }} {{ m.unit }}</td>
+                        <td class="p-4 text-right">
+                            <a href="{% url 'edit_material' m.id %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1.5 px-3 rounded-lg transition">✏️ Éditer</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="p-8 text-center text-gray-500 italic">Aucun solvant enregistré.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ONGLET 5 : CONSOMMATIONS (Historique) -->
 <!-- ========================================== -->
 <div id="tab-consos" class="tab-content hidden">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
@@ -154,18 +259,14 @@
                         <td class="p-3 font-bold text-cyan-400">{{ c.job_name }}</td>
                         <td class="p-3 text-gray-400">{{ c.date|date:"d/m/Y" }}</td>
                         <td class="p-3">{{ c.get_process_type_display }}</td>
-                        <td class="p-3 text-emerald-400 font-bold">{{ c.total_encre }} kg</td>
-                        <td class="p-3 text-blue-400 font-bold">{{ c.total_solvant }} kg</td>
-                        <td class="p-3">{{ c.gain_de_masse_kg }} kg <span class="text-xs text-gray-400">({{ c.gain_de_masse_percent }}%)</span></td>
-                        <td class="p-3">{{ c.matiere_evaporee_kg }} kg <span class="text-xs text-gray-400">({{ c.matiere_evaporee_percent }}%)</span></td>
-                        <td class="p-3 font-bold text-yellow-500">{{ c.grammage }} g/m²</td>
+                        <td class="p-3 text-emerald-400 font-bold font-mono">{{ c.total_encre }} kg</td>
+                        <td class="p-3 text-blue-400 font-bold font-mono">{{ c.total_solvant }} kg</td>
+                        <td class="p-3 font-mono">{{ c.gain_de_masse_kg }} kg <span class="text-xs text-gray-400">({{ c.gain_de_masse_percent }}%)</span></td>
+                        <td class="p-3 font-mono">{{ c.matiere_evaporee_kg }} kg <span class="text-xs text-gray-400">({{ c.matiere_evaporee_percent }}%)</span></td>
+                        <td class="p-3 font-bold text-yellow-500 font-mono">{{ c.grammage }} g/m²</td>
                     </tr>
                     {% empty %}
-                    <tr>
-                        <td colspan="8" class="p-8 text-center text-gray-500 italic">
-                            Aucune consommation enregistrée.
-                        </td>
-                    </tr>
+                    <tr><td colspan="8" class="p-8 text-center text-gray-500 italic">Aucune consommation enregistrée.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -174,7 +275,7 @@
 </div>
 
 <!-- ========================================== -->
-<!-- ONGLET 3 : FOURNISSEURS -->
+<!-- ONGLET 6 : FOURNISSEURS -->
 <!-- ========================================== -->
 <div id="tab-suppliers" class="tab-content hidden">
     <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
@@ -204,27 +305,16 @@
                         <td class="p-4 text-gray-400">{{ s.email|default:"-" }}</td>
                         <td class="p-4 text-right">
                             <div class="flex justify-end items-center gap-2">
-                                <a href="{% url 'edit_supplier' s.id %}" 
-                                   class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">
-                                    ✏️ Éditer
-                                </a>
+                                <a href="{% url 'edit_supplier' s.id %}" class="text-xs bg-slate-700 hover:bg-slate-600 text-white py-1 px-3 rounded border border-slate-500 transition">✏️ Éditer</a>
                                 <form method="POST" action="{% url 'delete_supplier' s.id %}" class="inline">
                                     {% csrf_token %}
-                                    <button type="submit" 
-                                            onclick="return confirm('Supprimer ce fournisseur ?');"
-                                            class="text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 py-1 px-2.5 rounded border border-red-500/30 transition">
-                                        🗑️ Supprimer
-                                    </button>
+                                    <button type="submit" onclick="return confirm('Supprimer ce fournisseur ?');" class="text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 py-1 px-2.5 rounded border border-red-500/30 transition">🗑️ Supprimer</button>
                                 </form>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr>
-                        <td colspan="3" class="p-8 text-center text-gray-500 italic">
-                            Aucun fournisseur enregistré.
-                        </td>
-                    </tr>
+                    <tr><td colspan="3" class="p-8 text-center text-gray-500 italic">Aucun fournisseur enregistré.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -236,43 +326,52 @@
 <!-- BARRE ACTIONS GROUPÉES (AFFICHEE LORS DE LA SELECTION MULTIPLE) -->
 <!-- ============================================================ -->
 <div id="bulkActionsBar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 shadow-2xl flex items-center gap-4 z-50 animate-fade-in">
-    <span class="text-xs text-gray-300 font-bold"><span id="selectedCount" class="text-yellow-400 font-black">0</span> sélectionné(s)</span>
-    <button onclick="bulkDeleteMaterials()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-1 shadow-md">
-        🗑️ Supprimer la sélection
+    <span class="text-xs text-gray-300 font-bold"><span id="selectedCount" class="text-yellow-400 font-black text-lg">0</span> matière(s) sélectionnée(s)</span>
+    <button onclick="bulkDeleteMaterials()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2 shadow-md">
+        🗑️ Archiver la sélection
     </button>
 </div>
 
 <!-- SCRIPT DE GESTION DES ONGLETS & SELECTIONS MULTIPLES -->
 <script>
+    const COLORS = {
+        'films': 'border-blue-500 text-blue-500',
+        'inks': 'border-pink-500 text-pink-500',
+        'glues': 'border-emerald-500 text-emerald-500',
+        'solvs': 'border-purple-500 text-purple-500',
+        'consos': 'border-yellow-500 text-yellow-500',
+        'suppliers': 'border-blue-400 text-blue-400'
+    };
+
     function showTab(tabName) {
-        var contents = document.querySelectorAll('.tab-content');
-        contents.forEach(function(el) {
-            el.classList.add('hidden');
-            el.classList.remove('block');
+        // Cacher tous les contenus
+        document.querySelectorAll('.tab-content').forEach(el => {
+            el.classList.add('hidden'); el.classList.remove('block');
         });
         
-        var buttons = document.querySelectorAll('.tab-btn');
-        buttons.forEach(function(btn) {
-            btn.classList.remove('border-yellow-500', 'text-yellow-500');
-            btn.classList.add('border-transparent', 'text-gray-400');
+        // Réinitialiser les boutons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.className = "tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap";
         });
         
-        var targetTab = document.getElementById('tab-' + tabName);
+        // Afficher le contenu ciblé
+        const targetTab = document.getElementById('tab-' + tabName);
         if (targetTab) {
-            targetTab.classList.remove('hidden');
-            targetTab.classList.add('block');
+            targetTab.classList.remove('hidden'); targetTab.classList.add('block');
         }
         
-        var activeBtn = document.getElementById('tabBtn-' + tabName);
-        if (activeBtn) {
+        // Activer le bouton avec sa couleur spécifique
+        const activeBtn = document.getElementById('tabBtn-' + tabName);
+        if (activeBtn && COLORS[tabName]) {
+            const classes = COLORS[tabName].split(' ');
             activeBtn.classList.remove('border-transparent', 'text-gray-400');
-            activeBtn.classList.add('border-yellow-500', 'text-yellow-500');
+            activeBtn.classList.add(...classes);
         }
     }
 
-    // GESTION DU MULTI-SELECT & DES ACTIONS EN LOT
+    // GESTION DU MULTI-SELECT INDÉPENDANT PAR TABLEAU
     document.addEventListener('DOMContentLoaded', function() {
-        const selectAll = document.getElementById('selectAllMaterials');
+        const selectAllBoxes = document.querySelectorAll('.selectAll-checkbox');
         const checkboxes = document.querySelectorAll('.material-checkbox');
         const bulkBar = document.getElementById('bulkActionsBar');
         const selectedCountSpan = document.getElementById('selectedCount');
@@ -289,19 +388,17 @@
             }
         }
 
-        if (selectAll) {
-            selectAll.addEventListener('change', function() {
-                checkboxes.forEach(cb => {
-                    cb.checked = selectAll.checked;
-                });
+        selectAllBoxes.forEach(sa => {
+            sa.addEventListener('change', function() {
+                const table = sa.closest('table');
+                const tableCheckboxes = table.querySelectorAll('.material-checkbox');
+                tableCheckboxes.forEach(cb => { cb.checked = sa.checked; });
                 updateBulkBar();
             });
-        }
+        });
 
         checkboxes.forEach(cb => {
             cb.addEventListener('change', function() {
-                const allChecked = document.querySelectorAll('.material-checkbox:checked').length === checkboxes.length;
-                if (selectAll) selectAll.checked = allChecked;
                 updateBulkBar();
             });
         });
@@ -312,7 +409,7 @@
         const ids = Array.from(checkedBoxes).map(cb => cb.value);
         if (ids.length === 0) return;
 
-        if (confirm(`⚠️ Êtes-vous sûr de vouloir supprimer définitivement les ${ids.length} matières sélectionnées ? cette action supprimera également tous leurs lots liés.`)) {
+        if (confirm(`⚠️ Êtes-vous sûr de vouloir archiver les ${ids.length} matières sélectionnées ?`)) {
             fetch("{% url 'bulk_delete_materials' %}", {
                 method: 'POST',
                 headers: {

@@ -43,8 +43,8 @@
             <div class="text-xs text-gray-400 mt-1">Interlocuteurs</div>
         </div>
         <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
-            <div class="text-2xl font-bold text-white">{{ opportunites.count }}</div>
-            <div class="text-xs text-gray-400 mt-1">Opportunités</div>
+            <div class="text-2xl font-bold text-white">{{ produits_techniques.count }}</div>
+            <div class="text-xs text-gray-400 mt-1">Produits / Fiches</div>
         </div>
         <div class="bg-slate-800 rounded-xl border border-emerald-500/30 p-4 text-center">
             <div class="text-2xl font-bold text-emerald-400">{{ commandes.count }}</div>
@@ -55,10 +55,10 @@
             <div class="text-xs text-gray-400 mt-1">Devis</div>
         </div>
         <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 text-center">
-            <div class="text-xl font-bold text-yellow-400 font-mono">
-                {% if client.ca_estime %}{{ client.ca_estime|floatformat:0 }}{% else %}—{% endif %}
+            <div class="text-xl font-bold text-cyan-400 font-mono">
+                {{ tarifs.count }}
             </div>
-            <div class="text-xs text-gray-400 mt-1">Vol. (KG/Étiqu)</div>
+            <div class="text-xs text-gray-400 mt-1">Tarifs Fixés</div>
         </div>
     </div>
 
@@ -126,7 +126,6 @@
                                     {% if contact.is_primary %}<span class="text-[9px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded border border-yellow-500/30 uppercase font-semibold">Principal</span>{% endif %}
                                 </div>
                                 <div class="text-xs text-gray-400 mt-1">
-                                    <!-- BADGES DE COULEUR EN FONCTION DES RÔLES -->
                                     {% if contact.role == 'ACHAT' %}
                                         <span class="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded text-[10px] border border-blue-500/20">{{ contact.get_role_display_full }}</span>
                                     {% elif contact.role == 'APPRO' %}
@@ -204,8 +203,304 @@
 
         </div>
 
-        <!-- COLONNE DROITE : Opportunités + Commandes + Devis + Production -->
+        <!-- COLONNE DROITE : Produits + Commandes + Opportunités -->
         <div class="lg:col-span-2 space-y-5">
+
+            <!-- ========================================================== -->
+            <!-- PRODUITS TECHNIQUES DU CLIENT (CRÉATION DEPUIS LE CRM)     -->
+            <!-- ========================================================== -->
+            <div class="bg-slate-800 rounded-xl border border-blue-500/30 p-5 shadow-lg shadow-blue-500/5">
+                <div class="flex justify-between items-center mb-4 border-b border-blue-500/30 pb-2">
+                    <h3 class="text-blue-400 font-bold flex items-center gap-2"><span>🛠️</span> Catalogue Produits Techniques & Fiches ({{ produits_techniques.count }})</h3>
+                    <button type="button" onclick="document.getElementById('modal-produit-tech').showModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded transition">
+                        + Créer un produit
+                    </button>
+                </div>
+
+                {% if produits_techniques %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-gray-400">
+                        <thead class="text-gray-500 uppercase text-[10px] tracking-wider bg-slate-900/50">
+                            <tr>
+                                <th class="p-2 text-left rounded-tl-lg">Réf. Interne</th>
+                                <th class="p-2 text-left">Désignation</th>
+                                <th class="p-2 text-center">Structure</th>
+                                <th class="p-2 text-center">Laize / Dév.</th>
+                                <th class="p-2 text-center">Procédé</th>
+                                <th class="p-2 text-center">Maquette</th>
+                                <th class="p-2 text-center rounded-tr-lg">Statut BAT</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for prod in produits_techniques %}
+                            <tr class="hover:bg-slate-700/30 transition">
+                                <td class="py-3 px-2 font-mono text-xs font-bold text-blue-400">{{ prod.ref_internal }}</td>
+                                <td class="py-3 px-2 font-bold text-white">{{ prod.name }}</td>
+                                <td class="py-3 px-2 text-center">
+                                    <span class="bg-slate-700 text-gray-300 px-2 py-0.5 rounded text-[10px] font-bold">{{ prod.get_structure_type_display }}</span>
+                                </td>
+                                <td class="py-3 px-2 text-center text-xs">
+                                    {{ prod.width_mm }} mm {% if prod.developpement_mm %}· {{ prod.developpement_mm }} mm{% endif %}
+                                </td>
+                                <td class="py-3 px-2 text-center text-xs text-yellow-400">
+                                    {{ prod.impression|default:"Flexographie" }}
+                                </td>
+                                <td class="py-3 px-2 text-center">
+                                    {% if prod.artwork_file %}
+                                    <a href="{{ prod.artwork_file.url }}" target="_blank" class="text-cyan-400 hover:underline text-xs">📄 Voir</a>
+                                    {% else %}
+                                    <span class="text-gray-600 text-xs">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-2 text-center">
+                                    {% if prod.bat_status == 'VALIDE' %}
+                                        <span class="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-[10px] font-bold border border-green-500/30">✅ Validé</span>
+                                    {% elif prod.bat_status == 'REFUSE' %}
+                                        <span class="bg-red-500/20 text-red-400 px-2 py-0.5 rounded text-[10px] font-bold border border-red-500/30">❌ Refusé</span>
+                                    {% else %}
+                                        <span class="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-[10px] font-bold border border-yellow-500/30">⏳ En attente</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-6 text-gray-500">
+                    <p class="mb-2">Aucun produit technique enregistré pour ce client.</p>
+                    <button type="button" onclick="document.getElementById('modal-produit-tech').showModal()" class="text-blue-400 font-bold hover:underline text-sm">Créer le premier produit technique</button>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- MODAL DE CRÉATION DE PRODUIT TECHNIQUE DEPUIS LE CRM -->
+            <dialog id="modal-produit-tech" class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-0 text-white max-w-xl w-full backdrop:bg-slate-900/80 backdrop:backdrop-blur-sm">
+                <div class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 rounded-t-2xl">
+                    <h3 class="text-xl font-bold text-blue-400 flex items-center gap-2"><span>🛠️</span> Nouveau Produit Technique (Brief Commercial)</h3>
+                    <button type="button" onclick="document.getElementById('modal-produit-tech').close()" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+                </div>
+                <form method="post" action="{% url 'client_detail' client.id %}" enctype="multipart/form-data" class="p-6 space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="add_produit_technique" value="1">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Référence Interne *</label>
+                            <input type="text" name="ref_internal" required class="w-full bg-slate-900 border border-slate-600 text-white font-mono rounded-xl p-3 focus:outline-none focus:border-blue-500" placeholder="Ex: PRD-{{ client.code_client|default:'CLI' }}-01">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Structure *</label>
+                            <select name="structure_type" class="w-full bg-slate-900 border border-slate-600 text-white rounded-xl p-3 focus:outline-none focus:border-blue-500">
+                                <option value="MONO">Mono</option>
+                                <option value="DUPLEX">Duplex</option>
+                                <option value="TRIPLEX">Triplex</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Désignation du Produit *</label>
+                        <input type="text" name="name" required class="w-full bg-slate-900 border border-slate-600 text-white rounded-xl p-3 focus:outline-none focus:border-blue-500" placeholder="Ex: Sachet Bobine Impression 50μm">
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Laize (mm)</label>
+                            <input type="number" step="0.1" name="width_mm" value="0" class="w-full bg-slate-900 border border-slate-600 text-white font-mono rounded-xl p-3 focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Développement (mm)</label>
+                            <input type="number" step="0.1" name="developpement_mm" value="0" class="w-full bg-slate-900 border border-slate-600 text-white font-mono rounded-xl p-3 focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Procédé / Machine</label>
+                            <select name="impression" class="w-full bg-slate-900 border border-slate-600 text-white rounded-xl p-3 focus:outline-none focus:border-blue-500">
+                                <option value="Flexographie">Flexographie</option>
+                                <option value="Héliogravure">Héliogravure</option>
+                                <option value="Extrusion">Extrusion</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Fichier Maquette / Fiche Graphique (PDF / AI / Image)</label>
+                        <input type="file" name="artwork_file" class="w-full bg-slate-900 border border-slate-600 text-gray-300 rounded-xl p-2.5 text-xs focus:outline-none focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500">
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-700">
+                        <button type="button" onclick="document.getElementById('modal-produit-tech').close()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-xl transition">Annuler</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg transition">Enregistrer le produit</button>
+                    </div>
+                </form>
+            </dialog>
+
+            <!-- TOP PRODUITS & HISTORIQUE DES COMMANDES -->
+            <div class="bg-slate-800 rounded-xl border border-emerald-500/30 p-5 shadow-lg shadow-emerald-500/5">
+                <div class="flex justify-between items-center mb-4 border-b border-emerald-500/30 pb-2">
+                    <h3 class="text-emerald-400 font-bold flex items-center gap-2"><span>📦</span> Top Produits & Historique Commandes</h3>
+                    <span class="text-xs text-gray-400">Analyse basée sur les commandes validées</span>
+                </div>
+
+                {% if produit_phare %}
+                <!-- BANNIÈRE PRODUIT PHARES -->
+                <div class="bg-gradient-to-r from-emerald-950/60 to-slate-900/80 border border-emerald-500/40 rounded-xl p-4 mb-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="text-3xl">🏆</div>
+                        <div>
+                            <div class="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Produit Phare (Le plus commandé)</div>
+                            <div class="text-white font-bold text-base mt-0.5">
+                                {% if produit_phare.produit__name %}{{ produit_phare.produit__name }}{% else %}{{ produit_phare.designation }}{% endif %}
+                            </div>
+                            {% if produit_phare.produit__ref_internal %}
+                            <div class="text-xs text-gray-400 font-mono">Réf: {{ produit_phare.produit__ref_internal }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xl font-bold font-mono text-emerald-400">{{ produit_phare.total_quantite|floatformat:1 }} {{ produit_phare.unite_commun|default:"kg" }}</div>
+                        <div class="text-xs text-gray-400 mt-0.5">Commandé <b>{{ produit_phare.nb_commandes }}</b> fois</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if produits_stats %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-gray-400">
+                        <thead class="text-gray-500 uppercase text-[10px] tracking-wider bg-slate-900/50">
+                            <tr>
+                                <th class="p-2 text-left rounded-tl-lg">Produit / Désignation</th>
+                                <th class="p-2 text-left">Code Réf.</th>
+                                <th class="p-2 text-center">Commandes</th>
+                                <th class="p-2 text-right">Dernière Cde</th>
+                                <th class="p-2 text-right rounded-tr-lg">Quantité Totale</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for stat in produits_stats %}
+                            <tr class="hover:bg-slate-700/30 transition">
+                                <td class="py-3 px-2 font-bold text-white">
+                                    {% if stat.produit__name %}{{ stat.produit__name }}{% else %}{{ stat.designation }}{% endif %}
+                                </td>
+                                <td class="py-3 px-2 font-mono text-xs">{{ stat.produit__ref_internal|default:"—" }}</td>
+                                <td class="py-3 px-2 text-center">
+                                    <span class="bg-slate-700 text-white px-2 py-0.5 rounded text-xs font-bold">{{ stat.nb_commandes }}</span>
+                                </td>
+                                <td class="py-3 px-2 text-right text-xs">{{ stat.derniere_date|date:"d/m/Y"|default:"—" }}</td>
+                                <td class="py-3 px-2 text-right font-mono font-bold text-emerald-400">
+                                    {{ stat.total_quantite|floatformat:1 }} {{ stat.unite_commun|default:"kg" }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-6 text-gray-500">
+                    <p class="text-sm">Aucun produit commandé pour le moment.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- CATALOGUE PRODUITS & TARIFS SPÉCIFIQUES -->
+            <div class="bg-slate-800 rounded-xl border border-cyan-500/30 p-5 shadow-lg shadow-cyan-500/5">
+                <div class="flex justify-between items-center mb-4 border-b border-cyan-500/30 pb-2">
+                    <h3 class="text-cyan-400 font-bold flex items-center gap-2"><span>🏷️</span> Catalogue Produits & Tarifs Spécifiques</h3>
+                    {% if produits_sans_tarif %}
+                    <button type="button" onclick="document.getElementById('modal-tarif').showModal()" class="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 text-xs font-bold px-3 py-1.5 rounded transition">
+                        + Fixer un prix
+                    </button>
+                    {% else %}
+                    <span class="text-xs text-gray-500 italic">Tous les produits sont tarifés</span>
+                    {% endif %}
+                </div>
+
+                {% if tarifs %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-gray-400">
+                        <thead class="text-gray-500 uppercase text-[10px] tracking-wider bg-slate-900/50">
+                            <tr>
+                                <th class="p-2 text-left rounded-tl-lg">Produit Technique (Prépresse)</th>
+                                <th class="p-2 text-left">Code</th>
+                                <th class="p-2 text-right">Prix Unitaire</th>
+                                <th class="p-2 text-center">Unité</th>
+                                <th class="p-2 text-center rounded-tr-lg">Remise</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for tarif in tarifs %}
+                            <tr class="hover:bg-slate-700/30 transition">
+                                <td class="py-3 px-2 font-bold text-white">{{ tarif.product.name }}</td>
+                                <td class="py-3 px-2 font-mono text-xs">{{ tarif.product.ref_internal }}</td>
+                                <td class="py-3 px-2 text-right font-mono font-bold text-cyan-400">{{ tarif.prix_unitaire|floatformat:2 }} DA</td>
+                                <td class="py-3 px-2 text-center text-xs bg-slate-800">{{ tarif.get_unite_display }}</td>
+                                <td class="py-3 px-2 text-center text-emerald-400 font-bold">{% if tarif.remise_specifique > 0 %}-{{ tarif.remise_specifique }}%{% else %}—{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-6 text-gray-500">
+                    <p class="mb-2">Ce client n'a aucun tarif spécifique enregistré.</p>
+                    {% if produits_sans_tarif %}
+                    <button type="button" onclick="document.getElementById('modal-tarif').showModal()" class="text-cyan-400 font-bold hover:underline text-sm">Ajouter le premier tarif</button>
+                    {% else %}
+                    <p class="text-xs mt-2">Créez d'abord une fiche technique dans le module Prépresse pour ce client.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- MODAL D'AJOUT DE TARIF -->
+            <dialog id="modal-tarif" class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-0 text-white max-w-lg w-full backdrop:bg-slate-900/80 backdrop:backdrop-blur-sm">
+                <div class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 rounded-t-2xl">
+                    <h3 class="text-xl font-bold text-cyan-400 flex items-center gap-2"><span>💰</span> Nouveau Tarif Spécifique</h3>
+                    <button type="button" onclick="document.getElementById('modal-tarif').close()" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+                </div>
+                <form method="post" action="{% url 'client_detail' client.id %}" class="p-6 space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="add_tarif" value="1">
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sélectionner le Produit</label>
+                        <select name="product_id" required class="w-full bg-slate-900 border border-slate-600 text-white rounded-xl p-3 focus:outline-none focus:border-cyan-500">
+                            <option value="">-- Choisir parmi les fiches techniques du client --</option>
+                            {% for p in produits_sans_tarif %}
+                            <option value="{{ p.id }}">{{ p.ref_internal }} - {{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-[10px] text-gray-500 mt-1">Seuls les produits créés dans le Prépresse pour ce client apparaissent ici.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Prix (DA) *</label>
+                            <input type="number" step="0.01" name="prix" required class="w-full bg-slate-900 border border-slate-600 text-white font-mono rounded-xl p-3 focus:outline-none focus:border-cyan-500" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Unité</label>
+                            <select name="unite" class="w-full bg-slate-900 border border-slate-600 text-white rounded-xl p-3 focus:outline-none focus:border-cyan-500">
+                                <option value="kg">Kilogramme (kg)</option>
+                                <option value="piece">Pièce / Étiquette</option>
+                                <option value="ml">Mètre Linéaire (ml)</option>
+                                <option value="forfait">Forfait Global</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Remise spécifique (%)</label>
+                        <input type="number" step="0.01" name="remise" value="0" class="w-full bg-slate-900 border border-slate-600 text-white font-mono rounded-xl p-3 focus:outline-none focus:border-cyan-500">
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-700">
+                        <button type="button" onclick="document.getElementById('modal-tarif').close()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-xl transition">Annuler</button>
+                        <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-2.5 px-6 rounded-xl shadow-lg transition">Enregistrer le tarif</button>
+                    </div>
+                </form>
+            </dialog>
             
             <!-- COMMANDES CLIENTS -->
             <div class="bg-slate-800 rounded-xl border border-emerald-500/30 p-5 shadow-lg shadow-emerald-500/5">
@@ -378,37 +673,6 @@
                 <p class="text-gray-500 text-sm text-center py-3">Aucun devis pour ce client.</p>
                 {% endif %}
             </div>
-
-            <!-- ANCIENNES COMMANDES PRODUCTION (LEGACY) -->
-            {% if orders %}
-            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5">
-                <h3 class="text-white font-bold mb-4 border-b border-slate-700 pb-2 flex items-center justify-between">
-                    <span>🏭 Historique Prod. Legacy</span>
-                </h3>
-                <div class="space-y-2">
-                    {% for of in orders %}
-                    <div class="bg-slate-700/50 rounded-lg p-3 flex justify-between items-center">
-                        <div>
-                            <div class="font-mono text-white text-sm">OF {{ of.of_number }}</div>
-                            <div class="text-xs text-gray-400">{{ of.product.name }} — {{ of.machine.name|default:"Machine non définie" }}</div>
-                        </div>
-                        <div class="text-right">
-                            {% if of.status == 'DONE' %}
-                                <span class="text-xs text-green-400">Terminé</span>
-                            {% elif of.status == 'IN_PROGRESS' %}
-                                <span class="text-xs text-blue-400">En cours</span>
-                            {% elif of.status == 'LATE' %}
-                                <span class="text-xs text-red-400">En retard</span>
-                            {% else %}
-                                <span class="text-xs text-gray-400">Planifié</span>
-                            {% endif %}
-                            <div class="text-xs text-gray-500">{{ of.start_time|date:"d/m/Y" }}</div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
 
         </div>
     </div>

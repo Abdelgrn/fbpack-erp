@@ -99,15 +99,32 @@
                 <table class="text-xs text-gray-300 border-collapse w-full">
                     <thead>
                         <tr class="border-b border-slate-600 bg-slate-800 text-cyan-400">
-                            <th class="p-2 text-left">Designation</th><th class="p-2 text-left">Code</th>
-                            <th class="p-2 text-left">Fournisseur</th><th class="p-2 text-left">Categorie</th>
-                            <th class="p-2 text-left">Quantite</th><th class="p-2 text-left">Unite</th>
-                            <th class="p-2 text-left">Seuil_Min</th><th class="p-2 text-left">Prix</th>
+                            <th class="p-2 text-left">Designation</th>
+                            <th class="p-2 text-left">Code</th>
+                            <th class="p-2 text-left">Fournisseur</th>
+                            <th class="p-2 text-left">Categorie</th>
+                            <th class="p-2 text-left text-yellow-300">Micronage / Grammage</th>
+                            <th class="p-2 text-left text-yellow-300">Metrage (m)</th>
+                            <th class="p-2 text-left">Stock_Initial</th>
+                            <th class="p-2 text-left">Stock_Reel</th>
+                            <th class="p-2 text-left">Unite</th>
+                            <th class="p-2 text-left">Seuil_Min</th>
+                            <th class="p-2 text-left">Prix_Unitaire</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr class="border-b border-slate-700">
-                            <td class="p-2">SOLVAPRINT TF EP YELLOW</td><td class="p-2">HSAU200019</td><td class="p-2">SunChemical</td><td class="p-2">Encre</td><td class="p-2">500</td><td class="p-2">kg</td><td class="p-2">100</td><td class="p-2">1200</td>
+                            <td class="p-2">BOPP TRANSPARENT 20UM</td>
+                            <td class="p-2">BOPP20</td>
+                            <td class="p-2">SunChemical</td>
+                            <td class="p-2">Film/Papier</td>
+                            <td class="p-2 text-yellow-300 font-bold">20</td>
+                            <td class="p-2 text-yellow-300 font-bold">6000</td>
+                            <td class="p-2">500</td>
+                            <td class="p-2">500</td>
+                            <td class="p-2">kg</td>
+                            <td class="p-2">100</td>
+                            <td class="p-2">1200</td>
                         </tr>
                     </tbody>
                 </table>
@@ -139,7 +156,7 @@
 <script>
     const colMap = {
         'MOUVEMENTS': 'Date, Machine, Produit, Quantite (KG), Code Prod, Notes',
-        'STOCK': 'Designation, Code, Fournisseur, Categorie (Film/Encre/Colle/Solvant), Quantite, Unite, Seuil_Min, Prix',
+        'STOCK': 'Designation, Code, Fournisseur, Categorie (Film/Encre/Colle/Solvant), Micronage / Grammage, Metrage (m), Stock_Initial, Stock_Reel, Unite, Seuil_Min, Prix_Unitaire',
         'CRM': 'ID Client, Nom Client, Secteur, Adresse, Ville, Région, Téléphone, Email, Commercial, Statut compte, Limite crédit (DA), Observations',
         'TOOLS': 'Ref_Produit, Type (Cylindre/Cliche), Serial, Tours_Max, Tours_Actuels',
         'PLANNING': 'OF_Numero, Client, Produit, Machine, Date_Debut (JJ/MM/AAAA), Qte_Prevue',
