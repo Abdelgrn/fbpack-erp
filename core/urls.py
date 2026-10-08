@@ -30,6 +30,9 @@ urlpatterns = [
     # KPI GÉNÉRAL & DATA ANALYSE
     # ==========================================
     path('kpi/', kpi_analytics.kpi_dashboard, name='kpi_dashboard'),
+    path('kpi/client/<int:client_id>/', kpi_analytics.kpi_client, name='kpi_client'),
+    path('kpi/export/excel/', kpi_analytics.kpi_export_excel, name='kpi_export_excel'),
+    path('kpi/fiche-technique/<int:product_id>/', kpi_analytics.kpi_fiche_technique, name='kpi_fiche_technique'),
 
     # ==========================================
     # CRM — CLIENTS
@@ -127,7 +130,7 @@ urlpatterns = [
     # PRÉPRESSE & OUTILS (MIS À JOUR AVEC TRI PAR CLIENT)
     # ==========================================
     path('prepress/', views.prepress_view, name='prepress_view'),
-    path('prepress/client/<int:client_id>/', views.prepress_client_products, name='prepress_client_products'), # <-- NOUVEAU ICI
+    path('prepress/client/<int:client_id>/', views.prepress_client_products, name='prepress_client_products'),
     path('prepress/add/', views.add_product, name='add_product'),
     path('prepress/edit/<int:id>/', views.edit_product, name='edit_product'),
     path('tools/add/', views.add_tool, name='add_tool'),
@@ -240,8 +243,11 @@ urlpatterns = [
     path('prod/synthese/calculer/', prod_views.prod_calculer_temps, name='prod_calculer_temps'),
     path('prod/synthese/calculer/save/', prod_views.prod_calculer_temps_save, name='prod_calculer_temps_save'),
     path('prod/synthese/calculer/<int:id>/delete/', prod_views.prod_calculer_temps_delete, name='prod_calculer_temps_delete'),
+    
+    # TEMPLATES TÉLÉCHARGEABLES D'IMPORT
     path('import/template-special-prod/', views.download_template_special_prod, name='download_template_special_prod'),
     path('import/template-stock/', views.download_template_stock, name='download_template_stock'),
+    path('import/template-tools/', views.download_template_tools, name='download_template_tools'),
 
     # ==========================================
     # MODULE ENCRE

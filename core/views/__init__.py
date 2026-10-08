@@ -1,5 +1,5 @@
 from .imports_export import (
-    import_stock_view, download_template_special_prod, download_template_stock
+    import_stock_view, download_template_special_prod, download_template_stock, download_template_tools
 )
 
 from .dashboard import (

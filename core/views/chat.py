@@ -53,22 +53,20 @@ ROOM_MODULE_MAP = {
     'technique': ['maintenance'],
     'drh': ['drh'],
     'stock': ['stock'],
+    'alertes-usine': ['dashboard', 'production', 'planification', 'maintenance', 'stock', 'crm', 'prepress'],
 }
 
 
 def get_user_notifiable_rooms(user):
     """
     Retourne la liste des IDs des salons dont cet utilisateur doit RECEVOIR les notifications.
-    - Général et Urgences : Tout le monde.
-    - Commercial, Production, Technique : Seuls ceux qui ont le module ERP correspondant.
-    - Private (DIRECT) : Uniquement si l'utilisateur est membre du chat privé.
     """
     user_modules = get_user_active_modules(user)
-    
+
     # 1. Salons publics généraux (notifient tout le monde)
     public_always = ChatRoom.objects.filter(
-        est_actif=True, 
-        slug__in=['general', 'urgences']
+        est_actif=True,
+        slug__in=['general', 'urgences', 'alertes-usine']
     ).values_list('id', flat=True)
 
     # 2. Salons métiers filtrés par module
@@ -78,14 +76,14 @@ def get_user_notifiable_rooms(user):
             allowed_slugs.append(room_slug)
 
     module_room_ids = ChatRoom.objects.filter(
-        est_actif=True, 
+        est_actif=True,
         slug__in=allowed_slugs
     ).values_list('id', flat=True)
 
     # 3. Chats Privés (DIRECT) où l'utilisateur est membre
     private_ids = ChatRoom.objects.filter(
-        est_actif=True, 
-        type='DIRECT', 
+        est_actif=True,
+        type='DIRECT',
         membres=user
     ).values_list('id', flat=True)
 
@@ -100,12 +98,34 @@ def ensure_default_rooms():
         {'name': 'Commercial', 'slug': 'commercial', 'type': 'COMMERCIAL', 'icone': '💼', 'description': 'Équipe Commerciale & Devis'},
         {'name': 'Technique', 'slug': 'technique', 'type': 'TECHNIQUE', 'icone': '🔧', 'description': 'Maintenance & Parc Machine'},
         {'name': 'Urgences', 'slug': 'urgences', 'type': 'URGENCE', 'icone': '🚨', 'description': 'Signalements & Problèmes bloquants'},
+        {'name': 'Alertes Usine', 'slug': 'alertes-usine', 'type': 'URGENCE', 'icone': '🚨', 'description': 'Alertes automatiques KPI : production, stock, outillage, retards'},
     ]
     for room_data in default_rooms:
         ChatRoom.objects.get_or_create(
             slug=room_data['slug'],
             defaults=room_data
         )
+
+
+def ensure_alertes_usine_room():
+    """
+    Retourne le salon des alertes KPI.
+    Utilisé par le module KPI pour pousser les alertes dans le Chat.
+    """
+    room, created = ChatRoom.objects.get_or_create(
+        slug='alertes-usine',
+        defaults={
+            'name': 'Alertes Usine',
+            'type': 'URGENCE',
+            'icone': '🚨',
+            'description': 'Alertes automatiques KPI : production, stock, outillage, retards',
+            'est_actif': True,
+        }
+    )
+    if not room.est_actif:
+        room.est_actif = True
+        room.save(update_fields=['est_actif'])
+    return room
 
 
 @login_required
@@ -140,14 +160,13 @@ def chat_room(request, room_slug):
 
     # Sécurité pour les chats privés
     if room.type == 'DIRECT' and not room.membres.filter(id=request.user.id).exists():
-        messages.error(request, "Vous n'avez pas accès à cette discussion privée.")
         return redirect('chat_home')
 
     room.membres.add(request.user)
     update_user_presence(request.user, room)
 
-    chat_messages = room.messages.select_related('auteur').order_by('-date_envoi')[:50]
-    chat_messages = list(chat_messages)[::-1]
+    chat_messages_list = room.messages.select_related('auteur').order_by('-date_envoi')[:50]
+    chat_messages_list = list(chat_messages_list)[::-1]
 
     rooms = ChatRoom.objects.filter(est_actif=True).exclude(type='DIRECT').order_by('type', 'name')
     online_users = UserPresence.objects.filter(
@@ -167,11 +186,12 @@ def chat_room(request, room_slug):
         autre_membre = room.membres.exclude(id=request.user.id).first()
         room_display_name = f"Discuter avec {autre_membre.username}" if autre_membre else "Chat Privé"
 
+    # NOTE : La clé est nommée 'chat_messages' pour éviter toute collision avec 'messages' de Django Flash
     context = {
         'room': room,
         'room_display_name': room_display_name,
         'rooms': rooms,
-        'messages': chat_messages,
+        'chat_messages': chat_messages_list,
         'online_users': online_users,
         'private_rooms': private_rooms,
         'tous_utilisateurs': tous_utilisateurs
@@ -226,10 +246,10 @@ def chat_get_messages(request, room_slug):
     update_user_presence(request.user, room)
 
     if last_id <= 0:
-        chat_messages = room.messages.select_related('auteur').order_by('-date_envoi')[:80]
-        chat_messages = list(chat_messages)[::-1]
+        chat_messages_list = room.messages.select_related('auteur').order_by('-date_envoi')[:80]
+        chat_messages_list = list(chat_messages_list)[::-1]
     else:
-        chat_messages = room.messages.filter(id__gt=last_id).select_related('auteur').order_by('date_envoi')
+        chat_messages_list = room.messages.filter(id__gt=last_id).select_related('auteur').order_by('date_envoi')
 
     data = [{
         'id': msg.id,
@@ -238,17 +258,14 @@ def chat_get_messages(request, room_slug):
         'contenu': msg.contenu,
         'timestamp': msg.get_time_display(),
         'type': msg.type_message,
-    } for msg in chat_messages]
+    } for msg in chat_messages_list]
 
     return JsonResponse({'messages': data})
 
 
 @login_required
 def chat_notifications_api(request):
-    """
-    API globale des notifications.
-    Cible intelligemment les bons utilisateurs selon leurs modules ERP !
-    """
+    """API globale des notifications."""
     try:
         last_id = int(request.GET.get('last_id', 0) or 0)
     except (TypeError, ValueError):
@@ -256,9 +273,8 @@ def chat_notifications_api(request):
 
     update_user_presence(request.user, None)
 
-    # Récupérer UNIQUEMENT les salons auxquels l'utilisateur a droit en terme de notification
     notifiable_room_ids = get_user_notifiable_rooms(request.user)
-    
+
     if not notifiable_room_ids:
         return JsonResponse({
             'messages': [],
@@ -334,7 +350,6 @@ def send_system_notification(request):
                     room=room, auteur=request.user,
                     contenu=message, type_message='SYSTEM'
                 )
-                messages.success(request, "Notification envoyée !")
 
     return redirect('chat_home')
 

@@ -351,17 +351,21 @@ def import_stock_view(request):
             fs = FileSystemStorage()
             filename = fs.save(excel_file.name, excel_file)
             file_path = fs.path(filename)
-            df = pd.read_excel(file_path).fillna('')
-
-            rename_map = build_column_rename_map(df.columns)
-            if rename_map and import_type == 'STOCK':
-                df = df.rename(columns=rename_map)
+            
+            # Pour TOOLS, on tente de lire la ou les feuille(s)
+            excel_file_obj = pd.ExcelFile(file_path)
+            sheets_to_process = excel_file_obj.sheet_names if import_type == 'TOOLS' else [excel_file_obj.sheet_names[0]]
 
             count = 0
             errors = 0
             details = []
 
             if import_type == 'STOCK':
+                df = pd.read_excel(file_path).fillna('')
+                rename_map = build_column_rename_map(df.columns)
+                if rename_map:
+                    df = df.rename(columns=rename_map)
+
                 colonnes_reconnues = ', '.join(sorted(set(rename_map.values()))) if rename_map else None
                 if colonnes_reconnues:
                     details.append(f"ℹ️ Colonnes Excel reconnues et mappées : {colonnes_reconnues}")
@@ -383,7 +387,6 @@ def import_stock_view(request):
                         raw_cat = str(row.get('Categorie', row.get('categorie', ''))).strip()
                         if raw_cat in ('0', 'nan', 'None'): raw_cat = ''
 
-                        # --- LECTURE DES COLONNES "Micronage / Grammage" (col 5) ET "Metrage (m)" (col 6) ---
                         mic_grm_val = row.get('Micronage_Grammage', row.get('Micronage / Grammage', row.get('Micronage', row.get('Grammage', None))))
                         metrage = row.get('Metrage', row.get('Metrage (m)', row.get('metrage', None)))
 
@@ -456,6 +459,7 @@ def import_stock_view(request):
                         details.append(f"Ligne {idx+2}: ❌ {str(e)}")
 
             elif import_type == 'CRM':
+                df = pd.read_excel(file_path).fillna('')
                 df = auto_detect_crm_header(df)
                 col_index = build_crm_column_index(df.columns)
                 
@@ -467,18 +471,12 @@ def import_stock_view(request):
                 if forced_commercial:
                     details.append(f"ℹ️ Tous les clients seront assignés au commercial : {forced_commercial.get_full_name() or forced_commercial.username}")
                 else:
-                    details.append(f"ℹ️ Détection auto du commercial selon le fichier Excel (uniquement parmi les utilisateurs ayant accès au CRM).")
+                    details.append(f"ℹ️ Détection auto du commercial selon le fichier Excel.")
                 
                 for idx, row in df.iterrows():
                     try:
-                        code_client = crm_get(col_index, row, [
-                            'ID Client', 'Id Client', 'id_client', 'Code Client', 'code_client', 'Code'
-                        ])
-
-                        nom = crm_get(col_index, row, [
-                            'Nom Client', 'nom_client', 'Raison Sociale', 'raison_sociale',
-                            'Nom', 'name', 'Raison_Sociale'
-                        ])
+                        code_client = crm_get(col_index, row, ['ID Client', 'Id Client', 'id_client', 'Code Client', 'code_client', 'Code'])
+                        nom = crm_get(col_index, row, ['Nom Client', 'nom_client', 'Raison Sociale', 'raison_sociale', 'Nom', 'name', 'Raison_Sociale'])
 
                         if not nom:
                             details.append(f"Ligne {idx+2}: ⚠️ Nom Client vide — ignorée")
@@ -487,34 +485,15 @@ def import_stock_view(request):
                         secteur = crm_get(col_index, row, ['Secteur', 'sector', 'Activité', 'Activite'])
                         adresse = crm_get(col_index, row, ['Adresse', 'address', 'Adresse complete', 'Adresse complète'])
                         ville = crm_get(col_index, row, ['Ville', 'city', 'Wilaya'])
-                        telephone = crm_get(col_index, row, [
-                            'Téléphone', 'Telephone', 'Tel', 'phone', 'Tél', 'Teléphone'
-                        ])
+                        telephone = crm_get(col_index, row, ['Téléphone', 'Telephone', 'Tel', 'phone', 'Tél', 'Teléphone'])
                         email = crm_get(col_index, row, ['Email', 'E-mail', 'mail', 'e_mail'])
-                        statut_raw = crm_get(col_index, row, [
-                            'Statut compte', 'Statut_compte', 'Statut', 'status', 'Etat', 'État'
-                        ])
-                        cond_paie_raw = crm_get(col_index, row, [
-                            'Cond. paiement', 'Cond paiement', 'Conditions paiement',
-                            'conditions_paiement', 'Paiement', 'Condition de paiement'
-                        ])
-                        lim_cred_raw = crm_get(col_index, row, [
-                            'Limite crédit (DA)', 'Limite crédit', 'Limite credit (DA)',
-                            'Limite credit', 'limite_credit', 'Crédit', 'Credit'
-                        ])
-                        observations = crm_get(col_index, row, [
-                            'Observations', 'Notes', 'Remarques', 'Commentaire', 'notes'
-                        ])
-                        ice_nif = crm_get(col_index, row, [
-                            'ICE', 'NIF', 'RC', 'ICE / NIF / RC', 'ice_nif', 'NIF/RC'
-                        ])
-                        date_1ere = crm_get(col_index, row, [
-                            'Date 1ère cmd', 'Date 1ere cmd', 'Date premiere cmd',
-                            'date_creation', 'Date entrée', 'Date entree'
-                        ])
-                        region_raw = crm_get(col_index, row, [
-                            'Région', 'Region', 'Zone', 'region', 'wilaya_region'
-                        ])
+                        statut_raw = crm_get(col_index, row, ['Statut compte', 'Statut_compte', 'Statut', 'status', 'Etat', 'État'])
+                        cond_paie_raw = crm_get(col_index, row, ['Cond. paiement', 'Cond paiement', 'Conditions paiement', 'conditions_paiement', 'Paiement', 'Condition de paiement'])
+                        lim_cred_raw = crm_get(col_index, row, ['Limite crédit (DA)', 'Limite crédit', 'Limite credit (DA)', 'Limite credit', 'limite_credit', 'Crédit', 'Credit'])
+                        observations = crm_get(col_index, row, ['Observations', 'Notes', 'Remarques', 'Commentaire', 'notes'])
+                        ice_nif = crm_get(col_index, row, ['ICE', 'NIF', 'RC', 'ICE / NIF / RC', 'ice_nif', 'NIF/RC'])
+                        date_1ere = crm_get(col_index, row, ['Date 1ère cmd', 'Date 1ere cmd', 'Date premiere cmd', 'date_creation', 'Date entrée', 'Date entree'])
+                        region_raw = crm_get(col_index, row, ['Région', 'Region', 'Zone', 'region', 'wilaya_region'])
 
                         status = map_statut_compte(statut_raw)
                         conditions_paiement = map_conditions_paiement(cond_paie_raw)
@@ -523,10 +502,7 @@ def import_stock_view(request):
                         region = ''
                         if region_raw:
                             rr = region_raw.upper()
-                            for code, label in [
-                                ('NORD', 'NORD'), ('SUD', 'SUD'), ('EST', 'EST'),
-                                ('OUEST', 'OUEST'), ('CENTRE', 'CENTRE'), ('EXPORT', 'EXPORT')
-                            ]:
+                            for code, label in [('NORD', 'NORD'), ('SUD', 'SUD'), ('EST', 'EST'), ('OUEST', 'OUEST'), ('CENTRE', 'CENTRE'), ('EXPORT', 'EXPORT')]:
                                 if code in rr:
                                     region = code
                                     break
@@ -534,9 +510,7 @@ def import_stock_view(request):
                             region = map_region_from_ville(ville)
 
                         try:
-                            limite_credit = float(
-                                lim_cred_raw.replace(' ', '').replace(',', '.').replace('DA', '')
-                            ) if lim_cred_raw else 0.0
+                            limite_credit = float(lim_cred_raw.replace(' ', '').replace(',', '.').replace('DA', '')) if lim_cred_raw else 0.0
                         except (ValueError, TypeError):
                             limite_credit = 0.0
 
@@ -560,47 +534,181 @@ def import_stock_view(request):
                             'notes': observations,
                             'conditions_paiement': conditions_paiement,
                         }
-                        if ice_nif:
-                            defaults['ice_nif'] = ice_nif[:100]
-                        if commercial_user:
-                            defaults['commercial'] = commercial_user
+                        if ice_nif: defaults['ice_nif'] = ice_nif[:100]
+                        if commercial_user: defaults['commercial'] = commercial_user
 
                         if date_1ere:
                             try:
                                 d = pd.to_datetime(date_1ere, dayfirst=True, errors='coerce')
-                                if pd.notna(d):
-                                    defaults['date_creation'] = d.date()
-                            except Exception:
-                                pass
+                                if pd.notna(d): defaults['date_creation'] = d.date()
+                            except Exception: pass
 
                         if code_client:
-                            client_obj, created = Client.objects.update_or_create(
-                                code_client=code_client[:50],
-                                defaults=defaults
-                            )
+                            client_obj, created = Client.objects.update_or_create(code_client=code_client[:50], defaults=defaults)
                             act = "créé" if created else "mis à jour"
                         else:
-                            client_obj, created = Client.objects.update_or_create(
-                                name=nom[:200],
-                                defaults=defaults
-                            )
+                            client_obj, created = Client.objects.update_or_create(name=nom[:200], defaults=defaults)
                             act = "créé" if created else "mis à jour"
 
-                        comm_label = (
-                            commercial_user.get_full_name() or commercial_user.username
-                            if commercial_user else '—'
-                        )
+                        comm_label = commercial_user.get_full_name() or commercial_user.username if commercial_user else '—'
                         reg_label = region or '—'
-                        details.append(
-                            f"Ligne {idx+2}: ✅ {nom} [{code_client or 'sans code'}] | "
-                            f"{ville or '—'} | {reg_label} | Comm: {comm_label} | {act}"
-                        )
+                        details.append(f"Ligne {idx+2}: ✅ {nom} [{code_client or 'sans code'}] | {ville or '—'} | {reg_label} | Comm: {comm_label} | {act}")
                         count += 1
                     except Exception as e:
                         errors += 1
                         details.append(f"Ligne {idx+2}: ❌ Erreur : {str(e)}")
 
+            elif import_type == 'TOOLS':
+                # --- PARC CLICHÉS FLEXO ET CYLINDRES HÉLIO (ADAPTATION EXACTE EXCEL CLIENT) ---
+                for sheet_name in sheets_to_process:
+                    df = pd.read_excel(file_path, sheet_name=sheet_name).fillna('')
+                    if df.empty:
+                        continue
+                    
+                    col_index = build_crm_column_index(df.columns)
+                    
+                    # Déduction du type par défaut selon l'onglet ou les colonnes
+                    is_helio_sheet = 'CYLINDRE' in sheet_name.upper() or 'HELIO' in sheet_name.upper() or 'CODE CYLINDRE' in [c.upper() for c in df.columns]
+
+                    for idx, row in df.iterrows():
+                        try:
+                            # 1. Extraction Client
+                            client_name = crm_get(col_index, row, ['CLIENT', 'Client', 'Nom Client', 'RAISON SOCIALE'])
+                            if not client_name or client_name in ('#DIV/0!', '0', 'nan'):
+                                continue
+
+                            client_name_clean = client_name.strip()
+                            
+                            # 2. Extraction Produit / Désignation
+                            designation = crm_get(col_index, row, ['DESIGNATIONS', 'DESIGNATION', 'Designations', 'Produit', 'ARTICLE'])
+                            if not designation or designation in ('0', 'nan'):
+                                designation = f"Produit {client_name_clean}"
+
+                            # 3. Extraction Code Outillage
+                            tool_code = crm_get(col_index, row, ['CODE CYLINDRE', 'CODE Clyché', 'CODE CLICHE', 'Code Cylindre', 'Code Cliche', 'SERIAL', 'Serial', 'CODE'])
+                            if not tool_code or tool_code in ('0', 'nan', '#DIV/0!'):
+                                # Tente la 1ère colonne si c'est un code style 24F001
+                                col1_val = str(row.iloc[0]).strip() if len(row) > 0 else ''
+                                if col1_val and len(col1_val) < 20 and 'DIV' not in col1_val:
+                                    tool_code = col1_val
+                                else:
+                                    tool_code = f"OUT-{idx+1}"
+
+                            # 4. Déterminer le type (CYL vs CLICHE)
+                            type_val = crm_get(col_index, row, ['TYPE', 'Type'])
+                            if type_val:
+                                tool_type = 'CYL' if 'CYL' in type_val.upper() or 'HELIO' in type_val.upper() else 'CLICHE'
+                            else:
+                                tool_type = 'CYL' if is_helio_sheet or 'CYL' in tool_code.upper() else 'CLICHE'
+
+                            # 5. Extraction Développement (mm) & Laize
+                            dev_str = crm_get(col_index, row, ['DEVELOPP', 'DEV (mm)', 'DEVELOPPEMENT', 'Dev (mm)']).replace(',', '.')
+                            laize_str = crm_get(col_index, row, ['LAIZE', 'Laize (mm)']).replace(',', '.')
+                            
+                            dev_mm = 0.0
+                            try:
+                                dev_mm = float(dev_str) if dev_str else 0.0
+                            except ValueError: pass
+
+                            laize_mm = 0.0
+                            try:
+                                laize_mm = float(laize_str) if laize_str else 0.0
+                            except ValueError: pass
+
+                            # 6. Extraction Nb Couleurs & Graveur / Fournisseur
+                            nb_clr_str = crm_get(col_index, row, ['NMBR', 'NBR', 'CLR', 'Nb Couleurs', 'Couleurs'])
+                            graveur_str = crm_get(col_index, row, ['FOURN', 'Graveur', 'Fournisseur'])
+                            
+                            nb_colors = 0
+                            if nb_clr_str:
+                                digits = re.findall(r'\d+', nb_clr_str)
+                                if digits:
+                                    nb_colors = int(digits[0])
+
+                            # 7. Métrage & Tours
+                            metrage_str = crm_get(col_index, row, ['MÉTRAGE ( ML )', 'METRAGE (ML)', 'METRAGE', 'Metrage']).replace(' ', '').replace(',', '.')
+                            tours_str = crm_get(col_index, row, ['NOMBRE DE TOUR', 'NOMBRE/TOURS', 'TOURS', 'Tours']).replace(' ', '').replace(',', '.')
+
+                            metrage_val = 0.0
+                            try:
+                                metrage_val = float(metrage_str) if metrage_str else 0.0
+                            except ValueError: pass
+
+                            tours_val = 0
+                            try:
+                                tours_val = int(float(tours_str)) if tours_str else 0
+                            except ValueError: pass
+
+                            # 8. Date & Observations
+                            date_str = crm_get(col_index, row, ['DATE', 'Date'])
+                            obs_str = crm_get(col_index, row, ['OBSERVATIONS', 'REGLEMENT', 'Observations', 'Notes'])
+
+                            tool_date = timezone.now().date()
+                            if date_str:
+                                try:
+                                    dt = pd.to_datetime(date_str, dayfirst=True, errors='coerce')
+                                    if pd.notna(dt):
+                                        tool_date = dt.date()
+                                except Exception: pass
+
+                            # --- CRÉATION / MISE À JOUR BASE DE DONNÉES ---
+                            # A. Client
+                            client_obj, _ = Client.objects.get_or_create(
+                                name=client_name_clean,
+                                defaults={
+                                    'city': 'Non renseignée',
+                                    'phone': '',
+                                    'segment': 'HELIO' if tool_type == 'CYL' else 'FLEXO'
+                                }
+                            )
+
+                            # B. Produit Technique
+                            ref_internal = f"FT-{client_name_clean[:3].upper()}-{re.sub(r'[^a-zA-Z0-9]', '', tool_code)[:10]}"
+                            product_obj = TechnicalProduct.objects.filter(client=client_obj, name=designation).first()
+                            
+                            if not product_obj:
+                                product_obj, _ = TechnicalProduct.objects.get_or_create(
+                                    ref_internal=ref_internal,
+                                    defaults={
+                                        'client': client_obj,
+                                        'name': designation,
+                                        'developpement_mm': dev_mm,
+                                        'width_mm': laize_mm,
+                                        'graveur': graveur_str,
+                                        'num_colors': nb_colors
+                                    }
+                                )
+                            else:
+                                if dev_mm > 0: product_obj.developpement_mm = dev_mm
+                                if laize_mm > 0: product_obj.width_mm = laize_mm
+                                if graveur_str: product_obj.graveur = graveur_str
+                                if nb_colors > 0: product_obj.num_colors = nb_colors
+                                product_obj.save()
+
+                            # C. Outillage (Tooling)
+                            tool_obj, created = Tooling.objects.update_or_create(
+                                serial_number=tool_code,
+                                defaults={
+                                    'product': product_obj,
+                                    'tool_type': tool_type,
+                                    'date_creation': tool_date,
+                                    'metrage_realise': metrage_val,
+                                    'current_impressions': tours_val,
+                                    'observations': obs_str
+                                }
+                            )
+
+                            count += 1
+                            act_txt = "créé" if created else "mis à jour"
+                            lbl_type = "🟣 Cylindre Hélio" if tool_type == 'CYL' else "🟠 Cliché Flexo"
+                            details.append(f"Ligne {idx+2} ({sheet_name}): ✅ {lbl_type} [{tool_code}] | {client_name_clean} | FT: {product_obj.name} | Dév: {dev_mm}mm | {act_txt}")
+
+                        except Exception as e:
+                            errors += 1
+                            details.append(f"Ligne {idx+2} ({sheet_name}): ❌ Erreur : {str(e)}")
+
             elif import_type == 'SPECIAL_PROD':
+                df = pd.read_excel(file_path).fillna('')
                 for idx, row in df.iterrows():
                     try:
                         try:
@@ -669,6 +777,7 @@ def import_stock_view(request):
                         details.append(f"Ligne {idx+2}: ❌ ERREUR — {str(e)}")
 
             elif import_type == 'CONSO':
+                df = pd.read_excel(file_path).fillna('')
                 for idx, row in df.iterrows():
                     try:
                         try:
@@ -702,43 +811,8 @@ def import_stock_view(request):
                         errors += 1
                         details.append(f"Ligne {idx+2}: ❌ {str(e)}")
 
-            elif import_type == 'TOOLS':
-                for idx, row in df.iterrows():
-                    try:
-                        prod_ref = row.get('Ref_Produit')
-                        if prod_ref and prod_ref != 0:
-                            cli, _ = Client.objects.get_or_create(
-                                name="Client Divers",
-                                defaults={'city': 'Interne', 'phone': '000'}
-                            )
-                            product, _ = TechnicalProduct.objects.get_or_create(
-                                ref_internal=prod_ref,
-                                defaults={
-                                    'name': f"Produit {prod_ref}",
-                                    'client': cli, 'structure_type': 'MONO',
-                                    'width_mm': 100
-                                }
-                            )
-                            type_map = {'Cylindre': 'CYL', 'Cliche': 'CLICHE'}
-                            type_val = row.get('Type', 'CYL')
-                            if type_val == 0:
-                                type_val = 'CYL'
-                            Tooling.objects.update_or_create(
-                                serial_number=row.get('Serial'),
-                                defaults={
-                                    'product': product,
-                                    'tool_type': type_map.get(type_val, 'CYL'),
-                                    'max_impressions': row.get('Tours_Max', 1000000),
-                                    'current_impressions': row.get('Tours_Actuels', 0)
-                                }
-                            )
-                            count += 1
-                            details.append(f"Ligne {idx+2}: ✅ Outil {row.get('Serial')} importé")
-                    except Exception as e:
-                        errors += 1
-                        details.append(f"Ligne {idx+2}: ❌ {str(e)}")
-
             elif import_type == 'PLANNING':
+                df = pd.read_excel(file_path).fillna('')
                 for idx, row in df.iterrows():
                     try:
                         cli_name = row.get('Client')
@@ -797,6 +871,80 @@ def import_stock_view(request):
     return render(request, 'stock/import_stock.html', context)
 
 
+# ===========================================================================
+# --- GÉNÉRATEURS DE TEMPLATES EXCEL ---
+# ===========================================================================
+
+def download_template_tools(request):
+    """Génère le modèle Excel exact pour le parc Clichés (Flexo) et Cylindres (Hélio) avec 2 onglets"""
+    wb = openpyxl.Workbook()
+    
+    # Onglet 1: Cylindres Hélio
+    ws_helio = wb.active
+    ws_helio.title = "Cylindres Helio"
+    headers_helio = ['DATE', 'CLIENT', 'DESIGNATIONS', 'CODE CYLINDRE', 'DEVELOPP', 'NMBR', 'MÉTRAGE ( ML )', 'NOMBRE DE TOUR', 'OBSERVATIONS']
+    
+    # Onglet 2: Clichés Flexo
+    ws_flexo = wb.create_sheet(title="Cliches Flexo")
+    headers_flexo = ['CODE', 'DATE', 'CLIENT', 'DESIGNATIONS', 'CODE Clyché', 'CLR', 'FOURN', 'REGLEMENT', 'DEV (mm)', 'LAIZE', 'METRAGE (ML)', 'NOMBRE/TOURS', 'OBSERVATIONS']
+
+    hf = Font(name='Arial', bold=True, color='FFFFFF', size=11)
+    hfill_helio = PatternFill(start_color='4A148C', end_color='4A148C', fill_type='solid') # Violet
+    hfill_flexo = PatternFill(start_color='E65100', end_color='E65100', fill_type='solid') # Orange
+    
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    # Formater Helio
+    for col, header in enumerate(headers_helio, 1):
+        cell = ws_helio.cell(row=1, column=col, value=header)
+        cell.font = hf
+        cell.fill = hfill_helio
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = tb
+
+    examples_helio = [
+        ['04/02/2024', 'CRISTALINE', 'EAU MINERALE 1,5 L', '23GE1912', 572.4, 5, 0, 0, ''],
+        ['26/09/2025', 'BERRAHAL ( FME )', 'EAU MINERALE 1,5 L', '3108240841', 552, 7, 1204429, 2181937, 'Regravure Cylindre ROUGE et NOIR'],
+    ]
+    ef = PatternFill(start_color='F3E5F5', end_color='F3E5F5', fill_type='solid')
+    for row_idx, ex in enumerate(examples_helio, 2):
+        for col, val in enumerate(ex, 1):
+            cell = ws_helio.cell(row=row_idx, column=col, value=val)
+            cell.fill = ef
+            cell.border = tb
+            cell.alignment = Alignment(horizontal='center')
+
+    # Formater Flexo
+    for col, header in enumerate(headers_flexo, 1):
+        cell = ws_flexo.cell(row=1, column=col, value=header)
+        cell.font = hf
+        cell.fill = hfill_flexo
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = tb
+
+    examples_flexo = [
+        ['24F001', '15/01/2024', 'BEST RAZANE', 'AMALGAME GAUFRETTE', '6416-24', '8 clrs', 'Yahiaoui', 'OFFERTS', 660, 1150, 34766, 52676, ''],
+        ['24F002', '20/02/2024', 'SIM (2 PISTES)', 'FARINE 1 KG', 'AL 5250', '5 clrs', 'FL Studio', 'OFFERTS', 660, 700, 770000, 1166667, ''],
+    ]
+    ef_flexo = PatternFill(start_color='FFF3E0', end_color='FFF3E0', fill_type='solid')
+    for row_idx, ex in enumerate(examples_flexo, 2):
+        for col, val in enumerate(ex, 1):
+            cell = ws_flexo.cell(row=row_idx, column=col, value=val)
+            cell.fill = ef_flexo
+            cell.border = tb
+            cell.alignment = Alignment(horizontal='center')
+
+    for sheet in [ws_helio, ws_flexo]:
+        for col in sheet.columns:
+            ml = max((len(str(c.value)) for c in col if c.value), default=0)
+            sheet.column_dimensions[col[0].column_letter].width = ml + 4
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="Template_Parc_Cliches_et_Cylindres.xlsx"'
+    wb.save(response)
+    return response
+
+
 def download_template_special_prod(request):
     """Génère le bon template Excel complet à jour pour la Production Spéciale (18 colonnes)"""
     wb = openpyxl.Workbook()
@@ -810,10 +958,7 @@ def download_template_special_prod(request):
     ]
     hf = Font(name='Arial', bold=True, color='FFFFFF', size=11)
     hfill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
-    tb = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin')
-    )
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = hf
@@ -834,9 +979,7 @@ def download_template_special_prod(request):
     for col in ws.columns:
         ml = max((len(str(c.value)) for c in col if c.value), default=0)
         ws.column_dimensions[col[0].column_letter].width = ml + 4
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="Template_Production_Speciale.xlsx"'
     wb.save(response)
     return response
@@ -854,10 +997,7 @@ def download_template_stock(request):
     ]
     hf = Font(name='Arial', bold=True, color='FFFFFF', size=11)
     hfill = PatternFill(start_color='0D47A1', end_color='0D47A1', fill_type='solid')
-    tb = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin')
-    )
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = hf
@@ -879,9 +1019,7 @@ def download_template_stock(request):
     for col in ws.columns:
         ml = max((len(str(c.value)) for c in col if c.value), default=0)
         ws.column_dimensions[col[0].column_letter].width = ml + 4
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="Template_Stock_Matieres.xlsx"'
     wb.save(response)
     return response

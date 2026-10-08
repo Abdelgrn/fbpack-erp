@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- EN-TÊTE -->
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+        <div>
+            <a href="{% url 'client_detail' client.id %}" class="text-slate-500 hover:text-white text-sm transition">← Retour fiche client</a>
+            <h1 class="text-3xl md:text-4xl font-extrabold text-white mt-1">📊 KPI — <span class="text-cyan-400">{{ client.name }}</span></h1>
+            <p class="text-slate-400 text-sm mt-1">Code {{ client.code_client|default:"—" }} · {{ client.city }} · Analyse commerciale & production</p>
+        </div>
+        <a href="{% url 'kpi_dashboard' %}" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl transition">📊 KPI Général</a>
+    </div>
+
+    <!-- STATS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
+        <div class="bg-gradient-to-br from-emerald-600/20 to-slate-900 border border-emerald-500/20 rounded-2xl p-6 shadow-xl">
+            <div class="text-xs text-emerald-300 uppercase tracking-widest font-bold mb-2">CA Total</div>
+            <div class="text-3xl font-extrabold text-white font-mono">{{ ca_total|floatformat:0 }} <span class="text-sm text-slate-400">DA</span></div>
+        </div>
+        <div class="bg-gradient-to-br from-blue-600/20 to-slate-900 border border-blue-500/20 rounded-2xl p-6 shadow-xl">
+            <div class="text-xs text-blue-300 uppercase tracking-widest font-bold mb-2">Commandes</div>
+            <div class="text-3xl font-extrabold text-white">{{ nb_cmd }}</div>
+            {% if retards > 0 %}<div class="text-xs text-red-400 mt-1">⚠️ {{ retards }} en retard</div>{% endif %}
+        </div>
+        <div class="bg-gradient-to-br from-cyan-600/20 to-slate-900 border border-cyan-500/20 rounded-2xl p-6 shadow-xl">
+            <div class="text-xs text-cyan-300 uppercase tracking-widest font-bold mb-2">Panier Moyen</div>
+            <div class="text-3xl font-extrabold text-white font-mono">{{ panier_moyen|floatformat:0 }} <span class="text-sm text-slate-400">DA</span></div>
+        </div>
+        <div class="bg-gradient-to-br from-amber-600/20 to-slate-900 border border-amber-500/20 rounded-2xl p-6 shadow-xl">
+            <div class="text-xs text-amber-300 uppercase tracking-widest font-bold mb-2">Fiches Production</div>
+            <div class="text-3xl font-extrabold text-white">{{ fiche_agg.nb|default:0 }}</div>
+            <div class="text-xs text-slate-400 mt-1">{{ heures_prod }} h · Déchets <b class="text-amber-300">{{ fiche_agg.dechets|floatformat:1|default:0 }} kg</b></div>
+        </div>
+    </div>
+
+    <!-- GRAPHIQUE CA -->
+    <div class="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl mb-8">
+        <h2 class="text-lg font-extrabold text-white mb-6">📈 CA mensuel (12 mois)</h2>
+        <div class="h-72"><canvas id="chartClientCA"></canvas></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- PRODUITS FAVORIS -->
+        <div class="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
+            <h2 class="text-lg font-extrabold text-white mb-6">🏆 Produits favoris</h2>
+            {% if produits_favoris %}
+            <div class="space-y-3">
+                {% for p in produits_favoris %}
+                <div class="bg-slate-900/40 border border-slate-700/40 rounded-2xl p-4 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="font-bold text-white text-sm truncate">{{ p.produit__name|default:"—" }}</div>
+                        <div class="text-[10px] text-slate-500 font-mono">{{ p.produit__ref_internal }} · {{ p.nb }} commande(s)</div>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span class="font-mono font-extrabold text-cyan-300">{{ p.qte|floatformat:1 }} {{ p.unite }}</span>
+                        {% if p.produit__id %}
+                        <a href="{% url 'kpi_fiche_technique' p.produit__id %}" target="_blank" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-bold px-3 py-1.5 rounded-lg transition">🖨️ Fiche PDF</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-10 text-slate-500">Aucune ligne de commande.</div>
+            {% endif %}
+        </div>
+
+        <!-- PAR STATUT -->
+        <div class="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
+            <h2 class="text-lg font-extrabold text-white mb-6">📋 Commandes par statut</h2>
+            {% if par_statut %}
+            <div class="space-y-3">
+                {% for s in par_statut %}
+                <div class="flex items-center justify-between bg-slate-900/40 border border-slate-700/40 rounded-xl px-4 py-3">
+                    <span class="text-sm font-bold text-white">{{ s.label }}</span>
+                    <div class="flex items-center gap-4">
+                        <span class="text-xs text-slate-400">{{ s.n }} cmd</span>
+                        <span class="font-mono font-bold text-emerald-300">{{ s.montant|floatformat:0 }} DA</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-10 text-slate-500">Aucune commande.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {{ graph_data|json_script:"client-graph-data" }}
+    <script>
+    (function () {
+        const el = document.getElementById('client-graph-data');
+        if (!el || !window.Chart) return;
+        const D = JSON.parse(el.textContent);
+        const c = document.getElementById('chartClientCA');
+        if (c) new Chart(c.getContext('2d'), {
+            type: 'bar',
+            data: { labels: D.labels, datasets: [{ label: 'CA (DA)', data: D.ca, backgroundColor: 'rgba(34,211,238,0.55)', borderColor: '#22d3ee', borderWidth: 2, borderRadius: 8 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+    })();
+    </script>
+
+</div>
+{% endblock %}

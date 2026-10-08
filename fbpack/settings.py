@@ -64,6 +64,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.maintenance_alerts',
                 'core.context_processors.user_permissions',
+                'core.context_processors.alertes_usine_chat',
             ],
         },
     },

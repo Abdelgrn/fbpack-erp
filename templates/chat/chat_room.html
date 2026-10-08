@@ -93,7 +93,37 @@
 
         <!-- Messages -->
         <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
-            {% for msg in messages %}
+            {% for msg in chat_messages %}
+            
+            {% if '[KPI-ALERTE:' in msg.contenu or msg.type_message == 'ALERT' %}
+            <!-- MESSAGE D'ALERTE AUTOMATIQUE KPI -->
+            <div class="flex items-start gap-3" data-message-id="{{ msg.id }}">
+                <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-red-600 to-orange-600 border border-red-400/40 flex items-center justify-center text-white text-lg font-bold shrink-0 shadow-lg shadow-red-900/30">
+                    🤖
+                </div>
+                <div class="max-w-[80%]">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-black uppercase tracking-wider text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                            🤖 Système KPI
+                        </span>
+                        <span class="text-xs text-gray-500 font-mono">{{ msg.get_time_display }}</span>
+                    </div>
+                    <div class="bg-red-950/40 border border-red-500/30 text-red-100 rounded-xl px-4 py-3 text-sm shadow-md leading-relaxed">
+                        {{ msg.contenu }}
+                    </div>
+                </div>
+            </div>
+
+            {% elif msg.type_message == 'SYSTEM' %}
+            <!-- MESSAGE SYSTÈME (Ex: Utilisateur a rejoint) -->
+            <div class="text-center text-gray-400 text-xs py-1" data-message-id="{{ msg.id }}">
+                <span class="bg-slate-900/80 border border-slate-700 px-3 py-1 rounded-full shadow-sm">
+                    🔔 {{ msg.contenu }}
+                </span>
+            </div>
+
+            {% else %}
+            <!-- MESSAGE HUMAIN STANDARD -->
             <div class="flex items-start gap-3 {% if msg.auteur == request.user %}flex-row-reverse{% endif %}" data-message-id="{{ msg.id }}">
                 <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
                     {{ msg.auteur.username|slice:":1"|upper }}
@@ -105,11 +135,13 @@
                         </span>
                         <span class="text-xs text-gray-500">{{ msg.get_time_display }}</span>
                     </div>
-                    <div class="{% if msg.type_message == 'SYSTEM' %}bg-yellow-900/30 border border-yellow-500/30 text-yellow-400{% elif msg.auteur == request.user %}bg-neon/20 text-white{% else %}bg-slate-700 text-gray-200{% endif %} rounded-lg px-4 py-2 inline-block text-left">
-                        {% if msg.type_message == 'SYSTEM' %}⚠️ {% endif %}{{ msg.contenu }}
+                    <div class="{% if msg.auteur == request.user %}bg-neon/20 text-white{% else %}bg-slate-700 text-gray-200{% endif %} rounded-lg px-4 py-2 inline-block text-left text-sm">
+                        {{ msg.contenu }}
                     </div>
                 </div>
             </div>
+            {% endif %}
+
             {% empty %}
             <div class="text-center text-gray-500 py-8">
                 <p class="text-lg mb-2">💬 Bienvenue dans {{ room.name }} !</p>
@@ -158,8 +190,16 @@
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
     
-    // Scroll automatique en bas
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    // Fonction de Scroll Automatique en Bas
+    function scrollToBottom() {
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
+    
+    scrollToBottom();
+    setTimeout(scrollToBottom, 50);
+    setTimeout(scrollToBottom, 200);
     
     let lastMessageId = 0;
     let useWebSocket = false;
@@ -195,7 +235,6 @@
 
             const now = ctx.currentTime;
 
-            // Bip 1
             const o1 = ctx.createOscillator();
             const g1 = ctx.createGain();
             o1.type = 'sine';
@@ -208,7 +247,6 @@
             o1.start(now);
             o1.stop(now + 0.2);
 
-            // Bip 2
             const o2 = ctx.createOscillator();
             const g2 = ctx.createGain();
             o2.type = 'sine';
@@ -227,7 +265,7 @@
 
     async function activerNotificationsChat() {
         try {
-            getAudioContext(); // débloque l'audio après un clic utilisateur
+            getAudioContext();
             if ('Notification' in window && Notification.permission === 'default') {
                 await Notification.requestPermission();
             }
@@ -238,7 +276,7 @@
                     tag: 'chat-enabled'
                 });
             } else if ('Notification' in window && Notification.permission === 'denied') {
-                alert('Notifications bloquées. Autorisez-les dans les paramètres du navigateur pour ce site.');
+                alert('Notifications bloquées dans les paramètres de votre navigateur.');
             } else {
                 alert('Son de notification activé ✓');
             }
@@ -279,33 +317,28 @@
     }
 
     function notifierNouveauMessage(data) {
-        // Ignorer ses propres messages
         if (data.user_id === currentUserId) return;
 
         const preview = (data.message || '').toString();
         const shortPreview = preview.length > 80 ? preview.slice(0, 80) + '…' : preview;
-        const title = (data.username || 'Quelqu\'un') + ' — ' + roomName;
+        const authorName = (preview.includes('[KPI-ALERTE:') || data.type === 'ALERT') ? '🤖 Système KPI' : (data.username || 'Quelqu\'un');
+        const title = authorName + ' — ' + roomName;
 
-        // Son toujours (si onglet ouvert)
         jouerSonNotification();
-
-        // Toast in-app
         afficherToast(title, shortPreview);
 
-        // Compteur si onglet en arrière-plan
         if (document.hidden) {
             unreadCount += 1;
             majBadgeNonLus();
         }
 
-        // Notification navigateur
         if ('Notification' in window && Notification.permission === 'granted') {
             try {
                 const n = new Notification(title, {
                     body: shortPreview,
-                    tag: 'chat-' + roomSlug, // regroupe par salon
+                    tag: 'chat-' + roomSlug,
                     renotify: true,
-                    silent: false // le navigateur peut aussi jouer un son système
+                    silent: false
                 });
                 n.onclick = function() {
                     window.focus();
@@ -325,24 +358,18 @@
         }
     });
 
-    // Débloquer l'audio au premier clic/touche dans la page
     document.addEventListener('click', function() { getAudioContext(); }, { once: true });
     document.addEventListener('keydown', function() { getAudioContext(); }, { once: true });
 
-    // Demande douce de permission notif au chargement si pas encore décidé
-    if ('Notification' in window && Notification.permission === 'default') {
-        // on attend un geste utilisateur via le bouton (politique navigateurs)
-    }
-    
     // ==========================================
-    // Tentative de connexion WebSocket
+    // Connexion WebSocket
     // ==========================================
     try {
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         chatSocket = new WebSocket(wsProtocol + '//' + window.location.host + '/ws/chat/' + roomSlug + '/');
         
         chatSocket.onopen = function() {
-            console.log("WebSocket connecte");
+            console.log("WebSocket connecté");
             useWebSocket = true;
         };
         
@@ -356,29 +383,26 @@
             } else if (data.type === 'user_join') {
                 addSystemMessage(data.username + ' a rejoint le salon');
             } else if (data.type === 'user_leave') {
-                addSystemMessage(data.username + ' a quitte le salon');
+                addSystemMessage(data.username + ' a quitté le salon');
             }
         };
         
         chatSocket.onclose = function() {
-            console.log("WebSocket ferme, passage en mode polling actif");
             useWebSocket = false;
             startPolling();
         };
         
         chatSocket.onerror = function() {
-            console.log("Erreur WebSocket, activation du mode polling de secours");
             useWebSocket = false;
             startPolling();
         };
     } catch (e) {
-        console.log("WebSocket non disponible, utilisation du polling");
         useWebSocket = false;
         startPolling();
     }
     
     // ==========================================
-    // Mode Polling Actif (mise à jour fluide sans websocket)
+    // Mode Polling Actif
     // ==========================================
     function startPolling() {
         setInterval(function() {
@@ -387,7 +411,6 @@
                 .then(data => {
                     if (data.messages && data.messages.length > 0) {
                         data.messages.forEach(function(msg) {
-                            // Éviter de rajouter son propre message deux fois
                             if (document.querySelector('[data-message-id="' + msg.id + '"]')) {
                                 return;
                             }
@@ -397,6 +420,7 @@
                                 user_id: msg.auteur_id,
                                 timestamp: msg.timestamp,
                                 message_id: msg.id,
+                                type: msg.type
                             };
                             addMessage(payload);
                             lastMessageId = msg.id;
@@ -405,7 +429,7 @@
                     }
                 })
                 .catch(err => console.log("Erreur polling:", err));
-        }, 1500); // Polling toutes les 1.5 secondes
+        }, 1500);
     }
     
     // ==========================================
@@ -417,7 +441,7 @@
         
         if (!message) return;
 
-        getAudioContext(); // s'assurer que l'audio est débloqué
+        getAudioContext();
         
         if (useWebSocket && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
             chatSocket.send(JSON.stringify({
@@ -426,7 +450,6 @@
             }));
             chatInput.value = '';
         } else {
-            // Envoi HTTP POST standard (très stable)
             const csrfInputElement = document.querySelector('[name=csrfmiddlewaretoken]');
             const csrfToken = csrfInputElement ? csrfInputElement.value : '';
             
@@ -462,42 +485,62 @@
     // Fonctions d'affichage d'interface
     // ==========================================
     function addMessage(data) {
-        // Ne pas insérer si le message est déjà affiché
         if (document.querySelector('[data-message-id="' + data.message_id + '"]')) {
             return;
         }
 
-        const isMe = data.user_id === currentUserId;
+        const isKpiAlert = (data.message && data.message.includes('[KPI-ALERTE:')) || data.type === 'ALERT';
         const messageDiv = document.createElement('div');
-        messageDiv.className = 'flex items-start gap-3 ' + (isMe ? 'flex-row-reverse' : '');
         messageDiv.dataset.messageId = data.message_id;
-        
-        messageDiv.innerHTML = 
-            '<div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">' +
-                data.username.charAt(0).toUpperCase() +
-            '</div>' +
-            '<div class="max-w-[70%] ' + (isMe ? 'text-right' : '') + '">' +
-                '<div class="flex items-center gap-2 mb-1 ' + (isMe ? 'flex-row-reverse' : '') + '">' +
-                    '<span class="text-sm font-bold ' + (isMe ? 'text-neon' : 'text-blue-400') + '">' +
-                        escapeHtml(data.username) +
-                    '</span>' +
-                    '<span class="text-xs text-gray-500">' + data.timestamp + '</span>' +
+
+        if (isKpiAlert) {
+            messageDiv.className = 'flex items-start gap-3';
+            messageDiv.innerHTML = 
+                '<div class="h-9 w-9 rounded-xl bg-gradient-to-br from-red-600 to-orange-600 border border-red-400/40 flex items-center justify-center text-white text-lg font-bold shrink-0 shadow-lg shadow-red-900/30">' +
+                    '🤖' +
                 '</div>' +
-                '<div class="' + (isMe ? 'bg-neon/20 text-white' : 'bg-slate-700 text-gray-200') + ' rounded-lg px-4 py-2 inline-block text-left">' +
-                    escapeHtml(data.message) +
+                '<div class="max-w-[80%]">' +
+                    '<div class="flex items-center gap-2 mb-1">' +
+                        '<span class="text-xs font-black uppercase tracking-wider text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">' +
+                            '🤖 Système KPI' +
+                        '</span>' +
+                        '<span class="text-xs text-gray-500 font-mono">' + data.timestamp + '</span>' +
+                    '</div>' +
+                    '<div class="bg-red-950/40 border border-red-500/30 text-red-100 rounded-xl px-4 py-3 text-sm shadow-md leading-relaxed">' +
+                        escapeHtml(data.message) +
+                    '</div>' +
+                '</div>';
+        } else {
+            const isMe = data.user_id === currentUserId;
+            messageDiv.className = 'flex items-start gap-3 ' + (isMe ? 'flex-row-reverse' : '');
+            
+            messageDiv.innerHTML = 
+                '<div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">' +
+                    data.username.charAt(0).toUpperCase() +
                 '</div>' +
-            '</div>';
+                '<div class="max-w-[70%] ' + (isMe ? 'text-right' : '') + '">' +
+                    '<div class="flex items-center gap-2 mb-1 ' + (isMe ? 'flex-row-reverse' : '') + '">' +
+                        '<span class="text-sm font-bold ' + (isMe ? 'text-neon' : 'text-blue-400') + '">' +
+                            escapeHtml(data.username) +
+                        '</span>' +
+                        '<span class="text-xs text-gray-500">' + data.timestamp + '</span>' +
+                    '</div>' +
+                    '<div class="' + (isMe ? 'bg-neon/20 text-white' : 'bg-slate-700 text-gray-200') + ' rounded-lg px-4 py-2 inline-block text-left text-sm">' +
+                        escapeHtml(data.message) +
+                    '</div>' +
+                '</div>';
+        }
         
         messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        scrollToBottom();
     }
     
     function addSystemMessage(message) {
         const messageDiv = document.createElement('div');
-        messageDiv.className = 'text-center text-gray-500 text-sm py-2';
-        messageDiv.innerHTML = '<span class="bg-slate-700 px-3 py-1 rounded-full">🔔 ' + escapeHtml(message) + '</span>';
+        messageDiv.className = 'text-center text-gray-500 text-xs py-1';
+        messageDiv.innerHTML = '<span class="bg-slate-900/80 border border-slate-700 px-3 py-1 rounded-full shadow-sm">🔔 ' + escapeHtml(message) + '</span>';
         messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        scrollToBottom();
     }
     
     function escapeHtml(text) {

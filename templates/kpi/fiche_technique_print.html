@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Fiche Technique — {{ produit.ref_internal }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; padding: 24px; max-width: 900px; margin: 0 auto; background: #fff; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #111827; padding-bottom: 14px; margin-bottom: 20px; }
+        .header h1 { font-size: 22px; letter-spacing: 1px; }
+        .header .ref { font-size: 13px; color: #374151; font-family: monospace; }
+        .badge { display: inline-block; padding: 3px 10px; border: 1px solid #111827; border-radius: 20px; font-size: 11px; font-weight: bold; margin-top: 6px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+        .card { border: 1px solid #d1d5db; border-radius: 8px; padding: 10px 12px; }
+        .card .label { font-size: 9px; text-transform: uppercase; color: #6b7280; letter-spacing: 0.5px; font-weight: bold; }
+        .card .value { font-size: 14px; font-weight: bold; margin-top: 2px; }
+        h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; background: #111827; color: #fff; padding: 7px 12px; border-radius: 6px 6px 0 0; margin-top: 18px; }
+        table { width: 100%; border-collapse: collapse; border: 1px solid #d1d5db; border-top: none; }
+        th, td { border-bottom: 1px solid #e5e7eb; padding: 7px 10px; font-size: 12px; text-align: left; }
+        th { background: #f3f4f6; font-size: 10px; text-transform: uppercase; color: #374151; }
+        .empty { padding: 14px; font-size: 12px; color: #6b7280; font-style: italic; border: 1px dashed #d1d5db; border-top: none; }
+        .bar { background: #e5e7eb; border-radius: 4px; height: 8px; width: 90px; display: inline-block; vertical-align: middle; }
+        .bar > div { height: 100%; border-radius: 4px; background: #10b981; width: 0; }
+        .bar > div.bar-red { background: #ef4444; }
+        .bar > div.bar-orange { background: #f59e0b; }
+        .btn-print { position: fixed; top: 16px; right: 16px; background: #2563eb; color: #fff; border: none; padding: 12px 22px; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.25); font-size: 14px; }
+        .footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #d1d5db; font-size: 10px; color: #6b7280; display: flex; justify-content: space-between; }
+        .mt16 { margin-top: 16px; }
+        .small { font-size: 12px; }
+        .mono { font-family: monospace; }
+        .right { text-align: right; font-size: 11px; }
+        @media print {
+            .btn-print { display: none; }
+            body { padding: 0; }
+            .bar > div { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+
+    <div class="header">
+        <div>
+            <h1>FB PACK — FICHE TECHNIQUE</h1>
+            <div class="ref">{{ produit.ref_internal }} — {{ produit.name }}</div>
+        </div>
+        <div class="right">
+            <div><b>Client :</b> {{ produit.client.name }}</div>
+            <div><b>Version :</b> {{ produit.version }}</div>
+            <div><b>Éditée le :</b> {% now "d/m/Y" %}</div>
+        </div>
+    </div>
+
+    <div class="badge">
+        {% if produit.bat_status == 'VALIDE' %}✅ BAT VALIDÉ{% elif produit.bat_status == 'REFUSE' %}❌ BAT SUSPENDU{% else %}⏳ BAT EN ATTENTE{% endif %}
+    </div>
+
+    <div class="grid mt16">
+        <div class="card"><div class="label">Structure</div><div class="value">{{ produit.get_structure_type_display }}</div></div>
+        <div class="card"><div class="label">Laize (mm)</div><div class="value">{{ produit.width_mm }}</div></div>
+        <div class="card"><div class="label">Développement (mm)</div><div class="value">{{ produit.developpement_mm|default:"—" }}</div></div>
+        <div class="card"><div class="label">Laize gravure (mm)</div><div class="value">{{ produit.laize_gravure_mm|default:"—" }}</div></div>
+        <div class="card"><div class="label">Poses (Pas × Laize)</div><div class="value">{{ produit.nb_poses_pas|default:"—" }} × {{ produit.nb_poses_laize|default:"—" }}</div></div>
+        <div class="card"><div class="label">Nb Couleurs</div><div class="value">{{ produit.num_colors|default:"—" }}</div></div>
+        <div class="card"><div class="label">Support d'impression</div><div class="value small">{{ produit.support_impression|default:"—" }}</div></div>
+        <div class="card"><div class="label">Impression</div><div class="value small">{{ produit.impression|default:"—" }}</div></div>
+        <div class="card"><div class="label">Graveur / Réf.</div><div class="value small">{{ produit.graveur|default:"—" }} {{ produit.ref_graveur|default:"" }}</div></div>
+    </div>
+
+    <h2>🎭 Couleurs & Encres (Flexo / Hélio)</h2>
+    {% if couleurs %}
+    <table>
+        <thead>
+            <tr><th>N°</th><th>Couleur</th><th>Anilox</th><th>Adhésif</th><th>Viscosité</th><th>Type Encre</th><th>Formule</th></tr>
+        </thead>
+        <tbody>
+            {% for c in couleurs %}
+            <tr><td>{{ c.ordre }}</td><td><b>{{ c.nom_couleur }}</b></td><td>{{ c.anilox|default:"—" }}</td><td>{{ c.adhesif|default:"—" }}</td><td>{{ c.viscosite|default:"—" }}</td><td>{{ c.type_encre|default:"—" }}</td><td>{{ c.formule_encre|default:"—" }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Aucune couleur renseignée dans le prépresse pour ce produit.</div>
+    {% endif %}
+
+    <h2>⚙️ Outillage (Clichés & Cylindres)</h2>
+    {% if outillages %}
+    <table>
+        <thead>
+            <tr><th>Type</th><th>Code / Série</th><th>Tours réalisés</th><th>Durée de vie</th><th>Usure</th><th>Métrage (ML)</th></tr>
+        </thead>
+        <tbody>
+            {% for t in outillages %}
+            <tr>
+                <td><b>{{ t.get_tool_type_display }}</b></td>
+                <td class="mono">{{ t.serial_number }}</td>
+                <td>{{ t.current_impressions }}</td>
+                <td>{{ t.max_impressions }}</td>
+                <td><span class="bar"><div class="{% if t.pct_affiche >= 80 %}bar-red{% elif t.pct_affiche >= 60 %}bar-orange{% endif %}" data-width="{{ t.pct_affiche }}"></div></span> {{ t.pct_affiche }}%</td>
+                <td>{{ t.metrage_realise }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Aucun cliché / cylindre lié à ce produit.</div>
+    {% endif %}
+
+    <div class="footer">
+        <span>Fiche générée automatiquement par FB PACK ERP — Module KPI / Prépresse</span>
+        <span>Produit #{{ produit.id }}</span>
+    </div>
+
+    <script>
+        document.querySelectorAll('[data-width]').forEach(function (b) {
+            b.style.width = Math.min(100, parseFloat(b.dataset.width) || 0) + '%';
+        });
+    </script>
+</body>
+</html>
