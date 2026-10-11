@@ -71,6 +71,16 @@ from .chat import ChatRoom, ChatMessage, UserPresence
 # Permissions
 from .permissions import UserModulePermission, user_has_module_access
 
+# Centre de notifications unifié
+from .notifications import ERPNotification, ERPNotificationState
+
+# Vérification automatique avant lancement OF
+from .prelaunch import OFPrelaunchCheck
+from .ink_calculator import AniloxRoll, InkCalculationJob, InkCalculationColor
+
+# Réservation transactionnelle du stock par OF
+from .stock_reservation import OFMaterialRequirement, StockReservation, StockReservationEvent
+
 
 def robust_import_local_data(specific_file=None):
     from django.contrib.auth.models import User
@@ -299,4 +309,8 @@ __all__ = [
     'Department', 'Position', 'Employee', 'EmployeeDocument', 'Skill', 'EmployeeSkill',
     'ChatRoom', 'ChatMessage', 'UserPresence',
     'UserModulePermission', 'user_has_module_access', 'robust_import_local_data',
+    'ERPNotification', 'ERPNotificationState',
+    'OFPrelaunchCheck',
+    'AniloxRoll', 'InkCalculationJob', 'InkCalculationColor',
+    'OFMaterialRequirement', 'StockReservation', 'StockReservationEvent',
 ]

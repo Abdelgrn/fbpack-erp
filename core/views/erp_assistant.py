@@ -8,7 +8,11 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from ..models import Material, Tooling, OrdreFabrication, CalculTempsProduction
+from ..models import (
+    Client, CommandeClient, Material, Machine, OrdreFabrication,
+    OrdreMaintenance, StockLot, TechnicalProduct, Tooling, CalculTempsProduction,
+)
+from ..models.permissions import user_has_module_access
 
 
 def _normalize(text):
@@ -150,24 +154,106 @@ def _time_answer(normalized):
     return "Dernières simulations disponibles :\n" + '\n'.join(lines) + "\nPour une estimation précise, indiquez le job, la quantité, la machine et la vitesse prévue.", 'INFO', [{'label': 'Ouvrir la synthèse', 'url': '/prod/synthese/'}]
 
 
-def answer_question(question, context=''):
+def _allowed(user, *modules):
+    return user.is_superuser or any(user_has_module_access(user, module) for module in modules)
+
+
+def _context_object(user, context):
+    """Résout uniquement les objets explicitement autorisés depuis l’URL courante."""
+    path = str(context or '').split('|', 1)[0][:250]
+    patterns = [
+        (r'^/crm/client/(\d+)/?$', ('crm',), Client, 'client'),
+        (r'^/crm/commande/(\d+)/?$', ('crm',), CommandeClient, 'commande'),
+        (r'^/(?:crm/)?of/(\d+)/?$', ('planning', 'planification', 'production'), OrdreFabrication, 'of'),
+        (r'^/stock/lot/(\d+)/?$', ('stock',), StockLot, 'lot'),
+        (r'^/maintenance/machine/(\d+)/?$', ('maintenance',), Machine, 'machine'),
+        (r'^/maintenance/om/(\d+)/?$', ('maintenance',), OrdreMaintenance, 'maintenance'),
+        (r'^/prepress/edit/(\d+)/?$', ('prepress',), TechnicalProduct, 'produit'),
+    ]
+    for pattern, modules, model, kind in patterns:
+        match = re.match(pattern, path)
+        if match and _allowed(user, *modules):
+            try:
+                return kind, model.objects.get(pk=int(match.group(1)))
+            except model.DoesNotExist:
+                return None, None
+    return None, None
+
+
+def _context_answer(user, context):
+    kind, obj = _context_object(user, context)
+    if not obj:
+        return None
+    if kind == 'client':
+        text = (f"Contexte client — {obj.name}\n• Code : {obj.code_client or 'non renseigné'}\n"
+                f"• Statut : {obj.get_status_display()}\n• Ville : {obj.city or 'non renseignée'}\n"
+                f"• Téléphone : {obj.phone or 'non renseigné'}\n• E-mail : {obj.email or 'non renseigné'}")
+        return text, 'INFO', [{'label': 'Ouvrir le client', 'url': f'/crm/client/{obj.pk}/'}]
+    if kind == 'commande':
+        text = (f"Contexte commande — {obj.reference}\n• Client : {obj.client.name}\n"
+                f"• Statut : {obj.get_statut_display()}\n• Priorité : {obj.get_priorite_display()}\n"
+                f"• Livraison prévue : {obj.date_livraison_prevue or 'non renseignée'}\n• Total : {obj.montant_total} DA")
+        return text, 'INFO', [{'label': 'Ouvrir la commande', 'url': f'/crm/commande/{obj.pk}/'}]
+    if kind == 'of':
+        text = (f"Contexte OF — {obj.numero_of}\n• Client : {obj.client.name}\n• Produit : {obj.produit.name}\n"
+                f"• Statut : {obj.get_statut_display()}\n• Priorité : {obj.get_priorite_display()}\n"
+                f"• Quantité prévue : {obj.quantite_prevue:g} kg\n• Fin prévue : {obj.date_prevue_fin or 'non renseignée'}")
+        return text, 'INFO', [{'label': 'Ouvrir l’OF', 'url': f'/of/{obj.pk}/'}]
+    if kind == 'lot':
+        text = (f"Contexte lot — {obj.numero_lot}\n• Matière : {obj.material.name}\n"
+                f"• Statut qualité : {obj.get_statut_display()}\n• Quantité restante : {obj.quantite_restante:g} kg\n"
+                f"• Fournisseur : {obj.fournisseur.name if obj.fournisseur else 'non renseigné'}")
+        return text, 'INFO', [{'label': 'Ouvrir le lot', 'url': f'/stock/lot/{obj.pk}/'}]
+    if kind == 'machine':
+        text = (f"Contexte machine — {obj.name}\n• Code : {obj.code_machine}\n• État : {obj.get_status_display()}\n"
+                f"• Marque/modèle : {(obj.marque or '—')} / {(obj.modele or '—')}\n• Criticité : {obj.get_criticite_display()}")
+        return text, ('WARNING' if obj.status == 'PANNE' else 'INFO'), [{'label': 'Ouvrir la machine', 'url': f'/maintenance/machine/{obj.pk}/'}]
+    if kind == 'maintenance':
+        text = (f"Contexte maintenance — {obj.numero_om}\n• Machine : {obj.machine.name}\n• Sujet : {obj.titre}\n"
+                f"• Statut : {obj.get_statut_display()}\n• Priorité : {obj.get_priorite_display()}\n• Type : {obj.get_type_maintenance_display()}")
+        return text, 'INFO', [{'label': 'Ouvrir l’OM', 'url': f'/maintenance/om/{obj.pk}/'}]
+    if kind == 'produit':
+        text = (f"Contexte produit — {obj.name}\n• Référence : {obj.ref_internal}\n• Client : {obj.client.name}\n"
+                f"• BAT : {obj.get_bat_status_display()}\n• Structure : {obj.get_structure_type_display()}\n• Couleurs : {obj.num_colors or 0}")
+        return text, 'INFO', [{'label': 'Ouvrir le produit', 'url': f'/prepress/edit/{obj.pk}/'}]
+    return None
+
+
+def answer_question(user, question, context=''):
     normalized = _normalize(question)
     if not normalized:
-        return "Posez-moi une question sur le stock, le calculateur, les OF, les temps ou les outillages.", 'INFO', []
+        return "Posez-moi une question sur les données ERP auxquelles vous avez accès.", 'INFO', []
+    if any(phrase in normalized for phrase in ('cette page', 'cet objet', 'ce client', 'cette commande', 'cet of', 'ce lot', 'cette machine', 'resume la page', 'resume cet')):
+        contextual = _context_answer(user, context)
+        if contextual:
+            return contextual
+        return "Je ne peux pas identifier un objet métier autorisé sur cette page. Ouvrez sa fiche détaillée puis réessayez.", 'INFO', []
     if any(word in normalized for word in ('bonjour', 'salut', 'bonsoir')) and len(normalized.split()) <= 4:
-        return "Bonjour ! Je suis l’assistant interne FB PACK. Je peux consulter le stock, calculer un besoin matière, vérifier les OF, les temps et le parc outillages.", 'SUCCESS', []
+        return "Bonjour ! Je suis l’assistant interne FB PACK, en lecture seule. Je respecte vos permissions et peux aussi résumer l’objet actuellement ouvert.", 'SUCCESS', []
     if any(word in normalized for word in ('calcul', 'laize', 'micron', 'bobine mere', 'metrage')) and ('kg' in normalized or 'micron' in normalized):
+        if not _allowed(user, 'crm', 'production'):
+            return "Vous n’avez pas l’autorisation d’accéder à cette fonction de calcul.", 'ERROR', []
         return _calculator_answer(question, normalized)
     if any(word in normalized for word in ('stock', 'reste', 'seuil', 'rupture', 'matiere', 'soliprop', 'encre', 'opp', 'bopp')):
+        if not _allowed(user, 'stock'):
+            return "Vous n’avez pas l’autorisation de consulter les données de stock.", 'ERROR', []
         return _stock_answer(question, normalized)
     if any(word in normalized for word in ('of ', 'ordre de fabrication', 'planning', 'retard')):
+        if not _allowed(user, 'planning', 'planification', 'production'):
+            return "Vous n’avez pas l’autorisation de consulter les OF ou le planning.", 'ERROR', []
         return _of_answer(normalized)
     if any(word in normalized for word in ('cliche', 'cylindre', 'outillage', 'gravure')):
+        if not _allowed(user, 'prepress'):
+            return "Vous n’avez pas l’autorisation de consulter le parc outillages.", 'ERROR', []
         return _tool_answer()
     if any(word in normalized for word in ('temps', 'duree', 'combien de temps', 'synthese')):
+        if not _allowed(user, 'production'):
+            return "Vous n’avez pas l’autorisation de consulter les synthèses de production.", 'ERROR', []
         return _time_answer(normalized)
-    return ("Je n’ai pas encore reconnu cette demande. Je peux répondre sur : stock, alertes, calcul matière, OF/planning, synthèse du temps et parc outillages. Reformulez avec le nom du module ou de la matière.", 'INFO', [])
-
+    contextual = _context_answer(user, context)
+    if contextual:
+        return contextual
+    return ("Je n’ai pas reconnu cette demande. Je peux répondre, selon vos droits, sur le stock, les calculs matière, les OF, les temps, les outillages et l’objet actuellement ouvert.", 'INFO', [])
 
 @login_required
 def assistant_home(request):
@@ -179,7 +265,7 @@ def assistant_home(request):
 def assistant_ask(request):
     question = (request.POST.get('question') or '')[:1000].strip()
     context = (request.POST.get('context') or '')[:250]
-    answer, kind, links = answer_question(question, context)
+    answer, kind, links = answer_question(request.user, question, context)
     _save_exchange(request, question, answer, kind, links)
     return JsonResponse({'ok': True, 'answer': answer, 'kind': kind, 'links': links})
 

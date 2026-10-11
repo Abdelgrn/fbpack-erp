@@ -1,0 +1,51 @@
+{% load static %}
+<div id="fb-notification-root" class="fixed top-3 right-3 md:top-5 md:right-6 z-[80]" data-list-url="{% url 'notification_api_list' %}" data-center-url="{% url 'notification_center' %}" data-read-all-url="{% url 'notification_mark_all_read' %}" data-read-pattern="{% url 'notification_mark_read' 0 %}">
+  <button id="fb-notification-button" type="button" aria-label="Ouvrir les notifications" aria-expanded="false" class="relative h-11 w-11 rounded-xl border border-slate-600 bg-slate-900/95 text-slate-100 shadow-xl hover:border-orange-400 hover:text-orange-300 transition flex items-center justify-center">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+    <span id="fb-notification-count" class="hidden absolute -top-2 -right-2 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[11px] font-black leading-5 text-center ring-2 ring-slate-900">0</span>
+  </button>
+  <section id="fb-notification-panel" class="hidden absolute right-0 mt-2 w-[min(92vw,390px)] overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 text-slate-100 shadow-2xl" aria-label="Notifications récentes">
+    <div class="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+      <div><p class="font-black">Notifications</p><p id="fb-notification-status" class="text-xs text-slate-400">Actualisation…</p></div>
+      <button id="fb-notification-read-all" type="button" class="text-xs font-bold text-orange-400 hover:text-orange-300">Tout marquer lu</button>
+    </div>
+    <div id="fb-notification-list" class="max-h-[65vh] overflow-y-auto"><p class="p-6 text-center text-sm text-slate-400">Chargement…</p></div>
+    <a href="{% url 'notification_center' %}" class="block border-t border-slate-800 px-4 py-3 text-center text-sm font-black text-orange-400 hover:bg-slate-900">Ouvrir le centre de notifications</a>
+  </section>
+</div>
+<script>
+(function () {
+  const root = document.getElementById('fb-notification-root'); if (!root) return;
+  const button = document.getElementById('fb-notification-button'), panel = document.getElementById('fb-notification-panel');
+  const list = document.getElementById('fb-notification-list'), badge = document.getElementById('fb-notification-count'), status = document.getElementById('fb-notification-status');
+  const escapeHtml = value => String(value == null ? '' : value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const csrf = () => (document.cookie.match(/(?:^|; )csrftoken=([^;]*)/) || [,''])[1];
+  async function refresh() {
+    try {
+      const response = await fetch(root.dataset.listUrl, {headers: {'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin'});
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
+      badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+      badge.classList.toggle('hidden', !data.unread_count);
+      const sidebarBadge = document.getElementById('fb-sidebar-notification-count');
+      if (sidebarBadge) {
+        sidebarBadge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+        sidebarBadge.classList.toggle('hidden', !data.unread_count);
+      }
+      status.textContent = data.unread_count ? data.unread_count + ' non lue' + (data.unread_count > 1 ? 's' : '') : 'Vous êtes à jour';
+      if (!data.notifications.length) { list.innerHTML = '<p class="p-7 text-center text-sm text-slate-400">Aucune notification active.</p>'; return; }
+      list.innerHTML = data.notifications.map(n => {
+        const color = n.level === 'CRITICAL' ? 'bg-red-500' : n.level === 'WARNING' ? 'bg-amber-400' : 'bg-sky-400';
+        const target = n.url || root.dataset.centerUrl;
+        return '<a href="' + escapeHtml(target) + '" data-notification-id="' + n.id + '" class="block border-b border-slate-800 px-4 py-3 hover:bg-slate-900 ' + (n.is_read ? 'opacity-70' : '') + '">' +
+          '<div class="flex gap-3"><span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ' + color + '"></span><div class="min-w-0"><div class="flex justify-between gap-2"><strong class="text-sm">' + escapeHtml(n.title) + '</strong><span class="shrink-0 text-[10px] text-slate-500">' + escapeHtml(n.date) + '</span></div><p class="mt-1 text-xs text-slate-400 line-clamp-2">' + escapeHtml(n.message) + '</p><span class="mt-1 inline-block text-[10px] uppercase tracking-wide text-slate-500">' + escapeHtml(n.module_label) + '</span></div></div></a>';
+      }).join('');
+    } catch (error) { status.textContent = 'Actualisation indisponible'; }
+  }
+  button.addEventListener('click', function (e) { e.stopPropagation(); panel.classList.toggle('hidden'); button.setAttribute('aria-expanded', panel.classList.contains('hidden') ? 'false' : 'true'); if (!panel.classList.contains('hidden')) refresh(); });
+  document.addEventListener('click', e => { if (!root.contains(e.target)) { panel.classList.add('hidden'); button.setAttribute('aria-expanded','false'); } });
+  list.addEventListener('click', function(e) { const link = e.target.closest('[data-notification-id]'); if (!link) return; e.preventDefault(); fetch(root.dataset.readPattern.replace('/0/', '/' + link.dataset.notificationId + '/'), {method:'POST', headers:{'X-CSRFToken':csrf(),'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin'}).finally(() => { window.location.href = link.href; }); });
+  document.getElementById('fb-notification-read-all').addEventListener('click', async function () { await fetch(root.dataset.readAllUrl, {method:'POST', headers:{'X-CSRFToken':csrf(),'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin'}); refresh(); });
+  refresh(); window.setInterval(refresh, 60000);
+})();
+</script>

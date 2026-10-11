@@ -17,8 +17,9 @@ from ..models import (
     Client, ClientContact, InteractionLog, Opportunite, Quote,
     ProductionOrder, OrdreFabrication, EtapeProduction, Material, TechnicalProduct,
     CommandeClient, LigneCommandeClient, DemandePrix, ProcessType, Machine,
-    ClientProductPrice
+    ClientProductPrice, OFPrelaunchCheck,
 )
+from ..services.stock_reservation import release_of_reservations
 from ..forms import (
     ClientForm, ClientContactForm, ClientContactFormSet, InteractionLogForm, OpportuniteForm, QuoteForm,
     CommandeClientForm, LigneCommandeClientFormSet, DemandePrixForm,
@@ -789,6 +790,9 @@ def crm_of_create(request):
         if form.is_valid():
             of = form.save(commit=False)
             of.cree_par = request.user
+            requested_launch = of.statut == 'LANCE'
+            if requested_launch:
+                of.statut = 'BROUILLON'
             of.save()
             if formset.is_valid():
                 etapes = formset.save(commit=False)
@@ -796,6 +800,9 @@ def crm_of_create(request):
                     etape.of = of
                     etape.save()
                 for obj in formset.deleted_objects: obj.delete()
+            if requested_launch:
+                messages.info(request, f"OF {of.numero_of} créé. Vérification obligatoire avant lancement.")
+                return redirect('of_prelaunch_check', of_id=of.id)
             messages.success(request, f"OF {of.numero_of} créé dans le CRM ✓")
             return redirect('crm_of_detail', of_id=of.id)
         else:
@@ -828,18 +835,27 @@ def crm_of_detail(request, of_id):
     of = get_object_or_404(OrdreFabrication.objects.select_related('client', 'produit', 'cree_par', 'opportunite'), id=of_id)
     etapes = of.etapes.select_related('process_type', 'machine', 'operateur', 'atelier').order_by('numero_etape')
     commandes_liees = CommandeClient.objects.filter(of_lie=of).select_related('client')
-    return render(request, 'crm/crm_of_detail.html', {'of': of, 'etapes': etapes, 'commandes_liees': commandes_liees, 'from_crm': True})
+    return render(request, 'crm/crm_of_detail.html', {'of': of, 'etapes': etapes, 'commandes_liees': commandes_liees, 'latest_prelaunch_check': OFPrelaunchCheck.objects.filter(of=of).first(), 'from_crm': True})
 
 
 @login_required
 def crm_of_edit(request, of_id):
     of = get_object_or_404(OrdreFabrication, id=of_id)
+    original_status = of.statut
     if request.method == 'POST':
         form = OrdreFabricationForm(request.POST, request.FILES, instance=of)
         formset = EtapeProductionFormSet(request.POST, instance=of, prefix='etapes')
         if form.is_valid() and formset.is_valid():
+            requested_launch = form.instance.statut == 'LANCE' and original_status != 'LANCE'
+            if requested_launch:
+                form.instance.statut = 'BROUILLON'
             form.save()
             formset.save()
+            if form.instance.statut == 'ANNULE' and original_status != 'ANNULE':
+                release_of_reservations(form.instance, request.user, reason='OF annulé depuis le formulaire CRM')
+            if requested_launch:
+                messages.info(request, f"OF {of.numero_of} mis à jour. Vérification obligatoire avant lancement.")
+                return redirect('of_prelaunch_check', of_id=of.id)
             messages.success(request, f"OF {of.numero_of} mis à jour ✓")
             return redirect('crm_of_detail', of_id=of.id)
         else:
@@ -856,12 +872,16 @@ def crm_of_edit(request, of_id):
 @login_required
 def crm_of_changer_statut(request, of_id, nouveau_statut):
     of = get_object_or_404(OrdreFabrication, id=of_id)
+    if nouveau_statut == 'LANCE':
+        return redirect('of_prelaunch_check', of_id=of.id)
     if nouveau_statut in dict(OrdreFabrication.STATUT_CHOICES):
         ancien = of.statut
         of.statut = nouveau_statut
         if nouveau_statut == 'LANCE' and not of.date_lancement: of.date_lancement = timezone.now().date()
         elif nouveau_statut == 'TERMINE': of.date_fin_reelle = timezone.now().date()
         of.save()
+        if nouveau_statut == 'ANNULE':
+            release_of_reservations(of, request.user, reason='OF annulé depuis le CRM')
         messages.success(request, f"OF {of.numero_of} : {ancien} → {nouveau_statut}")
     else:
         messages.error(request, "Statut invalide.")

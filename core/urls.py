@@ -11,7 +11,13 @@ from .kpi import views as kpi_analytics
 
 # IMPORT DIRECT SÉCURISÉ DU SCANNER IA, DE L'IMPORT STOCK ET DES SUPPRESSIONS MULTIPLES
 from .views.stock import scan_label_ai, import_stock_view, bulk_delete_materials, bulk_delete_movements
+from .views.notifications import (notification_center, notification_api_list, notification_mark_read, notification_mark_all_read, notification_toggle_processed)
 from .views.erp_assistant import assistant_home, assistant_ask, assistant_clear
+from .views.prepress import prepress_tooling_park
+from .views.ink_calculator import ink_calculator, ink_calculation_detail, ink_calculation_actual
+from .views.global_search import global_search_api
+from .views.prelaunch import of_prelaunch_check
+from .views.stock_reservation import of_stock_reservations, requirement_reserve_fifo, requirement_reserve_manual, reservation_release
 
 
 urlpatterns = [
@@ -19,11 +25,24 @@ urlpatterns = [
     # MANIFEST PWA DYNAMIQUE (LOGO AUTOMATIQUE)
     # ==========================================
     path('manifest.json', views.manifest_view, name='manifest_view'),
+    path('search/api/', global_search_api, name='global_search_api'),
 
-    # ASSISTANT INTERNE FB PACK — lecture seule
+    # CENTRE DE NOTIFICATIONS UNIFIÉ
+    path('notifications/', notification_center, name='notification_center'),
+    path('notifications/api/list/', notification_api_list, name='notification_api_list'),
+    path('notifications/<int:notification_id>/read/', notification_mark_read, name='notification_mark_read'),
+    path('notifications/read-all/', notification_mark_all_read, name='notification_mark_all_read'),
+    path('notifications/<int:notification_id>/processed/', notification_toggle_processed, name='notification_toggle_processed'),
+
+    # ASSISTANT INTERNE FB PACK
     path('assistant/', assistant_home, name='assistant_home'),
     path('assistant/api/ask/', assistant_ask, name='assistant_ask'),
     path('assistant/api/clear/', assistant_clear, name='assistant_clear'),
+    path('of/<int:of_id>/prelaunch-check/', of_prelaunch_check, name='of_prelaunch_check'),
+    path('crm/of/<int:of_id>/stock-reservations/', of_stock_reservations, name='of_stock_reservations'),
+    path('stock/requirement/<int:requirement_id>/reserve-fifo/', requirement_reserve_fifo, name='requirement_reserve_fifo'),
+    path('stock/requirement/<int:requirement_id>/reserve-manual/', requirement_reserve_manual, name='requirement_reserve_manual'),
+    path('stock/reservation/<int:reservation_id>/release/', reservation_release, name='reservation_release'),
 
     # ==========================================
     # DASHBOARD & REPORTING
@@ -141,6 +160,10 @@ urlpatterns = [
     # PRÉPRESSE & OUTILS (MIS À JOUR AVEC TRI PAR CLIENT)
     # ==========================================
     path('prepress/', views.prepress_view, name='prepress_view'),
+    path('prepress/outillages/', prepress_tooling_park, name='prepress_tooling_park'),
+    path('prepress/encres/calculateur/', ink_calculator, name='ink_calculator'),
+    path('prepress/encres/calcul/<int:job_id>/', ink_calculation_detail, name='ink_calculation_detail'),
+    path('prepress/encres/calcul/<int:job_id>/reel/', ink_calculation_actual, name='ink_calculation_actual'),
     path('prepress/client/<int:client_id>/', views.prepress_client_products, name='prepress_client_products'),
     path('prepress/add/', views.add_product, name='add_product'),
     path('prepress/edit/<int:id>/', views.edit_product, name='edit_product'),

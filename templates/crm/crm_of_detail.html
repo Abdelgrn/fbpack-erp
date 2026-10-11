@@ -37,7 +37,7 @@
         </div>
         <div class="flex gap-2 flex-wrap">
             {% if of.statut == 'BROUILLON' %}
-            <a href="{% url 'crm_of_changer_statut' of.id 'LANCE' %}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition text-sm">▶ Lancer</a>
+            <a href="{% url 'of_prelaunch_check' of.id %}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition text-sm">▶ Lancer</a>
             {% elif of.statut == 'LANCE' %}
             <a href="{% url 'crm_of_changer_statut' of.id 'EN_COURS' %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition text-sm">⚙️ Démarrer</a>
             {% elif of.statut == 'EN_COURS' %}
@@ -45,10 +45,18 @@
             {% endif %}
             <a href="{% url 'crm_of_edit' of.id %}" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition text-sm">✏️ Modifier</a>
             <a href="{% url 'planification_ordonnancer' of.id %}" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition text-sm">📅 Ordonnancer</a>
+            <a href="{% url 'of_stock_reservations' of.id %}" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded transition text-sm">📦 Réserver le stock</a>
             <a href="{% url 'crm_of_list' %}" class="bg-slate-700 hover:bg-slate-600 text-gray-300 font-bold py-2 px-4 rounded transition text-sm">← Liste OF</a>
             <a href="{% url 'crm_view' %}" class="text-gray-400 hover:text-white font-bold py-2 px-3 text-sm">CRM</a>
         </div>
     </div>
+
+    {% if latest_prelaunch_check %}
+    <div class="mb-6 rounded-xl border p-4 flex flex-wrap items-center justify-between gap-3 {% if latest_prelaunch_check.status == 'READY' %}border-emerald-600 bg-emerald-950/30{% elif latest_prelaunch_check.status == 'WARNING' %}border-amber-600 bg-amber-950/30{% else %}border-red-600 bg-red-950/30{% endif %}">
+        <div><p class="text-xs uppercase tracking-widest text-gray-400">Dernière vérification avant lancement</p><p class="font-black text-white">{% if latest_prelaunch_check.status == 'READY' %}✅ PRÊT{% elif latest_prelaunch_check.status == 'WARNING' %}⚠️ AVERTISSEMENTS{% else %}⛔ BLOQUÉ{% endif %}</p><p class="text-xs text-gray-500">{{ latest_prelaunch_check.checked_at|date:'d/m/Y H:i' }} par {{ latest_prelaunch_check.checked_by.username }}</p></div>
+        <a href="{% url 'of_prelaunch_check' of.id %}" class="rounded-lg border border-slate-600 px-4 py-2 text-sm font-bold text-white">Recontrôler</a>
+    </div>
+    {% endif %}
 
     {% if commandes_liees %}
     <div class="mb-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
