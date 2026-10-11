@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- NAVIGATION PRINCIPALE -->
+    <nav class="flex flex-col sm:flex-row gap-2 bg-slate-900/70 border border-slate-700 rounded-2xl p-2 shadow-xl" aria-label="Navigation Prépresse">
+        <a href="{% url 'prepress_view' %}" class="flex-1 flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white border border-slate-700 font-bold text-sm transition-all">👥 Catalogue Clients</a>
+        <a href="{% url 'prepress_tooling_park' %}" class="flex-1 flex items-center justify-center gap-3 px-5 py-3 rounded-xl bg-purple-500 text-white font-black text-sm shadow-lg shadow-purple-500/20">⚙️ Parc Outillages <span class="px-2 py-0.5 rounded-full bg-white/15 text-[10px]">{{ total_tools }}</span></a>
+    </nav>
+
+    <!-- EN-TÊTE -->
+    <section class="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-purple-950/40 p-7 sm:p-8 rounded-3xl border border-slate-700 shadow-2xl">
+        <div class="absolute -top-24 -right-20 w-72 h-72 bg-purple-500/15 blur-3xl rounded-full pointer-events-none"></div>
+        <div class="relative z-10 flex flex-col lg:flex-row justify-between gap-6 lg:items-center">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-300 text-xs font-bold tracking-widest uppercase mb-3"><span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span> Supervision centralisée</div>
+                <h1 class="text-3xl sm:text-4xl font-black text-white">Parc Clichés Flexo & Cylindres Hélio</h1>
+                <p class="text-gray-400 mt-2 text-sm max-w-3xl">Vision globale de la durée de vie des outillages de tous les clients. Les données restent également disponibles dans chaque dossier client.</p>
+            </div>
+            <a href="{% url 'add_tool' %}" class="shrink-0 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:brightness-110 text-white font-black px-5 py-3 rounded-xl shadow-lg transition">＋ Nouvel outillage</a>
+        </div>
+    </section>
+
+    <!-- KPI -->
+    <section class="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div class="rounded-2xl p-4 bg-slate-800 border border-slate-700"><div class="text-gray-500 text-[10px] uppercase font-black tracking-wider">Total parc</div><div class="text-3xl font-black text-white mt-1">{{ total_tools }}</div><div class="text-xs text-gray-500 mt-1">outillages suivis</div></div>
+        <div class="rounded-2xl p-4 bg-orange-950/30 border border-orange-500/30"><div class="text-orange-300 text-[10px] uppercase font-black tracking-wider">Clichés Flexo</div><div class="text-3xl font-black text-orange-400 mt-1">{{ total_cliches }}</div><div class="text-xs text-orange-300/50 mt-1">plaques enregistrées</div></div>
+        <div class="rounded-2xl p-4 bg-purple-950/30 border border-purple-500/30"><div class="text-purple-300 text-[10px] uppercase font-black tracking-wider">Cylindres Hélio</div><div class="text-3xl font-black text-purple-400 mt-1">{{ total_cylindres }}</div><div class="text-xs text-purple-300/50 mt-1">cylindres enregistrés</div></div>
+        <div class="rounded-2xl p-4 bg-emerald-950/30 border border-emerald-500/30"><div class="text-emerald-300 text-[10px] uppercase font-black tracking-wider">Santé du parc</div><div class="text-3xl font-black text-emerald-400 mt-1">{{ park_health }}%</div><div class="text-xs text-emerald-300/50 mt-1">indice disponible</div></div>
+        <div class="col-span-2 lg:col-span-1 rounded-2xl p-4 bg-red-950/30 border border-red-500/30"><div class="text-red-300 text-[10px] uppercase font-black tracking-wider">Urgences</div><div class="text-3xl font-black text-red-400 mt-1">{{ status_counts.CRITICAL|add:status_counts.END }}</div><div class="text-xs text-red-300/50 mt-1">critiques ou fin de vie</div></div>
+    </section>
+
+    <!-- GRAPHIQUES -->
+    <section class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl"><h2 class="text-white font-black">🥧 État du parc</h2><p class="text-xs text-gray-500 mt-1">Répartition selon le taux d'usure</p><div class="relative h-64 mt-3"><canvas id="toolStatusChart"></canvas></div></div>
+        <div class="lg:col-span-1 bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl"><h2 class="text-white font-black">⚙️ Technologies</h2><p class="text-xs text-gray-500 mt-1">Flexo / Hélio</p><div class="relative h-64 mt-3"><canvas id="toolTypeChart"></canvas></div></div>
+        <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl"><h2 class="text-white font-black">🔥 Top 10 des plus usés</h2><p class="text-xs text-gray-500 mt-1">Priorités de renouvellement</p><div class="relative h-64 mt-3"><canvas id="toolWearChart"></canvas></div></div>
+    </section>
+
+    <!-- ANALYSE DE ROBUSTESSE PAR FOURNISSEUR / GRAVEUR -->
+    <section class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div class="lg:col-span-3 bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl">
+            <h2 class="text-white font-black">🏭 Robustesse observée par fournisseur</h2>
+            <p class="text-xs text-gray-500 mt-1">Comparaison basée sur le nombre moyen de tours enregistré. Plus la barre est longue, plus la longévité observée est élevée.</p>
+            <div class="relative h-72 mt-4"><canvas id="supplierRobustnessChart"></canvas></div>
+        </div>
+        <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-xl">
+            <div class="p-5 border-b border-slate-700"><h2 class="text-white font-black">🏆 Classement fournisseurs</h2><p class="text-xs text-gray-500 mt-1">Moyenne calculée sur les données disponibles</p></div>
+            <div class="max-h-72 overflow-y-auto divide-y divide-slate-700/60">
+                {% for supplier in supplier_rows %}
+                <div class="p-3 flex items-center justify-between gap-3">
+                    <div class="min-w-0"><div class="font-bold text-white text-sm truncate">{{ forloop.counter }}. {{ supplier.name }}</div><div class="text-[10px] text-gray-500">{{ supplier.count }} jeu(x) · usure moyenne {{ supplier.avg_wear }}%</div></div>
+                    <div class="text-right shrink-0"><div class="font-mono font-black text-emerald-400 text-sm">{{ supplier.avg_tours }}</div><div class="text-[9px] text-gray-500">tours moyens</div></div>
+                </div>
+                {% empty %}<div class="p-8 text-center text-gray-500 text-sm">Aucun fournisseur renseigné.</div>{% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- FILTRES -->
+    <section class="bg-slate-800/70 border border-slate-700 rounded-2xl p-4 shadow-xl space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <input id="toolSearch" oninput="applyToolFilters()" type="search" placeholder="🔍 Client, produit, code..." class="lg:col-span-2 bg-slate-900 border border-slate-600 text-white text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500">
+            <select id="toolTypeFilter" onchange="applyToolFilters()" class="bg-slate-900 border border-slate-600 text-white text-sm rounded-xl px-4 py-3"><option value="ALL">Tous les outillages</option><option value="CLICHE">🟠 Clichés Flexo</option><option value="CYL">🟣 Cylindres Hélio</option></select>
+            <select id="toolStatusFilter" onchange="applyToolFilters()" class="bg-slate-900 border border-slate-600 text-white text-sm rounded-xl px-4 py-3"><option value="ALL">Tous les états</option><option value="GOOD">Bon état</option><option value="WATCH">À surveiller</option><option value="WARNING">À remplacer</option><option value="CRITICAL">Critique</option><option value="END">Fin de vie</option></select>
+            <select id="toolSupplierFilter" onchange="applyToolFilters()" class="bg-slate-900 border border-slate-600 text-white text-sm rounded-xl px-4 py-3"><option value="ALL">Tous les fournisseurs</option>{% for supplier in supplier_names %}<option value="{{ supplier|lower }}">{{ supplier }}</option>{% endfor %}</select>
+            <select id="toolClientFilter" onchange="applyToolFilters()" class="bg-slate-900 border border-slate-600 text-white text-sm rounded-xl px-4 py-3"><option value="ALL">Tous les clients</option>{% for client in clients %}<option value="{{ client.id }}">{{ client.name }}</option>{% endfor %}</select>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="text-xs text-gray-400"><strong id="visibleToolCount" class="text-purple-300">{{ total_tools }}</strong> outillage(s) affiché(s)</div>
+            <div class="flex gap-2">
+                <select id="toolSort" onchange="applyToolFilters()" class="bg-slate-900 border border-slate-600 text-gray-300 text-xs rounded-xl px-3 py-2"><option value="wear-desc">Usure décroissante</option><option value="wear-asc">Usure croissante</option><option value="client-asc">Client A-Z</option><option value="code-asc">Code A-Z</option><option value="date-desc">Plus récents</option></select>
+                <div class="flex bg-slate-900 border border-slate-600 rounded-xl p-1"><button id="cardsViewBtn" onclick="setToolView('cards')" class="px-3 py-1.5 rounded-lg text-xs font-bold">▦ Cartes</button><button id="tableViewBtn" onclick="setToolView('table')" class="px-3 py-1.5 rounded-lg text-xs font-bold">☷ Tableau</button></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CARTES -->
+    <section id="toolsCardsView" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {% for tool in tools %}
+        <article class="tool-item tool-card relative overflow-hidden bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl hover:-translate-y-0.5 hover:border-slate-500 transition-all" data-search="{{ tool.product.client.name|lower }} {{ tool.product.name|lower }} {{ tool.product.ref_internal|lower }} {{ tool.serial_number|lower }} {{ tool.tool_supplier_name|lower }}" data-type="{{ tool.tool_type }}" data-status="{{ tool.park_status }}" data-client="{{ tool.product.client_id }}" data-supplier="{{ tool.tool_supplier_name|lower }}" data-client-name="{{ tool.product.client.name|lower }}" data-code="{{ tool.serial_number|lower }}" data-wear="{{ tool.wear_percent }}" data-date="{{ tool.date_creation|date:'Ymd' }}">
+            <div class="absolute top-0 inset-x-0 h-1 {% if tool.park_status == 'END' %}bg-red-600{% elif tool.park_status == 'CRITICAL' %}bg-red-500{% elif tool.park_status == 'WARNING' %}bg-yellow-500{% elif tool.park_status == 'WATCH' %}bg-cyan-500{% else %}bg-emerald-500{% endif %}"></div>
+            <div class="flex justify-between gap-3 items-start">
+                <div><div class="text-[10px] uppercase tracking-widest font-black {% if tool.tool_type == 'CLICHE' %}text-orange-400{% else %}text-purple-400{% endif %}">{% if tool.tool_type == 'CLICHE' %}🟠 Cliché Flexo{% else %}🟣 Cylindre Hélio{% endif %}</div><h3 class="text-lg font-black text-white font-mono mt-1">{{ tool.serial_number }}</h3></div>
+                <span class="text-[10px] font-black px-2 py-1 rounded-full border {% if tool.park_status == 'END' or tool.park_status == 'CRITICAL' %}bg-red-500/10 border-red-500/30 text-red-400{% elif tool.park_status == 'WARNING' %}bg-yellow-500/10 border-yellow-500/30 text-yellow-400{% elif tool.park_status == 'WATCH' %}bg-cyan-500/10 border-cyan-500/30 text-cyan-400{% else %}bg-emerald-500/10 border-emerald-500/30 text-emerald-400{% endif %}">{{ tool.park_status_label }}</span>
+            </div>
+            <div class="mt-4 bg-slate-900/60 border border-slate-700 rounded-xl p-3"><div class="text-xs text-gray-500">Client</div><div class="text-white font-bold truncate">{{ tool.product.client.name }}</div><div class="text-xs text-cyan-400 truncate mt-1">{{ tool.product.ref_internal }} — {{ tool.product.name }}</div></div>
+            <div class="grid grid-cols-2 gap-2 mt-3">
+                <div class="rounded-xl bg-indigo-500/5 border border-indigo-500/20 p-3"><div class="text-[10px] text-gray-500 uppercase font-bold">Fournisseur / Graveur</div><div class="text-indigo-300 font-bold text-sm truncate mt-1" title="{{ tool.tool_supplier_name }}">🏭 {{ tool.tool_supplier_name }}</div></div>
+                <div class="rounded-xl bg-pink-500/5 border border-pink-500/20 p-3"><div class="text-[10px] text-gray-500 uppercase font-bold">Jeu de couleurs</div><div class="text-pink-300 font-black text-sm mt-1">🎨 {{ tool.tool_color_count }} couleur(s)</div></div>
+            </div>
+            {% if tool.tool_color_names %}<div class="flex flex-wrap gap-1 mt-2">{% for color_name in tool.tool_color_names %}<span class="text-[9px] px-2 py-1 rounded-full bg-slate-900 border border-slate-600 text-gray-300">{{ forloop.counter }}. {{ color_name }}</span>{% endfor %}</div>{% endif %}
+            <div class="mt-4"><div class="flex justify-between text-xs mb-2"><span class="text-gray-400">Durée de vie consommée</span><strong class="{% if tool.wear_percent >= 90 %}text-red-400{% elif tool.wear_percent >= 75 %}text-yellow-400{% else %}text-emerald-400{% endif %}">{{ tool.wear_percent }}%</strong></div><div class="h-3 bg-slate-950 border border-slate-700 rounded-full overflow-hidden"><div class="tool-progress h-full rounded-full {% if tool.wear_percent >= 90 %}bg-gradient-to-r from-orange-500 to-red-600{% elif tool.wear_percent >= 75 %}bg-gradient-to-r from-yellow-400 to-orange-500{% elif tool.wear_percent >= 50 %}bg-gradient-to-r from-cyan-500 to-blue-500{% else %}bg-gradient-to-r from-emerald-500 to-green-400{% endif %}" data-width="{{ tool.wear_percent }}"></div></div></div>
+            <div class="grid grid-cols-2 gap-2 mt-4 text-xs"><div class="bg-slate-900/40 rounded-lg p-2"><span class="text-gray-500 block">Tours effectués</span><strong class="text-white font-mono">{{ tool.current_impressions }}</strong></div><div class="bg-slate-900/40 rounded-lg p-2"><span class="text-gray-500 block">Tours restants</span><strong class="text-emerald-400 font-mono">{{ tool.remaining_impressions_display }}</strong></div><div class="bg-slate-900/40 rounded-lg p-2"><span class="text-gray-500 block">Métrage cumulé</span><strong class="text-white font-mono">{{ tool.metrage_realise|floatformat:0 }} ML</strong></div><div class="bg-slate-900/40 rounded-lg p-2"><span class="text-gray-500 block">Durée théorique</span><strong class="text-white font-mono">{{ tool.max_impressions }}</strong></div></div>
+            <div class="flex justify-between items-center mt-4 pt-4 border-t border-slate-700"><span class="text-[10px] text-gray-500">Créé le {{ tool.date_creation|date:'d/m/Y' }}</span><div class="flex gap-2"><a href="{% url 'prepress_client_products' tool.product.client_id %}" class="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg">📁 Client</a><a href="{% url 'edit_tool' tool.id %}" class="text-xs px-3 py-1.5 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 rounded-lg">✏️ M.A.J</a></div></div>
+        </article>
+        {% empty %}<div class="col-span-full p-12 text-center bg-slate-800 border border-slate-700 rounded-2xl text-gray-500">Aucun outillage enregistré.</div>{% endfor %}
+    </section>
+
+    <!-- TABLEAU -->
+    <section id="toolsTableView" class="hidden bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-xl"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-900 text-[10px] text-gray-400 uppercase tracking-wider"><tr><th class="p-4">Type / Code</th><th class="p-4">Client / Produit</th><th class="p-4">Fournisseur</th><th class="p-4 text-center">Couleurs</th><th class="p-4">Création</th><th class="p-4 text-right">Métrage</th><th class="p-4 text-right">Tours</th><th class="p-4 text-right">Restants</th><th class="p-4 min-w-[190px]">Usure</th><th class="p-4">État</th><th class="p-4 text-right">Actions</th></tr></thead><tbody id="toolsTableBody" class="divide-y divide-slate-700/60">
+        {% for tool in tools %}<tr class="tool-item tool-row hover:bg-slate-700/30" data-search="{{ tool.product.client.name|lower }} {{ tool.product.name|lower }} {{ tool.product.ref_internal|lower }} {{ tool.serial_number|lower }} {{ tool.tool_supplier_name|lower }}" data-type="{{ tool.tool_type }}" data-status="{{ tool.park_status }}" data-client="{{ tool.product.client_id }}" data-supplier="{{ tool.tool_supplier_name|lower }}" data-client-name="{{ tool.product.client.name|lower }}" data-code="{{ tool.serial_number|lower }}" data-wear="{{ tool.wear_percent }}" data-date="{{ tool.date_creation|date:'Ymd' }}"><td class="p-4"><span class="text-[10px] {% if tool.tool_type == 'CLICHE' %}text-orange-400{% else %}text-purple-400{% endif %}">{% if tool.tool_type == 'CLICHE' %}CLICHÉ FLEXO{% else %}CYLINDRE HÉLIO{% endif %}</span><div class="font-mono font-bold text-white">{{ tool.serial_number }}</div></td><td class="p-4"><div class="font-bold text-white">{{ tool.product.client.name }}</div><div class="text-xs text-cyan-400">{{ tool.product.ref_internal }} — {{ tool.product.name }}</div></td><td class="p-4"><div class="font-bold text-indigo-300">{{ tool.tool_supplier_name }}</div></td><td class="p-4 text-center"><span class="px-2 py-1 rounded-full bg-pink-500/10 text-pink-300 border border-pink-500/20 font-black">{{ tool.tool_color_count }}</span></td><td class="p-4 text-gray-400">{{ tool.date_creation|date:'d/m/Y' }}</td><td class="p-4 text-right font-mono text-white">{{ tool.metrage_realise|floatformat:0 }}</td><td class="p-4 text-right font-mono text-white">{{ tool.current_impressions }}</td><td class="p-4 text-right font-mono text-emerald-400">{{ tool.remaining_impressions_display }}</td><td class="p-4"><div class="flex gap-2 items-center"><div class="flex-1 h-2 bg-slate-950 rounded-full overflow-hidden"><div class="tool-progress h-full bg-purple-500 rounded-full" data-width="{{ tool.wear_percent }}"></div></div><strong class="text-xs text-white">{{ tool.wear_percent }}%</strong></div></td><td class="p-4 text-xs font-bold">{{ tool.park_status_label }}</td><td class="p-4 text-right whitespace-nowrap"><a href="{% url 'prepress_client_products' tool.product.client_id %}" class="text-gray-300 hover:text-white mr-2">📁</a><a href="{% url 'edit_tool' tool.id %}" class="text-purple-400 hover:text-purple-300">✏️ M.A.J</a></td></tr>{% empty %}<tr><td colspan="11" class="p-12 text-center text-gray-500">Aucun outillage.</td></tr>{% endfor %}
+    </tbody></table></div></section>
+    <div id="toolNoResults" class="hidden p-12 text-center bg-slate-800/60 border border-slate-700 rounded-2xl"><div class="text-4xl">🔍</div><div class="text-white font-bold mt-3">Aucun outillage ne correspond aux filtres.</div><button onclick="resetToolFilters()" class="text-purple-400 font-bold text-sm mt-3 underline">Réinitialiser</button></div>
+</div>
+
+{{ chart_status_labels|json_script:"tool-status-labels" }}
+{{ chart_status_values|json_script:"tool-status-values" }}
+{{ chart_type_labels|json_script:"tool-type-labels" }}
+{{ chart_type_values|json_script:"tool-type-values" }}
+{{ chart_worn_labels|json_script:"tool-worn-labels" }}
+{{ chart_worn_values|json_script:"tool-worn-values" }}
+{{ chart_supplier_labels|json_script:"tool-supplier-labels" }}
+{{ chart_supplier_values|json_script:"tool-supplier-values" }}
+<script>
+function jsonData(id){const e=document.getElementById(id);if(!e)return[];try{return JSON.parse(e.textContent)}catch(x){return[]}}
+function paintProgress(){document.querySelectorAll('.tool-progress').forEach(el=>{el.style.width=Math.max(0,Math.min(100,parseFloat(el.dataset.width)||0))+'%'})}
+function setToolView(view){view=view==='table'?'table':'cards';document.getElementById('toolsCardsView').classList.toggle('hidden',view!=='cards');document.getElementById('toolsTableView').classList.toggle('hidden',view!=='table');const a=document.getElementById('cardsViewBtn'),b=document.getElementById('tableViewBtn');[a,b].forEach(x=>{x.classList.remove('bg-purple-500','text-white','text-gray-400')});a.classList.add(view==='cards'?'bg-purple-500':'text-gray-400',view==='cards'?'text-white':'text-gray-400');b.classList.add(view==='table'?'bg-purple-500':'text-gray-400',view==='table'?'text-white':'text-gray-400');try{localStorage.setItem('prepressToolView',view)}catch(e){}applyToolFilters()}
+function matchesTool(el){const q=document.getElementById('toolSearch').value.toLowerCase().trim(),type=document.getElementById('toolTypeFilter').value,status=document.getElementById('toolStatusFilter').value,supplier=document.getElementById('toolSupplierFilter').value,client=document.getElementById('toolClientFilter').value;return(!q||el.dataset.search.includes(q))&&(type==='ALL'||el.dataset.type===type)&&(status==='ALL'||el.dataset.status===status)&&(supplier==='ALL'||el.dataset.supplier===supplier)&&(client==='ALL'||el.dataset.client===client)}
+function sorter(a,b){const mode=document.getElementById('toolSort').value;if(mode==='wear-desc')return(+b.dataset.wear)-(+a.dataset.wear);if(mode==='wear-asc')return(+a.dataset.wear)-(+b.dataset.wear);if(mode==='client-asc')return a.dataset.clientName.localeCompare(b.dataset.clientName);if(mode==='code-asc')return a.dataset.code.localeCompare(b.dataset.code);return(+b.dataset.date)-(+a.dataset.date)}
+function applyToolFilters(){const cards=[...document.querySelectorAll('.tool-card')],rows=[...document.querySelectorAll('.tool-row')];cards.forEach(x=>x.style.display=matchesTool(x)?'':'none');rows.forEach(x=>x.style.display=matchesTool(x)?'':'none');cards.sort(sorter).forEach(x=>x.parentNode.appendChild(x));rows.sort(sorter).forEach(x=>x.parentNode.appendChild(x));const n=cards.filter(matchesTool).length;document.getElementById('visibleToolCount').textContent=n;document.getElementById('toolNoResults').classList.toggle('hidden',n!==0);}
+function resetToolFilters(){document.getElementById('toolSearch').value='';document.getElementById('toolTypeFilter').value='ALL';document.getElementById('toolStatusFilter').value='ALL';document.getElementById('toolSupplierFilter').value='ALL';document.getElementById('toolClientFilter').value='ALL';applyToolFilters()}
+function charts(){if(typeof Chart==='undefined')return;const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}}};new Chart(document.getElementById('toolStatusChart'),{type:'doughnut',data:{labels:jsonData('tool-status-labels'),datasets:[{data:jsonData('tool-status-values'),backgroundColor:['#10b981','#06b6d4','#eab308','#f97316','#dc2626'],borderWidth:0}]},options:base});new Chart(document.getElementById('toolTypeChart'),{type:'doughnut',data:{labels:jsonData('tool-type-labels'),datasets:[{data:jsonData('tool-type-values'),backgroundColor:['#f97316','#a855f7'],borderWidth:0}]},options:base});new Chart(document.getElementById('toolWearChart'),{type:'bar',data:{labels:jsonData('tool-worn-labels'),datasets:[{label:'Usure %',data:jsonData('tool-worn-values'),backgroundColor:'#ef4444',borderRadius:5}]},options:{...base,indexAxis:'y',scales:{x:{max:100,ticks:{color:'#64748b'},grid:{color:'rgba(148,163,184,.08)'}},y:{ticks:{color:'#94a3b8'},grid:{display:false}}}}});new Chart(document.getElementById('supplierRobustnessChart'),{type:'bar',data:{labels:jsonData('tool-supplier-labels'),datasets:[{label:'Tours moyens',data:jsonData('tool-supplier-values'),backgroundColor:'#8b5cf6',borderRadius:6}]},options:{...base,indexAxis:'y',scales:{x:{ticks:{color:'#64748b'},grid:{color:'rgba(148,163,184,.08)'}},y:{ticks:{color:'#94a3b8'},grid:{display:false}}}}})}
+document.addEventListener('DOMContentLoaded',()=>{paintProgress();let v='cards';try{v=localStorage.getItem('prepressToolView')||'cards'}catch(e){}setToolView(v);charts()});
+</script>
+{% endblock %}

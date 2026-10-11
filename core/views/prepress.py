@@ -142,3 +142,113 @@ def edit_tool(request, id):
         'form': form,
         'titre': f'Modifier Outillage {tool.serial_number}',
     })
+
+# ============================================================
+# PARC OUTILLAGES GLOBAL — CLICHÉS FLEXO & CYLINDRES HÉLIO
+# Vue ajoutée sans modifier les vues client existantes.
+# ============================================================
+@login_required
+def prepress_tooling_park(request):
+    tools = list(
+        Tooling.objects
+        .select_related('product', 'product__client')
+        .prefetch_related('product__couleurs_flexo')
+        .order_by('-date_creation', '-id')
+    )
+
+    status_counts = {
+        'GOOD': 0,
+        'WATCH': 0,
+        'WARNING': 0,
+        'CRITICAL': 0,
+        'END': 0,
+    }
+    type_counts = {'CLICHE': 0, 'CYL': 0}
+    total_wear = 0
+
+    for tool in tools:
+        wear = tool.wear_percent
+        total_wear += wear
+        type_counts[tool.tool_type] = type_counts.get(tool.tool_type, 0) + 1
+
+        tool.remaining_impressions_display = max(
+            int(tool.max_impressions or 0) - int(tool.current_impressions or 0),
+            0,
+        )
+
+        if wear >= 100:
+            tool.park_status = 'END'
+            tool.park_status_label = 'Fin de vie'
+        elif wear >= 90:
+            tool.park_status = 'CRITICAL'
+            tool.park_status_label = 'Critique'
+        elif wear >= 75:
+            tool.park_status = 'WARNING'
+            tool.park_status_label = 'À remplacer'
+        elif wear >= 50:
+            tool.park_status = 'WATCH'
+            tool.park_status_label = 'À surveiller'
+        else:
+            tool.park_status = 'GOOD'
+            tool.park_status_label = 'Bon état'
+        status_counts[tool.park_status] += 1
+
+    total_tools = len(tools)
+    average_wear = round(total_wear / total_tools) if total_tools else 0
+    park_health = max(0, 100 - average_wear)
+    client_ids = {tool.product.client_id for tool in tools}
+    clients = Client.objects.filter(id__in=client_ids).order_by('name')
+
+    most_worn = sorted(tools, key=lambda item: item.wear_percent, reverse=True)[:10]
+
+    # Analyse fournisseur/graveur : longévité observée par nombre moyen de tours.
+    supplier_stats = {}
+    for tool in tools:
+        supplier_name = (tool.supplier_name or tool.product.graveur or 'Non renseigné').strip()
+        tool.tool_supplier_name = supplier_name
+        tool.tool_color_count = tool.color_count or tool.product.num_colors or 0
+        tool.tool_color_names = tool.color_names
+        if not tool.tool_color_names:
+            tool.tool_color_names = [color.nom_couleur for color in tool.product.couleurs_flexo.all()]
+        stat = supplier_stats.setdefault(supplier_name, {
+            'name': supplier_name, 'count': 0, 'total_tours': 0,
+            'total_wear': 0, 'max_tours': 0,
+        })
+        stat['count'] += 1
+        stat['total_tours'] += int(tool.current_impressions or 0)
+        stat['total_wear'] += tool.wear_percent
+        stat['max_tours'] = max(stat['max_tours'], int(tool.current_impressions or 0))
+
+    supplier_rows = []
+    for stat in supplier_stats.values():
+        stat['avg_tours'] = round(stat['total_tours'] / stat['count']) if stat['count'] else 0
+        stat['avg_wear'] = round(stat['total_wear'] / stat['count']) if stat['count'] else 0
+        supplier_rows.append(stat)
+    supplier_rows.sort(key=lambda row: row['avg_tours'], reverse=True)
+    supplier_names = sorted(supplier_stats.keys(), key=str.lower)
+    supplier_chart = [row for row in supplier_rows if row['name'] != 'Non renseigné'][:10]
+
+    return render(request, 'prepress_tooling_park.html', {
+        'tools': tools,
+        'clients': clients,
+        'total_tools': total_tools,
+        'total_cliches': type_counts['CLICHE'],
+        'total_cylindres': type_counts['CYL'],
+        'average_wear': average_wear,
+        'park_health': park_health,
+        'status_counts': status_counts,
+        'chart_status_labels': ['Bon état', 'À surveiller', 'À remplacer', 'Critique', 'Fin de vie'],
+        'chart_status_values': [
+            status_counts['GOOD'], status_counts['WATCH'], status_counts['WARNING'],
+            status_counts['CRITICAL'], status_counts['END'],
+        ],
+        'chart_type_labels': ['Clichés Flexo', 'Cylindres Hélio'],
+        'chart_type_values': [type_counts['CLICHE'], type_counts['CYL']],
+        'chart_worn_labels': [item.serial_number for item in most_worn],
+        'chart_worn_values': [item.wear_percent for item in most_worn],
+        'supplier_names': supplier_names,
+        'supplier_rows': supplier_rows,
+        'chart_supplier_labels': [row['name'] for row in supplier_chart],
+        'chart_supplier_values': [row['avg_tours'] for row in supplier_chart],
+    })
+

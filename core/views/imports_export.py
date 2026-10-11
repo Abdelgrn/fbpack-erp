@@ -617,7 +617,7 @@ def import_stock_view(request):
 
                             # 6. Extraction Nb Couleurs & Graveur / Fournisseur
                             nb_clr_str = crm_get(col_index, row, ['NMBR', 'NBR', 'CLR', 'Nb Couleurs', 'Couleurs'])
-                            graveur_str = crm_get(col_index, row, ['FOURN', 'Graveur', 'Fournisseur'])
+                            graveur_str = crm_get(col_index, row, ['FOURN', 'FOURNISSEUR', 'FOURNISSEUR OUTILLAGE', 'GRAVEUR', 'Graveur', 'Fournisseur', 'SUPPLIER'])
                             
                             nb_colors = 0
                             if nb_clr_str:
@@ -694,14 +694,15 @@ def import_stock_view(request):
                                     'date_creation': tool_date,
                                     'metrage_realise': metrage_val,
                                     'current_impressions': tours_val,
-                                    'observations': obs_str
+                                    'observations': obs_str,
+                                    'supplier_name': graveur_str,
                                 }
                             )
 
                             count += 1
                             act_txt = "créé" if created else "mis à jour"
                             lbl_type = "🟣 Cylindre Hélio" if tool_type == 'CYL' else "🟠 Cliché Flexo"
-                            details.append(f"Ligne {idx+2} ({sheet_name}): ✅ {lbl_type} [{tool_code}] | {client_name_clean} | FT: {product_obj.name} | Dév: {dev_mm}mm | {act_txt}")
+                            details.append(f"Ligne {idx+2} ({sheet_name}): ✅ {lbl_type} [{tool_code}] | {client_name_clean} | FT: {product_obj.name} | Dév: {dev_mm}mm | Fournisseur: {graveur_str or 'Non renseigné'} | {act_txt}")
 
                         except Exception as e:
                             errors += 1
@@ -882,7 +883,7 @@ def download_template_tools(request):
     # Onglet 1: Cylindres Hélio
     ws_helio = wb.active
     ws_helio.title = "Cylindres Helio"
-    headers_helio = ['DATE', 'CLIENT', 'DESIGNATIONS', 'CODE CYLINDRE', 'DEVELOPP', 'NMBR', 'MÉTRAGE ( ML )', 'NOMBRE DE TOUR', 'OBSERVATIONS']
+    headers_helio = ['DATE', 'CLIENT', 'DESIGNATIONS', 'CODE CYLINDRE', 'DEVELOPP', 'NMBR', 'FOURN', 'MÉTRAGE ( ML )', 'NOMBRE DE TOUR', 'OBSERVATIONS']
     
     # Onglet 2: Clichés Flexo
     ws_flexo = wb.create_sheet(title="Cliches Flexo")
@@ -903,8 +904,8 @@ def download_template_tools(request):
         cell.border = tb
 
     examples_helio = [
-        ['04/02/2024', 'CRISTALINE', 'EAU MINERALE 1,5 L', '23GE1912', 572.4, 5, 0, 0, ''],
-        ['26/09/2025', 'BERRAHAL ( FME )', 'EAU MINERALE 1,5 L', '3108240841', 552, 7, 1204429, 2181937, 'Regravure Cylindre ROUGE et NOIR'],
+        ['04/02/2024', 'CRISTALINE', 'EAU MINERALE 1,5 L', '23GE1912', 572.4, 5, 'Fournisseur Hélio', 0, 0, ''],
+        ['26/09/2025', 'BERRAHAL ( FME )', 'EAU MINERALE 1,5 L', '3108240841', 552, 7, 'Fournisseur Hélio', 1204429, 2181937, 'Regravure Cylindre ROUGE et NOIR'],
     ]
     ef = PatternFill(start_color='F3E5F5', end_color='F3E5F5', fill_type='solid')
     for row_idx, ex in enumerate(examples_helio, 2):

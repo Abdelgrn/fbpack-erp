@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto mt-6">
+<div class="max-w-5xl mx-auto mt-6">
     <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl p-8">
         
         <h2 class="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-4">
@@ -10,6 +10,7 @@
 
         <form method="post">
             {% csrf_token %}
+            {% if form.non_field_errors %}<div class="mb-5 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{{ form.non_field_errors }}</div>{% endif %}
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Produit (Pleine largeur) -->
@@ -27,6 +28,37 @@
                 <div>
                     <label class="block text-gray-400 text-sm font-bold mb-2">Numéro de Série / Gravure</label>
                     {{ form.serial_number }}
+                </div>
+
+                <!-- FOURNISSEUR DU JEU -->
+                <div class="col-span-2 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4">
+                    <label class="block text-indigo-300 text-sm font-bold mb-2">🏭 Fournisseur / Graveur de cet outillage</label>
+                    {{ form.supplier_name }}
+                    {% if form.supplier_name.errors %}<div class="text-red-400 text-xs mt-1">{{ form.supplier_name.errors }}</div>{% endif %}
+                    <p class="text-xs text-gray-500 mt-1">Ce fournisseur sera utilisé pour comparer la robustesse et la longévité des jeux.</p>
+                </div>
+
+                <!-- COMPOSITION DU JEU DE COULEURS -->
+                <div class="col-span-2 rounded-xl border border-pink-500/30 bg-pink-500/5 p-4">
+                    <div class="flex flex-col sm:flex-row sm:items-end gap-4 mb-4">
+                        <div class="w-full sm:w-52">
+                            <label class="block text-pink-300 text-sm font-bold mb-2">🎨 Nombre de couleurs</label>
+                            {{ form.color_count }}
+                            {% if form.color_count.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_count.errors }}</div>{% endif %}
+                        </div>
+                        <p class="text-xs text-gray-400 pb-2">Choisissez de 1 à 8 couleurs. Les champs nécessaires apparaîtront automatiquement.</p>
+                    </div>
+                    <div id="toolColorsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div class="tool-color-field" data-color-index="1"><label class="block text-xs text-gray-400 font-bold mb-1">1 — Couleur</label>{{ form.color_1 }}{% if form.color_1.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_1.errors }}</div>{% endif %}</div>
+                        <div class="tool-color-field" data-color-index="2"><label class="block text-xs text-gray-400 font-bold mb-1">2 — Couleur</label>{{ form.color_2 }}{% if form.color_2.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_2.errors }}</div>{% endif %}</div>
+                        <div class="tool-color-field" data-color-index="3"><label class="block text-xs text-gray-400 font-bold mb-1">3 — Couleur</label>{{ form.color_3 }}{% if form.color_3.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_3.errors }}</div>{% endif %}</div>
+                        <div class="tool-color-field" data-color-index="4"><label class="block text-xs text-gray-400 font-bold mb-1">4 — Couleur</label>{{ form.color_4 }}{% if form.color_4.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_4.errors }}</div>{% endif %}</div>
+                        <div class="tool-color-field" data-color-index="5"><label class="block text-xs text-gray-400 font-bold mb-1">5 — Couleur</label>{{ form.color_5 }}{% if form.color_5.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_5.errors }}</div>{% endif %}</div>
+                        <div class="tool-color-field" data-color-index="6"><label class="block text-xs text-gray-400 font-bold mb-1">6 — Couleur</label>{{ form.color_6 }}{% if form.color_6.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_6.errors }}</div>{% endif %}</div>
+                        <div class="tool-color-field" data-color-index="7"><label class="block text-xs text-gray-400 font-bold mb-1">7 — Couleur</label>{{ form.color_7 }}{% if form.color_7.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_7.errors }}</div>{% endif %}</div>
+                        <div class="tool-color-field" data-color-index="8"><label class="block text-xs text-gray-400 font-bold mb-1">8 — Couleur</label>{{ form.color_8 }}{% if form.color_8.errors %}<div class="text-red-400 text-xs mt-1">{{ form.color_8.errors }}</div>{% endif %}</div>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-1 text-[10px] text-gray-500"><span>Exemple :</span><span class="text-cyan-400">Cyan</span><span>•</span><span class="text-pink-400">Magenta</span><span>•</span><span class="text-yellow-400">Jaune</span><span>•</span><span class="text-gray-200">Noir</span><span>• Bleu Reflex • Orange • Violet • Blanc</span></div>
                 </div>
 
                 <!-- Usure -->
@@ -52,4 +84,19 @@
         </form>
     </div>
 </div>
+<script>
+function updateToolColorFields() {
+    const countInput = document.getElementById('id_color_count');
+    let count = countInput ? parseInt(countInput.value || '0', 10) : 0;
+    count = Math.max(0, Math.min(8, isNaN(count) ? 0 : count));
+    document.querySelectorAll('.tool-color-field').forEach(function(field) {
+        const index = parseInt(field.getAttribute('data-color-index'), 10);
+        const input = field.querySelector('input');
+        const visible = index <= count;
+        field.classList.toggle('hidden', !visible);
+        if (input) input.required = visible;
+    });
+}
+document.addEventListener('DOMContentLoaded', updateToolColorFields);
+</script>
 {% endblock %}
