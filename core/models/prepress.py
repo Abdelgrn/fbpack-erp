@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class TechnicalProduct(models.Model):
@@ -107,6 +108,18 @@ class Tooling(models.Model):
     current_impressions = models.IntegerField("Nombre de Tours (Calcul auto)", default=0)
     observations = models.TextField("Observations", blank=True, null=True)
 
+    # Informations propres au jeu de clichés / cylindres.
+    supplier_name = models.CharField("Fournisseur / Graveur", max_length=150, blank=True, default='')
+    color_count = models.PositiveSmallIntegerField("Nombre de couleurs", default=0, validators=[MinValueValidator(0), MaxValueValidator(8)])
+    color_1 = models.CharField("Couleur 1", max_length=100, blank=True, default='')
+    color_2 = models.CharField("Couleur 2", max_length=100, blank=True, default='')
+    color_3 = models.CharField("Couleur 3", max_length=100, blank=True, default='')
+    color_4 = models.CharField("Couleur 4", max_length=100, blank=True, default='')
+    color_5 = models.CharField("Couleur 5", max_length=100, blank=True, default='')
+    color_6 = models.CharField("Couleur 6", max_length=100, blank=True, default='')
+    color_7 = models.CharField("Couleur 7", max_length=100, blank=True, default='')
+    color_8 = models.CharField("Couleur 8", max_length=100, blank=True, default='')
+
     class Meta:
         app_label = 'core'
         verbose_name = "Outillage cliché, cylindre"
@@ -119,6 +132,14 @@ class Tooling(models.Model):
             if dev_en_metres > 0:
                 self.current_impressions = int(float(self.metrage_realise) / dev_en_metres)
         super().save(*args, **kwargs)
+
+    @property
+    def color_names(self):
+        """Couleurs réellement renseignées, dans leur ordre."""
+        return [value for value in (
+            self.color_1, self.color_2, self.color_3, self.color_4,
+            self.color_5, self.color_6, self.color_7, self.color_8,
+        ) if value]
 
     @property
     def wear_percent(self):

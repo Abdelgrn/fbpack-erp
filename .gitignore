@@ -1,20 +1,45 @@
+# Secrets et environnement
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets.json
+
 # Cache Python
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
 
-# Base de données locale (ne doit PAS aller sur GitHub/Render)
+# Bases locales et sauvegardes sensibles
 db.sqlite3
 db - Copie.sqlite3
+*.sqlite3
+FULL_BACKUP_FBPACK*.json
+backups/
 
-# Environnement virtuel
+# Environnements virtuels
 .venv/
 venv/
+env/
 
-# Fichiers statiques et médias
+# Fichiers générés, statiques et médias
 staticfiles/
 media/
+logs/
+*.log
 
-# Raccourcis Windows
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build et raccourcis
+build/
+dist/
+*.spec
 *.bat
 *.msix
-*.txt

@@ -2,6 +2,9 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User, Group
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_POST
 from django.contrib.admin.models import LogEntry
 from django.db.models import Count
 from django.contrib import messages
@@ -98,6 +101,7 @@ def admin_view(request):
 
 @login_required
 @staff_member_required
+@require_POST
 def admin_add_user(request):
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
@@ -106,8 +110,13 @@ def admin_add_user(request):
         is_staff = request.POST.get('is_staff') == 'on'
         is_active = request.POST.get('is_active') == 'on'
 
-        # Création : mot de passe OBLIGATOIRE
+        # Création : mot de passe OBLIGATOIRE et validé par la politique Django.
         if username and password:
+            try:
+                validate_password(password)
+            except ValidationError as exc:
+                messages.error(request, "❌ Mot de passe refusé : " + " ".join(exc.messages))
+                return redirect('admin_view')
             if not User.objects.filter(username=username).exists():
                 u = User.objects.create_user(username=username, email=email, password=password)
                 u.is_staff = is_staff
@@ -131,6 +140,7 @@ def admin_add_user(request):
 
 @login_required
 @staff_member_required
+@require_POST
 def admin_edit_user(request, user_id):
     """
     Modification d'un utilisateur :
@@ -166,6 +176,11 @@ def admin_edit_user(request, user_id):
         password_changed = False
         # >>> CLÉ MÉTIER : mot de passe optionnel à l'édition <<<
         if password:
+            try:
+                validate_password(password, user=u)
+            except ValidationError as exc:
+                messages.error(request, "❌ Mot de passe refusé : " + " ".join(exc.messages))
+                return redirect('admin_view')
             u.set_password(password)
             password_changed = True
 
@@ -197,6 +212,7 @@ def admin_edit_user(request, user_id):
 
 @login_required
 @staff_member_required
+@require_POST
 def admin_toggle_user(request, user_id):
     u = get_object_or_404(User, id=user_id)
     if not u.is_superuser:
@@ -209,6 +225,7 @@ def admin_toggle_user(request, user_id):
 
 @login_required
 @staff_member_required
+@require_POST
 def admin_import_data_view(request):
     """Bouton d'importation manuelle des données du PC en 1 clic"""
     try:
@@ -226,11 +243,15 @@ def admin_import_data_view(request):
 
 @login_required
 @staff_member_required
+@require_POST
 def admin_restore_backup_view(request):
     """Permet de charger n'importe quel fichier JSON de sauvegarde TOTALE téléchargé par l'utilisateur"""
     if request.method == 'POST' and request.FILES.get('backup_file'):
         backup_file = request.FILES['backup_file']
-        if not backup_file.name.endswith('.json'):
+        if backup_file.size > 25 * 1024 * 1024:
+            messages.error(request, "❌ Le fichier de sauvegarde dépasse 25 Mo.")
+            return redirect('admin_view')
+        if not backup_file.name.lower().endswith('.json'):
             messages.error(request, "❌ Veuillez sélectionner un fichier au format .json")
             return redirect('admin_view')
 
@@ -253,12 +274,10 @@ def admin_restore_backup_view(request):
     return redirect('admin_view')
 
 
+@login_required
 def export_database_backup(request):
-    """Génère un fichier JSON de sauvegarde TOTALE ET ABSOLUE de l'ERP."""
-    token = request.GET.get('token', '')
-    secret_key = getattr(settings, 'SECRET_KEY', 'django-ultimate-erp-secret-key')
-
-    if not (request.user.is_authenticated and request.user.is_superuser or (token and token == secret_key)):
+    """Sauvegarde complète réservée exclusivement aux superutilisateurs connectés."""
+    if not request.user.is_superuser:
         return JsonResponse({'error': 'Accès non autorisé'}, status=403)
 
     try:
@@ -276,7 +295,7 @@ def export_database_backup(request):
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
     except Exception as e:
-        return JsonResponse({'error': f"Erreur lors de la sauvegarde: {e}"}, status=500)
+        return JsonResponse({'error': 'Erreur interne lors de la sauvegarde.'}, status=500)
 
 
 def manifest_view(request):

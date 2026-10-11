@@ -1,0 +1,327 @@
+<style>
+    /* Zones rechargées en AJAX : transition douce, pas de clignotement */
+    .ajax-zone { transition: opacity .15s ease; }
+    .ajax-zone.is-loading { opacity: .45; pointer-events: none; }
+    #ajaxTopBar {
+        position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 9999; opacity: 0;
+        background: linear-gradient(90deg, #22d3ee, #facc15);
+        transition: width .4s ease, opacity .25s ease;
+    }
+</style>
+<div id="ajaxTopBar"></div>
+
+<!-- ============================================================ -->
+<!-- EN-TÊTE MODULE STOCK AVANCÉ -->
+<!-- ============================================================ -->
+<div class="mb-6">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white tracking-wider">
+                📦 Module Stocks & Achats 
+                <span class="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 px-2 py-1 rounded ml-2">v2.2 Pro</span>
+            </h1>
+            <p class="text-gray-400 text-sm mt-1">
+                Le stock affiché correspond aux matières du <strong class="text-gray-200">Magasin Général</strong> : ce qui est transféré en Stock Tampon (Flexo / Hélio) est décompté.
+            </p>
+        </div>
+        <!-- KPI RAPIDES -->
+        <div class="flex flex-wrap gap-3">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-white" id="statTotalMatieres">{{ total_matieres }}</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">Matières</div>
+            </div>
+            <div class="bg-red-900/30 border border-red-500/40 rounded-lg px-4 py-2 text-center min-w-[90px] {% if nb_alertes %}animate-pulse{% endif %}">
+                <div class="text-2xl font-black text-red-400">{{ nb_alertes }}</div>
+                <div class="text-[10px] text-red-400 uppercase tracking-wider">Alertes</div>
+            </div>
+            <div class="bg-orange-900/30 border border-orange-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-orange-400">{{ lots_bloques }}</div>
+                <div class="text-[10px] text-orange-400 uppercase tracking-wider">Lots bloqués</div>
+            </div>
+            <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-yellow-400">{{ lots_attente }}</div>
+                <div class="text-[10px] text-yellow-400 uppercase tracking-wider">En contrôle</div>
+            </div>
+            <div class="bg-blue-900/30 border border-blue-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-blue-400">{{ da_en_attente }}</div>
+                <div class="text-[10px] text-blue-400 uppercase tracking-wider">DA actives</div>
+            </div>
+            <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
+                <div class="text-2xl font-black text-emerald-400">{{ valeur_stock_total|floatformat:0 }}</div>
+                <div class="text-[10px] text-emerald-400 uppercase tracking-wider">Stock Valeur</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- BANDEAU DE SÉCURITÉ PERSISTANT SI SEUILS ATTEINTS / DÉPASSÉS -->
+<!-- ============================================================ -->
+{% if alertes_stock %}
+<div class="mb-6 p-4 rounded-xl bg-red-950/40 border border-red-500/50 flex flex-wrap items-center justify-between gap-4 shadow-lg animate-pulse">
+    <div class="flex items-center gap-3">
+        <span class="text-2xl">🚨</span>
+        <div>
+            <h4 class="text-white font-black text-sm uppercase">Alerte Système : Niveaux de Stock Critiques</h4>
+            <p class="text-red-300 text-xs mt-0.5">Il y a actuellement <strong>{{ nb_alertes }}</strong> produit(s) sous le seuil de sécurité.</p>
+        </div>
+    </div>
+    <div class="flex gap-2">
+        <button onclick="voirAlertesEnPriorite()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
+            👁️ Voir les alertes en priorité
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- EXPLICATION PÉDAGOGIQUE COMPLÈTE DE L'ATELIER -->
+<details class="mb-6 bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-xs text-gray-300">
+    <summary class="cursor-pointer font-bold text-cyan-400 flex items-center gap-2 outline-none select-none">
+        💡 Guide pratique : Comment utiliser ce module ?
+    </summary>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 text-gray-400 leading-relaxed">
+        <div>
+            <h4 class="font-bold text-gray-200 mb-1">1. Magasin Général & Disponibilité</h4>
+            <p>Seuls les lots qualifiés <span class="text-emerald-400 font-semibold">« Conformes »</span> sont intégrés au stock utilisable. Les matières transférées en atelier sont immédiatement décomptées.</p>
+        </div>
+        <div>
+            <h4 class="font-bold text-gray-200 mb-1">2. Journal & Contre-passation</h4>
+            <p>Pour assurer la traçabilité, un mouvement physique ne peut pas être supprimé. L'annulation d'un mouvement procède à une contre-passation comptable automatique avec motif obligatoire.</p>
+        </div>
+        <div>
+            <h4 class="font-bold text-gray-200 mb-1">3. Processus d'Achat Séquentiel</h4>
+            <p>Soumission de la DA → Validation direction → Émission du Bon de Commande (BC) → Réception (génère automatiquement des lots en attente de contrôle qualité).</p>
+        </div>
+    </div>
+</details>
+
+<!-- ============================================================ -->
+<!-- SECTION ALERTES STOCK — VERSION GRAPHIQUE MODERNE            -->
+<!-- ============================================================ -->
+{% if alertes_stock %}
+
+<!-- 3 Cartes compteurs -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+    <div class="rounded-2xl p-5 flex items-center gap-4 bg-gradient-to-br from-red-950 to-red-600 border border-red-500/40">
+        <div class="text-5xl leading-none">🔴</div>
+        <div>
+            <div class="text-white font-black text-4xl leading-none">{{ nb_ruptures }}</div>
+            <div class="text-red-200 font-bold text-sm uppercase tracking-wider mt-1">En Rupture Totale</div>
+            <div class="text-red-300 text-xs mt-1">Stock dispo = 0 — Lancer DA immédiatement</div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl p-5 flex items-center gap-4 bg-gradient-to-br from-orange-950 to-orange-600 border border-orange-500/40">
+        <div class="text-5xl leading-none">🟠</div>
+        <div>
+            <div class="text-white font-black text-4xl leading-none">{{ nb_critiques }}</div>
+            <div class="text-orange-200 font-bold text-sm uppercase tracking-wider mt-1">Niveau Critique</div>
+            <div class="text-orange-300 text-xs mt-1">Stock &lt; 50% du seuil minimum</div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl p-5 flex items-center gap-4 bg-gradient-to-br from-yellow-950 to-yellow-600 border border-yellow-500/40">
+        <div class="text-5xl leading-none">🟡</div>
+        <div>
+            <div class="text-white font-black text-4xl leading-none">{{ nb_alertes_simples }}</div>
+            <div class="text-yellow-200 font-bold text-sm uppercase tracking-wider mt-1">Sous Le Seuil</div>
+            <div class="text-yellow-300 text-xs mt-1">À surveiller et planifier</div>
+        </div>
+    </div>
+</div>
+
+<!-- 2 Graphiques côte à côte -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-5">
+    <div class="lg:col-span-3 bg-slate-800 border border-slate-700 rounded-2xl p-5">
+        <div class="mb-4">
+            <div class="text-white font-bold text-base">📊 Top 10 matières les plus critiques</div>
+            <div class="text-gray-400 text-xs mt-1">Stock actuel (barre colorée) vs Seuil d'alerte (barre grise)</div>
+        </div>
+        <div class="relative h-80">
+            <canvas id="chartTopAlertes"></canvas>
+        </div>
+    </div>
+
+    <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-5">
+        <div class="mb-4">
+            <div class="text-white font-bold text-base">🥧 Par catégorie de matière</div>
+            <div class="text-gray-400 text-xs mt-1">Nombre d'alertes groupées par type</div>
+        </div>
+        <div class="relative h-80">
+            <canvas id="chartCategories"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Tableau visuel avec jauges et filtres -->
+<div class="bg-slate-800 border border-slate-700 rounded-2xl mb-6 overflow-hidden">
+    <div class="p-5 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <div class="text-white font-bold text-base">⚠️ {{ nb_alertes }} matière(s) sous le seuil d'alerte</div>
+            <div class="text-gray-400 text-xs mt-1">Triées par criticité — la jauge montre le % du seuil atteint</div>
+        </div>
+        <div class="flex flex-wrap gap-2 items-center">
+            <button onclick="filtrerAlertes('ALL', this)"
+                class="alerte-filtre-btn bg-slate-600 text-white text-xs px-3 py-1.5 rounded-full border border-slate-500 font-bold">
+                Tout ({{ nb_alertes }})
+            </button>
+            <button onclick="filtrerAlertes('RUPTURE', this)"
+                class="alerte-filtre-btn bg-red-500/10 text-red-400 text-xs px-3 py-1.5 rounded-full border border-red-500/40 font-bold">
+                🔴 Rupture ({{ nb_ruptures }})
+            </button>
+            <button onclick="filtrerAlertes('CRITIQUE', this)"
+                class="alerte-filtre-btn bg-orange-500/10 text-orange-400 text-xs px-3 py-1.5 rounded-full border border-orange-500/40 font-bold">
+                🟠 Critique ({{ nb_critiques }})
+            </button>
+            <button onclick="filtrerAlertes('ALERTE', this)"
+                class="alerte-filtre-btn bg-yellow-500/10 text-yellow-400 text-xs px-3 py-1.5 rounded-full border border-yellow-500/40 font-bold">
+                🟡 Alerte ({{ nb_alertes_simples }})
+            </button>
+            <input type="text" id="searchAlerte"
+                class="bg-slate-700 border border-slate-600 rounded-full px-3 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none w-48"
+                placeholder="🔍 Rechercher une matière..."
+                oninput="rechercherAlerte(this.value)">
+
+            <button id="btnToggleListe"
+                onclick="toggleListeAlertes()"
+                class="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-500 text-yellow-400 hover:text-white text-xs px-3 py-1.5 rounded-full font-bold transition">
+                <span id="iconeToggle">👁️</span>
+                <span id="texteToggle">Afficher la liste</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="corpsTableauAlertes" style="display: none;">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse" id="tableAlertes">
+                <thead>
+                    <tr class="bg-slate-900/60 text-gray-400 text-[11px] uppercase tracking-wider">
+                        <th class="px-5 py-3 border-b border-slate-700 w-12">État</th>
+                        <th class="px-4 py-3 border-b border-slate-700">Désignation matière</th>
+                        <th class="px-4 py-3 border-b border-slate-700 w-28">Catégorie</th>
+                        <th class="px-4 py-3 border-b border-slate-700 w-32">Fournisseur</th>
+                        <th class="px-4 py-3 border-b border-slate-700 text-right w-32">Stock disponible</th>
+                        <th class="px-4 py-3 border-b border-slate-700 text-right w-28">Seuil alerte</th>
+                        <th class="px-4 py-3 border-b border-slate-700 min-w-[220px]">Niveau de stock</th>
+                        <th class="px-4 py-3 border-b border-slate-700 text-center w-24">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200 text-sm">
+                    {% for a in alertes_stock %}
+                    <tr class="alerte-row hover:bg-slate-700/40 transition border-b border-slate-700/50"
+                        data-niveau="{{ a.niveau }}"
+                        data-nom="{{ a.name|lower }}">
+
+                        <td class="px-5 py-3 text-2xl">
+                            <span title="{{ a.niveau }}">{{ a.icone }}</span>
+                        </td>
+
+                        <td class="px-4 py-3">
+                            <div class="font-bold text-cyan-400 text-sm">{{ a.name }}</div>
+                            <div class="text-gray-500 text-[10px]">ID #{{ a.id }}</div>
+                        </td>
+
+                        <td class="px-4 py-3">
+                            {% if a.category == 'FILM' %}
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800">{{ a.cat_label }}</span>
+                            {% elif a.category == 'INK' %}
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-pink-950 text-pink-400 border border-pink-800">{{ a.cat_label }}</span>
+                            {% elif a.category == 'GLUE' %}
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">{{ a.cat_label }}</span>
+                            {% else %}
+                                <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">{{ a.cat_label }}</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="px-4 py-3">
+                            <span class="text-gray-400 text-xs">{{ a.supplier }}</span>
+                        </td>
+
+                        <td class="px-4 py-3 text-right">
+                            <span class="font-black text-lg {% if a.niveau == 'RUPTURE' %}text-red-500{% elif a.niveau == 'CRITIQUE' %}text-orange-500{% else %}text-yellow-500{% endif %}">
+                                {{ a.quantity|floatformat:1 }}
+                            </span>
+                            <span class="text-gray-500 text-xs ml-1">{{ a.unit }}</span>
+                        </td>
+
+                        <td class="px-4 py-3 text-right">
+                            <span class="text-gray-400 text-sm">{{ a.min_threshold|floatformat:1 }}</span>
+                            <span class="text-gray-600 text-xs ml-1">{{ a.unit }}</span>
+                        </td>
+
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 rounded-full h-3 bg-white/10 overflow-hidden">
+                                    <div class="progress-bar-fill rounded-full h-full transition-all {% if a.niveau == 'RUPTURE' %}bg-gradient-to-r from-red-600 to-red-900{% elif a.niveau == 'CRITIQUE' %}bg-gradient-to-r from-orange-500 to-orange-800{% else %}bg-gradient-to-r from-yellow-500 to-yellow-800{% endif %}"
+                                         data-width="{{ a.pct }}">
+                                    </div>
+                                </div>
+                                <span class="font-bold text-xs w-9 text-right {% if a.niveau == 'RUPTURE' %}text-red-500{% elif a.niveau == 'CRITIQUE' %}text-orange-500{% else %}text-yellow-500{% endif %}">
+                                    {{ a.pct }}%
+                                </span>
+                            </div>
+                            <div class="text-xs mt-1 opacity-80 {% if a.niveau == 'RUPTURE' %}text-red-400{% elif a.niveau == 'CRITIQUE' %}text-orange-400{% else %}text-yellow-400{% endif %}">
+                                {% if a.niveau == 'RUPTURE' %}⛔ Stock épuisé — Commande urgente requise
+                                {% elif a.niveau == 'CRITIQUE' %}🚨 Moins de la moitié du seuil minimum
+                                {% else %}⚠️ En dessous du seuil — À planifier{% endif %}
+                            </div>
+                        </td>
+
+                        <td class="px-4 py-3 text-center">
+                            <button type="button" 
+                                data-da-id="{{ a.id }}" 
+                                data-da-name="{{ a.name }}" 
+                                data-da-seuil="{{ a.min_threshold }}" 
+                                data-da-unit="{{ a.unit }}"
+                                class="btn-da-trigger text-xs font-bold px-3 py-1.5 rounded-full border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 transition"
+                                title="Créer une Demande d'Achat pour cette matière">
+                                🛒 DA
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="px-5 py-3 border-t border-slate-700 bg-slate-900/30">
+            <span class="text-gray-500 text-xs">
+                💡 Cliquez sur <strong class="text-cyan-400">🛒 DA</strong> pour créer une demande d'achat directement depuis cette ligne.
+            </span>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="bg-emerald-900/20 border border-emerald-500/30 rounded-2xl p-8 mb-6 text-center">
+    <div class="text-6xl">✅</div>
+    <div class="text-emerald-400 font-bold text-xl mt-3">Tous les stocks sont au niveau normal !</div>
+    <div class="text-gray-400 text-sm mt-2">Aucune matière n'est sous le seuil d'alerte actuellement.</div>
+</div>
+{% endif %}
+
+<!-- PRÉVISIONS DE RUPTURE -->
+{% if previsions %}
+<div class="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4 mb-6">
+    <div class="flex items-center gap-3 mb-3">
+        <span class="text-orange-400 text-lg">🔮</span>
+        <span class="text-orange-400 font-bold text-sm">Prévisions de rupture (seuils intelligents)</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for p in previsions %}
+        <div class="bg-slate-800/80 border {% if p.critique %}border-red-500/50{% else %}border-orange-500/30{% endif %} rounded-lg p-3">
+            <div class="font-bold text-white text-sm truncate">{{ p.material }}</div>
+            <div class="text-xs text-gray-400 mt-1">Stock : <span class="text-white font-bold">{{ p.stock_actuel|floatformat:1 }} kg</span></div>
+            <div class="text-xs text-gray-400">Conso/j : {{ p.conso_jour|floatformat:1 }} kg</div>
+            <div class="mt-2 flex items-center justify-between">
+                <span class="text-[10px] {% if p.critique %}bg-red-500/20 text-red-400 border-red-500/30{% else %}bg-orange-500/20 text-orange-400 border-orange-500/30{% endif %} border px-2 py-1 rounded">
+                    {{ p.jours_restants|floatformat:0 }} jours
+                </span>
+                <span class="text-[10px] text-gray-500">Rupture : {{ p.date_rupture }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+

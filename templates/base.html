@@ -1389,6 +1389,19 @@
 
                 </a>
 
+                <!-- ASSISTANT IA INTERNE + RESTAURATION DES BULLES -->
+                <a href="{% url 'assistant_home' %}"
+                   class="nav-link flex items-center px-6 py-2 transition text-sm text-cyan-300 hover:text-cyan-200 {% if '/assistant/' in request.path %}active{% endif %}">
+                    <span class="mr-3">🤖</span>
+                    Assistant IA
+                    <span class="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">INTERNE</span>
+                </a>
+                <button type="button" onclick="window.FBFloatDock && window.FBFloatDock.restoreAll()"
+                        class="mx-4 mt-1 mb-2 w-[calc(100%-2rem)] flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700 hover:border-cyan-500/40 text-[10px] font-bold text-gray-400 hover:text-white transition"
+                        title="Réafficher les boutons flottants Chat et IA">
+                    👁️ Réafficher les bulles Chat + IA
+                </button>
+
                 {% endif %}
 
 
@@ -1475,16 +1488,7 @@
                 </div>
 
 
-                <!-- INSTALL APP -->
-
-                <button
-                    id="btn-install-app"
-                    type="button"
-                    class="w-full mb-2 flex items-center justify-center gap-2 text-xs font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 py-2 rounded-lg transition duration-200"
-                >
-                    📲 Installer l'App FB PACK
-                </button>
-
+                <!-- Le bouton d’installation PWA a été retiré volontairement du panneau latéral. -->
 
                 <div class="grid grid-cols-2 gap-2">
 
@@ -1876,6 +1880,11 @@
         </div>
 
         <!-- BULLE FLOTTANTE AVEC BADGE CLIGNOTANT -->
+        <div class="pointer-events-auto relative group">
+            <button id="fb-chat-hide-float" type="button"
+                    onclick="event.stopPropagation(); window.FBFloatDock && window.FBFloatDock.hide('chat')"
+                    class="absolute -top-2 -left-2 z-10 w-6 h-6 rounded-full bg-slate-950 hover:bg-red-600 border border-slate-600 hover:border-red-400 text-gray-400 hover:text-white text-xs font-black opacity-0 group-hover:opacity-100 focus:opacity-100 transition shadow-lg"
+                    title="Masquer la bulle Chat">×</button>
         <button id="fb-chat-fab" type="button"
                 class="pointer-events-auto relative bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-full p-3.5 md:p-4 shadow-[0_4px_20px_rgba(6,182,212,0.4)] transition transform hover:scale-105 active:scale-95 border-2 border-slate-800">
             <svg class="w-7 h-7 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1885,6 +1894,7 @@
             <span id="fb-chat-fab-badge"
                   class="chat-menu-badge hidden absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[11px] font-black rounded-full h-6 min-w-[24px] px-1 flex items-center justify-center border-2 border-slate-900 shadow-lg shadow-red-600/50">0</span>
         </button>
+        </div>
     </div>
 
     <!-- TOAST NOTIFICATION -->
@@ -3414,5 +3424,33 @@
 
     </script>
 
+<script>
+window.FBFloatDock = {
+    hide: function(kind) {
+        var id = kind === 'chat' ? 'fb-global-chat-widget' : 'fbAiRoot';
+        var element = document.getElementById(id);
+        if (element) element.classList.add('hidden');
+        try { localStorage.setItem('fb_float_' + kind + '_hidden', '1'); } catch (e) {}
+    },
+    restore: function(kind) {
+        var id = kind === 'chat' ? 'fb-global-chat-widget' : 'fbAiRoot';
+        var element = document.getElementById(id);
+        if (element) element.classList.remove('hidden');
+        try { localStorage.removeItem('fb_float_' + kind + '_hidden'); } catch (e) {}
+    },
+    restoreAll: function() {
+        this.restore('chat');
+        this.restore('ai');
+    },
+    applySavedState: function() {
+        try {
+            if (localStorage.getItem('fb_float_chat_hidden') === '1') this.hide('chat');
+            if (localStorage.getItem('fb_float_ai_hidden') === '1') this.hide('ai');
+        } catch (e) {}
+    }
+};
+document.addEventListener('DOMContentLoaded', function() { window.FBFloatDock.applySavedState(); });
+</script>
+{% include 'assistant/_widget.html' %}
 </body>
 </html>

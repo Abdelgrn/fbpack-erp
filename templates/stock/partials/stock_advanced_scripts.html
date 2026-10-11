@@ -1,0 +1,1245 @@
+<!-- ============================================================ -->
+<!-- BALISES JSON -->
+<!-- ============================================================ -->
+{{ top_alertes_noms|json_script:"top-alertes-noms-data" }}
+{{ top_alertes_stock|json_script:"top-alertes-stock-data" }}
+{{ top_alertes_seuil|json_script:"top-alertes-seuil-data" }}
+{{ top_alertes_couleurs|json_script:"top-alertes-couleurs-data" }}
+{{ cat_labels_json|json_script:"cat-labels-data" }}
+{{ cat_rupture_json|json_script:"cat-rupture-data" }}
+{{ cat_critique_json|json_script:"cat-critique-data" }}
+{{ cat_alerte_json|json_script:"cat-alerte-data" }}
+
+<!-- ============================================================ -->
+<!-- SCRIPTS -->
+<!-- ============================================================ -->
+<script>
+// ============================================================
+// INITIALISATION
+// ============================================================
+window.addEventListener('beforeunload', function() {
+    sessionStorage.setItem('stock_scroll_pos', window.scrollY);
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    var savedPos = sessionStorage.getItem('stock_scroll_pos');
+    if (savedPos) {
+        window.scrollTo(0, parseInt(savedPos, 10));
+        sessionStorage.removeItem('stock_scroll_pos');
+    }
+    var urlParams = new URLSearchParams(window.location.search);
+    var tabParam = urlParams.get('tab');
+    var savedTab = null;
+    try { savedTab = localStorage.getItem('activeStockTab'); } catch(e){}
+    if (tabParam) { showTab(tabParam); }
+    else if (savedTab) { showTab(savedTab); }
+    else { showTab('matieres'); }
+    initAlertsListState();
+
+    // Application dynamique et sécurisée des largeurs de jauge
+    applyProgressBars();
+
+    attachAjaxDeleteHandlers();
+    restoreSortPreference();
+    initMouvementStockValidation();
+    initMovementFilters();
+    initMaterialFilterInputs();
+    updateBulkBarAdv();
+    updateBulkBarMvt();
+
+    // Vue graphique des matières : calcul des jauges + restauration du choix utilisateur
+    initMaterialGraphCards();
+    restoreMaterialViewPreference();
+});
+
+function applyProgressBars() {
+    document.querySelectorAll('.progress-bar-fill').forEach(function(el) {
+        var w = el.getAttribute('data-width');
+        if (w !== null && w !== '') { el.style.width = w + '%'; }
+    });
+}
+
+// ============================================================
+// 🌟 NAVIGATION AJAX FLUIDE (pagination / filtres / univers)
+//    - aucune rechargement de page
+//    - l'onglet actif est conservé
+//    - la position de défilement est conservée
+//    - le bouton Retour du navigateur fonctionne
+// ============================================================
+var ALL_ZONES = ['materialsUniverseZone', 'materialsAjaxZone', 'movementsAjaxZone'];
+var MAT_ZONES = ['materialsUniverseZone', 'materialsAjaxZone'];
+var ajaxController = null;
+var topBarTimer = null;
+
+function showTopBar() {
+    var bar = document.getElementById('ajaxTopBar');
+    if (!bar) return;
+    clearTimeout(topBarTimer);
+    bar.style.transition = 'none';
+    bar.style.width = '0';
+    bar.style.opacity = '1';
+    void bar.offsetWidth;
+    bar.style.transition = 'width .6s ease, opacity .25s ease';
+    bar.style.width = '70%';
+}
+
+function hideTopBar() {
+    var bar = document.getElementById('ajaxTopBar');
+    if (!bar) return;
+    bar.style.width = '100%';
+    topBarTimer = setTimeout(function() {
+        bar.style.opacity = '0';
+        topBarTimer = setTimeout(function() { bar.style.width = '0'; }, 300);
+    }, 150);
+}
+
+function setZonesLoading(ids, on) {
+    ids.forEach(function(id) {
+        var z = document.getElementById(id);
+        if (z) z.classList.toggle('is-loading', on);
+    });
+}
+
+function afterZoneRender(zoneId) {
+    if (zoneId === 'materialsAjaxZone') {
+        attachAjaxDeleteHandlers();
+        restoreSortPreference();
+        updateBulkBarAdv();
+        initMaterialGraphCards();
+        restoreMaterialViewPreference();
+    } else if (zoneId === 'movementsAjaxZone') {
+        applyMovementFilters();
+        updateBulkBarMvt();
+    }
+}
+
+// Charge `url` en arrière-plan et remplace uniquement les zones demandées.
+// Retourne une Promise<boolean> (true = succès).
+function ajaxLoad(url, zoneIds, opts) {
+    opts = opts || {};
+    if (ajaxController) ajaxController.abort();
+    var ctrl = new AbortController();
+    ajaxController = ctrl;
+    setZonesLoading(zoneIds, true);
+    showTopBar();
+
+    return fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        signal: ctrl.signal
+    })
+    .then(function(response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.text();
+    })
+    .then(function(html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        // Vérifie que TOUTES les zones demandées existent dans la réponse
+        for (var i = 0; i < zoneIds.length; i++) {
+            if (!doc.getElementById(zoneIds[i])) { throw new Error('zone-missing'); }
+        }
+        zoneIds.forEach(function(id) {
+            var fresh = doc.getElementById(id);
+            var current = document.getElementById(id);
+            if (fresh && current) {
+                current.innerHTML = fresh.innerHTML;
+                afterZoneRender(id);
+            }
+        });
+        if (opts.push !== false) {
+            try { history.pushState({ stockAjax: true }, '', url); } catch (e) {}
+        }
+        return true;
+    })
+    .catch(function(err) {
+        if (err && err.name === 'AbortError') return false;
+        // Filet de sécurité : en cas de problème, on retombe sur le chargement classique
+        window.location.href = url;
+        return false;
+    })
+    .then(function(ok) {
+        if (ctrl === ajaxController) {
+            setZonesLoading(ALL_ZONES, false);
+            hideTopBar();
+        }
+        return ok;
+    });
+}
+
+// Ne fait défiler que si le haut de la zone est au-dessus de l'écran (sinon : on ne bouge pas)
+function scrollZoneIntoView(zoneId) {
+    var z = document.getElementById(zoneId);
+    var mainScroll = document.getElementById('fb-main-content'); // Le VRAI conteneur qui défile
+    
+    if (!z || !mainScroll) return;
+    
+    // On calcule la distance entre le haut du tableau et le haut de la zone de défilement
+    var containerTop = mainScroll.getBoundingClientRect().top;
+    var elementTop = z.getBoundingClientRect().top;
+    
+    // On fait défiler la zone centrale doucement, avec une marge de 20px pour que ce soit beau
+    mainScroll.scrollBy({
+        top: (elementTop - containerTop) - 20,
+        behavior: 'smooth'
+    });
+}
+
+// Clic sur un lien de pagination → AJAX
+document.addEventListener('click', function(e) {
+    var a = e.target.closest ? e.target.closest('a.ajax-page-link') : null;
+    if (!a) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return; // laisser ouvrir dans un nouvel onglet
+    e.preventDefault();
+    var zoneId = a.getAttribute('data-zone');
+    // On fusionne les paramètres du lien avec l'URL courante (garde la page des autres tableaux)
+    var target = new URL(a.getAttribute('href'), window.location.href);
+    var merged = new URL(window.location.href);
+    target.searchParams.forEach(function(v, k) { merged.searchParams.set(k, v); });
+    ajaxLoad(merged.toString(), [zoneId]).then(function(ok) {
+        if (ok) scrollZoneIntoView(zoneId);
+    });
+});
+
+// Bouton Retour / Avancer du navigateur
+window.addEventListener('popstate', function() {
+    syncFormFromUrl();
+    var t = new URLSearchParams(window.location.search).get('tab');
+    if (t) showTab(t);
+    ajaxLoad(window.location.href, ALL_ZONES, { push: false });
+});
+
+function syncFormFromUrl() {
+    var p = new URLSearchParams(window.location.search);
+    var q = document.getElementById('searchInput');
+    var cat = document.getElementById('categoryFilter');
+    var sup = document.getElementById('supplierFilter');
+    var low = document.getElementById('lowStockFilter');
+    if (q) q.value = p.get('q') || '';
+    if (cat) cat.value = p.get('category') || '';
+    if (sup) sup.value = p.get('supplier') || '';
+    if (low) low.checked = (p.get('low_stock') === 'on');
+    toggleClearSearchBtn();
+}
+
+// ------------------------------------------------------------
+// Filtres matières (recherche, catégorie, fournisseur, stock faible)
+// ------------------------------------------------------------
+function submitMaterialFilters() {
+    var params = new URLSearchParams(window.location.search);
+    ['q', 'category', 'supplier', 'low_stock', 'page_mat'].forEach(function(k) { params.delete(k); });
+    var q = document.getElementById('searchInput');
+    var cat = document.getElementById('categoryFilter');
+    var sup = document.getElementById('supplierFilter');
+    var low = document.getElementById('lowStockFilter');
+    params.set('tab', 'matieres');
+    if (q && q.value.trim()) params.set('q', q.value.trim());
+    if (cat && cat.value) params.set('category', cat.value);
+    if (sup && sup.value) params.set('supplier', sup.value);
+    if (low && low.checked) params.set('low_stock', 'on');
+    return ajaxLoad(window.location.pathname + '?' + params.toString(), MAT_ZONES);
+}
+
+// Clic sur un « Univers » (Films / Encres / Colles / Solvants)
+function filterMatCategory(catCode) {
+    var categorySelect = document.getElementById('categoryFilter');
+    if (categorySelect) categorySelect.value = (catCode === 'ALL') ? '' : catCode;
+    submitMaterialFilters();
+}
+
+function toggleClearSearchBtn() {
+    var q = document.getElementById('searchInput');
+    var btn = document.getElementById('clearSearchBtn');
+    if (!q || !btn) return;
+    btn.classList.toggle('hidden', !q.value);
+}
+
+function initMaterialFilterInputs() {
+    var form = document.getElementById('searchForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitMaterialFilters();
+        });
+    }
+    var q = document.getElementById('searchInput');
+    if (q) {
+        var timer = null;
+        q.addEventListener('input', function() {
+            toggleClearSearchBtn();
+            clearTimeout(timer);
+            timer = setTimeout(submitMaterialFilters, 350); // recherche « live » côté serveur, sans perdre le focus
+        });
+    }
+}
+
+function clearSearch() {
+    var q = document.getElementById('searchInput');
+    if (q) { q.value = ''; q.focus(); }
+    toggleClearSearchBtn();
+    submitMaterialFilters();
+}
+
+function resetMaterialFilters() {
+    var q = document.getElementById('searchInput');
+    var cat = document.getElementById('categoryFilter');
+    var sup = document.getElementById('supplierFilter');
+    var low = document.getElementById('lowStockFilter');
+    if (q) q.value = '';
+    if (cat) cat.value = '';
+    if (sup) sup.value = '';
+    if (low) low.checked = false;
+    toggleClearSearchBtn();
+    submitMaterialFilters();
+}
+
+// ------------------------------------------------------------
+// Délégation d'événements (survit aux remplacements de zones)
+// ------------------------------------------------------------
+document.addEventListener('change', function(e) {
+    var t = e.target;
+    if (!t) return;
+    if (t.id === 'categoryFilter' || t.id === 'supplierFilter' || t.id === 'lowStockFilter') {
+        submitMaterialFilters();
+    } else if (t.id === 'sortSelect') {
+        sortMaterials();
+    } else if (t.id === 'selectAllMaterialsAdv') {
+        document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv').forEach(function(cb) {
+            cb.checked = t.checked;
+        });
+        updateBulkBarAdv();
+    } else if (t.classList && t.classList.contains('material-checkbox-adv')) {
+        updateBulkBarAdv();
+    } else if (t.id === 'selectAllMovementsAdv') {
+        document.querySelectorAll('.movement-checkbox-adv').forEach(function(cb) { cb.checked = t.checked; });
+        updateBulkBarMvt();
+    } else if (t.classList && t.classList.contains('movement-checkbox-adv')) {
+        updateBulkBarMvt();
+    }
+});
+
+// ============================================================
+// VUE LISTE / VUE GRAPHIQUE DES MATIÈRES
+// ============================================================
+function parseStockNumber(value) {
+    if (value === null || typeof value === 'undefined') return 0;
+    var normalized = String(value).replace(/\s/g, '').replace(',', '.');
+    var number = parseFloat(normalized);
+    return Number.isFinite(number) ? number : 0;
+}
+
+function formatStockNumber(value) {
+    var number = parseStockNumber(value);
+    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(number);
+}
+
+function getMaterialViewPreference() {
+    var view = 'list';
+    try { view = localStorage.getItem('stock_material_view') || 'list'; } catch (e) {}
+    return view === 'graph' ? 'graph' : 'list';
+}
+
+function setMaterialView(view, savePreference) {
+    view = view === 'graph' ? 'graph' : 'list';
+    var listView = document.getElementById('materialsListView');
+    var graphView = document.getElementById('materialsGraphView');
+    var listBtn = document.getElementById('materialViewListBtn');
+    var graphBtn = document.getElementById('materialViewGraphBtn');
+    if (!listView || !graphView) return;
+
+    var graphActive = view === 'graph';
+    listView.classList.toggle('hidden', graphActive);
+    graphView.classList.toggle('hidden', !graphActive);
+
+    [listBtn, graphBtn].forEach(function(btn) {
+        if (!btn) return;
+        btn.classList.remove('bg-cyan-500', 'text-slate-950', 'shadow', 'bg-slate-800', 'text-gray-400', 'hover:text-white');
+    });
+    if (listBtn) {
+        listBtn.classList.add(graphActive ? 'bg-slate-800' : 'bg-cyan-500', graphActive ? 'text-gray-400' : 'text-slate-950');
+        if (!graphActive) listBtn.classList.add('shadow');
+        else listBtn.classList.add('hover:text-white');
+        listBtn.setAttribute('aria-pressed', graphActive ? 'false' : 'true');
+    }
+    if (graphBtn) {
+        graphBtn.classList.add(graphActive ? 'bg-cyan-500' : 'bg-slate-800', graphActive ? 'text-slate-950' : 'text-gray-400');
+        if (graphActive) graphBtn.classList.add('shadow');
+        else graphBtn.classList.add('hover:text-white');
+        graphBtn.setAttribute('aria-pressed', graphActive ? 'true' : 'false');
+    }
+
+    if (graphActive) initMaterialGraphCards();
+    if (savePreference !== false) {
+        try { localStorage.setItem('stock_material_view', view); } catch (e) {}
+    }
+}
+
+function restoreMaterialViewPreference() {
+    setMaterialView(getMaterialViewPreference(), false);
+}
+
+function initMaterialGraphCards() {
+    document.querySelectorAll('.material-graph-card').forEach(function(card) {
+        var stock = parseStockNumber(card.getAttribute('data-stock'));
+        var threshold = parseStockNumber(card.getAttribute('data-threshold'));
+        var percentage = threshold > 0 ? (stock / threshold) * 100 : (stock > 0 ? 100 : 0);
+        var visualWidth = Math.max(0, Math.min(percentage, 100));
+        var difference = stock - threshold;
+        var unit = '';
+        var stockText = card.querySelector('.material-graph-stock');
+        if (stockText) {
+            var unitNode = stockText.querySelector('span');
+            unit = unitNode ? unitNode.textContent.trim() : '';
+        }
+
+        var status = 'À configurer';
+        var icon = '⚙️';
+        var color = '#64748b';
+        var softClass = 'border-slate-600 bg-slate-700 text-gray-300';
+        var message = 'Définissez un seuil d’alerte pour activer le suivi graphique de cette matière.';
+
+        if (threshold > 0) {
+            if (stock <= 0) {
+                status = 'Rupture'; icon = '⛔'; color = '#dc2626';
+                softClass = 'border-red-500/40 bg-red-500/10 text-red-400';
+                message = 'Rupture totale — il manque ' + formatStockNumber(threshold) + ' ' + unit + ' pour retrouver le seuil.';
+            } else if (percentage < 50) {
+                status = 'Critique'; icon = '🚨'; color = '#ea580c';
+                softClass = 'border-orange-500/40 bg-orange-500/10 text-orange-400';
+                message = 'Niveau critique — déficit de ' + formatStockNumber(Math.abs(difference)) + ' ' + unit + ' avant le seuil.';
+            } else if (percentage < 100) {
+                status = 'Sous le seuil'; icon = '⚠️'; color = '#eab308';
+                softClass = 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400';
+                message = 'Sous le seuil — il manque ' + formatStockNumber(Math.abs(difference)) + ' ' + unit + ' pour revenir au minimum.';
+            } else if (percentage < 150) {
+                status = 'À surveiller'; icon = '👁️'; color = '#06b6d4';
+                softClass = 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400';
+                message = 'Seuil couvert — marge disponible de ' + formatStockNumber(difference) + ' ' + unit + '.';
+            } else {
+                status = 'Confortable'; icon = '✅'; color = '#10b981';
+                softClass = 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400';
+                message = 'Stock confortable — réserve de ' + formatStockNumber(difference) + ' ' + unit + ' au-dessus du seuil.';
+            }
+        }
+
+        var statusEl = card.querySelector('.material-graph-status');
+        var iconEl = card.querySelector('.material-graph-icon');
+        var percentEl = card.querySelector('.material-graph-percent');
+        var barEl = card.querySelector('.material-graph-bar');
+        var accentEl = card.querySelector('.material-graph-accent');
+        var messageEl = card.querySelector('.material-graph-message');
+
+        if (statusEl) {
+            statusEl.className = 'material-graph-status shrink-0 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-full border ' + softClass;
+            statusEl.textContent = status;
+        }
+        if (iconEl) iconEl.textContent = icon;
+        if (percentEl) {
+            percentEl.textContent = threshold > 0 ? formatStockNumber(percentage) + '%' : 'Non défini';
+            percentEl.style.color = color;
+        }
+        if (barEl) {
+            barEl.style.width = visualWidth + '%';
+            barEl.style.background = 'linear-gradient(90deg, ' + color + '99, ' + color + ')';
+            barEl.style.boxShadow = '0 0 14px ' + color + '55';
+        }
+        if (accentEl) accentEl.style.background = color;
+        if (messageEl) {
+            messageEl.className = 'material-graph-message mt-4 rounded-xl border px-3 py-2.5 text-xs ' + softClass;
+            messageEl.textContent = message;
+        }
+    });
+}
+
+// ============================================================
+// FILTRES MOUVEMENTS (côté client sur la page affichée)
+// ============================================================
+function applyMovementFilters() {
+    var dateFromEl = document.getElementById('mvtDateFrom');
+    var dateToEl = document.getElementById('mvtDateTo');
+    var emplacementEl = document.getElementById('mvtEmplacementFilter');
+    var categoryEl = document.getElementById('mvtCategoryFilter');
+    if (!dateFromEl) return;
+    var dateFrom = dateFromEl.value;
+    var dateTo = dateToEl.value;
+    var emplacement = (emplacementEl.value || '').toLowerCase();
+    var category = categoryEl.value;
+    var visibleCount = 0;
+    document.querySelectorAll('.movement-row').forEach(function(row) {
+        var rowDate = row.dataset.date || '';
+        var src = row.dataset.emplacementSrc || '';
+        var dst = row.dataset.emplacementDst || '';
+        var cat = row.dataset.category || '';
+        var matchDate = true;
+        if (dateFrom && rowDate && rowDate < dateFrom) matchDate = false;
+        if (dateTo && rowDate && rowDate > dateTo) matchDate = false;
+        var matchEmplacement = !emplacement || src === emplacement || dst === emplacement;
+        var matchCategory = !category || cat === category;
+        if (matchDate && matchEmplacement && matchCategory) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    var counter = document.getElementById('mvtVisibleCount');
+    if (counter) counter.textContent = visibleCount;
+}
+
+function clearMovementFilters() {
+    var dateFromEl = document.getElementById('mvtDateFrom');
+    var dateToEl = document.getElementById('mvtDateTo');
+    var emplacementEl = document.getElementById('mvtEmplacementFilter');
+    var categoryEl = document.getElementById('mvtCategoryFilter');
+    if (dateFromEl) dateFromEl.value = '';
+    if (dateToEl) dateToEl.value = '';
+    if (emplacementEl) emplacementEl.value = '';
+    if (categoryEl) categoryEl.value = '';
+    applyMovementFilters();
+}
+
+function initMovementFilters() {
+    ['mvtDateFrom', 'mvtDateTo', 'mvtEmplacementFilter', 'mvtCategoryFilter'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', applyMovementFilters);
+            el.addEventListener('change', applyMovementFilters);
+        }
+    });
+}
+
+// ============================================================
+// FOURNISSEURS : lignes de contact dynamiques
+// ============================================================
+let supplierContactIdx = 1;
+function ajouterLigneContact() {
+    supplierContactIdx++;
+    const container = document.getElementById('modalContactsContainer');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = 'contact-card bg-slate-900/60 border border-slate-700 rounded-xl p-4 relative transition-all duration-300';
+    div.innerHTML = `
+        <div class="flex items-center justify-between mb-2">
+            <div class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Interlocuteur #${supplierContactIdx}</div>
+            <button type="button" onclick="this.closest('.contact-card').remove()" class="text-red-400 hover:text-red-300 text-xs px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20">🗑️ Supprimer</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label class="block text-[10px] text-gray-400 mb-1">Nom Complet</label><input type="text" name="contact_nom[]" placeholder="Ex: Jean Dupont" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none"></div>
+            <div><label class="block text-[10px] text-gray-400 mb-1">Poste / Rôle</label><input type="text" name="contact_poste[]" placeholder="Ex: Commercial..." list="modalPostesList" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none"></div>
+            <div><label class="block text-[10px] text-gray-400 mb-1">Téléphone</label><input type="tel" name="contact_telephone[]" placeholder="Ex: 0550 12 34 56" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none"></div>
+            <div><label class="block text-[10px] text-gray-400 mb-1">Email Direct</label><input type="email" name="contact_email[]" placeholder="Ex: jean@sunchemical.com" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none"></div>
+        </div>`;
+    container.appendChild(div);
+}
+
+// ============================================================
+// VALIDATION DU FORMULAIRE DE MOUVEMENT
+// ============================================================
+function initMouvementStockValidation() {
+    const form = document.getElementById('mouvementForm');
+    if (!form) return;
+    form.addEventListener('submit', function(e) {
+        const typeSelect = document.getElementById('mouvementTypeSelect');
+        const materialSelect = document.getElementById('mouvementMaterialSelect');
+        const quantityInput = document.getElementById('mouvementQuantityInput');
+        if (typeSelect && materialSelect && quantityInput) {
+            const movementType = typeSelect.value;
+            const selectedOption = materialSelect.options[materialSelect.selectedIndex];
+            const availableStock = parseFloat(selectedOption.getAttribute('data-stock')) || 0;
+            const enteredQty = parseFloat(quantityInput.value) || 0;
+            const unit = selectedOption.getAttribute('data-unit') || 'kg';
+            const materialName = selectedOption.text.split('(')[0].trim();
+            if (movementType === 'SORTIE' || movementType === 'PERTE') {
+                if (availableStock <= 0) {
+                    e.preventDefault();
+                    alert("❌ OPÉRATION IMPOSSIBLE : Le stock de \"" + materialName + "\" est actuellement de 0 " + unit + ".");
+                    quantityInput.classList.add('border-red-500');
+                    return false;
+                }
+                if (enteredQty > availableStock) {
+                    e.preventDefault();
+                    alert("❌ OPÉRATION IMPOSSIBLE : La quantité demandée (" + enteredQty + " " + unit + ") dépasse le stock disponible (" + availableStock + " " + unit + ").");
+                    quantityInput.classList.add('border-red-500');
+                    return false;
+                }
+            }
+        }
+    });
+    const quantityInput = document.getElementById('mouvementQuantityInput');
+    if (quantityInput) {
+        quantityInput.addEventListener('input', function() { this.classList.remove('border-red-500'); });
+    }
+}
+
+// ============================================================
+// ONGLETS
+// ============================================================
+function selectSortAlertFirst() {
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) { sortSelect.value = 'alert_first'; sortMaterials(); }
+}
+
+function voirAlertesEnPriorite() {
+    // 1. Bascule sur l'onglet matières
+    showTab('matieres');
+
+    // 2. Ouvre automatiquement la liste des alertes si elle était masquée
+    applyAlertsListVisibility('visible');
+    try { localStorage.setItem('alertsListState', 'visible'); } catch(e){}
+
+    // 3. Trie les matières pour mettre les alertes en premier
+    selectSortAlertFirst();
+
+    // 4. Fait défiler la zone centrale centrale (fb-main-content) doucement vers le tableau
+    const target = document.getElementById('corpsTableauAlertes') || document.getElementById('tableAlertes');
+    const mainScroll = document.getElementById('fb-main-content');
+    if (target && mainScroll) {
+        var containerTop = mainScroll.getBoundingClientRect().top;
+        var elementTop = target.getBoundingClientRect().top;
+        mainScroll.scrollBy({
+            top: (elementTop - containerTop) - 20,
+            behavior: 'smooth'
+        });
+    }
+}
+
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.add('hidden'); el.classList.remove('block'); });
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.classList.remove('border-yellow-500', 'text-yellow-500');
+        btn.classList.add('border-transparent', 'text-gray-400');
+    });
+    var tab = document.getElementById('tab-' + tabName);
+    if (tab) { tab.classList.remove('hidden'); tab.classList.add('block'); }
+    var btn = document.getElementById('tabBtn-' + tabName);
+    if (btn) {
+        btn.classList.remove('border-transparent', 'text-gray-400');
+        btn.classList.add('border-yellow-500', 'text-yellow-500');
+    }
+    try { localStorage.setItem('activeStockTab', tabName); } catch(e){}
+}
+
+function showSubTab(name) {
+    document.querySelectorAll('.subtab-content').forEach(function(el) { el.classList.add('hidden'); el.classList.remove('block'); });
+    document.querySelectorAll('.sub-tab-btn').forEach(function(btn) {
+        btn.classList.remove('border-blue-400', 'text-blue-400');
+        btn.classList.add('border-transparent', 'text-gray-400');
+    });
+    var tab = document.getElementById('subtab-' + name);
+    if (tab) { tab.classList.remove('hidden'); tab.classList.add('block'); }
+    var btn = document.getElementById('subTabBtn-' + name);
+    if (btn) {
+        btn.classList.remove('border-transparent', 'text-gray-400');
+        btn.classList.add('border-blue-400', 'text-blue-400');
+    }
+}
+
+// ============================================================
+// LISTE D'ALERTES (afficher / masquer)
+// ============================================================
+function initAlertsListState() {
+    var state = 'hidden';
+    try { state = localStorage.getItem('alertsListState') || 'hidden'; } catch(e){}
+    applyAlertsListVisibility(state);
+}
+
+function applyAlertsListVisibility(state) {
+    var corps = document.getElementById('corpsTableauAlertes');
+    var icone = document.getElementById('iconeToggle');
+    var texte = document.getElementById('texteToggle');
+    var btn = document.getElementById('btnToggleListe');
+    if (!corps) return;
+    if (state === 'visible') {
+        corps.style.display = '';
+        if(icone) icone.textContent = '🙈';
+        if(texte) texte.textContent = 'Masquer la liste';
+        if(btn) { btn.style.boxShadow = 'none'; btn.classList.remove('text-yellow-400'); btn.classList.add('text-gray-300'); }
+    } else {
+        corps.style.display = 'none';
+        if(icone) icone.textContent = '👁️';
+        if(texte) texte.textContent = 'Afficher la liste';
+        if(btn) { btn.style.boxShadow = '0 0 0 2px #facc15'; btn.classList.remove('text-gray-300'); btn.classList.add('text-yellow-400'); }
+    }
+}
+
+function toggleListeAlertes() {
+    var corps = document.getElementById('corpsTableauAlertes');
+    if (!corps) return;
+    var currentState = (corps.style.display === 'none') ? 'hidden' : 'visible';
+    var newState = (currentState === 'hidden') ? 'visible' : 'hidden';
+    try { localStorage.setItem('alertsListState', newState); } catch(e){}
+    applyAlertsListVisibility(newState);
+}
+
+// ============================================================
+// SUPPRESSION (ARCHIVAGE) D'UNE MATIÈRE — sans recharger la page
+// ============================================================
+function attachAjaxDeleteHandlers() {
+    document.querySelectorAll('.delete-material-form').forEach(function(form) {
+        form.removeEventListener('submit', handleMaterialDelete);
+        form.addEventListener('submit', handleMaterialDelete);
+    });
+}
+
+function handleMaterialDelete(e) {
+    e.preventDefault();
+    var form = this;
+    var materialName = form.getAttribute('data-confirm-name') || 'cette matière';
+    if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer « ' + materialName + ' » ?\n\nCette action est IRRÉVERSIBLE.')) return false;
+    var row = form.closest('tr');
+    var formData = new FormData(form);
+    fetch(form.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function(response) {
+        if (response.ok || response.redirected) {
+            row.style.transition = 'all 0.3s ease';
+            row.style.opacity = '0';
+            row.style.transform = 'scale(0.95)';
+            setTimeout(function() {
+                var totalStat = document.getElementById('statTotalMatieres');
+                if (totalStat && parseInt(totalStat.textContent, 10) > 0) totalStat.textContent = parseInt(totalStat.textContent, 10) - 1;
+                // Recharge la page courante du tableau pour re-remplir proprement la pagination
+                ajaxLoad(window.location.href, MAT_ZONES, { push: false });
+            }, 300);
+        } else { alert('❌ Erreur lors de la suppression.'); }
+    })
+    .catch(function() { form.submit(); });
+}
+
+// ============================================================
+// TRI (côté client, sur la page affichée) — réappliqué après chaque chargement AJAX
+// ============================================================
+function sortMaterials() {
+    var sortSelect = document.getElementById('sortSelect');
+    if (!sortSelect) return;
+    var criteria = sortSelect.value;
+    var tbody = document.getElementById('materialsTbody');
+    if (!tbody) return;
+    var rows = Array.from(tbody.querySelectorAll('.material-row'));
+    if (rows.length === 0) return;
+    rows.sort(function(a, b) {
+        switch (criteria) {
+            case 'name_asc': return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+            case 'name_desc': return (b.dataset.name || '').localeCompare(a.dataset.name || '');
+            case 'date_desc': return parseInt(b.dataset.createdAt || 0, 10) - parseInt(a.dataset.createdAt || 0, 10);
+            case 'date_asc': return parseInt(a.dataset.createdAt || 0, 10) - parseInt(b.dataset.createdAt || 0, 10);
+            case 'stock_asc': return parseFloat(a.dataset.stock || 0) - parseFloat(b.dataset.stock || 0);
+            case 'stock_desc': return parseFloat(b.dataset.stock || 0) - parseFloat(a.dataset.stock || 0);
+            case 'price_asc': return parseFloat(a.dataset.price || 0) - parseFloat(b.dataset.price || 0);
+            case 'price_desc': return parseFloat(b.dataset.price || 0) - parseFloat(a.dataset.price || 0);
+            case 'alert_first':
+                var aAlert = (a.dataset.lowStock === 'true') ? 0 : 1;
+                var bAlert = (b.dataset.lowStock === 'true') ? 0 : 1;
+                if (aAlert !== bAlert) return aAlert - bAlert;
+                return parseFloat(a.dataset.stock || 0) - parseFloat(b.dataset.stock || 0);
+            default: return parseInt(a.dataset.originalOrder || 0, 10) - parseInt(b.dataset.originalOrder || 0, 10);
+        }
+    });
+    rows.forEach(function(row) { tbody.appendChild(row); });
+
+    // Applique exactement le même tri aux cartes de la vue graphique.
+    var graphGrid = document.getElementById('materialsGraphGrid');
+    if (graphGrid) {
+        var cards = Array.from(graphGrid.querySelectorAll('.material-graph-card'));
+        cards.sort(function(a, b) {
+            switch (criteria) {
+                case 'name_asc': return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+                case 'name_desc': return (b.dataset.name || '').localeCompare(a.dataset.name || '');
+                case 'date_desc': return parseInt(b.dataset.createdAt || 0, 10) - parseInt(a.dataset.createdAt || 0, 10);
+                case 'date_asc': return parseInt(a.dataset.createdAt || 0, 10) - parseInt(b.dataset.createdAt || 0, 10);
+                case 'stock_asc': return parseStockNumber(a.dataset.stock) - parseStockNumber(b.dataset.stock);
+                case 'stock_desc': return parseStockNumber(b.dataset.stock) - parseStockNumber(a.dataset.stock);
+                case 'price_asc': return parseStockNumber(a.dataset.price) - parseStockNumber(b.dataset.price);
+                case 'price_desc': return parseStockNumber(b.dataset.price) - parseStockNumber(a.dataset.price);
+                case 'alert_first':
+                    var aAlert = a.dataset.lowStock === 'true' ? 0 : 1;
+                    var bAlert = b.dataset.lowStock === 'true' ? 0 : 1;
+                    if (aAlert !== bAlert) return aAlert - bAlert;
+                    return parseStockNumber(a.dataset.stock) - parseStockNumber(b.dataset.stock);
+                default: return parseInt(a.dataset.originalOrder || 0, 10) - parseInt(b.dataset.originalOrder || 0, 10);
+            }
+        });
+        cards.forEach(function(card) { graphGrid.appendChild(card); });
+    }
+
+    try { localStorage.setItem('stock_sort_preference', criteria); } catch (e) {}
+}
+
+function restoreSortPreference() {
+    var sortSelect = document.getElementById('sortSelect');
+    if (!sortSelect) return;
+    try {
+        var savedSort = localStorage.getItem('stock_sort_preference');
+        if (savedSort && savedSort !== 'default') { sortSelect.value = savedSort; sortMaterials(); }
+    } catch (e) {}
+}
+
+// ============================================================
+// BOUTONS DA / SEUIL (délégation)
+// ============================================================
+document.addEventListener('click', function(e) {
+    var daBtn = e.target.closest ? e.target.closest('.btn-da-trigger') : null;
+    if (daBtn) {
+        ouvrirDA(daBtn.getAttribute('data-da-id'), daBtn.getAttribute('data-da-name'), parseFloat(daBtn.getAttribute('data-da-seuil') || 0), daBtn.getAttribute('data-da-unit'));
+        return;
+    }
+    var seuilBtn = e.target.closest ? e.target.closest('.btn-seuil-trigger') : null;
+    if (seuilBtn) {
+        openSeuilModal(seuilBtn.getAttribute('data-seuil-id'), seuilBtn.getAttribute('data-seuil-name'));
+        return;
+    }
+});
+
+// ============================================================
+// GRAPHIQUES
+// ============================================================
+function getJsonData(id) {
+    var el = document.getElementById(id);
+    if (!el) return [];
+    try {
+        var parsed = JSON.parse(el.textContent);
+        if (typeof parsed === 'string') return JSON.parse(parsed);
+        return parsed;
+    } catch (err) { return []; }
+}
+
+const topNoms = getJsonData('top-alertes-noms-data');
+const topStock = getJsonData('top-alertes-stock-data');
+const topSeuil = getJsonData('top-alertes-seuil-data');
+const topCouleurs = getJsonData('top-alertes-couleurs-data');
+const catLabels = getJsonData('cat-labels-data');
+const catRupture = getJsonData('cat-rupture-data');
+const catCritique = getJsonData('cat-critique-data');
+const catAlerte = getJsonData('cat-alerte-data');
+
+const ctx1 = document.getElementById('chartTopAlertes');
+if (ctx1 && typeof Chart !== 'undefined') {
+    new Chart(ctx1.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: topNoms,
+            datasets: [
+                { label: 'Stock actuel', data: topStock, backgroundColor: topCouleurs, borderRadius: 5, barThickness: 13 },
+                { label: "Seuil d'alerte", data: topSeuil, backgroundColor: 'rgba(148,163,184,0.15)', borderColor: 'rgba(148,163,184,0.4)', borderWidth: 1, borderRadius: 5, barThickness: 13 }
+            ]
+        },
+        options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { color: '#94a3b8', font: { size: 11 }, usePointStyle: true, padding: 15 } } },
+            scales: {
+                x: { grid: { color: 'rgba(148,163,184,0.08)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+                y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+const ctx2 = document.getElementById('chartCategories');
+if (ctx2 && typeof Chart !== 'undefined') {
+    new Chart(ctx2.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: catLabels,
+            datasets: [
+                { label: '🔴 Rupture', data: catRupture, backgroundColor: '#dc2626', borderRadius: 4 },
+                { label: '🟠 Critique', data: catCritique, backgroundColor: '#ea580c', borderRadius: 4 },
+                { label: '🟡 Alerte', data: catAlerte, backgroundColor: '#ca8a04', borderRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 12 } } },
+            scales: {
+                x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+                y: { stacked: true, grid: { color: 'rgba(148,163,184,0.08)' }, ticks: { stepSize: 1, color: '#64748b', font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+// ============================================================
+// LOTS / BC / SEUIL / MODALS
+// ============================================================
+function filterLots(statut) {
+    document.querySelectorAll('.lot-row').forEach(function(row) {
+        if (statut === 'ALL' || row.dataset.statut === statut) row.style.display = '';
+        else row.style.display = 'none';
+    });
+}
+
+var ligneIdx = 1;
+function addLigneBC() {
+    ligneIdx++;
+    var div = document.createElement('div');
+    div.className = 'grid grid-cols-3 gap-2 ligne-bc';
+    var selectMat = document.createElement('select');
+    selectMat.name = 'material_' + ligneIdx;
+    selectMat.className = 'bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none';
+    var firstSelect = document.querySelector('select[name="material_1"]');
+    if (firstSelect) selectMat.innerHTML = firstSelect.innerHTML;
+    var inputQte = document.createElement('input');
+    inputQte.type = 'number'; inputQte.name = 'quantite_' + ligneIdx; inputQte.placeholder = 'Qté (kg)';
+    inputQte.className = 'bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none';
+    var inputPrix = document.createElement('input');
+    inputPrix.type = 'number'; inputPrix.name = 'prix_' + ligneIdx; inputPrix.placeholder = 'Prix DA/kg';
+    inputPrix.className = 'bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none';
+    div.appendChild(selectMat); div.appendChild(inputQte); div.appendChild(inputPrix);
+    document.getElementById('lignesBC').appendChild(div);
+}
+
+function openSeuilModal(materialId, materialName) {
+    document.getElementById('seuilMatName').textContent = materialName;
+    document.getElementById('formSeuil').action = '/stock/seuil/' + materialId + '/update/';
+    document.getElementById('modalSeuil').classList.remove('hidden');
+}
+
+document.querySelectorAll('[id^="modal"]').forEach(function(modal) {
+    modal.addEventListener('click', function(e) { if (e.target === this) this.classList.add('hidden'); });
+});
+
+function filtrerAlertes(niveau, btn) {
+    document.querySelectorAll('.alerte-filtre-btn').forEach(function(b) { b.style.boxShadow = 'none'; });
+    if (btn) btn.style.boxShadow = '0 0 0 2px #facc15';
+    document.querySelectorAll('.alerte-row').forEach(function(row) {
+        if (niveau === 'ALL' || row.dataset.niveau === niveau) row.style.display = '';
+        else row.style.display = 'none';
+    });
+}
+
+function rechercherAlerte(terme) {
+    var t = terme.toLowerCase().trim();
+    document.querySelectorAll('.alerte-row').forEach(function(row) {
+        var nom = (row.dataset.nom || '');
+        row.style.display = nom.includes(t) ? '' : 'none';
+    });
+}
+
+function ouvrirDA(materialId, materialName, seuil, unite) {
+    var selMat = document.querySelector('#modalDA select[name="material"]');
+    if (selMat) selMat.value = materialId;
+    var inpQte = document.querySelector('#modalDA input[name="quantite_demandee"]');
+    if (inpQte) inpQte.value = (seuil * 2).toFixed(1);
+    var txMotif = document.querySelector('#modalDA textarea[name="motif"]');
+    if (txMotif) txMotif.value = 'Alerte stock automatique : ' + materialName + ' est sous le seuil minimum.';
+    var selUrg = document.querySelector('#modalDA select[name="urgence"]');
+    if (selUrg) selUrg.value = 'URGENTE';
+    var modalDA = document.getElementById('modalDA');
+    if (modalDA) modalDA.classList.remove('hidden');
+    showTab('achats');
+}
+
+// ============================================================
+// SCANNER D'ÉTIQUETTE IA
+// ============================================================
+let currentScanTarget = 'lot';
+function openLabelScanner(target = 'lot') {
+    currentScanTarget = target;
+    document.getElementById('scannerPreviewArea').classList.remove('hidden');
+    document.getElementById('scannerLoadingOverlay').classList.add('hidden');
+    document.getElementById('scannerResultBox').classList.add('hidden');
+    document.getElementById('modalScanCamera').classList.remove('hidden');
+}
+function closeLabelScanner() { document.getElementById('modalScanCamera').classList.add('hidden'); }
+
+function compressImageBeforeUpload(file, maxWidth, maxHeight, quality, callback) {
+    if (typeof createImageBitmap === 'function') {
+        createImageBitmap(file).then(function(bitmap) {
+            let width = bitmap.width, height = bitmap.height;
+            if (width > height) { if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; } }
+            else { if (height > maxHeight) { width = Math.round((width * maxHeight) / height); height = maxHeight; } }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+            bitmap.close();
+            canvas.toBlob(function(blob) { callback(blob); }, 'image/jpeg', quality);
+        }).catch(function() { compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback); });
+    } else {
+        compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback);
+    }
+}
+
+function compressImageBeforeUploadFallback(file, maxWidth, maxHeight, quality, callback) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            let width = img.width, height = img.height;
+            if (width > height) { if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; } }
+            else { if (height > maxHeight) { width = Math.round((width * maxHeight) / height); height = maxHeight; } }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            canvas.toBlob(function(blob) { callback(blob); }, 'image/jpeg', quality);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleLabelImageUpload(event) {
+    const rawFile = event.target.files[0];
+    if (!rawFile) return;
+    document.getElementById('scannerPreviewArea').classList.add('hidden');
+    document.getElementById('scannerLoadingOverlay').classList.remove('hidden');
+    compressImageBeforeUpload(rawFile, 800, 800, 0.6, function(compressedBlob) {
+        const formData = new FormData();
+        formData.append('image', compressedBlob, 'scan.jpg');
+        fetch('/stock/api/scan-label/', {
+            method: 'POST', body: formData,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('scannerLoadingOverlay').classList.add('hidden');
+            if (data.status === 'success') {
+                const extracted = data.data;
+                document.getElementById('resSupplier').textContent = extracted.fournisseur || 'Non détecté';
+                document.getElementById('resMaterial').textContent = extracted.material_name || 'Non détecté';
+                document.getElementById('resLot').textContent = extracted.numero_lot || 'Inconnu';
+                document.getElementById('resWeight').textContent = extracted.poids_net || '0';
+                document.getElementById('scannerResultBox').classList.remove('hidden');
+                if (currentScanTarget === 'lot') fillLotForm(extracted);
+                else if (currentScanTarget === 'mouvement') fillMouvementForm(extracted);
+                setTimeout(() => { closeLabelScanner(); }, 2000);
+            } else {
+                alert("⚠️ " + (data.message || "Impossible de lire l'étiquette."));
+                document.getElementById('scannerPreviewArea').classList.remove('hidden');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById('scannerLoadingOverlay').classList.add('hidden');
+            document.getElementById('scannerPreviewArea').classList.remove('hidden');
+            alert("❌ Erreur de connexion lors de l'analyse.");
+        });
+    });
+}
+
+function fillLotForm(data) {
+    document.getElementById('modalLot').classList.remove('hidden');
+    showTab('lots');
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('lotDateReceptionInput');
+    if (dateInput) dateInput.value = today;
+    const nameFreeInput = document.getElementById('lotMaterialNameFree');
+    if (nameFreeInput && data.material_name) nameFreeInput.value = data.material_name;
+    const catSelect = document.getElementById('lotCategorySelect');
+    if (catSelect && data.category) catSelect.value = data.category;
+    if (data.numero_lot) document.getElementById('lotNumeroInput').value = data.numero_lot;
+    if (data.poids_net) document.getElementById('lotQuantiteInput').value = data.poids_net;
+    const laizeInput = document.getElementById('lotLaizeInput');
+    if (laizeInput && data.laize_width) laizeInput.value = data.laize_width;
+    const lengthInput = document.getElementById('lotLongueurInput');
+    if (lengthInput && data.longueur_length) lengthInput.value = data.longueur_length;
+    const matSelect = document.getElementById('lotMaterialSelect');
+    if (matSelect && data.material_name) {
+        const searchName = data.material_name.toLowerCase().replace(/\./g, ' ').trim();
+        let bestMatch = -1, bestScore = 0;
+        for (let i = 0; i < matSelect.options.length; i++) {
+            const optText = matSelect.options[i].text.toLowerCase();
+            if (optText.includes(searchName) || searchName.includes(optText.split('(')[0].trim())) {
+                const score = Math.min(optText.length, searchName.length);
+                if (score > bestScore) { bestScore = score; bestMatch = i; }
+            }
+        }
+        if (bestMatch >= 0) matSelect.selectedIndex = bestMatch;
+    }
+    if (data.fournisseur) {
+        const suppSelect = document.getElementById('lotSupplierSelect');
+        const searchSupp = data.fournisseur.toLowerCase();
+        for (let i = 0; i < suppSelect.options.length; i++) {
+            if (suppSelect.options[i].text.toLowerCase().includes(searchSupp) || searchSupp.includes(suppSelect.options[i].text.toLowerCase())) {
+                suppSelect.selectedIndex = i; break;
+            }
+        }
+    }
+    let notes = [];
+    if (data.category) notes.push("Catégorie: " + data.category);
+    if (data.laize_width) notes.push("Laize: " + data.laize_width + " mm");
+    if (data.longueur_length) notes.push("Longueur: " + data.longueur_length + " m");
+    if (data.date_expiration) notes.push("Exp: " + data.date_expiration);
+    if (notes.length > 0) document.getElementById('lotNotesInput').value = "Scan IA — " + notes.join(" | ");
+}
+
+function fillMouvementForm(data) {
+    document.getElementById('modalMouvement').classList.remove('hidden');
+    showTab('mouvements');
+    if (data.poids_net) document.getElementById('mouvementQuantityInput').value = data.poids_net;
+    if (data.material_name) {
+        const matSelect = document.getElementById('mouvementMaterialSelect');
+        const searchName = data.material_name.toLowerCase();
+        for (let i = 0; i < matSelect.options.length; i++) {
+            if (matSelect.options[i].text.toLowerCase().includes(searchName)) {
+                matSelect.selectedIndex = i; break;
+            }
+        }
+    }
+    if (data.numero_lot) document.getElementById('mouvementMotifInput').value = "Lot scanné : " + data.numero_lot;
+}
+
+// ============================================================
+// ACTIONS EN LOT : MATIÈRES
+// ============================================================
+function updateBulkBarAdv() {
+    const visibleChecked = document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv:checked');
+    const checkedCount = visibleChecked.length;
+    const bulkBar = document.getElementById('bulkActionsBarAdv');
+    const selectedCountSpan = document.getElementById('selectedCountAdv');
+    const selectAll = document.getElementById('selectAllMaterialsAdv');
+
+    if (selectedCountSpan) selectedCountSpan.textContent = checkedCount;
+
+    if (bulkBar) {
+        if (checkedCount > 0) {
+            bulkBar.classList.remove('hidden');
+            bulkBar.classList.add('flex');
+        } else {
+            bulkBar.classList.add('hidden');
+            bulkBar.classList.remove('flex');
+        }
+    }
+
+    const visibleTotal = document.querySelectorAll('.material-row:not([style*="display: none"]) .material-checkbox-adv').length;
+    if (selectAll) {
+        selectAll.checked = (visibleTotal > 0 && checkedCount === visibleTotal);
+    }
+}
+
+function unselectAllMaterialsAdv() {
+    document.querySelectorAll('.material-checkbox-adv').forEach(cb => { cb.checked = false; });
+    const selectAll = document.getElementById('selectAllMaterialsAdv');
+    if (selectAll) selectAll.checked = false;
+    updateBulkBarAdv();
+}
+
+function bulkDeleteMaterialsAdv() {
+    const checkedBoxes = document.querySelectorAll('.material-checkbox-adv:checked');
+    const ids = Array.from(checkedBoxes).map(cb => cb.value);
+    if (ids.length === 0) return;
+
+    if (!confirm(`⚠️ Attention : Vous êtes sur le point de supprimer DÉFINITIVEMENT ${ids.length} matière(s) première(s).\n\nTous leurs lots et historiques associés seront également effacés.\n\nConfirmer la suppression ?`)) {
+        return;
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+
+    fetch("{% url 'bulk_delete_materials' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ ids: ids })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            checkedBoxes.forEach(cb => {
+                const row = cb.closest('tr');
+                if (row) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                }
+            });
+            setTimeout(() => {
+                const totalStat = document.getElementById('statTotalMatieres');
+                if (totalStat) {
+                    const currentTotal = parseInt(totalStat.textContent, 10) || 0;
+                    totalStat.textContent = Math.max(0, currentTotal - ids.length);
+                }
+                unselectAllMaterialsAdv();
+                // Recharge la page courante pour que la pagination reste exacte
+                ajaxLoad(window.location.href, MAT_ZONES, { push: false });
+            }, 320);
+        } else {
+            alert('❌ ' + (data.message || 'Erreur lors de la suppression groupée.'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur bulk delete:', error);
+        alert('❌ Erreur technique lors de la suppression groupée.');
+    });
+}
+
+// ============================================================
+// ACTIONS EN LOT : MOUVEMENTS
+// ============================================================
+function updateBulkBarMvt() {
+    const checkedBoxes = document.querySelectorAll('.movement-checkbox-adv:checked');
+    const checkedCount = checkedBoxes.length;
+    const bulkBar = document.getElementById('bulkActionsBarMvt');
+    const selectedCountSpan = document.getElementById('selectedCountMvt');
+    const selectAll = document.getElementById('selectAllMovementsAdv');
+
+    if (selectedCountSpan) selectedCountSpan.textContent = checkedCount;
+
+    if (bulkBar) {
+        if (checkedCount > 0) {
+            bulkBar.classList.remove('hidden');
+            bulkBar.classList.add('flex');
+        } else {
+            bulkBar.classList.add('hidden');
+            bulkBar.classList.remove('flex');
+        }
+    }
+
+    const totalCheckboxes = document.querySelectorAll('.movement-checkbox-adv').length;
+    if (selectAll) {
+        selectAll.checked = (totalCheckboxes > 0 && checkedCount === totalCheckboxes);
+    }
+}
+
+function unselectAllMovementsAdv() {
+    document.querySelectorAll('.movement-checkbox-adv').forEach(cb => { cb.checked = false; });
+    const selectAll = document.getElementById('selectAllMovementsAdv');
+    if (selectAll) selectAll.checked = false;
+    updateBulkBarMvt();
+}
+
+function bulkDeleteMovementsAdv() {
+    const checkedBoxes = document.querySelectorAll('.movement-checkbox-adv:checked');
+    const ids = Array.from(checkedBoxes).map(cb => cb.value);
+    if (ids.length === 0) return;
+
+    if (!confirm(`⚠️ Attention : Vous êtes sur le point de supprimer DÉFINITIVEMENT ${ids.length} mouvement(s) de stock du journal.\n\nConfirmer la suppression ?`)) {
+        return;
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+
+    fetch("{% url 'bulk_delete_movements' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ ids: ids })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            checkedBoxes.forEach(cb => {
+                const row = cb.closest('tr');
+                if (row) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                }
+            });
+            setTimeout(() => {
+                unselectAllMovementsAdv();
+                // L'annulation modifie aussi les stocks : on recharge matières + mouvements
+                ajaxLoad(window.location.href, ALL_ZONES, { push: false });
+            }, 320);
+        } else {
+            alert('❌ ' + (data.message || 'Erreur lors de la suppression groupée.'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur bulk delete mouvements:', error);
+        alert('❌ Erreur technique lors de la suppression groupée.');
+    });
+}
+</script>

@@ -106,6 +106,9 @@ class ToolForm(forms.ModelForm):
             'current_impressions',
             'metrage_realise',
             'observations',
+            'supplier_name', 'color_count',
+            'color_1', 'color_2', 'color_3', 'color_4',
+            'color_5', 'color_6', 'color_7', 'color_8',
         ]
         widgets = {
             'product': forms.Select(attrs={'class': 'form-select'}),
@@ -116,4 +119,32 @@ class ToolForm(forms.ModelForm):
             'current_impressions': forms.NumberInput(attrs={'class': 'form-control'}),
             'metrage_realise': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'observations': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'supplier_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : FL Studio, Yahiaoui...'}),
+            'color_count': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'max': 8, 'step': 1, 'oninput': 'updateToolColorFields()'}),
+            'color_1': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : Cyan'}),
+            'color_2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : Magenta'}),
+            'color_3': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : Jaune'}),
+            'color_4': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : Noir'}),
+            'color_5': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : Bleu Reflex'}),
+            'color_6': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : Orange'}),
+            'color_7': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : Violet'}),
+            'color_8': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex : Blanc'}),
         }
+
+    def clean_color_count(self):
+        value = self.cleaned_data.get('color_count') or 0
+        if value < 0 or value > 8:
+            raise forms.ValidationError('Le nombre de couleurs doit être compris entre 0 et 8.')
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        count = cleaned_data.get('color_count') or 0
+        for index in range(1, 9):
+            field_name = f'color_{index}'
+            value = (cleaned_data.get(field_name) or '').strip()
+            if index <= count and not value:
+                self.add_error(field_name, f'Veuillez renseigner la couleur n°{index}.')
+            if index > count:
+                cleaned_data[field_name] = ''
+        return cleaned_data

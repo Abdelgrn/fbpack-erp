@@ -11,6 +11,7 @@ from .kpi import views as kpi_analytics
 
 # IMPORT DIRECT SÉCURISÉ DU SCANNER IA, DE L'IMPORT STOCK ET DES SUPPRESSIONS MULTIPLES
 from .views.stock import scan_label_ai, import_stock_view, bulk_delete_materials, bulk_delete_movements
+from .views.erp_assistant import assistant_home, assistant_ask, assistant_clear
 
 
 urlpatterns = [
@@ -18,6 +19,11 @@ urlpatterns = [
     # MANIFEST PWA DYNAMIQUE (LOGO AUTOMATIQUE)
     # ==========================================
     path('manifest.json', views.manifest_view, name='manifest_view'),
+
+    # ASSISTANT INTERNE FB PACK — lecture seule
+    path('assistant/', assistant_home, name='assistant_home'),
+    path('assistant/api/ask/', assistant_ask, name='assistant_ask'),
+    path('assistant/api/clear/', assistant_clear, name='assistant_clear'),
 
     # ==========================================
     # DASHBOARD & REPORTING
@@ -33,7 +39,12 @@ urlpatterns = [
     path('kpi/client/<int:client_id>/', kpi_analytics.kpi_client, name='kpi_client'),
     path('kpi/export/excel/', kpi_analytics.kpi_export_excel, name='kpi_export_excel'),
     path('kpi/fiche-technique/<int:product_id>/', kpi_analytics.kpi_fiche_technique, name='kpi_fiche_technique'),
-
+    path('kpi/', kpi_analytics.kpi_dashboard, name='kpi_dashboard'),
+    path('kpi/client/<int:client_id>/', kpi_analytics.kpi_client, name='kpi_client'),
+    path('kpi/oee/', kpi_analytics.kpi_oee, name='kpi_oee'),
+    path('kpi/export/excel/', kpi_analytics.kpi_export_excel, name='kpi_export_excel'),
+    path('kpi/rapport/', kpi_analytics.kpi_rapport_print, name='kpi_rapport_print'),
+    path('kpi/fiche-technique/<int:product_id>/', kpi_analytics.kpi_fiche_technique, name='kpi_fiche_technique'),
     # ==========================================
     # CRM — CLIENTS
     # ==========================================
