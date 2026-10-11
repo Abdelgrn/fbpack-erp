@@ -129,7 +129,42 @@ def alertes_usine_chat(request):
     except Exception:
         messages_filtres = []
 
+    # ==========================================================
+    # 3. COMPTEUR DU CENTRE DE NOTIFICATIONS
+    # ==========================================================
+    notification_unread_count = 0
+    notification_critical_count = 0
+    try:
+        if request.user.is_authenticated:
+            from .models import ERPNotification
+            from .models.permissions import user_has_module_access
+
+            module_map = {
+                'stock': 'stock', 'planning': 'planning',
+                'planification': 'planification', 'production': 'production',
+                'prepress': 'prepress', 'maintenance': 'maintenance',
+                'crm': 'crm', 'dashboard': 'dashboard',
+            }
+            allowed = list(module_map) if request.user.is_superuser else [
+                module for module, permission in module_map.items()
+                if user_has_module_access(request.user, permission)
+            ]
+            visible = ERPNotification.objects.filter(is_active=True, module__in=allowed)
+            visible = visible.exclude(
+                user_states__user=request.user, user_states__is_processed=True,
+            ).distinct()
+            notification_unread_count = visible.exclude(
+                user_states__user=request.user, user_states__is_read=True,
+            ).count()
+            notification_critical_count = visible.filter(level='CRITICAL').count()
+    except Exception:
+        # Protège les pages pendant le déploiement précédant la migration.
+        notification_unread_count = 0
+        notification_critical_count = 0
+
     return {
         'alertes_usine_count': count,
         'messages_flash': messages_filtres,
+        'notification_unread_count': notification_unread_count,
+        'notification_critical_count': notification_critical_count,
     }

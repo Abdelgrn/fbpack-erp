@@ -16,6 +16,7 @@ from ..models import (
     Client, ProductionOrder, OrdreFabrication, EtapeProduction, SemiProduit,
     SuiviProduction, ProcessType, Machine, Atelier, ProductionEntry,
 )
+from ..services.stock_reservation import release_of_reservations
 from ..forms import (
     ProductionOrderForm, OrdreFabricationForm, EtapeProductionFormSet,
     SuiviProductionForm, ProcessTypeForm, OFLancementRapideForm,
@@ -499,6 +500,9 @@ def of_changer_statut(request, of_id, nouveau_statut):
         elif nouveau_statut == 'TERMINE':
             of.date_fin_reelle = timezone.now().date()
         of.save()
+
+        if nouveau_statut == 'ANNULE':
+            release_of_reservations(of, request.user, reason='OF annulé depuis la planification')
 
         if nouveau_statut == 'LANCE':
             auto_planifier_etapes(of)

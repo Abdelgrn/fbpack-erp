@@ -280,6 +280,12 @@
 
 </div>
 
+<!-- RÉSERVATIONS OF ACTIVES -->
+<div class="mt-6 bg-slate-800 rounded-xl border border-emerald-500/30 overflow-hidden">
+    <div class="bg-emerald-950/30 px-4 py-3 border-b border-emerald-500/30"><h3 class="text-emerald-300 font-bold">📦 Réservations OF sur ce lot</h3></div>
+    <div class="p-4 overflow-x-auto"><table class="w-full text-sm"><thead class="text-xs text-gray-500"><tr><th class="text-left p-2">OF</th><th class="text-left p-2">Matière</th><th class="text-right p-2">Quantité active</th><th class="text-left p-2">État</th></tr></thead><tbody>{% for reservation in lot.of_reservations.all %}<tr class="border-t border-slate-700"><td class="p-2"><a class="text-cyan-300 font-bold" href="{% url 'crm_of_detail' reservation.requirement.of.id %}">{{ reservation.requirement.of.numero_of }}</a></td><td class="p-2">{{ reservation.requirement.material.name }}</td><td class="p-2 text-right">{{ reservation.active_quantity|floatformat:3 }} kg</td><td class="p-2">{{ reservation.get_status_display }}</td></tr>{% empty %}<tr><td colspan="4" class="p-5 text-center text-gray-500">Aucune réservation sur ce lot.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+
 <!-- APPLICATION DYNAMIQUE DU TAUX DE CONSOMMATION -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
