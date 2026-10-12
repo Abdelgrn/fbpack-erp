@@ -10,6 +10,7 @@ class UserModulePermission(models.Model):
     can_access_dashboard = models.BooleanField("Dashboard", default=True)
     can_access_planning = models.BooleanField("Planning Gantt", default=False)
     can_access_reporting = models.BooleanField("Reporting", default=False)
+    can_access_kpi = models.BooleanField("KPI & Data Analyse", default=False)
     can_access_crm = models.BooleanField("CRM & Devis", default=False)
     can_access_prepress = models.BooleanField("Prépresse & Outils", default=False)
     can_access_planification = models.BooleanField("Planification Atelier", default=False)
@@ -38,6 +39,7 @@ class UserModulePermission(models.Model):
         if self.can_access_dashboard: modules.append('dashboard')
         if self.can_access_planning: modules.append('planning')
         if self.can_access_reporting: modules.append('reporting')
+        if self.can_access_kpi: modules.append('kpi')
         if self.can_access_crm: modules.append('crm')
         if self.can_access_prepress: modules.append('prepress')
         if self.can_access_planification: modules.append('planification')
@@ -66,3 +68,35 @@ def user_has_module_access(user, module_name):
         return perms.has_module_access(module_name)
     except UserModulePermission.DoesNotExist:
         return False
+class ModuleAdministrator(models.Model):
+    """Délégation d'administration strictement limitée à un module ERP."""
+    MODULE_CHOICES = [
+        ('dashboard','Dashboard'), ('planning','Planning Gantt'), ('reporting','Reporting'),
+        ('kpi','KPI & Data Analyse'), ('crm','CRM & Devis'), ('prepress','Prépresse & Outils'),
+        ('planification','Planification Atelier'), ('production','Production'), ('stock','Stocks & Achats'),
+        ('maintenance','Maintenance'), ('drh','Ressources Humaines'), ('chat','Chat'), ('import','Import Excel'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='administered_modules')
+    module = models.CharField(max_length=30, choices=MODULE_CHOICES)
+    granted_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='module_admin_grants')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    class Meta:
+        app_label = 'core'
+        constraints = [models.UniqueConstraint(fields=['user','module'], name='unique_module_administrator')]
+        ordering = ['module','user__username']
+    def __str__(self):
+        return f'{self.user.username} — {self.get_module_display()}'
+
+
+class AdministrationAuditLog(models.Model):
+    actor = models.ForeignKey(User, on_delete=models.PROTECT, related_name='erp_admin_actions')
+    target_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='erp_admin_history')
+    action = models.CharField(max_length=40)
+    module = models.CharField(max_length=30, blank=True)
+    details = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        app_label = 'core'
+        ordering = ['-created_at']

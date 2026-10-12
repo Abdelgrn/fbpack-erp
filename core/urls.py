@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from . import views
 from .views import of_views
 from .views import production_speciale as prod_views
+from .views.admin_custom import (admin_assign_module_manager, admin_revoke_module_manager, admin_promote_superuser, admin_demote_superuser)
 
 # MODULE KPI
 from .kpi import views as kpi_analytics
@@ -300,6 +301,10 @@ urlpatterns = [
     path('administration/user/add/', views.admin_add_user, name='admin_add_user'),
     path('administration/user/<int:user_id>/edit/', views.admin_edit_user, name='admin_edit_user'),
     path('administration/user/<int:user_id>/toggle/', views.admin_toggle_user, name='admin_toggle_user'),
+    path('administration/user/<int:user_id>/promote-superuser/', admin_promote_superuser, name='admin_promote_superuser'),
+    path('administration/user/<int:user_id>/demote-superuser/', admin_demote_superuser, name='admin_demote_superuser'),
+    path('administration/module-admin/assign/', admin_assign_module_manager, name='admin_assign_module_manager'),
+    path('administration/module-admin/<int:delegation_id>/revoke/', admin_revoke_module_manager, name='admin_revoke_module_manager'),
     path('administration/import-data/', views.admin_import_data_view, name='admin_import_data'),
     path('administration/backup/restore/', views.admin_restore_backup_view, name='admin_restore_backup'),
     path('administration/backup/download/', views.export_database_backup, name='admin_export_backup'),

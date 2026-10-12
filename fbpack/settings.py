@@ -196,3 +196,11 @@ LOGGING = {
         'django.security': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
     },
 }
+
+
+# Sauvegarde automatique FB PACK. Définir une valeur longue et aléatoire dans Render.
+BACKUP_AGENT_TOKEN = os.environ.get('BACKUP_AGENT_TOKEN', '')
+# Taille maximale restauration complète (1 Go). Réservée à la vue superadmin protégée.
+BACKUP_MAX_UPLOAD_BYTES = int(os.environ.get('BACKUP_MAX_UPLOAD_BYTES', 1024 * 1024 * 1024))
+DATA_UPLOAD_MAX_MEMORY_SIZE = BACKUP_MAX_UPLOAD_BYTES
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024

@@ -2,349 +2,291 @@
 {% load static %}
 
 {% block content %}
+<div class="max-w-7xl mx-auto">
+    
+    <!-- HEADER -->
+    <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+                ⚙️ Administration ERP
+            </h1>
+            <p class="text-gray-400 mt-2">Gestion des utilisateurs, sauvegardes et permissions par module</p>
+        </div>
 
-<!-- EN-TÊTE -->
-<div class="flex items-center justify-between mb-8">
-    <div>
-        <h1 class="text-3xl font-bold text-white flex items-center gap-3">
-            ⚙️ Administration
-        </h1>
-        <p class="text-gray-400 mt-1">Gestion des utilisateurs, permissions et supervision du système.</p>
-    </div>
-    <div class="flex gap-3">
-        <a href="/admin/" target="_blank" 
-           class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-gray-300 px-4 py-2 rounded-lg border border-slate-600 text-sm transition">
-            🔗 Admin Django
-        </a>
-    </div>
-</div>
+        {% if is_global_admin %}<div class="flex flex-wrap gap-2">
+            <!-- BOUTON DE TÉLÉCHARGEMENT BACKUP MANUEL -->
+            <a href="{% url 'admin_export_backup' %}" 
+               class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                💾 Télécharger Sauvegarde (JSON)
+            </a>
 
-<!-- STATS RAPIDES -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-    <div class="glass rounded-2xl p-5 border border-slate-700">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Total Utilisateurs</p>
-                <p class="text-4xl font-black text-white">{{ total_users }}</p>
-            </div>
-            <div class="h-14 w-14 rounded-2xl bg-blue-500/20 flex items-center justify-center text-3xl">👥</div>
-        </div>
-        <div class="mt-3 flex gap-4 text-xs">
-            <span class="text-emerald-400">✅ {{ active_users }} actifs</span>
-            <span class="text-neon">⭐ {{ staff_users }} staff</span>
-        </div>
-    </div>
+            <!-- BOUTON RESTAURER FICHIER BACKUP -->
+            <button onclick="openRestoreModal()" 
+                    class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                📤 Restaurer un Fichier Backup
+            </button>
 
-    <div class="glass rounded-2xl p-5 border border-slate-700">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Groupes & Rôles</p>
-                <p class="text-4xl font-black text-white">{{ groups.count }}</p>
-            </div>
-            <div class="h-14 w-14 rounded-2xl bg-purple-500/20 flex items-center justify-center text-3xl">🛡️</div>
-        </div>
-        <div class="mt-3 text-xs text-gray-400">
-            {% for g in groups %}
-                <span class="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded mr-1">{{ g.name }}</span>
-            {% empty %}
-                <span class="text-gray-500">Aucun groupe défini</span>
-            {% endfor %}
-        </div>
+            <!-- BOUTON D'IMPORTATION DIRECTE PC -->
+            <a href="{% url 'admin_import_data' %}" 
+               onclick="return confirm('Voulez-vous importer vos clients, machines et stocks de votre PC vers Render ? (Aucun utilisateur existant ne sera effacé)')"
+               class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                📥 Importer Données PC
+            </a>
+        </div>{% endif %}
     </div>
 
-    <div class="glass rounded-2xl p-5 border border-slate-700">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Dernière Connexion</p>
-                <p class="text-sm font-bold text-white mt-2">
-                    {% if users %}
-                        {{ users.0.last_login|date:"d/m/Y H:i"|default:"—" }}
-                    {% endif %}
-                </p>
-                <p class="text-xs text-gray-400">{{ users.0.username|default:"—" }}</p>
-            </div>
-            <div class="h-14 w-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-3xl">🟢</div>
+    <!-- ADMINISTRATION DÉLÉGUÉE PAR MODULE -->
+    <div class="mb-8 glass rounded-xl border border-cyan-500/30 p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4"><div><h2 class="text-lg font-bold text-white">🛡️ Administrateurs de module</h2><p class="text-xs text-gray-400">{% if is_global_admin %}Vous gérez toutes les délégations.{% else %}Votre périmètre : {{ managed_modules|join:", " }}.{% endif %}</p></div></div>
+        {% if is_global_admin %}
+        <form method="post" action="{% url 'admin_assign_module_manager' %}" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">{% csrf_token %}
+            <select name="user_id" required class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"><option value="">Choisir un responsable</option>{% for u in users %}{% if not u.is_superuser %}<option value="{{ u.id }}">{{ u.username }}</option>{% endif %}{% endfor %}</select>
+            <select name="module" required class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"><option value="">Choisir un module</option>{% for code,label in modules_list %}{% if code != 'admin' %}<option value="{{ code }}">{{ label }}</option>{% endif %}{% endfor %}</select>
+            <button class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg px-4 py-2">Nommer administrateur</button>
+        </form>
+        {% endif %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{% for d in module_delegations %}<div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-3"><div><strong class="text-white">{{ d.user.username }}</strong><span class="block text-xs text-cyan-300">{{ d.get_module_display }}</span></div>{% if is_global_admin %}<form method="post" action="{% url 'admin_revoke_module_manager' d.id %}">{% csrf_token %}<button class="text-xs text-red-400 hover:text-red-300" onclick="return confirm('Retirer cette délégation ?')">Retirer</button></form>{% endif %}</div>{% empty %}<p class="text-sm text-gray-500">Aucun administrateur délégué.</p>{% endfor %}</div>
+    </div>
+
+    <!-- STATS RAPIDES -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="glass p-5 rounded-xl border border-slate-700">
+            <div class="text-xs text-gray-400 uppercase">Total Utilisateurs</div>
+            <div class="text-3xl font-bold text-white mt-2">{{ total_users }}</div>
+        </div>
+        <div class="glass p-5 rounded-xl border border-emerald-500/30">
+            <div class="text-xs text-emerald-400 uppercase">Actifs</div>
+            <div class="text-3xl font-bold text-emerald-400 mt-2">{{ active_users }}</div>
+        </div>
+        <div class="glass p-5 rounded-xl border border-yellow-500/30">
+            <div class="text-xs text-yellow-400 uppercase">Staff</div>
+            <div class="text-3xl font-bold text-yellow-400 mt-2">{{ staff_users }}</div>
+        </div>
+        <div class="glass p-5 rounded-xl border border-blue-500/30">
+            <div class="text-xs text-blue-400 uppercase">Groupes</div>
+            <div class="text-3xl font-bold text-blue-400 mt-2">{{ groups.count }}</div>
         </div>
     </div>
-</div>
 
-<!-- CONTENU PRINCIPAL : 2 colonnes -->
-<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <!-- BOUTON AJOUTER -->
+    <div class="mb-6">
+        <button onclick="openAddModal()" 
+                class="bg-neon hover:bg-yellow-500 text-black font-bold py-3 px-6 rounded-lg shadow-lg transition">
+            ➕ Créer un Nouvel Utilisateur
+        </button>
+    </div>
 
-    <!-- COLONNE GAUCHE : Utilisateurs -->
-    <div class="xl:col-span-2 space-y-6">
-
-        <!-- TABLE UTILISATEURS -->
-        <div class="glass rounded-2xl border border-slate-700 overflow-hidden">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-                <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                    👥 Gestion des Utilisateurs
-                </h2>
-                <!-- Bouton Ajouter Utilisateur -->
-                <button onclick="document.getElementById('modal-add-user').classList.remove('hidden')"
-                    class="flex items-center gap-2 bg-neon text-black font-bold px-4 py-2 rounded-lg text-sm hover:opacity-90 transition">
-                    + Nouvel Utilisateur
-                </button>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-slate-700 text-gray-400 text-xs uppercase tracking-wider">
-                            <th class="px-6 py-3 text-left">Utilisateur</th>
-                            <th class="px-6 py-3 text-left">Email</th>
-                            <th class="px-6 py-3 text-center">Rôle</th>
-                            <th class="px-6 py-3 text-center">Statut</th>
-                            <th class="px-6 py-3 text-center">Dernière connexion</th>
-                            <th class="px-6 py-3 text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for u in users %}
-                        <tr class="border-b border-slate-800 hover:bg-slate-800/40 transition">
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 
-                                                flex items-center justify-center text-black font-black text-sm">
-                                        {{ u.username|slice:":1"|upper }}
-                                    </div>
-                                    <div>
-                                        <p class="font-semibold text-white">{{ u.username }}</p>
-                                        <p class="text-xs text-gray-500">
-                                            Créé le {{ u.date_joined|date:"d/m/Y" }}
-                                        </p>
-                                    </div>
+    <!-- LISTE UTILISATEURS -->
+    <div class="glass rounded-xl border border-slate-700 overflow-hidden mb-8">
+        <div class="p-4 border-b border-slate-700 bg-slate-800/50">
+            <h2 class="text-lg font-bold text-white">👥 Utilisateurs & Permissions</h2>
+            <p class="text-xs text-gray-500 mt-1">Astuce : pour ajouter un module à un collègue, cliquez ✏️ — laissez le mot de passe vide, il ne changera pas.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-800/50 text-xs uppercase text-gray-400">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Utilisateur</th>
+                        <th class="px-4 py-3 text-left">Email</th>
+                        <th class="px-4 py-3 text-center">Statut</th>
+                        <th class="px-4 py-3 text-center">Modules Autorisés</th>
+                        <th class="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for item in users_with_perms %}
+                    <tr class="hover:bg-slate-800/30 transition user-row"
+                        data-user-id="{{ item.user.id }}"
+                        data-username="{{ item.user.username }}"
+                        data-email="{{ item.user.email|default:'' }}"
+                        data-is-staff="{{ item.user.is_staff|yesno:'1,0' }}"
+                        data-is-active="{{ item.user.is_active|yesno:'1,0' }}"
+                        data-modules="{{ item.modules_actifs|join:',' }}">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-3">
+                                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-neon to-orange-600 flex items-center justify-center text-black font-bold">
+                                    {{ item.user.username|slice:":1"|upper }}
                                 </div>
-                            </td>
-                            <td class="px-6 py-4 text-gray-300">
-                                {{ u.email|default:"—" }}
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                {% if u.is_superuser %}
-                                    <span class="bg-red-500/20 text-red-400 border border-red-500/30 
-                                                 text-xs px-3 py-1 rounded-full font-bold">
-                                        👑 Super Admin
-                                    </span>
-                                {% elif u.is_staff %}
-                                    <span class="bg-neon/20 text-neon border border-neon/30 
-                                                 text-xs px-3 py-1 rounded-full font-bold">
-                                        ⭐ Staff
-                                    </span>
-                                {% else %}
-                                    <span class="bg-slate-700 text-gray-400 
-                                                 text-xs px-3 py-1 rounded-full">
-                                        👤 Utilisateur
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                {% if u.is_active %}
-                                    <span class="flex items-center justify-center gap-1 text-emerald-400 text-xs">
-                                        <span class="h-2 w-2 rounded-full bg-emerald-400 inline-block"></span>
-                                        Actif
-                                    </span>
-                                {% else %}
-                                    <span class="flex items-center justify-center gap-1 text-red-400 text-xs">
-                                        <span class="h-2 w-2 rounded-full bg-red-400 inline-block"></span>
-                                        Inactif
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 text-center text-gray-400 text-xs">
-                                {{ u.last_login|date:"d/m/Y H:i"|default:"Jamais" }}
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                <div class="flex items-center justify-center gap-2">
-                                    <button onclick="openEditUser('{{ u.id }}', '{{ u.username }}', 
-                                                    '{{ u.email }}', {{ u.is_staff|yesno:'true,false' }}, 
-                                                    {{ u.is_active|yesno:'true,false' }})"
-                                        class="text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 
-                                               px-3 py-1.5 rounded-lg transition border border-blue-500/30">
-                                        ✏️ Éditer
-                                    </button>
-                                    {% if not u.is_superuser or request.user.is_superuser %}
-                                    <form method="post" action="{% url 'admin_toggle_user' u.id %}" 
-                                          class="inline"
-                                          onsubmit="return confirm('Confirmer ?')">
-                                        {% csrf_token %}
-                                        <button type="submit"
-                                            class="text-xs {% if u.is_active %}bg-red-500/20 text-red-400 border-red-500/30{% else %}bg-emerald-500/20 text-emerald-400 border-emerald-500/30{% endif %} 
-                                                   hover:opacity-80 px-3 py-1.5 rounded-lg transition border">
-                                            {% if u.is_active %}🔒 Désactiver{% else %}✅ Activer{% endif %}
-                                        </button>
-                                    </form>
+                                <div>
+                                    <div class="text-white font-medium">{{ item.user.username }}</div>
+                                    {% if item.user.is_superuser %}
+                                        <span class="text-[10px] text-purple-400">SUPER ADMIN</span>
+                                    {% elif item.user.is_staff %}
+                                        <span class="text-[10px] text-yellow-400">STAFF</span>
                                     {% endif %}
                                 </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center py-12 text-gray-500">
-                                Aucun utilisateur trouvé.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-300">{{ item.user.email|default:"-" }}</td>
+                        <td class="px-4 py-3 text-center">
+                            {% if item.user.is_active %}
+                                <span class="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded">✅ Actif</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded">❌ Inactif</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if item.user.is_superuser %}
+                                <span class="px-3 py-1 text-xs bg-purple-500/20 text-purple-400 rounded">🌟 TOUS</span>
+                            {% else %}
+                                <span class="px-3 py-1 text-xs bg-blue-500/20 text-blue-400 rounded">
+                                    {{ item.nb_modules }} module{{ item.nb_modules|pluralize }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center justify-center gap-2">
+                                <button class="btn-edit-user p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded transition" title="Modifier (sans changer le mot de passe)">
+                                    ✏️
+                                </button>
+                                {% if not item.user.is_superuser %}
+                                <form method="post" action="{% url 'admin_toggle_user' item.user.id %}" class="inline">{% csrf_token %}<button class="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded transition" title="Activer/Désactiver">🔄</button></form>
+                                {% endif %}
+                                {% if is_global_admin %}
+                                    {% if item.user.is_superuser %}
+                                        {% if item.user.id != request.user.id %}<button type="button" class="btn-super-action p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded" data-username="{{ item.user.username|escape }}" data-action="{% url 'admin_demote_superuser' item.user.id %}" data-mode="demote" title="Retirer les droits Superadmin">👑−</button>{% endif %}
+                                    {% else %}
+                                        <button type="button" class="btn-super-action p-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded" data-username="{{ item.user.username|escape }}" data-action="{% url 'admin_promote_superuser' item.user.id %}" data-mode="promote" title="Nommer Superadministrateur">👑+</button>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-
-        <!-- STATS MODULES -->
-        <div class="glass rounded-2xl border border-slate-700 p-6">
-            <h2 class="text-lg font-bold text-white mb-5 flex items-center gap-2">
-                📊 Données par Module
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {% for module in stats_modules %}
-                <div class="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="text-xl">{{ module.icone }}</span>
-                        <span class="font-bold text-white text-sm">{{ module.nom }}</span>
-                    </div>
-                    <div class="space-y-2">
-                        {% for item in module.items %}
-                        <a href="{% url item.url %}" 
-                           class="flex items-center justify-between hover:bg-slate-700/50 
-                                  rounded-lg px-2 py-1.5 transition group">
-                            <span class="text-xs text-gray-400 group-hover:text-gray-200 transition">
-                                {{ item.label }}
-                            </span>
-                            <span class="text-sm font-bold text-neon">{{ item.count }}</span>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
     </div>
 
-    <!-- COLONNE DROITE : Journal & Infos -->
-    <div class="space-y-6">
-
-        <!-- JOURNAL DES ACTIONS -->
-        <div class="glass rounded-2xl border border-slate-700 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-700">
-                <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                    📋 Journal des Actions
-                </h2>
-            </div>
-            <div class="p-4 space-y-2 max-h-80 overflow-y-auto">
-                {% for action in recent_actions %}
-                <div class="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-800/50 transition">
-                    <div class="mt-0.5">
-                        {% if action.is_addition %}
-                            <span class="text-emerald-400 text-sm">➕</span>
-                        {% elif action.is_change %}
-                            <span class="text-blue-400 text-sm">✏️</span>
-                        {% else %}
-                            <span class="text-red-400 text-sm">🗑️</span>
-                        {% endif %}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-xs font-semibold text-white truncate">
-                            {{ action.object_repr|truncatechars:30 }}
-                        </p>
-                        <p class="text-[10px] text-gray-500">
-                            {{ action.content_type.name }} · 
-                            <span class="text-neon">{{ action.user.username }}</span>
-                        </p>
-                        <p class="text-[10px] text-gray-600">
-                            {{ action.action_time|date:"d/m H:i" }}
-                        </p>
-                    </div>
+    <!-- STATS MODULES -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {% for module in stats_modules %}
+        <div class="glass p-5 rounded-xl border border-slate-700">
+            <h3 class="text-white font-bold mb-3 flex items-center gap-2">
+                <span class="text-2xl">{{ module.icone }}</span>
+                {{ module.nom }}
+            </h3>
+            <div class="space-y-2">
+                {% for item in module.items %}
+                <div class="flex justify-between items-center py-2 border-b border-slate-700/50">
+                    <span class="text-sm text-gray-300">{{ item.label }}</span>
+                    <span class="text-lg font-bold text-neon">{{ item.count }}</span>
                 </div>
-                {% empty %}
-                <p class="text-center text-gray-500 text-xs py-8">Aucune action récente.</p>
                 {% endfor %}
             </div>
         </div>
+        {% endfor %}
+    </div>
 
-        <!-- INFOS SYSTÈME -->
-        <div class="glass rounded-2xl border border-slate-700 p-6">
-            <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                🖥️ Infos Système
-            </h2>
-            <div class="space-y-3 text-sm">
-                <div class="flex justify-between items-center py-2 border-b border-slate-700">
-                    <span class="text-gray-400">Framework</span>
-                    <span class="text-white font-semibold">Django</span>
-                </div>
-                <div class="flex justify-between items-center py-2 border-b border-slate-700">
-                    <span class="text-gray-400">Version ERP</span>
-                    <span class="text-neon font-bold">FB Pack v1.0</span>
-                </div>
-                <div class="flex justify-between items-center py-2 border-b border-slate-700">
-                    <span class="text-gray-400">Superuser</span>
-                    <span class="text-white">{{ request.user.username }}</span>
-                </div>
-                <div class="flex justify-between items-center py-2">
-                    <span class="text-gray-400">Date système</span>
-                    <span class="text-white text-xs">{% now "d/m/Y H:i" %}</span>
-                </div>
-            </div>
+    <!-- LOG ACTIONS RÉCENTES -->
+    <div class="glass rounded-xl border border-slate-700 overflow-hidden">
+        <div class="p-4 border-b border-slate-700 bg-slate-800/50">
+            <h2 class="text-lg font-bold text-white">📋 Actions Récentes</h2>
         </div>
-
+        <div class="max-h-96 overflow-y-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-800/50 text-xs uppercase text-gray-400 sticky top-0">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Date</th>
+                        <th class="px-4 py-3 text-left">Utilisateur</th>
+                        <th class="px-4 py-3 text-left">Action</th>
+                        <th class="px-4 py-3 text-left">Objet</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                    {% for action in recent_actions %}
+                    <tr class="hover:bg-slate-800/30">
+                        <td class="px-4 py-3 text-gray-400 text-xs">{{ action.action_time|date:"d/m/Y H:i" }}</td>
+                        <td class="px-4 py-3 text-white">{{ action.user.username }}</td>
+                        <td class="px-4 py-3">
+                            {% if action.action_flag == 1 %}
+                                <span class="text-emerald-400">➕ Ajout</span>
+                            {% elif action.action_flag == 2 %}
+                                <span class="text-yellow-400">✏️ Modification</span>
+                            {% elif action.action_flag == 3 %}
+                                <span class="text-red-400">🗑️ Suppression</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-gray-300">{{ action.object_repr|truncatechars:50 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-6 text-center text-gray-500">Aucune action récente</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- ===================== MODALS ===================== -->
-
-<!-- MODAL : Ajouter Utilisateur -->
-<div id="modal-add-user" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-    <div class="glass rounded-2xl border border-slate-600 w-full max-w-md p-6 shadow-2xl">
-        <div class="flex items-center justify-between mb-6">
-            <h3 class="text-xl font-bold text-white">➕ Nouvel Utilisateur</h3>
-            <button onclick="document.getElementById('modal-add-user').classList.add('hidden')"
-                class="text-gray-400 hover:text-white text-2xl leading-none">×</button>
+<!-- MODAL AJOUTER UTILISATEUR -->
+<div id="modal-add-user" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-900 z-10">
+            <h2 class="text-xl font-bold text-white">➕ Créer un Nouvel Utilisateur</h2>
+            <button onclick="closeAddModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
-        <form method="post" action="{% url 'admin_add_user' %}" class="space-y-4">
+        
+        <form method="post" action="{% url 'admin_add_user' %}" class="p-6 django-form-container" autocomplete="off">
             {% csrf_token %}
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                    Nom d'utilisateur *
-                </label>
-                <input type="text" name="username" required
-                    class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 
-                           text-white text-sm focus:outline-none focus:border-neon transition">
+            
+            <div class="mb-6">
+                <h3 class="text-sm font-bold text-neon uppercase mb-3">Informations de Connexion</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Nom d'utilisateur *</label>
+                        <input type="text" name="username" required autocomplete="off">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Email</label>
+                        <input type="email" name="email" autocomplete="off">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm text-gray-300 mb-2">Mot de passe * <span class="text-gray-500 font-normal">(obligatoire à la création)</span></label>
+                        <input type="password" name="password" required autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="flex gap-4 mt-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="is_active" checked>
+                        Compte Actif
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="is_staff">
+                        Accès Staff (Admin Django)
+                    </label>
+                </div>
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                    Email
-                </label>
-                <input type="email" name="email"
-                    class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 
-                           text-white text-sm focus:outline-none focus:border-neon transition">
+            
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-bold text-neon uppercase">🔐 Modules Autorisés</h3>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="toggleAllAdd(true)" class="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded hover:bg-emerald-500/30">
+                            ✅ Tout Cocher
+                        </button>
+                        <button type="button" onclick="toggleAllAdd(false)" class="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded hover:bg-red-500/30">
+                            ❌ Tout Décocher
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-800/50 p-4 rounded-lg">
+                    {% for module_code, module_label in modules_list %}
+                    <label class="flex items-center gap-2 p-2 hover:bg-slate-700/50 rounded cursor-pointer transition">
+                        <input type="checkbox" name="module_{{ module_code }}" class="add-module-cb">
+                        <span class="text-sm text-gray-300">{{ module_label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                    Mot de passe *
-                </label>
-                <input type="password" name="password" required
-                    class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 
-                           text-white text-sm focus:outline-none focus:border-neon transition">
-            </div>
-            <div class="flex items-center gap-6">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="is_staff" 
-                           class="rounded bg-slate-700 border-slate-600 text-neon">
-                    <span class="text-sm text-gray-300">Accès Staff</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="is_active" checked
-                           class="rounded bg-slate-700 border-slate-600 text-neon">
-                    <span class="text-sm text-gray-300">Compte actif</span>
-                </label>
-            </div>
-            <div class="flex gap-3 pt-2">
-                <button type="submit"
-                    class="flex-1 bg-neon text-black font-bold py-3 rounded-xl hover:opacity-90 transition">
-                    ✅ Créer
+            
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-neon hover:bg-yellow-500 text-black font-bold py-3 rounded-lg transition">
+                    ✅ Créer l'Utilisateur
                 </button>
-                <button type="button"
-                    onclick="document.getElementById('modal-add-user').classList.add('hidden')"
-                    class="flex-1 bg-slate-700 text-gray-300 font-bold py-3 rounded-xl hover:bg-slate-600 transition">
+                <button type="button" onclick="closeAddModal()" 
+                        class="px-6 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition">
                     Annuler
                 </button>
             </div>
@@ -352,77 +294,200 @@
     </div>
 </div>
 
-<!-- MODAL : Éditer Utilisateur -->
-<div id="modal-edit-user" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-    <div class="glass rounded-2xl border border-slate-600 w-full max-w-md p-6 shadow-2xl">
-        <div class="flex items-center justify-between mb-6">
-            <h3 class="text-xl font-bold text-white">✏️ Modifier Utilisateur</h3>
-            <button onclick="document.getElementById('modal-edit-user').classList.add('hidden')"
-                class="text-gray-400 hover:text-white text-2xl leading-none">×</button>
+<!-- MODAL MODIFIER UTILISATEUR -->
+<div id="modal-edit-user" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-900 z-10">
+            <h2 class="text-xl font-bold text-white">✏️ Modifier Utilisateur</h2>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
-        <form method="post" action="{% url 'admin_edit_user' 0 %}" id="form-edit-user" class="space-y-4">
+        
+        <form id="edit-user-form" method="post" class="p-6 django-form-container" autocomplete="off">
             {% csrf_token %}
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                    Nom d'utilisateur
-                </label>
-                <input type="text" name="username" id="edit-username"
-                    class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 
-                           text-white text-sm focus:outline-none focus:border-neon transition">
+            
+            <div class="mb-6">
+                <h3 class="text-sm font-bold text-neon uppercase mb-3">Informations</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Nom d'utilisateur</label>
+                        <input type="text" name="username" id="edit-username" autocomplete="off">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Email</label>
+                        <input type="email" name="email" id="edit-email" autocomplete="off">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm text-gray-300 mb-2">
+                            Mot de passe
+                            <span class="text-emerald-400 font-normal">— optionnel</span>
+                        </label>
+                        <!-- IMPORTANT : pas de required + autocomplete new-password pour éviter l'autofill navigateur -->
+                        <input type="password" name="password" id="edit-password"
+                               placeholder="Laisser VIDE pour conserver le mot de passe actuel"
+                               autocomplete="new-password"
+                               value="">
+                        <p class="mt-2 text-xs text-emerald-400/90 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                            🔐 <strong>Vous n’avez PAS besoin du mot de passe</strong> pour ajouter/retirer des modules.
+                            Laissez ce champ vide → l’utilisateur garde son mot de passe actuel.
+                            Remplissez-le uniquement si vous voulez le réinitialiser.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex gap-4 mt-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="is_active" id="edit-is-active">
+                        Compte Actif
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="is_staff" id="edit-is-staff">
+                        Accès Staff
+                    </label>
+                </div>
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                    Email
-                </label>
-                <input type="email" name="email" id="edit-email"
-                    class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 
-                           text-white text-sm focus:outline-none focus:border-neon transition">
+            
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-bold text-neon uppercase">🔐 Modules Autorisés</h3>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="toggleAllEdit(true)" class="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded hover:bg-emerald-500/30">
+                            ✅ Tout Cocher
+                        </button>
+                        <button type="button" onclick="toggleAllEdit(false)" class="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded hover:bg-red-500/30">
+                            ❌ Tout Décocher
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-800/50 p-4 rounded-lg">
+                    {% for module_code, module_label in modules_list %}
+                    <label class="flex items-center gap-2 p-2 hover:bg-slate-700/50 rounded cursor-pointer transition">
+                        <input type="checkbox" name="module_{{ module_code }}" 
+                               data-module="{{ module_code }}" class="edit-module-cb">
+                        <span class="text-sm text-gray-300">{{ module_label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                    Nouveau mot de passe (laisser vide = inchangé)
-                </label>
-                <input type="password" name="password"
-                    class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 
-                           text-white text-sm focus:outline-none focus:border-neon transition">
-            </div>
-            <div class="flex items-center gap-6">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="is_staff" id="edit-is-staff"
-                           class="rounded bg-slate-700 border-slate-600">
-                    <span class="text-sm text-gray-300">Accès Staff</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="is_active" id="edit-is-active"
-                           class="rounded bg-slate-700 border-slate-600">
-                    <span class="text-sm text-gray-300">Compte actif</span>
-                </label>
-            </div>
-            <div class="flex gap-3 pt-2">
-                <button type="submit"
-                    class="flex-1 bg-blue-500 text-white font-bold py-3 rounded-xl hover:bg-blue-600 transition">
-                    💾 Sauvegarder
+            
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-neon hover:bg-yellow-500 text-black font-bold py-3 rounded-lg transition">
+                    ✅ Enregistrer (sans toucher au mot de passe si vide)
                 </button>
-                <button type="button"
-                    onclick="document.getElementById('modal-edit-user').classList.add('hidden')"
-                    class="flex-1 bg-slate-700 text-gray-300 font-bold py-3 rounded-xl hover:bg-slate-600 transition">
+                <button type="button" onclick="closeEditModal()" 
+                        class="px-6 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg transition">
                     Annuler
                 </button>
             </div>
         </form>
     </div>
 </div>
+
+<!-- MODAL RESTAURER BACKUP (JSON) -->
+<div id="modal-restore-backup" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <span>📤</span> Restaurer une Sauvegarde ERP
+            </h2>
+            <button onclick="closeRestoreModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        
+        <form method="post" action="{% url 'admin_restore_backup' %}" enctype="multipart/form-data" class="p-6 space-y-4">
+            {% csrf_token %}
+            <p class="text-xs text-gray-300">
+                Sélectionnez un fichier de sauvegarde au format <strong>.json</strong> (téléchargé préalablement de votre ERP).
+            </p>
+            <div class="p-4 border-2 border-dashed border-slate-700 rounded-xl text-center hover:border-amber-500 transition">
+                <input type="file" name="backup_file" accept=".json" required class="block w-full text-xs text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer">
+            </div>
+            <div class="p-3 bg-amber-950/40 border border-amber-500/30 rounded-lg text-[11px] text-amber-300">
+                🛡️ <strong>Sécurité :</strong> Les utilisateurs existants sur cet ERP ne seront pas effacés. Les données du fichier de sauvegarde seront réintégrées en sécurité.
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition text-xs uppercase tracking-wider">
+                    🔄 Lancer la Restauration
+                </button>
+                <button type="button" onclick="closeRestoreModal()" class="px-5 bg-slate-800 hover:bg-slate-700 text-gray-300 font-bold py-3 rounded-lg transition text-xs">
+                    Annuler
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if is_global_admin %}
+<div id="modal-super-action" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+ <div class="w-full max-w-lg bg-slate-900 border border-purple-500/40 rounded-2xl p-6 shadow-2xl"><h3 id="super-modal-title" class="text-xl font-bold text-white mb-2">👑 Gestion Superadministrateur</h3><p id="super-modal-help" class="text-sm text-gray-400 mb-5"></p>
+ <form method="post" id="super-action-form" class="space-y-4">{% csrf_token %}<div><label class="text-xs text-gray-400">Votre mot de passe actuel *</label><input type="password" name="current_password" required autocomplete="current-password" class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"></div><div><label class="text-xs text-gray-400">Confirmation — saisissez CONFIRMER *</label><input type="text" name="confirmation" required autocomplete="off" class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"></div><div><label class="text-xs text-gray-400">Motif</label><textarea name="reason" rows="2" class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"></textarea></div><div class="flex gap-3"><button id="super-submit" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg">Confirmer</button><button type="button" id="close-super-modal" class="px-5 bg-slate-700 text-white rounded-lg">Annuler</button></div></form>
+ </div></div>
+{% endif %}
 
 <script>
-function openEditUser(id, username, email, isStaff, isActive) {
-    document.getElementById('edit-username').value = username;
-    document.getElementById('edit-email').value = email;
-    document.getElementById('edit-is-staff').checked = isStaff;
-    document.getElementById('edit-is-active').checked = isActive;
-    // Met à jour l'action du formulaire avec l'ID correct
-    document.getElementById('form-edit-user').action = '/administration/user/' + id + '/edit/';
-    document.getElementById('modal-edit-user').classList.remove('hidden');
-}
-</script>
+function openAddModal() { document.getElementById('modal-add-user').classList.remove('hidden'); }
+function closeAddModal() { document.getElementById('modal-add-user').classList.add('hidden'); }
+function closeEditModal() { document.getElementById('modal-edit-user').classList.add('hidden'); }
+function openRestoreModal() { document.getElementById('modal-restore-backup').classList.remove('hidden'); }
+function closeRestoreModal() { document.getElementById('modal-restore-backup').classList.add('hidden'); }
 
+function toggleAllAdd(val) {
+    var cbs = document.querySelectorAll('.add-module-cb');
+    for (var i = 0; i < cbs.length; i++) { cbs[i].checked = val; }
+}
+function toggleAllEdit(val) {
+    var cbs = document.querySelectorAll('.edit-module-cb');
+    for (var i = 0; i < cbs.length; i++) { cbs[i].checked = val; }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var btns = document.querySelectorAll('.btn-edit-user');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].addEventListener('click', function() {
+            var row = this.closest('.user-row');
+            if (!row) return;
+
+            var userId = row.getAttribute('data-user-id');
+            var username = row.getAttribute('data-username');
+            var email = row.getAttribute('data-email');
+            var isStaff = row.getAttribute('data-is-staff') === '1';
+            var isActive = row.getAttribute('data-is-active') === '1';
+            var modulesStr = row.getAttribute('data-modules') || '';
+            var modulesActifs = modulesStr ? modulesStr.split(',') : [];
+
+            document.getElementById('edit-username').value = username;
+            document.getElementById('edit-email').value = email;
+            document.getElementById('edit-is-staff').checked = isStaff;
+            document.getElementById('edit-is-active').checked = isActive;
+
+            // Toujours vider le champ mot de passe à l'ouverture (évite autofill navigateur)
+            var pwd = document.getElementById('edit-password');
+            if (pwd) {
+                pwd.value = '';
+                pwd.setAttribute('autocomplete', 'new-password');
+            }
+
+            var cbs = document.querySelectorAll('.edit-module-cb');
+            for (var j = 0; j < cbs.length; j++) {
+                var mod = cbs[j].getAttribute('data-module');
+                cbs[j].checked = modulesActifs.indexOf(mod) !== -1;
+            }
+
+            document.getElementById('edit-user-form').action = '/administration/user/' + userId + '/edit/';
+            document.getElementById('modal-edit-user').classList.remove('hidden');
+        });
+    }
+
+    var superButtons = document.querySelectorAll('.btn-super-action');
+    for (var k = 0; k < superButtons.length; k++) {
+        superButtons[k].addEventListener('click', function() {
+            var promote = this.dataset.mode === 'promote';
+            document.getElementById('super-action-form').action = this.dataset.action;
+            document.getElementById('super-modal-title').textContent = promote ? '👑 Nommer Superadministrateur' : '👑 Retirer les droits Superadministrateur';
+            document.getElementById('super-modal-help').textContent = (promote ? 'Vous allez donner tous les pouvoirs ERP à ' : 'Vous allez retirer les pouvoirs globaux de ') + this.dataset.username + '.';
+            document.getElementById('super-submit').className = 'flex-1 text-white font-bold py-3 rounded-lg ' + (promote ? 'bg-purple-600 hover:bg-purple-500' : 'bg-red-600 hover:bg-red-500');
+            document.getElementById('modal-super-action').classList.remove('hidden');
+        });
+    }
+    var closeSuper = document.getElementById('close-super-modal');
+    if (closeSuper) closeSuper.addEventListener('click', function() { document.getElementById('modal-super-action').classList.add('hidden'); });
+});
+</script>
 {% endblock %}

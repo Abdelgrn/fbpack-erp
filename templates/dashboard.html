@@ -66,27 +66,20 @@
 </div>
 {% endif %}
 
-<!-- KPIS -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-    <div class="glass p-4 rounded-xl border-t-4 border-neon">
-        <p class="text-gray-400 text-xs uppercase">Clients Total</p>
-        <p class="text-3xl font-bold text-white">{{ count_clients }}</p>
-    </div>
-    <div class="glass p-4 rounded-xl border-t-4 border-green-500">
-        <p class="text-gray-400 text-xs uppercase">OF en cours</p>
-        <p class="text-3xl font-bold text-white">{{ count_of_running }}</p>
-    </div>
-    <div class="glass p-4 rounded-xl border-t-4 border-red-500">
-        <p class="text-gray-400 text-xs uppercase">Alertes Stock</p>
-        <p class="text-3xl font-bold text-red-400">{{ low_stock_count }}</p>
-    </div>
-    <div class="glass p-4 rounded-xl border-t-4 border-yellow-500">
-        <p class="text-gray-400 text-xs uppercase">Machines Actives</p>
-        <p class="text-3xl font-bold text-white">{{ machines.count }}</p>
-        {% if nb_pannes_actives > 0 %}
-        <p class="text-red-400 text-xs mt-1 font-bold">⚠️ {{ nb_pannes_actives }} en panne</p>
-        {% endif %}
-    </div>
+<!-- KPIS CLIQUABLES -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+    {% if 'crm' in user_modules %}<a href="{% url 'crm_view' %}" class="group glass p-5 rounded-xl border-t-4 border-neon hover:-translate-y-1 hover:border-yellow-300 hover:shadow-xl hover:shadow-yellow-500/10 transition-all focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-label="Ouvrir la liste des clients">{% else %}<div class="glass p-5 rounded-xl border-t-4 border-neon opacity-80 cursor-not-allowed" title="Accès CRM non autorisé">{% endif %}
+        <div class="flex justify-between gap-3"><div><p class="text-gray-400 text-xs uppercase">Clients Total</p><p class="text-3xl font-bold text-white mt-1">{{ count_clients }}</p></div><span class="text-gray-600 group-hover:text-yellow-300 group-hover:translate-x-1 transition-all">→</span></div>{% if 'crm' in user_modules %}<p class="text-[10px] text-gray-500 mt-3 group-hover:text-gray-300">Ouvrir le CRM et les clients</p>{% else %}<p class="text-[10px] text-gray-500 mt-3">🔒 Accès CRM non autorisé</p>{% endif %}
+    {% if 'crm' in user_modules %}</a>{% else %}</div>{% endif %}
+    {% if 'crm' in user_modules %}<a href="{% url 'crm_of_list' %}?statut=EN_COURS" class="group glass p-5 rounded-xl border-t-4 border-green-500 hover:-translate-y-1 hover:border-green-300 hover:shadow-xl hover:shadow-green-500/10 transition-all focus:outline-none focus:ring-2 focus:ring-green-400" aria-label="Ouvrir les ordres de fabrication actifs">{% else %}<div class="glass p-5 rounded-xl border-t-4 border-green-500 opacity-80 cursor-not-allowed" title="Accès CRM non autorisé">{% endif %}
+        <div class="flex justify-between gap-3"><div><p class="text-gray-400 text-xs uppercase">OF actifs</p><p class="text-3xl font-bold text-white mt-1">{{ count_of_running }}</p></div><span class="text-gray-600 group-hover:text-green-300 group-hover:translate-x-1 transition-all">→</span></div>{% if 'crm' in user_modules %}<p class="text-[10px] text-gray-500 mt-3 group-hover:text-gray-300">Lancé ou en cours de production</p>{% else %}<p class="text-[10px] text-gray-500 mt-3">🔒 Accès aux OF non autorisé</p>{% endif %}
+    {% if 'crm' in user_modules %}</a>{% else %}</div>{% endif %}
+    {% if 'stock' in user_modules %}<a href="{% url 'stock_advanced' %}?tab=matieres&low_stock=on" class="group glass p-5 rounded-xl border-t-4 border-red-500 hover:-translate-y-1 hover:border-red-300 hover:shadow-xl hover:shadow-red-500/10 transition-all focus:outline-none focus:ring-2 focus:ring-red-400" aria-label="Ouvrir les alertes de stock">{% else %}<div class="glass p-5 rounded-xl border-t-4 border-red-500 opacity-80 cursor-not-allowed" title="Accès Stock non autorisé">{% endif %}
+        <div class="flex justify-between gap-3"><div><p class="text-gray-400 text-xs uppercase">Alertes Stock</p><p class="text-3xl font-bold text-red-400 mt-1">{{ low_stock_count }}</p></div><span class="text-gray-600 group-hover:text-red-300 group-hover:translate-x-1 transition-all">→</span></div>{% if 'stock' in user_modules %}<p class="text-[10px] text-gray-500 mt-3 group-hover:text-gray-300">Voir les ruptures et stocks faibles</p>{% else %}<p class="text-[10px] text-gray-500 mt-3">🔒 Accès Stock non autorisé</p>{% endif %}
+    {% if 'stock' in user_modules %}</a>{% else %}</div>{% endif %}
+    {% if 'maintenance' in user_modules %}<a href="{% url 'maintenance_machine_list' %}" class="group glass p-5 rounded-xl border-t-4 border-yellow-500 hover:-translate-y-1 hover:border-yellow-300 hover:shadow-xl hover:shadow-yellow-500/10 transition-all focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-label="Ouvrir le parc des machines">{% else %}<div class="glass p-5 rounded-xl border-t-4 border-yellow-500 opacity-80 cursor-not-allowed" title="Accès Maintenance non autorisé">{% endif %}
+        <div class="flex justify-between gap-3"><div><p class="text-gray-400 text-xs uppercase">Machines Actives</p><p class="text-3xl font-bold text-white mt-1">{{ machines.count }}</p></div><span class="text-gray-600 group-hover:text-yellow-300 group-hover:translate-x-1 transition-all">→</span></div>{% if 'maintenance' not in user_modules %}<p class="text-[10px] text-gray-500 mt-3">🔒 Accès Maintenance non autorisé</p>{% elif nb_pannes_actives > 0 %}<p class="text-red-400 text-xs mt-1 font-bold">⚠️ {{ nb_pannes_actives }} en panne</p>{% else %}<p class="text-[10px] text-gray-500 mt-3 group-hover:text-gray-300">Ouvrir le parc Maintenance</p>{% endif %}
+    {% if 'maintenance' in user_modules %}</a>{% else %}</div>{% endif %}
 </div>
 
 <!-- MACHINES STATUS -->
@@ -145,7 +138,7 @@
                 <td class="p-3">
                     <div class="flex items-center gap-2">
                         <div class="flex-1 bg-slate-700 rounded-full h-1.5 w-20">
-                            <div class="bg-yellow-400 h-1.5 rounded-full" style="width:{{ of.progression }}%"></div>
+                            <div class="of-progress-bar bg-yellow-400 h-1.5 rounded-full" data-progress="{{ of.progression|default:0 }}"></div>
                         </div>
                         <span class="text-gray-400 text-xs">{{ of.progression }}%</span>
                     </div>
@@ -157,4 +150,12 @@
 </div>
 {% endif %}
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.of-progress-bar').forEach(function (bar) {
+        var value = Number(String(bar.dataset.progress || '0').replace(',', '.'));
+        bar.style.width = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0)) + '%';
+    });
+});
+</script>
 {% endblock %}

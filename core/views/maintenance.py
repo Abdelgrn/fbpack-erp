@@ -265,8 +265,8 @@ def maintenance_machine_detail(request, machine_id):
         'taux_disponibilite': m.taux_disponibilite,
         'nb_pannes_total': m.nb_pannes_total,
         'temps_arret_total': m.temps_arret_total_heures,
-        'pannes_mois_labels': json.dumps(mois_sorted),
-        'pannes_mois_data': json.dumps([p_par_mois[mois] for mois in mois_sorted]),
+        'pannes_mois_labels': mois_sorted,
+        'pannes_mois_data': [p_par_mois[mois] for mois in mois_sorted],
     })
 
 
