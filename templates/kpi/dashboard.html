@@ -64,6 +64,29 @@
         </div>
     </div>
 
+    <!-- ANALYSE PRÉVU / RÉEL DES OF -->
+    <section id="prevu-reel-of" class="mb-10 bg-slate-800/60 border border-cyan-500/30 rounded-3xl p-6 md:p-8 shadow-2xl">
+        <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4 mb-6">
+            <div><h2 class="text-2xl font-extrabold text-white">📈 Analyse <span class="text-cyan-400">Prévu / Réel</span> des OF</h2><p class="text-xs text-slate-400 mt-1">Analyse industrielle centralisée — lecture seule, sans modification des OF CRM.</p></div>
+            <form method="get" action="#prevu-reel-of" class="grid grid-cols-1 sm:grid-cols-4 gap-2 w-full xl:w-auto">
+                <input name="of_q" value="{{ of_query }}" placeholder="N° OF, lot, client…" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white">
+                <select name="of_statut" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white"><option value="">Tous les statuts</option>{% for code,label in of_status_choices %}<option value="{{ code }}" {% if selected_of_status == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                <select name="of_client" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white"><option value="">Tous les clients</option>{% for c in of_clients %}<option value="{{ c.id }}" {% if selected_of_client == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
+                <button class="bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg px-4 py-2 text-xs font-bold">Filtrer</button>
+            </form>
+        </div>
+        <div class="overflow-x-auto rounded-2xl border border-slate-700/50">
+            <table class="w-full min-w-[1100px] text-xs">
+                <thead class="bg-slate-950/80 text-slate-400 uppercase"><tr><th class="text-left px-4 py-3">OF / Client</th><th class="text-right px-3 py-3">Prévu kg</th><th class="text-right px-3 py-3">Réel kg</th><th class="text-right px-3 py-3">Écart</th><th class="text-right px-3 py-3">Rebut</th><th class="text-right px-3 py-3">Temps prévu</th><th class="text-right px-3 py-3">Temps réel</th><th class="text-center px-3 py-3">Délai</th><th class="text-right px-3 py-3">Encre P/R</th></tr></thead>
+                <tbody class="divide-y divide-slate-700/40">
+                {% for row in planned_actual_rows %}{% with of=row.of d=row.data p=row.data.production t=row.data.time %}
+                    <tr class="hover:bg-slate-700/25"><td class="px-4 py-3"><span class="font-bold text-cyan-300">{{ of.numero_of }}</span><span class="block text-white">{{ of.client.name }}</span><span class="block text-slate-500">{{ of.produit.name }}</span></td><td class="px-3 py-3 text-right text-white">{{ p.planned|floatformat:2 }}</td><td class="px-3 py-3 text-right font-bold {% if p.status == 'good' %}text-emerald-400{% elif p.status == 'warning' %}text-amber-400{% else %}text-red-400{% endif %}">{{ p.actual|floatformat:2 }}</td><td class="px-3 py-3 text-right {% if p.status == 'good' %}text-emerald-400{% elif p.status == 'warning' %}text-amber-400{% else %}text-red-400{% endif %}">{{ p.difference|floatformat:2 }}{% if p.percent != None %}<span class="block text-[10px]">{{ p.percent|floatformat:1 }}%</span>{% endif %}</td><td class="px-3 py-3 text-right {% if d.waste.rate <= 5 %}text-emerald-400{% elif d.waste.rate <= 10 %}text-amber-400{% else %}text-red-400{% endif %}">{{ d.waste.actual|floatformat:2 }} kg<span class="block text-[10px]">{{ d.waste.rate|floatformat:1 }}%</span></td><td class="px-3 py-3 text-right text-slate-300">{% if t.available %}{{ t.planned|floatformat:0 }} min{% else %}—{% endif %}</td><td class="px-3 py-3 text-right {% if t.status == 'good' %}text-emerald-400{% elif t.status == 'warning' %}text-amber-400{% elif t.status == 'bad' %}text-red-400{% else %}text-slate-500{% endif %}">{% if t.available %}{{ t.actual|floatformat:0 }} min{% else %}—{% endif %}</td><td class="px-3 py-3 text-center">{% if d.delivery %}<span class="px-2 py-1 rounded {% if d.delivery.status == 'good' %}bg-emerald-500/15 text-emerald-400{% elif d.delivery.status == 'warning' %}bg-amber-500/15 text-amber-400{% else %}bg-red-500/15 text-red-400{% endif %}">{% if d.delivery.difference_days > 0 %}+{{ d.delivery.difference_days }} j{% else %}{{ d.delivery.difference_days }} j{% endif %}</span>{% else %}<span class="text-slate-600">—</span>{% endif %}</td><td class="px-3 py-3 text-right">{% if d.ink %}<span class="text-purple-300">{{ d.ink.planned|floatformat:2 }}</span> / <span class="{% if d.ink.status == 'good' %}text-emerald-400{% elif d.ink.status == 'warning' %}text-amber-400{% else %}text-red-400{% endif %}">{{ d.ink.actual|floatformat:2 }}</span> kg{% else %}<span class="text-slate-600">—</span>{% endif %}</td></tr>
+                {% endwith %}{% empty %}<tr><td colspan="9" class="px-4 py-10 text-center text-slate-500">Aucun OF correspondant aux filtres.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div><p class="text-[10px] text-slate-500 mt-3">Maximum 50 OF par affichage. Les valeurs réelles viennent prioritairement des fiches de production, puis du suivi OF. Vert = conforme, orange = à surveiller, rouge = écart important.</p>
+    </section>
+
     <!-- ============================================================ -->
     <!-- GRAPHIQUES (Chart.js)                                        -->
     <!-- ============================================================ -->

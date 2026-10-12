@@ -27,9 +27,9 @@ def dashboard(request):
 
     context = {
         'count_clients': Client.objects.count(),
-        'count_of_running': ProductionOrder.objects.filter(status='IN_PROGRESS').count(),
+        'count_of_running': OrdreFabrication.objects.filter(statut__in=['LANCE', 'EN_COURS']).count(),
         'low_stock_count': len([m for m in Material.objects.all() if m.is_low_stock()]),
-        'machines': Machine.objects.all(),
+        'machines': Machine.objects.filter(est_active=True).order_by('name'),
         'orders_per_machine': ProductionOrder.objects.values('machine__name').annotate(count=Count('id')),
         'count_opportunites': Opportunite.objects.filter(status__in=['PROSPECT', 'QUALIFICATION', 'PROPOSITION', 'NEGOCIATION']).count(),
         'count_devis_envoyes': Quote.objects.filter(status='SENT').count(),

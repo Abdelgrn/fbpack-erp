@@ -126,6 +126,37 @@ class Machine(models.Model):
         return round(total_min / 60, 1)
 
     @property
+    def mttr(self):
+        """Temps moyen de réparation en heures pour les pannes correctives."""
+        pannes = self.ordres_maintenance.filter(type_maintenance='CORRECTIVE')
+        count = pannes.count()
+        if not count:
+            return 0
+        total_minutes = pannes.aggregate(t=Sum('temps_arret_minutes'))['t'] or 0
+        return round((total_minutes / 60) / count, 2)
+
+    @property
+    def mtbf(self):
+        """Temps moyen de bon fonctionnement en heures entre deux pannes."""
+        failures = self.nb_pannes_total
+        if not failures:
+            return round(float(self.compteur_heures or 0), 2)
+        operating_hours = float(self.compteur_heures or 0)
+        if operating_hours <= 0 and self.date_mise_en_service:
+            elapsed = timezone.now().date() - self.date_mise_en_service
+            operating_hours = max(0, elapsed.total_seconds() / 3600 - self.temps_arret_total_heures)
+        return round(operating_hours / failures, 2) if operating_hours > 0 else 0
+
+    @property
+    def taux_disponibilite(self):
+        """Disponibilité intrinsèque calculée depuis MTBF et MTTR."""
+        mtbf = self.mtbf
+        mttr = self.mttr
+        if mtbf <= 0:
+            return 100.0 if self.nb_pannes_total == 0 else 0.0
+        return round((mtbf / (mtbf + mttr)) * 100, 2) if (mtbf + mttr) > 0 else 0.0
+
+    @property
     def peut_creer_of(self):
         if self.status == 'PANNE':
             return False, "🔴 MACHINE EN PANNE — Impossible de créer un OF"

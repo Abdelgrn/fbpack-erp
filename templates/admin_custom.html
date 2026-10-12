@@ -13,7 +13,7 @@
             <p class="text-gray-400 mt-2">Gestion des utilisateurs, sauvegardes et permissions par module</p>
         </div>
 
-        <div class="flex flex-wrap gap-2">
+        {% if is_global_admin %}<div class="flex flex-wrap gap-2">
             <!-- BOUTON DE TÉLÉCHARGEMENT BACKUP MANUEL -->
             <a href="{% url 'admin_export_backup' %}" 
                class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
@@ -32,7 +32,20 @@
                class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
                 📥 Importer Données PC
             </a>
-        </div>
+        </div>{% endif %}
+    </div>
+
+    <!-- ADMINISTRATION DÉLÉGUÉE PAR MODULE -->
+    <div class="mb-8 glass rounded-xl border border-cyan-500/30 p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4"><div><h2 class="text-lg font-bold text-white">🛡️ Administrateurs de module</h2><p class="text-xs text-gray-400">{% if is_global_admin %}Vous gérez toutes les délégations.{% else %}Votre périmètre : {{ managed_modules|join:", " }}.{% endif %}</p></div></div>
+        {% if is_global_admin %}
+        <form method="post" action="{% url 'admin_assign_module_manager' %}" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">{% csrf_token %}
+            <select name="user_id" required class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"><option value="">Choisir un responsable</option>{% for u in users %}{% if not u.is_superuser %}<option value="{{ u.id }}">{{ u.username }}</option>{% endif %}{% endfor %}</select>
+            <select name="module" required class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"><option value="">Choisir un module</option>{% for code,label in modules_list %}{% if code != 'admin' %}<option value="{{ code }}">{{ label }}</option>{% endif %}{% endfor %}</select>
+            <button class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg px-4 py-2">Nommer administrateur</button>
+        </form>
+        {% endif %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{% for d in module_delegations %}<div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-3"><div><strong class="text-white">{{ d.user.username }}</strong><span class="block text-xs text-cyan-300">{{ d.get_module_display }}</span></div>{% if is_global_admin %}<form method="post" action="{% url 'admin_revoke_module_manager' d.id %}">{% csrf_token %}<button class="text-xs text-red-400 hover:text-red-300" onclick="return confirm('Retirer cette délégation ?')">Retirer</button></form>{% endif %}</div>{% empty %}<p class="text-sm text-gray-500">Aucun administrateur délégué.</p>{% endfor %}</div>
     </div>
 
     <!-- STATS RAPIDES -->
@@ -127,10 +140,14 @@
                                     ✏️
                                 </button>
                                 {% if not item.user.is_superuser %}
-                                <a href="{% url 'admin_toggle_user' item.user.id %}" 
-                                   class="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded transition" title="Activer/Désactiver">
-                                    🔄
-                                </a>
+                                <form method="post" action="{% url 'admin_toggle_user' item.user.id %}" class="inline">{% csrf_token %}<button class="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded transition" title="Activer/Désactiver">🔄</button></form>
+                                {% endif %}
+                                {% if is_global_admin %}
+                                    {% if item.user.is_superuser %}
+                                        {% if item.user.id != request.user.id %}<button type="button" class="btn-super-action p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded" data-username="{{ item.user.username|escape }}" data-action="{% url 'admin_demote_superuser' item.user.id %}" data-mode="demote" title="Retirer les droits Superadmin">👑−</button>{% endif %}
+                                    {% else %}
+                                        <button type="button" class="btn-super-action p-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded" data-username="{{ item.user.username|escape }}" data-action="{% url 'admin_promote_superuser' item.user.id %}" data-mode="promote" title="Nommer Superadministrateur">👑+</button>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </td>
@@ -230,7 +247,7 @@
                         <input type="password" name="password" required autocomplete="new-password">
                     </div>
                 </div>
-                <div class="flex gap-4 mt-4">
+                <div class="flex gap-4 mt-4 flex-wrap">
                     <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
                         <input type="checkbox" name="is_active" checked>
                         Compte Actif
@@ -239,7 +256,9 @@
                         <input type="checkbox" name="is_staff">
                         Accès Staff (Admin Django)
                     </label>
+                    {% if is_global_admin %}<label class="flex items-center gap-2 text-sm text-purple-300 cursor-pointer font-bold"><input type="checkbox" name="create_superuser" id="create-superuser-checkbox"> 👑 Créer directement comme Superadministrateur</label>{% endif %}
                 </div>
+                {% if is_global_admin %}<div id="create-superuser-security" class="hidden mt-4 p-4 rounded-xl border border-purple-500/40 bg-purple-950/20 space-y-3"><p class="text-xs text-purple-200 font-bold">Cette personne aura accès à tous les modules, aux utilisateurs, sauvegardes et paramètres sensibles.</p><div><label class="block text-xs text-gray-400 mb-1">Votre mot de passe actuel *</label><input type="password" name="admin_current_password" id="admin-current-password" autocomplete="current-password"></div><div><label class="block text-xs text-gray-400 mb-1">Saisissez exactement CONFIRMER *</label><input type="text" name="admin_confirmation" id="admin-confirmation" autocomplete="off"></div><div><label class="block text-xs text-gray-400 mb-1">Motif</label><input type="text" name="admin_reason" placeholder="Ex. Compte de secours Direction générale"></div></div>{% endif %}
             </div>
             
             <div class="mb-6">
@@ -375,12 +394,12 @@
         </div>
         
         <form method="post" action="{% url 'admin_restore_backup' %}" enctype="multipart/form-data" class="p-6 space-y-4">
-            {% csrf_token %}
+            {% csrf_token %}<div class="grid grid-cols-1 md:grid-cols-2 gap-3"><div><label class="text-xs text-gray-400">Votre mot de passe *</label><input type="password" name="current_password" required autocomplete="current-password"></div><div><label class="text-xs text-gray-400">Saisissez RESTAURER *</label><input type="text" name="confirmation" required autocomplete="off"></div></div>
             <p class="text-xs text-gray-300">
-                Sélectionnez un fichier de sauvegarde au format <strong>.json</strong> (téléchargé préalablement de votre ERP).
+                Sélectionnez un fichier de sauvegarde au format <strong>.zip</strong> (téléchargé préalablement de votre ERP).
             </p>
             <div class="p-4 border-2 border-dashed border-slate-700 rounded-xl text-center hover:border-amber-500 transition">
-                <input type="file" name="backup_file" accept=".json" required class="block w-full text-xs text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer">
+                <input type="file" name="backup_file" accept=".zip" required class="block w-full text-xs text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer">
             </div>
             <div class="p-3 bg-amber-950/40 border border-amber-500/30 rounded-lg text-[11px] text-amber-300">
                 🛡️ <strong>Sécurité :</strong> Les utilisateurs existants sur cet ERP ne seront pas effacés. Les données du fichier de sauvegarde seront réintégrées en sécurité.
@@ -396,6 +415,13 @@
         </form>
     </div>
 </div>
+
+{% if is_global_admin %}
+<div id="modal-super-action" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+ <div class="w-full max-w-lg bg-slate-900 border border-purple-500/40 rounded-2xl p-6 shadow-2xl"><h3 id="super-modal-title" class="text-xl font-bold text-white mb-2">👑 Gestion Superadministrateur</h3><p id="super-modal-help" class="text-sm text-gray-400 mb-5"></p>
+ <form method="post" id="super-action-form" class="space-y-4">{% csrf_token %}<div><label class="text-xs text-gray-400">Votre mot de passe actuel *</label><input type="password" name="current_password" required autocomplete="current-password" class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"></div><div><label class="text-xs text-gray-400">Confirmation — saisissez CONFIRMER *</label><input type="text" name="confirmation" required autocomplete="off" class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"></div><div><label class="text-xs text-gray-400">Motif</label><textarea name="reason" rows="2" class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white"></textarea></div><div class="flex gap-3"><button id="super-submit" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg">Confirmer</button><button type="button" id="close-super-modal" class="px-5 bg-slate-700 text-white rounded-lg">Annuler</button></div></form>
+ </div></div>
+{% endif %}
 
 <script>
 function openAddModal() { document.getElementById('modal-add-user').classList.remove('hidden'); }
@@ -414,6 +440,16 @@ function toggleAllEdit(val) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    var createSuper = document.getElementById('create-superuser-checkbox');
+    if (createSuper) createSuper.addEventListener('change', function() {
+        var security = document.getElementById('create-superuser-security');
+        var adminPassword = document.getElementById('admin-current-password');
+        var confirmation = document.getElementById('admin-confirmation');
+        security.classList.toggle('hidden', !this.checked);
+        adminPassword.required = this.checked;
+        confirmation.required = this.checked;
+        document.querySelectorAll('.add-module-cb').forEach(function(cb) { cb.checked = createSuper.checked ? true : cb.checked; cb.disabled = createSuper.checked; });
+    });
     var btns = document.querySelectorAll('.btn-edit-user');
     for (var i = 0; i < btns.length; i++) {
         btns[i].addEventListener('click', function() {
@@ -450,6 +486,20 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('modal-edit-user').classList.remove('hidden');
         });
     }
+
+    var superButtons = document.querySelectorAll('.btn-super-action');
+    for (var k = 0; k < superButtons.length; k++) {
+        superButtons[k].addEventListener('click', function() {
+            var promote = this.dataset.mode === 'promote';
+            document.getElementById('super-action-form').action = this.dataset.action;
+            document.getElementById('super-modal-title').textContent = promote ? '👑 Nommer Superadministrateur' : '👑 Retirer les droits Superadministrateur';
+            document.getElementById('super-modal-help').textContent = (promote ? 'Vous allez donner tous les pouvoirs ERP à ' : 'Vous allez retirer les pouvoirs globaux de ') + this.dataset.username + '.';
+            document.getElementById('super-submit').className = 'flex-1 text-white font-bold py-3 rounded-lg ' + (promote ? 'bg-purple-600 hover:bg-purple-500' : 'bg-red-600 hover:bg-red-500');
+            document.getElementById('modal-super-action').classList.remove('hidden');
+        });
+    }
+    var closeSuper = document.getElementById('close-super-modal');
+    if (closeSuper) closeSuper.addEventListener('click', function() { document.getElementById('modal-super-action').classList.add('hidden'); });
 });
 </script>
 {% endblock %}

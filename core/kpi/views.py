@@ -11,10 +11,13 @@ from django.http import HttpResponse
 from django.urls import reverse
 from django.utils import timezone
 
+from ..decorators import module_required
+from ..services.planned_actual import build_of_planned_actual
+
 from ..models import (
     Client, CommandeClient, LigneCommandeClient, TechnicalProduct,
     FicheProductionJournaliere, Tooling, Material, Opportunite, Machine,
-    ChatRoom, ChatMessage
+    ChatRoom, ChatMessage, OrdreFabrication
 )
 
 
@@ -459,6 +462,22 @@ def _build_dashboard_context(request, push_to_chat=False):
         'oee_values': [x['oee'] for x in oee_machines],
     }
 
+    # Analyse Prévu / Réel des OF — réservée au module KPI.
+    of_status = request.GET.get('of_statut', '')
+    of_client = request.GET.get('of_client', '')
+    of_query = request.GET.get('of_q', '').strip()
+    ofs_qs = OrdreFabrication.objects.select_related('client', 'produit').prefetch_related(
+        'etapes__consommations__material', 'ink_calculations__colors__anilox'
+    ).order_by('-date_creation')
+    if of_status:
+        ofs_qs = ofs_qs.filter(statut=of_status)
+    if of_client:
+        ofs_qs = ofs_qs.filter(client_id=of_client)
+    if of_query:
+        ofs_qs = ofs_qs.filter(Q(numero_of__icontains=of_query) | Q(numero_lot__icontains=of_query) |
+                               Q(client__name__icontains=of_query) | Q(produit__name__icontains=of_query))
+    planned_actual_rows = [{'of': of, 'data': build_of_planned_actual(of)} for of in ofs_qs[:50]]
+
     context = {
         'ca_global': ca_global,
         'nb_commandes_global': nb_commandes_global,
@@ -481,12 +500,17 @@ def _build_dashboard_context(request, push_to_chat=False):
         'alertes_critiques': alertes_critiques,
         'graph_data': graph_data,
         'now': timezone.now(),
+        'planned_actual_rows': planned_actual_rows,
+        'of_status_choices': OrdreFabrication.STATUT_CHOICES,
+        'of_clients': Client.objects.filter(ordres_fabrication__isnull=False).distinct().order_by('name'),
+        'selected_of_status': of_status, 'selected_of_client': of_client, 'of_query': of_query,
     }
 
     return context
 
 
 @login_required
+@module_required('kpi')
 def kpi_dashboard(request):
     _purger_messages_kpi(request)
     context = _build_dashboard_context(request, push_to_chat=True)
@@ -494,12 +518,14 @@ def kpi_dashboard(request):
 
 
 @login_required
+@module_required('kpi')
 def kpi_client(request, client_id):
     client = get_object_or_404(Client, id=client_id)
     return redirect(f"{reverse('kpi_dashboard')}?client={client.id}&periode=all")
 
 
 @login_required
+@module_required('kpi')
 def kpi_oee(request):
     _purger_messages_kpi(request)
     context = _build_dashboard_context(request, push_to_chat=False)
@@ -507,6 +533,7 @@ def kpi_oee(request):
 
 
 @login_required
+@module_required('kpi')
 def kpi_export_excel(request):
     try:
         from openpyxl import Workbook
@@ -590,6 +617,7 @@ def kpi_export_excel(request):
 
 
 @login_required
+@module_required('kpi')
 def kpi_rapport_print(request):
     _purger_messages_kpi(request)
     context = _build_dashboard_context(request, push_to_chat=False)
@@ -614,5 +642,6 @@ def fiche_technique_print(request, product_id):
 
 
 @login_required
+@module_required('kpi')
 def kpi_fiche_technique(request, product_id):
     return fiche_technique_print(request, product_id)

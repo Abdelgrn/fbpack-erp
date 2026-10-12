@@ -206,14 +206,18 @@
     </div>
 </div>
 
+{{ pannes_mois_labels|json_script:"pannes-mois-labels" }}
+{{ pannes_mois_data|json_script:"pannes-mois-data" }}
 <script>
+const pannesMoisLabels = JSON.parse(document.getElementById('pannes-mois-labels').textContent);
+const pannesMoisData = JSON.parse(document.getElementById('pannes-mois-data').textContent);
 new Chart(document.getElementById('chartPannes'), {
     type: 'bar',
     data: {
-        labels: {{ pannes_mois_labels|safe }},
+        labels: pannesMoisLabels,
         datasets: [{
             label: 'Pannes',
-            data: {{ pannes_mois_data|safe }},
+            data: pannesMoisData,
             backgroundColor: '#ef4444',
             borderRadius: 6,
         }]
