@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fiche technique {{ product.ref_internal }}</title>
+    <style>
+        @page { size:A4 landscape; margin:6mm; }
+        html,body { margin:0; padding:0; background:#d9dee5; }
+        .print-toolbar { position:sticky; top:0; z-index:20; display:flex; justify-content:center; gap:10px; padding:12px; background:#152238; box-shadow:0 3px 15px rgba(0,0,0,.3); font-family:Arial,sans-serif; }
+        .print-toolbar a,.print-toolbar button { border:0; border-radius:9px; padding:10px 16px; color:#fff; font-size:13px; font-weight:800; text-decoration:none; cursor:pointer; }.print-toolbar .back{background:#475569}.print-toolbar .print{background:#0284c7}.print-toolbar .pdf{background:#b5121b}
+        .print-notice { width:285mm; margin:10px auto 0; border:1px solid #f59e0b; border-radius:7px; background:#fffbeb; padding:9px; color:#92400e; font:700 12px Arial,sans-serif; }
+        .print-stage { padding:10px 0 18px; overflow-x:auto; }.print-stage .ft-sheet { box-shadow:0 14px 38px rgba(15,23,42,.28); }
+        @media print { html,body{background:#fff}.print-toolbar,.print-notice{display:none!important}.print-stage{padding:0;overflow:visible}.print-stage .ft-sheet{box-shadow:none} }
+    </style>
+</head>
+<body>
+{% if not is_pdf %}
+<nav class="print-toolbar" aria-label="Actions de la fiche">
+    <a class="back" href="{% url 'prepress_technical_sheet' product.id %}">← Retour</a>
+    <button class="print" type="button" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
+    <a class="pdf" href="{% url 'prepress_technical_sheet_pdf' product.id %}">Télécharger le PDF</a>
+</nav>
+{% if messages %}{% for message in messages %}<div class="print-notice">{{ message }}</div>{% endfor %}{% endif %}
+{% endif %}
+<div class="print-stage">
+    {% include 'prepress/_technical_sheet_canvas.html' %}
+</div>
+{% if auto_print and not is_pdf %}<script>window.addEventListener('load',function(){window.print();});</script>{% endif %}
+</body>
+</html>

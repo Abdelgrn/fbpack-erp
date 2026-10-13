@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} | FB Pack ERP{% endblock %}
+
+{% block content %}
+<style>
+    .tech-choice-grid { display:flex; flex-wrap:wrap; gap:16px; }
+    .tech-choice { position:relative; display:block; cursor:pointer; }
+    .tech-choice > input { position:absolute; opacity:0; pointer-events:none; }
+    .tech-choice-card { position:relative; width:86px; height:110px; display:flex; align-items:center; justify-content:center; border:2px solid #475569; border-radius:16px; background:#0f172a; box-shadow:inset 0 0 0 1px rgba(255,255,255,.02); transition:.18s ease; }
+    .tech-choice:hover .tech-choice-card { border-color:#64748b; transform:translateY(-2px); }
+    .tech-choice > input:checked + .tech-choice-card { border-color:#22d3ee; background:#12253b; box-shadow:0 0 0 3px rgba(34,211,238,.18), inset 0 0 24px rgba(34,211,238,.08); }
+    .tech-choice > input:focus-visible + .tech-choice-card { outline:3px solid rgba(56,189,248,.65); outline-offset:3px; }
+    .tech-choice-number { position:absolute; right:7px; top:6px; min-width:19px; height:19px; padding:0 4px; border-radius:6px; background:#1e293b; color:#94a3b8; font:800 10px/19px Arial,sans-serif; text-align:center; }
+    .tech-choice > input:checked + .tech-choice-card .tech-choice-number { background:#0891b2; color:white; }
+    .roll-picto { position:relative; width:48px; height:66px; display:flex; align-items:center; justify-content:center; }
+    .roll-picto::before { content:""; position:absolute; left:7px; right:7px; top:7px; height:11px; border-radius:50%; background:linear-gradient(#dbe4ec,#64748b); border:2px solid #334155; }
+    .roll-film { position:absolute; left:10px; top:12px; width:30px; height:50px; display:flex; align-items:center; justify-content:center; border:2px solid #7f1d1d; border-radius:2px; background:linear-gradient(90deg,#ef4444,#f87171 52%,#dc2626); color:white; font:900 25px/1 Arial,sans-serif; box-shadow:0 6px 10px rgba(0,0,0,.3); }
+    .roll-film::after { content:""; position:absolute; left:4px; right:4px; bottom:-5px; height:5px; background:#b91c1c; clip-path:polygon(0 0,100% 0,85% 100%,15% 100%); }
+    .roll-1 .roll-film span, .roll-5 .roll-film span { transform:rotate(180deg); }
+    .roll-3 .roll-film span, .roll-7 .roll-film span { transform:rotate(90deg); }
+    .roll-4 .roll-film span, .roll-8 .roll-film span { transform:rotate(-90deg); }
+    .roll-5 .roll-film, .roll-6 .roll-film, .roll-7 .roll-film, .roll-8 .roll-film { background:linear-gradient(90deg,#0284c7,#38bdf8 52%,#0369a1); border-color:#164e63; }
+    .spot-picto { position:relative; width:58px; height:64px; color:white; font:900 46px/64px Georgia,serif; text-align:center; }
+    .spot-picto::after { content:""; position:absolute; width:12px; height:8px; background:white; }
+    .spot-1::after { left:2px; bottom:3px; }.spot-2::after { left:23px; bottom:3px; }.spot-3::after { right:2px; bottom:3px; }.spot-4::after { right:2px; top:4px; }
+    .visual-subtitle { margin:0 0 14px; color:#94a3b8; font:800 12px/1.2 Arial,sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+    .legacy-senses { margin-top:14px; border-top:1px solid #334155; padding-top:12px; }
+    .legacy-senses summary { cursor:pointer; color:#94a3b8; font-size:12px; font-weight:700; }
+    @media (max-width:640px) { .tech-choice-card { width:76px; height:102px; } .tech-choice-grid { gap:10px; } }
+</style>
+<div class="mx-auto max-w-[1600px] space-y-6 px-3 py-5 sm:px-6 lg:px-8">
+    <div class="flex flex-col gap-4 rounded-2xl border border-slate-700 bg-slate-800/90 p-5 shadow-2xl sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <div class="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-cyan-400">
+                <span>Prépresse</span><span class="text-slate-600">/</span><span>Fiche technique ERP</span>
+            </div>
+            <h1 class="text-2xl font-black text-white sm:text-3xl">{{ titre }}</h1>
+            <p class="mt-2 max-w-3xl text-sm text-slate-400">
+                Les dimensions dérivées et le nombre de couleurs sont calculés côté serveur. Une révision est créée après chaque sauvegarde valide.
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% if product %}
+            <a href="{% url 'prepress_technical_sheet' product.id %}" class="rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Annuler</a>
+            {% else %}
+            <a href="{% url 'prepress_technical_sheet_list' %}" class="rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Annuler</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if form.non_field_errors or formset.non_form_errors %}
+    <div class="rounded-2xl border border-red-500/60 bg-red-950/60 p-4 text-sm text-red-100">
+        {{ form.non_field_errors }}
+        {{ formset.non_form_errors }}
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" id="technical-sheet-form" class="space-y-6" novalidate>
+        {% csrf_token %}
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-800/90 p-5 shadow-xl">
+            <div class="mb-5 flex items-center gap-3 border-b border-slate-700 pb-4">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/15 font-black text-cyan-300">01</span>
+                <div>
+                    <h2 class="text-lg font-black text-white">Identification et suivi</h2>
+                    <p class="text-xs text-slate-400">Produit, client, version et circuit BAT</p>
+                </div>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <label class="block xl:col-span-2">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Client *</span>
+                    {{ form.client }}
+                    {% for error in form.client.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Référence interne *</span>
+                    {{ form.ref_internal }}
+                    {% for error in form.ref_internal.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Date de création</span>
+                    {{ form.date_creation }}
+                    {% for error in form.date_creation.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block md:col-span-2">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Désignation *</span>
+                    {{ form.name }}
+                    {% for error in form.name.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Procédé</span>
+                    {{ form.printing_process }}
+                    {% for error in form.printing_process.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Structure</span>
+                    {{ form.structure_type }}
+                    {% for error in form.structure_type.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Version</span>
+                    {{ form.version }}
+                    {% for error in form.version.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block md:col-span-2">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Statut BAT</span>
+                    {{ form.bat_status }}
+                    {% for error in form.bat_status.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-3">
+                    {{ form.is_obsolete }}
+                    <span class="text-sm font-bold text-red-200">Archiver comme fiche obsolète</span>
+                </label>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-800/90 p-5 shadow-xl">
+            <div class="mb-5 flex items-center gap-3 border-b border-slate-700 pb-4">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 font-black text-violet-300">02</span>
+                <div><h2 class="text-lg font-black text-white">Dossier et graveur</h2><p class="text-xs text-slate-400">Traçabilité de la préparation graphique</p></div>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Graveur</span>{{ form.graveur }}
+                    {% for error in form.graveur.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Référence graveur</span>{{ form.ref_graveur }}
+                    {% for error in form.ref_graveur.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Type de dossier</span>{{ form.type_dossier }}
+                    {% for error in form.type_dossier.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </label>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-800/90 p-5 shadow-xl">
+            <div class="mb-5 flex items-center gap-3 border-b border-slate-700 pb-4">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15 font-black text-amber-300">03</span>
+                <div><h2 class="text-lg font-black text-white">Dimensions et poses</h2><p class="text-xs text-slate-400">Calculs automatiques : pas × poses et laize × poses</p></div>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Pas de coupe (mm)</span>{{ form.cut_length_mm }}{% for error in form.cut_length_mm.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Poses au pas</span>{{ form.nb_poses_pas }}{% for error in form.nb_poses_pas.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-cyan-300">Développement calculé (mm)</span>{{ form.developpement_mm }}{% for error in form.developpement_mm.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <div class="hidden xl:block"></div>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Laize unitaire (mm)</span>{{ form.width_mm }}{% for error in form.width_mm.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Poses en laize</span>{{ form.nb_poses_laize }}{% for error in form.nb_poses_laize.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-cyan-300">Laize gravure calculée (mm)</span>{{ form.laize_gravure_mm }}{% for error in form.laize_gravure_mm.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-800/90 p-5 shadow-xl">
+            <div class="mb-5 flex items-center gap-3 border-b border-slate-700 pb-4">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 font-black text-emerald-300">04</span>
+                <div><h2 class="text-lg font-black text-white">Support, impression et repérage</h2><p class="text-xs text-slate-400">Paramètres opératoires de la fiche</p></div>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <label class="block md:col-span-2"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Support d'impression</span>{{ form.support_impression }}{% for error in form.support_impression.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Impression</span>{{ form.impression }}{% for error in form.impression.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Spot</span>{{ form.spot }}{% for error in form.spot.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+            </div>
+
+            <div class="mt-6 grid gap-8 border-t border-slate-700 pt-6 xl:grid-cols-2">
+                <div>
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                        <p class="visual-subtitle">Sens de défilement</p>
+                        <button type="button" data-clear-choice="sens_bobine" class="text-xs font-bold text-slate-500 transition hover:text-cyan-300">Effacer</button>
+                    </div>
+                    <div class="tech-choice-grid" role="radiogroup" aria-label="Sens de défilement">
+                        <label class="tech-choice" title="Sens 1">
+                            <input type="radio" name="sens_bobine" value="1" {% if form.sens_bobine.value == '1' %}checked{% endif %}>
+                            <span class="tech-choice-card"><span class="tech-choice-number">1</span><span class="roll-picto roll-1"><span class="roll-film"><span>A</span></span></span></span>
+                        </label>
+                        <label class="tech-choice" title="Sens 2">
+                            <input type="radio" name="sens_bobine" value="2" {% if form.sens_bobine.value == '2' %}checked{% endif %}>
+                            <span class="tech-choice-card"><span class="tech-choice-number">2</span><span class="roll-picto roll-2"><span class="roll-film"><span>A</span></span></span></span>
+                        </label>
+                        <label class="tech-choice" title="Sens 3">
+                            <input type="radio" name="sens_bobine" value="3" {% if form.sens_bobine.value == '3' %}checked{% endif %}>
+                            <span class="tech-choice-card"><span class="tech-choice-number">3</span><span class="roll-picto roll-3"><span class="roll-film"><span>A</span></span></span></span>
+                        </label>
+                        <label class="tech-choice" title="Sens 4">
+                            <input type="radio" name="sens_bobine" value="4" {% if form.sens_bobine.value == '4' %}checked{% endif %}>
+                            <span class="tech-choice-card"><span class="tech-choice-number">4</span><span class="roll-picto roll-4"><span class="roll-film"><span>A</span></span></span></span>
+                        </label>
+                    </div>
+                    <details class="legacy-senses" {% if form.sens_bobine.value == '5' or form.sens_bobine.value == '6' or form.sens_bobine.value == '7' or form.sens_bobine.value == '8' %}open{% endif %}>
+                        <summary>Sens complémentaires 5 à 8 conservés pour compatibilité</summary>
+                        <div class="tech-choice-grid mt-4">
+                            <label class="tech-choice" title="Sens 5"><input type="radio" name="sens_bobine" value="5" {% if form.sens_bobine.value == '5' %}checked{% endif %}><span class="tech-choice-card"><span class="tech-choice-number">5</span><span class="roll-picto roll-5"><span class="roll-film"><span>A</span></span></span></span></label>
+                            <label class="tech-choice" title="Sens 6"><input type="radio" name="sens_bobine" value="6" {% if form.sens_bobine.value == '6' %}checked{% endif %}><span class="tech-choice-card"><span class="tech-choice-number">6</span><span class="roll-picto roll-6"><span class="roll-film"><span>A</span></span></span></span></label>
+                            <label class="tech-choice" title="Sens 7"><input type="radio" name="sens_bobine" value="7" {% if form.sens_bobine.value == '7' %}checked{% endif %}><span class="tech-choice-card"><span class="tech-choice-number">7</span><span class="roll-picto roll-7"><span class="roll-film"><span>A</span></span></span></span></label>
+                            <label class="tech-choice" title="Sens 8"><input type="radio" name="sens_bobine" value="8" {% if form.sens_bobine.value == '8' %}checked{% endif %}><span class="tech-choice-card"><span class="tech-choice-number">8</span><span class="roll-picto roll-8"><span class="roll-film"><span>A</span></span></span></span></label>
+                        </div>
+                    </details>
+                    {% for error in form.sens_bobine.errors %}<span class="mt-2 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </div>
+
+                <div>
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                        <p class="visual-subtitle">Placement spot</p>
+                        <button type="button" data-clear-choice="spot_placement" class="text-xs font-bold text-slate-500 transition hover:text-cyan-300">Effacer</button>
+                    </div>
+                    <div class="tech-choice-grid" role="radiogroup" aria-label="Placement du spot">
+                        <label class="tech-choice" title="Spot bas gauche"><input type="radio" name="spot_placement" value="1" {% if form.spot_placement.value == '1' %}checked{% endif %}><span class="tech-choice-card"><span class="tech-choice-number">1</span><span class="spot-picto spot-1">A</span></span></label>
+                        <label class="tech-choice" title="Spot bas centre"><input type="radio" name="spot_placement" value="2" {% if form.spot_placement.value == '2' %}checked{% endif %}><span class="tech-choice-card"><span class="tech-choice-number">2</span><span class="spot-picto spot-2">A</span></span></label>
+                        <label class="tech-choice" title="Spot bas droite"><input type="radio" name="spot_placement" value="3" {% if form.spot_placement.value == '3' %}checked{% endif %}><span class="tech-choice-card"><span class="tech-choice-number">3</span><span class="spot-picto spot-3">A</span></span></label>
+                        <label class="tech-choice" title="Spot haut droite"><input type="radio" name="spot_placement" value="4" {% if form.spot_placement.value == '4' %}checked{% endif %}><span class="tech-choice-card"><span class="tech-choice-number">4</span><span class="spot-picto spot-4">A</span></span></label>
+                    </div>
+                    {% for error in form.spot_placement.errors %}<span class="mt-2 block text-xs text-red-400">{{ error }}</span>{% endfor %}
+                </div>
+            </div>
+
+            <label class="mt-6 block border-t border-slate-700 pt-5"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Observations techniques</span>{{ form.technical_notes }}{% for error in form.technical_notes.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-800/90 p-5 shadow-xl">
+            <div class="mb-5 flex items-center justify-between gap-3 border-b border-slate-700 pb-4">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/15 font-black text-pink-300">05</span>
+                    <div><h2 class="text-lg font-black text-white">Couleurs et encres</h2><p class="text-xs text-slate-400">Jusqu'à 8 couleurs ; laissez les lignes inutilisées vides</p></div>
+                </div>
+                <span class="rounded-full border border-slate-600 px-3 py-1 text-xs font-bold text-slate-300">Nb auto</span>
+            </div>
+            {{ formset.management_form }}
+            {% if formset.non_form_errors %}<div class="mb-3 rounded-xl bg-red-950/70 p-3 text-sm text-red-200">{{ formset.non_form_errors }}</div>{% endif %}
+            <div class="overflow-x-auto rounded-xl border border-slate-700">
+                <table class="min-w-[1250px] w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400">
+                        <tr>
+                            <th class="px-2 py-3 text-center">N°</th><th class="px-2 py-3 text-center">Aperçu</th>
+                            <th class="px-2 py-3">Couleur</th><th class="px-2 py-3">Anilox</th><th class="px-2 py-3">Adhésif</th>
+                            <th class="px-2 py-3">Viscosité</th><th class="px-2 py-3">Type encre</th><th class="px-2 py-3">Formule encre</th><th class="px-2 py-3 text-center">Retirer</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700 bg-slate-800">
+                    {% for color_form in formset.forms %}
+                        <tr class="align-top transition hover:bg-slate-700/30">
+                            <td class="px-2 py-3 text-center font-black text-cyan-300">{{ forloop.counter }}</td>
+                            <td class="px-2 py-2 text-center">{{ color_form.couleur_hex }}</td>
+                            <td class="min-w-[180px] px-2 py-2">{% for hidden in color_form.hidden_fields %}{{ hidden }}{% endfor %}{{ color_form.nom_couleur }}{% for error in color_form.nom_couleur.errors %}<span class="block text-[11px] text-red-400">{{ error }}</span>{% endfor %}</td>
+                            <td class="min-w-[130px] px-2 py-2">{{ color_form.anilox }}</td>
+                            <td class="min-w-[120px] px-2 py-2">{{ color_form.adhesif }}</td>
+                            <td class="min-w-[120px] px-2 py-2">{{ color_form.viscosite }}</td>
+                            <td class="min-w-[150px] px-2 py-2">{{ color_form.type_encre }}</td>
+                            <td class="min-w-[190px] px-2 py-2">{{ color_form.formule_encre }}</td>
+                            <td class="px-2 py-3 text-center">{{ color_form.DELETE }}</td>
+                        </tr>
+                        {% if color_form.errors %}<tr><td colspan="9" class="bg-red-950/40 px-3 py-2 text-red-300">{{ color_form.errors }}</td></tr>{% endif %}
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-700 bg-slate-800/90 p-5 shadow-xl">
+            <div class="mb-5 flex items-center gap-3 border-b border-slate-700 pb-4">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/15 font-black text-blue-300">06</span>
+                <div><h2 class="text-lg font-black text-white">Fichiers et visuel</h2><p class="text-xs text-slate-400">Les fichiers restent dans MEDIA_ROOT et sont inclus dans les sauvegardes médias existantes</p></div>
+            </div>
+            <div class="grid gap-5 lg:grid-cols-3">
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Visuel produit (PNG/JPG/WEBP, 10 Mo max.)</span>{{ form.product_visual }}{% for error in form.product_visual.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Fichier graphique historique</span>{{ form.artwork_file }}{% for error in form.artwork_file.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+                <label class="block"><span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Fiche PDF originale</span>{{ form.tech_sheet_file }}{% for error in form.tech_sheet_file.errors %}<span class="mt-1 block text-xs text-red-400">{{ error }}</span>{% endfor %}</label>
+            </div>
+            {% if product and product.product_visual %}
+            <div class="mt-5 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                <p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Visuel actuel</p>
+                <img src="{{ product.product_visual.url }}" alt="Visuel {{ product.name }}" class="max-h-64 rounded-lg object-contain">
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="sticky bottom-3 z-20 rounded-2xl border border-cyan-500/40 bg-slate-900/95 p-4 shadow-2xl backdrop-blur">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <label class="block w-full lg:max-w-2xl">
+                    <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-300">Motif de cette révision</span>
+                    <input type="text" name="revision_reason" maxlength="250" class="w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400" placeholder="Ex. Correction formule cyan, validation BAT client…">
+                </label>
+                <div class="flex flex-wrap gap-3">
+                    {% if product %}<a href="{% url 'prepress_technical_sheet' product.id %}" class="rounded-xl border border-slate-600 px-5 py-3 text-sm font-black text-slate-200">Annuler</a>{% endif %}
+                    <button type="submit" class="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-cyan-950/50 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-blue-500">
+                        Enregistrer la fiche et la révision
+                    </button>
+                </div>
+            </div>
+        </section>
+    </form>
+</div>
+
+<script>
+(function () {
+    const cut = document.getElementById('id_cut_length_mm');
+    const posesPas = document.getElementById('id_nb_poses_pas');
+    const development = document.getElementById('id_developpement_mm');
+    const width = document.getElementById('id_width_mm');
+    const posesWidth = document.getElementById('id_nb_poses_laize');
+    const engravingWidth = document.getElementById('id_laize_gravure_mm');
+
+    function numberValue(element) {
+        const value = parseFloat(element && element.value ? element.value.replace(',', '.') : '0');
+        return Number.isFinite(value) ? value : 0;
+    }
+    function format(value) {
+        return Math.round(value * 1000) / 1000;
+    }
+    function recalculate() {
+        if (development) development.value = format(numberValue(cut) * numberValue(posesPas));
+        if (engravingWidth) engravingWidth.value = format(numberValue(width) * numberValue(posesWidth));
+    }
+    [cut, posesPas, width, posesWidth].forEach(function (field) {
+        if (field) field.addEventListener('input', recalculate);
+    });
+    document.querySelectorAll('[data-clear-choice]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            document.querySelectorAll('input[name="' + button.dataset.clearChoice + '"]').forEach(function (input) {
+                input.checked = false;
+            });
+        });
+    });
+    recalculate();
+})();
+</script>
+{% endblock %}

@@ -14,7 +14,9 @@ from .crm import (
 )
 
 # Prepress
-from .prepress import TechnicalProduct, Tooling, PrepressColor
+from .prepress import (
+    TechnicalProduct, Tooling, PrepressColor, TechnicalProductRevision,
+)
 
 # Stock
 from .stock import (
@@ -119,7 +121,8 @@ def robust_import_local_data(specific_file=None):
         'auth.user', 'auth.group', 'core.usermodulepermission', 'core.atelier',
         'core.supplier', 'core.suppliercontact', 'core.client', 'core.department',
         'core.position', 'core.stocklocation', 'core.material', 'core.machine',
-        'core.technicalproduct', 'core.tooling', 'core.processtype',
+        'core.technicalproduct', 'core.prepresscolor',
+        'core.technicalproductrevision', 'core.tooling', 'core.processtype',
         'core.ordrefabrication', 'core.productionorder', 'core.etapeproduction',
         'core.semiproduit', 'core.ficheproductionjournaliere', 'core.productionentry',
     ]
@@ -297,7 +300,7 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
 __all__ = [
     'Client', 'ClientContact', 'InteractionLog', 'Opportunite',
     'CommandeClient', 'LigneCommandeClient', 'DemandePrix', 'ClientProductPrice',
-    'TechnicalProduct', 'Tooling', 'PrepressColor',
+    'TechnicalProduct', 'Tooling', 'PrepressColor', 'TechnicalProductRevision',
     'Supplier', 'SupplierContact', 'Material', 'StockLocation', 'StockLot', 'StockMovement',
     'DemandeAchat', 'BonCommande', 'LigneBonCommande', 'StockSeuil',
     'Atelier', 'Machine', 'CompteurMachine',

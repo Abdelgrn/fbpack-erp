@@ -1,6 +1,14 @@
 from django import forms
-from django.forms import inlineformset_factory
-from core.models import TechnicalProduct, Tooling, PrepressColor
+from django.forms import BaseInlineFormSet, inlineformset_factory
+
+from core.models import PrepressColor, TechnicalProduct, Tooling
+
+
+_INPUT_CLASS = (
+    'w-full rounded-xl border border-slate-600 bg-slate-900 px-3 py-2.5 '
+    'text-sm text-white placeholder-slate-500 outline-none transition '
+    'focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20'
+)
 
 
 class ProductForm(forms.ModelForm):
@@ -10,12 +18,13 @@ class ProductForm(forms.ModelForm):
             'client',
             'ref_internal',
             'name',
+            'printing_process',
             'structure_type',
             'width_mm',
             'cut_length_mm',
-            'num_colors',
             'artwork_file',
             'tech_sheet_file',
+            'product_visual',
             'date_creation',
             'graveur',
             'ref_graveur',
@@ -27,6 +36,7 @@ class ProductForm(forms.ModelForm):
             'support_impression',
             'impression',
             'spot',
+            'technical_notes',
             'sens_bobine',
             'spot_placement',
             'bat_status',
@@ -34,39 +44,78 @@ class ProductForm(forms.ModelForm):
             'is_obsolete',
         ]
         widgets = {
-            'client': forms.Select(attrs={'class': 'form-select'}),
-            'ref_internal': forms.TextInput(attrs={'class': 'form-control'}),
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'structure_type': forms.Select(attrs={'class': 'form-select'}),
-            'width_mm': forms.NumberInput(attrs={'class': 'form-control'}),
-            'cut_length_mm': forms.NumberInput(attrs={'class': 'form-control'}),
-            'num_colors': forms.NumberInput(attrs={'class': 'form-control'}),
-            'artwork_file': forms.FileInput(attrs={'class': 'form-control'}),
-            'tech_sheet_file': forms.FileInput(attrs={'class': 'form-control'}),
-            'date_creation': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'graveur': forms.TextInput(attrs={'class': 'form-control'}),
-            'ref_graveur': forms.TextInput(attrs={'class': 'form-control'}),
-            'type_dossier': forms.Select(attrs={'class': 'form-select'}),
-            'nb_poses_pas': forms.NumberInput(attrs={'class': 'form-control'}),
-            'nb_poses_laize': forms.NumberInput(attrs={'class': 'form-control'}),
-            'developpement_mm': forms.NumberInput(attrs={'class': 'form-control'}),
-            'laize_gravure_mm': forms.NumberInput(attrs={'class': 'form-control'}),
-            'support_impression': forms.TextInput(attrs={'class': 'form-control'}),
-            'impression': forms.TextInput(attrs={'class': 'form-control'}),
-            'spot': forms.TextInput(attrs={'class': 'form-control'}),
-            'sens_bobine': forms.Select(attrs={'class': 'form-select'}),
-            'spot_placement': forms.Select(attrs={'class': 'form-select'}),
-            'bat_status': forms.Select(attrs={'class': 'form-select font-bold'}),
-            'version': forms.TextInput(attrs={'class': 'form-control'}),
-            'is_obsolete': forms.CheckboxInput(attrs={'class': 'w-5 h-5 accent-red-500 rounded border-slate-700 bg-slate-900 cursor-pointer'}),
+            'client': forms.Select(attrs={'class': _INPUT_CLASS}),
+            'ref_internal': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'Ex. 25F052'}),
+            'name': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'Désignation complète du produit'}),
+            'printing_process': forms.Select(attrs={'class': _INPUT_CLASS}),
+            'structure_type': forms.Select(attrs={'class': _INPUT_CLASS}),
+            'width_mm': forms.NumberInput(attrs={'class': _INPUT_CLASS, 'min': 0, 'step': '0.001'}),
+            'cut_length_mm': forms.NumberInput(attrs={'class': _INPUT_CLASS, 'min': 0, 'step': '0.001'}),
+            'artwork_file': forms.ClearableFileInput(attrs={'class': _INPUT_CLASS}),
+            'tech_sheet_file': forms.ClearableFileInput(attrs={'class': _INPUT_CLASS}),
+            'product_visual': forms.ClearableFileInput(attrs={'class': _INPUT_CLASS, 'accept': 'image/png,image/jpeg,image/webp'}),
+            'date_creation': forms.DateInput(format='%Y-%m-%d', attrs={'class': _INPUT_CLASS, 'type': 'date'}),
+            'graveur': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'Ex. STUDIO FL'}),
+            'ref_graveur': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'Référence du graveur'}),
+            'type_dossier': forms.Select(attrs={'class': _INPUT_CLASS}),
+            'nb_poses_pas': forms.NumberInput(attrs={'class': _INPUT_CLASS, 'min': 1, 'max': 100, 'step': 1}),
+            'nb_poses_laize': forms.NumberInput(attrs={'class': _INPUT_CLASS, 'min': 1, 'max': 100, 'step': 1}),
+            'developpement_mm': forms.NumberInput(attrs={'class': _INPUT_CLASS, 'readonly': 'readonly', 'step': '0.001'}),
+            'laize_gravure_mm': forms.NumberInput(attrs={'class': _INPUT_CLASS, 'readonly': 'readonly', 'step': '0.001'}),
+            'support_impression': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'Ex. OPP TRNSP 30 / MTLZ 20'}),
+            'impression': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'Ex. CELLO EMAIL'}),
+            'spot': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'Ex. 15 mm x 15 mm'}),
+            'technical_notes': forms.Textarea(attrs={'class': _INPUT_CLASS, 'rows': 3, 'placeholder': 'Observations techniques complémentaires'}),
+            'sens_bobine': forms.Select(attrs={'class': _INPUT_CLASS}),
+            'spot_placement': forms.Select(attrs={'class': _INPUT_CLASS}),
+            'bat_status': forms.Select(attrs={'class': _INPUT_CLASS}),
+            'version': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'V1.0'}),
+            'is_obsolete': forms.CheckboxInput(attrs={'class': 'h-5 w-5 rounded border-slate-600 bg-slate-900 accent-red-500'}),
         }
+
+    def clean_ref_internal(self):
+        value = (self.cleaned_data.get('ref_internal') or '').strip()
+        if not value:
+            raise forms.ValidationError('La référence interne est obligatoire.')
+        return value
+
+    def clean_product_visual(self):
+        uploaded = self.cleaned_data.get('product_visual')
+        if not uploaded or not hasattr(uploaded, 'size'):
+            return uploaded
+        if uploaded.size > 10 * 1024 * 1024:
+            raise forms.ValidationError('Le visuel produit ne doit pas dépasser 10 Mo.')
+        content_type = (getattr(uploaded, 'content_type', '') or '').lower()
+        if content_type and content_type not in {'image/png', 'image/jpeg', 'image/webp'}:
+            raise forms.ValidationError('Formats autorisés : PNG, JPG/JPEG ou WEBP.')
+        return uploaded
+
+    def clean(self):
+        cleaned = super().clean()
+        width = cleaned.get('width_mm') or 0
+        cut_length = cleaned.get('cut_length_mm') or 0
+        poses_pas = cleaned.get('nb_poses_pas') or 0
+        poses_laize = cleaned.get('nb_poses_laize') or 0
+
+        if width < 0:
+            self.add_error('width_mm', 'La laize ne peut pas être négative.')
+        if cut_length < 0:
+            self.add_error('cut_length_mm', 'Le pas ne peut pas être négatif.')
+        if poses_pas < 1:
+            self.add_error('nb_poses_pas', 'Le nombre de poses doit être au moins égal à 1.')
+        if poses_laize < 1:
+            self.add_error('nb_poses_laize', 'Le nombre de poses doit être au moins égal à 1.')
+
+        cleaned['developpement_mm'] = round(float(cut_length) * int(poses_pas), 3) if cut_length and poses_pas else 0
+        cleaned['laize_gravure_mm'] = round(float(width) * int(poses_laize), 3) if width and poses_laize else 0
+        return cleaned
 
 
 class PrepressColorForm(forms.ModelForm):
     class Meta:
         model = PrepressColor
         fields = [
-            'ordre',
+            'couleur_hex',
             'nom_couleur',
             'anilox',
             'adhesif',
@@ -75,22 +124,70 @@ class PrepressColorForm(forms.ModelForm):
             'formule_encre',
         ]
         widgets = {
-            'ordre': forms.NumberInput(attrs={'class': 'form-control'}),
-            'nom_couleur': forms.TextInput(attrs={'class': 'form-control'}),
-            'anilox': forms.TextInput(attrs={'class': 'form-control'}),
-            'adhesif': forms.TextInput(attrs={'class': 'form-control'}),
-            'viscosite': forms.TextInput(attrs={'class': 'form-control'}),
-            'type_encre': forms.TextInput(attrs={'class': 'form-control'}),
-            'formule_encre': forms.TextInput(attrs={'class': 'form-control'}),
+            'couleur_hex': forms.TextInput(attrs={
+                'class': 'h-10 w-14 cursor-pointer rounded border border-slate-500 bg-transparent p-0.5',
+                'type': 'color',
+                'title': 'Aperçu de la couleur',
+            }),
+            'nom_couleur': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'CYAN, MAGENTA, P 485 C…'}),
+            'anilox': forms.TextInput(attrs={'class': _INPUT_CLASS, 'placeholder': 'Ex. 420 / 5'}),
+            'adhesif': forms.TextInput(attrs={'class': _INPUT_CLASS}),
+            'viscosite': forms.TextInput(attrs={'class': _INPUT_CLASS}),
+            'type_encre': forms.TextInput(attrs={'class': _INPUT_CLASS}),
+            'formule_encre': forms.TextInput(attrs={'class': _INPUT_CLASS}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Une ligne totalement vide doit rester facultative même si le navigateur
+        # soumet la valeur par défaut du sélecteur de couleur.
+        self.fields['nom_couleur'].required = False
+        self.fields['couleur_hex'].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        name = (cleaned.get('nom_couleur') or '').strip()
+        technical_values = [
+            cleaned.get('anilox'), cleaned.get('adhesif'), cleaned.get('viscosite'),
+            cleaned.get('type_encre'), cleaned.get('formule_encre'),
+        ]
+        if not name and any(str(value or '').strip() for value in technical_values):
+            self.add_error('nom_couleur', 'Indiquez le nom de la couleur pour cette ligne.')
+        if name:
+            cleaned['nom_couleur'] = name
+            cleaned['couleur_hex'] = (cleaned.get('couleur_hex') or '#FFFFFF').upper()
+        return cleaned
+
+
+class BasePrepressColorFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        active_count = 0
+        for form in self.forms:
+            data = getattr(form, 'cleaned_data', {})
+            if not data or data.get('DELETE'):
+                continue
+            if (data.get('nom_couleur') or '').strip():
+                active_count += 1
+        if active_count > 8:
+            raise forms.ValidationError('Une fiche technique peut contenir au maximum 8 couleurs.')
 
 
 PrepressColorFormSet = inlineformset_factory(
     TechnicalProduct,
     PrepressColor,
     form=PrepressColorForm,
+    formset=BasePrepressColorFormSet,
+    fields=[
+        'couleur_hex', 'nom_couleur', 'anilox', 'adhesif',
+        'viscosite', 'type_encre', 'formule_encre',
+    ],
     extra=8,
-    can_delete=True
+    max_num=8,
+    validate_max=True,
+    can_delete=True,
 )
 
 

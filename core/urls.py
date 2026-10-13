@@ -1,11 +1,14 @@
+import inspect
+from importlib import import_module
+
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.core.exceptions import ImproperlyConfigured
 
 from . import views
 from .views import of_views
 from .views import production_speciale as prod_views
-from .views.admin_custom import (admin_assign_module_manager, admin_revoke_module_manager, admin_promote_superuser, admin_demote_superuser)
 
 # MODULE KPI
 from .kpi import views as kpi_analytics
@@ -14,11 +17,100 @@ from .kpi import views as kpi_analytics
 from .views.stock import scan_label_ai, import_stock_view, bulk_delete_materials, bulk_delete_movements
 from .views.notifications import (notification_center, notification_api_list, notification_mark_read, notification_mark_all_read, notification_toggle_processed)
 from .views.erp_assistant import assistant_home, assistant_ask, assistant_clear
-from .views.prepress import prepress_tooling_park
-from .views.ink_calculator import ink_calculator, ink_calculation_detail, ink_calculation_actual
+from .views.prepress import (
+    prepress_technical_sheet_detail,
+    prepress_technical_sheet_list,
+    prepress_technical_sheet_pdf,
+    prepress_technical_sheet_print,
+    prepress_technical_sheet_revisions,
+    prepress_tooling_park,
+)
 from .views.global_search import global_search_api
-from .views.prelaunch import of_prelaunch_check
-from .views.stock_reservation import of_stock_reservations, requirement_reserve_fifo, requirement_reserve_manual, reservation_release
+from .views.stock_reservation import of_stock_reservations
+from .views.admin_custom import (
+    admin_assign_module_manager,
+    admin_demote_superuser,
+    admin_promote_superuser,
+    admin_revoke_module_manager,
+)
+from .views.security_monitoring import (
+    disable_user_temporarily_view,
+    export_security_events_excel,
+    recognize_signature_view,
+    revoke_session_view,
+    revoke_user_sessions_view,
+    security_monitoring,
+)
+
+
+def _existing_feature_view(module_path, candidate_names, feature_label):
+    """Adaptateur cumulatif pour les noms de vues livrés par les lots 0042/0044.
+
+    Ces modules existent déjà dans le projet. L'adaptateur accepte plusieurs noms
+    historiques de vues, sans remplacer leur logique métier.
+    """
+    def dispatch(request, *args, **kwargs):
+        module = import_module(module_path)
+        for candidate_name in candidate_names:
+            candidate = getattr(module, candidate_name, None)
+            if not callable(candidate):
+                continue
+            try:
+                # inspect.unwrap retrouve la signature de la vue derrière
+                # login_required/module_required lorsqu'elle est disponible.
+                inspect.signature(inspect.unwrap(candidate)).bind(
+                    request,
+                    *args,
+                    **kwargs,
+                )
+            except (TypeError, ValueError):
+                continue
+            return candidate(request, *args, **kwargs)
+        raise ImproperlyConfigured(
+            f"{feature_label}: aucune vue compatible avec les paramètres de "
+            f"cette route dans {module_path}. Noms acceptés : "
+            f"{', '.join(candidate_names)}"
+        )
+    dispatch.__name__ = f"compat_{feature_label.lower().replace(' ', '_')}"
+    return dispatch
+
+
+prelaunch_verification_compat = _existing_feature_view(
+    'core.views.prelaunch',
+    (
+        'of_prelaunch_verification',
+        'prelaunch_verification',
+        'prelaunch_check',
+        'prelaunch_verification_view',
+        'of_prelaunch_check',
+        'prelaunch_check_view',
+        'verify_prelaunch',
+        'prelaunch_view',
+    ),
+    'Vérification pré-lancement',
+)
+ink_calculator_global_compat = _existing_feature_view(
+    'core.views.ink_calculator',
+    (
+        'ink_calculator',
+        'ink_calculator_view',
+        'ink_consumption_calculator',
+        'ink_consumption_view',
+        'calculate_ink_consumption',
+    ),
+    'Calculateur encre global',
+)
+ink_calculator_of_compat = _existing_feature_view(
+    'core.views.ink_calculator',
+    (
+        'of_ink_calculator',
+        'of_ink_consumption_calculator',
+        'ink_consumption_calculator',
+        'ink_calculator',
+        'ink_calculator_view',
+    ),
+    'Calculateur encre par OF',
+)
 
 
 urlpatterns = [
@@ -26,7 +118,6 @@ urlpatterns = [
     # MANIFEST PWA DYNAMIQUE (LOGO AUTOMATIQUE)
     # ==========================================
     path('manifest.json', views.manifest_view, name='manifest_view'),
-    path('search/api/', global_search_api, name='global_search_api'),
 
     # CENTRE DE NOTIFICATIONS UNIFIÉ
     path('notifications/', notification_center, name='notification_center'),
@@ -39,11 +130,9 @@ urlpatterns = [
     path('assistant/', assistant_home, name='assistant_home'),
     path('assistant/api/ask/', assistant_ask, name='assistant_ask'),
     path('assistant/api/clear/', assistant_clear, name='assistant_clear'),
-    path('of/<int:of_id>/prelaunch-check/', of_prelaunch_check, name='of_prelaunch_check'),
-    path('crm/of/<int:of_id>/stock-reservations/', of_stock_reservations, name='of_stock_reservations'),
-    path('stock/requirement/<int:requirement_id>/reserve-fifo/', requirement_reserve_fifo, name='requirement_reserve_fifo'),
-    path('stock/requirement/<int:requirement_id>/reserve-manual/', requirement_reserve_manual, name='requirement_reserve_manual'),
-    path('stock/reservation/<int:reservation_id>/release/', reservation_release, name='reservation_release'),
+
+    # RECHERCHE GLOBALE — route cumulative impérative.
+    path('search/api/', global_search_api, name='global_search_api'),
 
     # ==========================================
     # DASHBOARD & REPORTING
@@ -134,6 +223,15 @@ urlpatterns = [
     path('crm/of/<int:of_id>/', views.crm_of_detail, name='crm_of_detail'),
     path('crm/of/<int:of_id>/edit/', views.crm_of_edit, name='crm_of_edit'),
     path('crm/of/<int:of_id>/statut/<str:nouveau_statut>/', views.crm_of_changer_statut, name='crm_of_changer_statut'),
+    path('crm/of/<int:of_id>/stock-reservations/', of_stock_reservations, name='of_stock_reservations'),
+    path('crm/of/<int:of_id>/prelaunch/', prelaunch_verification_compat, name='of_prelaunch_verification'),
+    path('crm/of/<int:of_id>/prelaunch/', prelaunch_verification_compat, name='prelaunch_verification'),
+
+    # Le calculateur possède une page globale appelée sans argument depuis
+    # templates/prepress.html, tout en conservant l'accès contextuel par OF.
+    path('prepress/ink-calculator/', ink_calculator_global_compat, name='ink_calculator'),
+    path('crm/of/<int:of_id>/ink-calculator/', ink_calculator_of_compat, name='ink_consumption_calculator'),
+    path('crm/of/<int:of_id>/ink-calculator/', ink_calculator_of_compat, name='ink_calculator'),
     path('crm/api/stock-check/', views.api_check_material_stock, name='api_check_material_stock'),
 
     # ==========================================
@@ -162,9 +260,11 @@ urlpatterns = [
     # ==========================================
     path('prepress/', views.prepress_view, name='prepress_view'),
     path('prepress/outillages/', prepress_tooling_park, name='prepress_tooling_park'),
-    path('prepress/encres/calculateur/', ink_calculator, name='ink_calculator'),
-    path('prepress/encres/calcul/<int:job_id>/', ink_calculation_detail, name='ink_calculation_detail'),
-    path('prepress/encres/calcul/<int:job_id>/reel/', ink_calculation_actual, name='ink_calculation_actual'),
+    path('prepress/fiches-techniques/', prepress_technical_sheet_list, name='prepress_technical_sheet_list'),
+    path('prepress/fiche/<int:product_id>/', prepress_technical_sheet_detail, name='prepress_technical_sheet'),
+    path('prepress/fiche/<int:product_id>/imprimer/', prepress_technical_sheet_print, name='prepress_technical_sheet_print'),
+    path('prepress/fiche/<int:product_id>/pdf/', prepress_technical_sheet_pdf, name='prepress_technical_sheet_pdf'),
+    path('prepress/fiche/<int:product_id>/revisions/', prepress_technical_sheet_revisions, name='prepress_technical_sheet_revisions'),
     path('prepress/client/<int:client_id>/', views.prepress_client_products, name='prepress_client_products'),
     path('prepress/add/', views.add_product, name='add_product'),
     path('prepress/edit/<int:id>/', views.edit_product, name='edit_product'),
@@ -301,10 +401,21 @@ urlpatterns = [
     path('administration/user/add/', views.admin_add_user, name='admin_add_user'),
     path('administration/user/<int:user_id>/edit/', views.admin_edit_user, name='admin_edit_user'),
     path('administration/user/<int:user_id>/toggle/', views.admin_toggle_user, name='admin_toggle_user'),
+
+    # Administration ERP V2 — superadministrateurs et délégations par module.
     path('administration/user/<int:user_id>/promote-superuser/', admin_promote_superuser, name='admin_promote_superuser'),
     path('administration/user/<int:user_id>/demote-superuser/', admin_demote_superuser, name='admin_demote_superuser'),
-    path('administration/module-admin/assign/', admin_assign_module_manager, name='admin_assign_module_manager'),
-    path('administration/module-admin/<int:delegation_id>/revoke/', admin_revoke_module_manager, name='admin_revoke_module_manager'),
+    path('administration/module-manager/assign/', admin_assign_module_manager, name='admin_assign_module_manager'),
+    path('administration/module-manager/<int:delegation_id>/revoke/', admin_revoke_module_manager, name='admin_revoke_module_manager'),
+
+    # Centre de surveillance des connexions — exclusivement superadministrateur.
+    path('administration/security/', security_monitoring, name='security_monitoring'),
+    path('administration/security/export/excel/', export_security_events_excel, name='security_events_export_excel'),
+    path('administration/security/session/<int:session_id>/revoke/', revoke_session_view, name='security_revoke_session'),
+    path('administration/security/user/<int:user_id>/revoke-all/', revoke_user_sessions_view, name='security_revoke_user_sessions'),
+    path('administration/security/user/<int:user_id>/disable/', disable_user_temporarily_view, name='security_disable_user'),
+    path('administration/security/signature/<int:signature_id>/recognize/', recognize_signature_view, name='security_recognize_signature'),
+
     path('administration/import-data/', views.admin_import_data_view, name='admin_import_data'),
     path('administration/backup/restore/', views.admin_restore_backup_view, name='admin_restore_backup'),
     path('administration/backup/download/', views.export_database_backup, name='admin_export_backup'),

@@ -14,6 +14,13 @@
         </div>
 
         {% if is_global_admin %}<div class="flex flex-wrap gap-2">
+            <!-- CENTRE DE SURVEILLANCE DES CONNEXIONS -->
+            <a href="{% url 'security_monitoring' %}"
+               class="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                👁️ Surveillance des connexions
+                {% if security_summary.alerts %}<span class="min-w-5 h-5 px-1 rounded-full bg-white text-red-700 inline-flex items-center justify-center text-[10px]">{{ security_summary.alerts }}</span>{% endif %}
+            </a>
+
             <!-- BOUTON DE TÉLÉCHARGEMENT BACKUP MANUEL -->
             <a href="{% url 'admin_export_backup' %}" 
                class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
@@ -26,12 +33,15 @@
                 📤 Restaurer un Fichier Backup
             </button>
 
-            <!-- BOUTON D'IMPORTATION DIRECTE PC -->
-            <a href="{% url 'admin_import_data' %}" 
-               onclick="return confirm('Voulez-vous importer vos clients, machines et stocks de votre PC vers Render ? (Aucun utilisateur existant ne sera effacé)')"
-               class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
-                📥 Importer Données PC
-            </a>
+            <!-- BOUTON D'IMPORTATION DIRECTE PC — POST + CSRF -->
+            <form method="post" action="{% url 'admin_import_data' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit"
+                        onclick="return confirm('Voulez-vous importer vos clients, machines et stocks de votre PC vers Render ? (Aucun utilisateur existant ne sera effacé)')"
+                        class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center gap-2 text-xs">
+                    📥 Importer Données PC
+                </button>
+            </form>
         </div>{% endif %}
     </div>
 

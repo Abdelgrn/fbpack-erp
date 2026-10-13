@@ -1,6 +1,7 @@
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.messages import get_messages
+from django.core.cache import cache
 
 from .models import AlerteMaintenance
 from .models.permissions import UserModulePermission
@@ -168,3 +169,45 @@ def alertes_usine_chat(request):
         'notification_unread_count': notification_unread_count,
         'notification_critical_count': notification_critical_count,
     }
+
+
+def security_monitoring_status(request):
+    """Compteurs légers du centre de sécurité, visibles aux seuls superadmins."""
+    empty = {
+        'security_monitoring_alert_count': 0,
+        'security_monitoring_online_count': 0,
+    }
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return empty
+
+    cache_key = 'security-monitoring:context-summary'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        from .models.security_audit import (
+            SecurityEvent,
+            SecurityRiskLevel,
+            SecuritySession,
+        )
+
+        now = timezone.now()
+        result = {
+            'security_monitoring_alert_count': SecurityEvent.objects.filter(
+                risk_level__in=[
+                    SecurityRiskLevel.SUSPICIOUS,
+                    SecurityRiskLevel.CRITICAL,
+                ],
+                occurred_at__gte=now - timedelta(hours=24),
+            ).count(),
+            'security_monitoring_online_count': SecuritySession.objects.filter(
+                status=SecuritySession.Status.ACTIVE,
+                last_activity_at__gte=now - timedelta(minutes=5),
+            ).count(),
+        }
+        cache.set(cache_key, result, timeout=30)
+        return result
+    except Exception:
+        # Compatible avec une mise en production où le code précède brièvement migrate.
+        return empty

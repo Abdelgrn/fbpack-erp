@@ -1,6 +1,7 @@
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
-from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class TechnicalProduct(models.Model):
@@ -12,6 +13,18 @@ class TechnicalProduct(models.Model):
     )
     ref_internal = models.CharField("Ref Interne", max_length=50, unique=True)
     name = models.CharField("Désignation", max_length=200)
+
+    PRINTING_PROCESS_CHOICES = [
+        ('FLEXO', 'Flexographie'),
+        ('HELIO', 'Héliogravure'),
+        ('AUTRE', 'Autre'),
+    ]
+    printing_process = models.CharField(
+        "Procédé d'impression",
+        max_length=20,
+        choices=PRINTING_PROCESS_CHOICES,
+        default='FLEXO',
+    )
     structure_type = models.CharField(
         max_length=20,
         choices=[('MONO', 'Mono'), ('DUPLEX', 'Duplex'), ('TRIPLEX', 'Triplex')],
@@ -35,6 +48,12 @@ class TechnicalProduct(models.Model):
 
     date_creation = models.DateField("Date de création", default=timezone.now)
     tech_sheet_file = models.FileField("Fiche Technique Originale (PDF)", upload_to='tech_sheets/', blank=True, null=True)
+    product_visual = models.ImageField(
+        "Visuel du produit",
+        upload_to='technical_products/visuals/%Y/%m/',
+        blank=True,
+        null=True,
+    )
 
     graveur = models.CharField("Graveur", max_length=150, blank=True, null=True)
     ref_graveur = models.CharField("Référence Graveur", max_length=150, blank=True, null=True)
@@ -54,6 +73,7 @@ class TechnicalProduct(models.Model):
     support_impression = models.CharField("Support d'impression", max_length=200, blank=True, null=True)
     impression = models.CharField("Impression", max_length=150, blank=True, null=True)
     spot = models.CharField("Spot (mm x mm)", max_length=100, blank=True, null=True)
+    technical_notes = models.TextField("Observations techniques", blank=True, default='')
 
     SENS_BOBINE_CHOICES = [(str(i), f"Sens {i}") for i in range(1, 9)]
     sens_bobine = models.CharField("Sens d'enroulement", max_length=2, choices=SENS_BOBINE_CHOICES, blank=True, null=True)
@@ -68,6 +88,16 @@ class TechnicalProduct(models.Model):
         "Placement Spot", max_length=2, choices=SPOT_PLACEMENT_CHOICES, blank=True, null=True
     )
 
+    updated_at = models.DateTimeField("Dernière modification", auto_now=True)
+    last_modified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='technical_products_modified',
+        verbose_name="Dernière modification par",
+    )
+
     class Meta:
         app_label = 'core'
         verbose_name = "Produit technique"
@@ -76,10 +106,31 @@ class TechnicalProduct(models.Model):
     def __str__(self):
         return f"{self.ref_internal} - {self.name}"
 
+    def calculate_dimensions(self):
+        """Calcule les dimensions dérivées avec les valeurs métier de la fiche."""
+        if self.cut_length_mm and self.nb_poses_pas:
+            self.developpement_mm = round(float(self.cut_length_mm) * int(self.nb_poses_pas), 3)
+        else:
+            self.developpement_mm = 0
+        if self.width_mm and self.nb_poses_laize:
+            self.laize_gravure_mm = round(float(self.width_mm) * int(self.nb_poses_laize), 3)
+        else:
+            self.laize_gravure_mm = 0
+
+    def save(self, *args, **kwargs):
+        self.calculate_dimensions()
+        super().save(*args, **kwargs)
+
 
 class PrepressColor(models.Model):
     product = models.ForeignKey(TechnicalProduct, on_delete=models.CASCADE, related_name='couleurs_flexo')
     ordre = models.IntegerField("N°", default=1)
+    couleur_hex = models.CharField(
+        "Aperçu couleur",
+        max_length=7,
+        default='#FFFFFF',
+        validators=[RegexValidator(r'^#[0-9A-Fa-f]{6}$', 'Saisissez une couleur au format #RRGGBB.')],
+    )
     nom_couleur = models.CharField("Couleurs (Ex: CYAN, MAGENTA...)", max_length=100)
     anilox = models.CharField("Anilox", max_length=100, blank=True, null=True)
     adhesif = models.CharField("Adhésif", max_length=100, blank=True, null=True)
@@ -95,6 +146,48 @@ class PrepressColor(models.Model):
 
     def __str__(self):
         return f"{self.ordre} - {self.nom_couleur} ({self.product.ref_internal})"
+
+
+class TechnicalProductRevision(models.Model):
+    """Instantané structuré et non sensible d'une fiche technique prépresse."""
+
+    product = models.ForeignKey(
+        TechnicalProduct,
+        on_delete=models.CASCADE,
+        related_name='revisions',
+    )
+    revision_number = models.PositiveIntegerField("Révision")
+    snapshot = models.JSONField("Données sauvegardées", default=dict)
+    reason = models.CharField("Motif", max_length=250, blank=True)
+    created_at = models.DateTimeField("Créée le", auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='technical_product_revisions',
+    )
+
+    class Meta:
+        app_label = 'core'
+        ordering = ['-revision_number']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['product', 'revision_number'],
+                name='unique_product_technical_revision',
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=['product', '-revision_number'],
+                name='prepress_revision_product_idx',
+            )
+        ]
+        verbose_name = "Révision de fiche technique"
+        verbose_name_plural = "Révisions de fiches techniques"
+
+    def __str__(self):
+        return f"{self.product.ref_internal} — révision {self.revision_number}"
 
 
 class Tooling(models.Model):

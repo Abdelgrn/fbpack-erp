@@ -1,0 +1,128 @@
+<style>
+    .ft-sheet, .ft-sheet * { box-sizing:border-box; }
+    .ft-sheet { position:relative; width:285mm; min-height:190mm; margin:0 auto; padding:4mm 5mm 5mm; overflow:hidden; background:#fff; color:#222; font-family:Arial,Helvetica,sans-serif; font-style:italic; }
+    .ft-sheet-header { display:grid; grid-template-columns:47mm minmax(92mm,1fr) 31mm; align-items:center; gap:6mm; min-height:15mm; margin-bottom:3mm; }
+    .ft-logo-box { height:14mm; display:flex; align-items:center; justify-content:center; border-radius:2mm; background:#16243a; padding:2mm 4mm; }
+    .ft-logo-box img { display:block; max-width:100%; max-height:10mm; object-fit:contain; }
+    .ft-logo-fallback { color:#b5121b; font-size:17pt; font-weight:900; }
+    .ft-title { border:1.1mm solid #b5121b; border-radius:3mm; padding:1.7mm 3mm 1.2mm; color:#262626; font-size:16pt; font-weight:900; line-height:1; text-align:center; text-transform:uppercase; white-space:nowrap; }
+    .ft-process { padding:2mm 2.8mm 1.5mm; background:#b5121b; color:#fff; font-size:16pt; font-weight:900; line-height:1; text-align:center; text-transform:uppercase; }
+    .ft-upper { display:grid; grid-template-columns:minmax(0,1fr) 73mm; gap:5mm; }
+    .ft-left { min-width:0; }
+    .ft-line { display:flex; align-items:center; gap:3mm; min-height:12.5mm; white-space:nowrap; }
+    .ft-line.ft-tight { min-height:10.5mm; }
+    .ft-label { color:#292929; font-size:9pt; font-weight:900; text-transform:uppercase; }
+    .ft-box { display:flex; min-height:8mm; align-items:center; justify-content:center; border:.65mm solid #2d2d2d; border-radius:2.6mm; padding:1mm 3mm .7mm; color:#0862b5; font-size:10pt; font-weight:900; line-height:1.1; text-align:center; }
+    .ft-box.code { min-width:34mm; }.ft-box.date { min-width:29mm; }.ft-box.client { min-width:57mm; }.ft-box.article { min-width:83mm; }.ft-box.graveur { min-width:54mm; }.ft-box.grav-ref { min-width:35mm; }
+    .ft-spacer { flex:1 1 auto; }
+    .ft-folder-line { display:flex; flex-wrap:nowrap; align-items:center; gap:3mm; min-height:10mm; }
+    .ft-folder { display:inline-flex; align-items:center; gap:1.4mm; color:#292929; font-size:8.5pt; font-weight:900; text-transform:uppercase; }
+    .ft-check { position:relative; display:inline-block; width:5mm; height:5mm; border:.65mm solid #2c2c2c; border-radius:1.4mm; background:#fff; flex:0 0 auto; }
+    .ft-check.active::after { content:'×'; position:absolute; inset:-2.3mm 0 0; color:#0862b5; font:900 16pt/1 Arial,sans-serif; text-align:center; }
+    .ft-dimensions { margin:2mm 0 1mm; }
+    .ft-dim-row { display:grid; grid-template-columns:14mm 34mm 37mm 20mm 35mm 33mm; align-items:center; column-gap:3mm; min-height:10.5mm; }
+    .ft-metric { display:flex; min-height:8mm; align-items:center; justify-content:center; border:.65mm solid #2c2c2c; border-radius:2.6mm; background:#eca9c7; color:#242424; font-size:11pt; font-weight:900; }
+    .ft-pose { display:flex; min-height:8mm; align-items:center; justify-content:center; border:.65mm solid #2c2c2c; border-radius:2.6mm; color:#252525; font-size:10.5pt; font-weight:900; }
+    .ft-wide-box { min-width:94mm; }.ft-medium-box { min-width:38mm; }
+    .ft-visual-panel { position:relative; min-height:103mm; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:1mm 1mm 0; }
+    .ft-product-image { display:block; width:100%; height:81mm; object-fit:contain; object-position:center; }
+    .ft-product-empty { position:relative; width:100%; height:81mm; display:flex; align-items:center; justify-content:center; overflow:hidden; color:#8c8c8c; font-size:9pt; font-weight:900; letter-spacing:.08em; text-align:center; }
+    .ft-product-empty::before { content:''; position:absolute; width:45mm; height:69mm; border:2mm solid #d9dee3; border-left-width:7mm; border-radius:48% 9% 28% 45%; transform:rotate(8deg); opacity:.8; }
+    .ft-product-empty span { position:relative; z-index:1; padding:1mm 2mm; background:rgba(255,255,255,.88); }
+    .ft-picto-strip { width:100%; display:flex; justify-content:center; gap:5mm; padding-top:1mm; }
+    .ft-mini-group { display:flex; align-items:center; gap:1.5mm; }
+    .ft-mini-caption { color:#555; font-size:6.5pt; font-weight:800; text-transform:uppercase; }
+    .ft-mini-roll, .ft-mini-spot { position:relative; width:11mm; height:12mm; border:.45mm solid #333; border-radius:2mm; background:#f7f7f7; }
+    .ft-mini-roll::before { content:''; position:absolute; left:3.2mm; top:1mm; width:4.8mm; height:1.9mm; border:.3mm solid #555; border-radius:50%; background:#d8dee3; }
+    .ft-mini-roll::after { content:'A'; position:absolute; left:3.4mm; top:2.2mm; width:4.5mm; height:8mm; display:flex; align-items:center; justify-content:center; background:#ef4444; color:#fff; font:900 8pt/1 Arial,sans-serif; }
+    .ft-mini-roll.sens-1::after,.ft-mini-roll.sens-5::after { transform:rotate(180deg); }.ft-mini-roll.sens-3::after,.ft-mini-roll.sens-7::after { transform:rotate(90deg); }.ft-mini-roll.sens-4::after,.ft-mini-roll.sens-8::after { transform:rotate(-90deg); }
+    .ft-mini-roll.sens-5::after,.ft-mini-roll.sens-6::after,.ft-mini-roll.sens-7::after,.ft-mini-roll.sens-8::after { background:#0284c7; }
+    .ft-mini-spot::before { content:'A'; position:absolute; inset:0; color:#111; font:900 10pt/12mm Georgia,serif; text-align:center; }
+    .ft-mini-spot::after { content:''; position:absolute; width:2mm; height:1.4mm; background:#111; }.ft-mini-spot.spot-1::after { left:1mm; bottom:1mm; }.ft-mini-spot.spot-2::after { left:4.3mm; bottom:1mm; }.ft-mini-spot.spot-3::after { right:1mm; bottom:1mm; }.ft-mini-spot.spot-4::after { right:1mm; top:1mm; }
+    .ft-colors { width:100%; margin-top:3mm; border-collapse:collapse; table-layout:fixed; font-size:8.5pt; }
+    .ft-colors th,.ft-colors td { height:7.1mm; border:.65mm solid #292929; padding:.6mm 1.4mm; vertical-align:middle; }
+    .ft-colors thead th { height:7.4mm; background:#fff; color:#292929; font-size:8pt; font-weight:900; text-align:center; text-transform:uppercase; }
+    .ft-colors .ft-num { width:10mm; color:#252525; font-size:10pt; font-weight:900; text-align:center; }.ft-colors .ft-swatch-col { width:25mm; padding:.5mm; }.ft-colors .ft-color-name { width:34mm; }.ft-colors .ft-anilox { width:27mm; }.ft-colors .ft-adhesif { width:28mm; }.ft-colors .ft-viscosite { width:28mm; }.ft-colors .ft-encre { width:28mm; }
+    .ft-swatch { display:block; width:100%; height:5.5mm; border:.35mm solid #555; }
+    .ft-blue { color:#0862b5; font-weight:900; text-align:center; }
+    .ft-notes { min-height:7mm; padding:1.2mm 1mm 0; color:#333; font-size:7pt; }
+    .ft-footer { position:absolute; left:5mm; right:5mm; bottom:1.5mm; display:flex; justify-content:space-between; color:#777; font-size:6pt; font-style:normal; }
+    @media screen and (max-width:1120px) { .ft-sheet { margin-left:0; } }
+</style>
+
+<section class="ft-sheet" aria-label="Fiche technique prépresse {{ product.ref_internal }}">
+    <div class="ft-upper">
+        <div class="ft-left">
+            <header class="ft-sheet-header">
+                <div class="ft-logo-box">{% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="FB Pack">{% else %}<span class="ft-logo-fallback">FB PACK</span>{% endif %}</div>
+                <div class="ft-title">Fiche technique prépresse</div>
+                <div class="ft-process">{{ product.printing_process|default:'FLEXO' }}</div>
+            </header>
+
+            <div class="ft-line">
+                <span class="ft-label">Code</span><span class="ft-box code">{{ product.ref_internal }}</span>
+                <span class="ft-spacer"></span>
+                <span class="ft-label">Date</span><span class="ft-box date">{{ product.date_creation|date:'d / m / Y' }}</span>
+            </div>
+            <div class="ft-line">
+                <span class="ft-label">Client</span><span class="ft-box client">{{ product.client.name }}</span>
+                <span class="ft-label">Article</span><span class="ft-box article">{{ product.name }}</span>
+            </div>
+            <div class="ft-line">
+                <span class="ft-label">Graveur</span><span class="ft-box graveur">{{ product.graveur|default:'—' }}</span>
+                <span class="ft-label">Référence graveur</span><span class="ft-box grav-ref">{{ product.ref_graveur|default:'—' }}</span>
+            </div>
+
+            <div class="ft-folder-line">
+                <span class="ft-folder">Nouveau dossier <i class="ft-check {% if product.type_dossier == 'NOUVEAU' %}active{% endif %}"></i></span>
+                <span class="ft-folder">Regravure simple <i class="ft-check {% if product.type_dossier == 'REGRAVURE_SIMPLE' %}active{% endif %}"></i></span>
+                <span class="ft-folder">Regravure avec modification <i class="ft-check {% if product.type_dossier == 'REGRAVURE_MODIF' %}active{% endif %}"></i></span>
+            </div>
+
+            <div class="ft-dimensions">
+                <div class="ft-dim-row">
+                    <span class="ft-label">Pas</span><span class="ft-metric">{{ product.cut_length_mm|default_if_none:'0'|floatformat:'-3' }} mm</span>
+                    <span class="ft-label">Nombre de poses</span><span class="ft-pose">{{ product.nb_poses_pas|default_if_none:'0' }}</span>
+                    <span class="ft-label">Développement</span><span class="ft-metric">{{ product.developpement_mm|default_if_none:'0'|floatformat:'-3' }} mm</span>
+                </div>
+                <div class="ft-dim-row">
+                    <span class="ft-label">Laize</span><span class="ft-metric">{{ product.width_mm|default_if_none:'0'|floatformat:'-3' }} mm</span>
+                    <span class="ft-label">Nombre de poses</span><span class="ft-pose">{{ product.nb_poses_laize|default_if_none:'0' }}</span>
+                    <span class="ft-label">Laize gravure</span><span class="ft-metric">{{ product.laize_gravure_mm|default_if_none:'0'|floatformat:'-3' }} mm</span>
+                </div>
+            </div>
+
+            <div class="ft-line ft-tight"><span class="ft-label">Support d'impression</span><span class="ft-box ft-wide-box">{{ product.support_impression|default:'—' }}</span></div>
+            <div class="ft-line ft-tight"><span class="ft-label">Impression</span><span class="ft-box ft-medium-box">{{ product.impression|default:'—' }}</span></div>
+            <div class="ft-line ft-tight"><span class="ft-label">Spot</span><span class="ft-box ft-medium-box">{{ product.spot|default:'—' }}</span></div>
+        </div>
+
+        <aside class="ft-visual-panel">
+            {% if product_visual_data_uri %}<img class="ft-product-image" src="{{ product_visual_data_uri }}" alt="Visuel {{ product.name }}">{% else %}<div class="ft-product-empty"><span>VISUEL / MAQUETTE<br>PRODUIT</span></div>{% endif %}
+            <div class="ft-picto-strip">
+                <div class="ft-mini-group"><span class="ft-mini-caption">Sens {{ product.sens_bobine|default:'—' }}</span><span class="ft-mini-roll sens-{{ product.sens_bobine|default:'0' }}"></span></div>
+                <div class="ft-mini-group"><span class="ft-mini-caption">Spot {{ product.spot_placement|default:'—' }}</span><span class="ft-mini-spot spot-{{ product.spot_placement|default:'0' }}"></span></div>
+            </div>
+        </aside>
+    </div>
+
+    <table class="ft-colors">
+        <thead><tr><th class="ft-num"></th><th class="ft-swatch-col"></th><th class="ft-color-name">Couleurs</th><th class="ft-anilox">Anilox</th><th class="ft-adhesif">Adhésif</th><th class="ft-viscosite">Viscosité</th><th class="ft-encre">Type encre</th><th>Formule encre</th></tr></thead>
+        <tbody>
+        {% for color in color_rows %}
+            <tr>
+                <td class="ft-num">{{ color.ordre }}</td>
+                <td class="ft-swatch-col">{% if not color.is_empty %}<span class="ft-swatch" style="background-color:{{ color.couleur_hex }}"></span>{% endif %}</td>
+                <td class="ft-blue">{{ color.nom_couleur }}</td>
+                <td class="ft-blue">{{ color.anilox }}</td>
+                <td class="ft-blue">{{ color.adhesif }}</td>
+                <td class="ft-blue">{{ color.viscosite }}</td>
+                <td class="ft-blue">{{ color.type_encre }}</td>
+                <td class="ft-blue">{{ color.formule_encre }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% if product.technical_notes %}<div class="ft-notes"><strong>OBSERVATIONS :</strong> {{ product.technical_notes|linebreaksbr }}</div>{% endif %}
+    <footer class="ft-footer"><span>{{ product.ref_internal }} · {{ product.version }}{% if latest_revision %} · R{{ latest_revision.revision_number }}{% endif %}</span><span>FB Pack ERP · {{ generated_at|date:'d/m/Y H:i' }}</span></footer>
+</section>

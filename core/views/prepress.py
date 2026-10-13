@@ -1,12 +1,31 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+import logging
 
-from ..models import TechnicalProduct, Tooling, Client
-from ..forms import ProductForm, ToolForm, PrepressColorFormSet
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Count, Q
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.utils.text import slugify
+from django.views.decorators.http import require_GET
+
+from ..decorators import module_required
+from ..forms import PrepressColorFormSet, ProductForm, ToolForm
+from ..models import Client, TechnicalProduct, Tooling
+from ..services.prepress_technical_sheet import (
+    build_print_context,
+    create_product_revision,
+    generate_reportlab_pdf,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
+@module_required('prepress')
 def prepress_view(request):
     clients = Client.objects.annotate(
         nb_produits=Count('technicalproduct')
@@ -40,6 +59,7 @@ def prepress_view(request):
 
 
 @login_required
+@module_required('prepress')
 def prepress_client_products(request, client_id):
     client = get_object_or_404(Client, id=client_id)
     products = TechnicalProduct.objects.filter(client=client).order_by('is_obsolete', '-id')
@@ -56,7 +76,30 @@ def prepress_client_products(request, client_id):
     })
 
 
+def _save_color_formset(formset, product):
+    """Sauvegarde au maximum 8 lignes et les renumérote dans l'ordre visuel."""
+    order = 1
+    for color_form in formset.forms:
+        cleaned = getattr(color_form, 'cleaned_data', {})
+        if not cleaned:
+            continue
+        instance = color_form.instance
+        if cleaned.get('DELETE') or not (cleaned.get('nom_couleur') or '').strip():
+            if instance.pk:
+                instance.delete()
+            continue
+        color = color_form.save(commit=False)
+        color.product = product
+        color.ordre = order
+        color.save()
+        order += 1
+
+    product.num_colors = order - 1
+    product.save(update_fields=['num_colors', 'updated_at'])
+
+
 @login_required
+@module_required('prepress')
 def add_product(request):
     initial = {}
     client_id = request.GET.get('client')
@@ -65,45 +108,78 @@ def add_product(request):
 
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES)
-        if form.is_valid():
-            product = form.save()
-            formset = PrepressColorFormSet(request.POST, instance=product)
-            if formset.is_valid():
-                formset.save()
-            return redirect('prepress_client_products', client_id=product.client_id)
+        formset = PrepressColorFormSet(
+            request.POST,
+            instance=form.instance,
+            prefix='colors',
+        )
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                product = form.save(commit=False)
+                product.last_modified_by = request.user
+                product.save()
+                formset.instance = product
+                _save_color_formset(formset, product)
+                create_product_revision(
+                    product,
+                    request.user,
+                    request.POST.get('revision_reason') or 'Création de la fiche technique',
+                )
+            messages.success(request, 'Fiche technique créée et sauvegardée avec succès.')
+            return redirect('prepress_technical_sheet', product_id=product.pk)
     else:
         form = ProductForm(initial=initial)
-        formset = PrepressColorFormSet()
+        formset = PrepressColorFormSet(prefix='colors')
 
-    return render(request, 'product_form.html', {
+    return render(request, 'prepress/technical_sheet_form.html', {
         'form': form,
         'formset': formset,
-        'titre': 'Nouvelle Fiche Technique Flexo',
+        'product': None,
+        'titre': 'Nouvelle fiche technique prépresse',
     })
 
 
 @login_required
+@module_required('prepress')
 def edit_product(request, id):
-    product = get_object_or_404(TechnicalProduct, id=id)
+    product = get_object_or_404(
+        TechnicalProduct.objects.select_related('client'),
+        id=id,
+    )
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES, instance=product)
-        formset = PrepressColorFormSet(request.POST, instance=product)
+        formset = PrepressColorFormSet(
+            request.POST,
+            instance=product,
+            prefix='colors',
+        )
         if form.is_valid() and formset.is_valid():
-            form.save()
-            formset.save()
-            return redirect('prepress_client_products', client_id=product.client_id)
+            with transaction.atomic():
+                product = form.save(commit=False)
+                product.last_modified_by = request.user
+                product.save()
+                _save_color_formset(formset, product)
+                create_product_revision(
+                    product,
+                    request.user,
+                    request.POST.get('revision_reason') or 'Mise à jour de la fiche technique',
+                )
+            messages.success(request, 'Fiche technique mise à jour et nouvelle révision enregistrée.')
+            return redirect('prepress_technical_sheet', product_id=product.pk)
     else:
         form = ProductForm(instance=product)
-        formset = PrepressColorFormSet(instance=product)
+        formset = PrepressColorFormSet(instance=product, prefix='colors')
 
-    return render(request, 'product_form.html', {
+    return render(request, 'prepress/technical_sheet_form.html', {
         'form': form,
         'formset': formset,
-        'titre': f'Modifier Fiche Technique : {product.ref_internal}',
+        'product': product,
+        'titre': f'Modifier la fiche : {product.ref_internal}',
     })
 
 
 @login_required
+@module_required('prepress')
 def add_tool(request):
     client_id = request.GET.get('client')
 
@@ -126,6 +202,7 @@ def add_tool(request):
 
 
 @login_required
+@module_required('prepress')
 def edit_tool(request, id):
     tool = get_object_or_404(Tooling, id=id)
     if request.method == 'POST':
@@ -148,6 +225,7 @@ def edit_tool(request, id):
 # Vue ajoutée sans modifier les vues client existantes.
 # ============================================================
 @login_required
+@module_required('prepress')
 def prepress_tooling_park(request):
     tools = list(
         Tooling.objects
@@ -252,3 +330,160 @@ def prepress_tooling_park(request):
         'chart_supplier_values': [row['avg_tours'] for row in supplier_chart],
     })
 
+
+
+# ============================================================
+# FICHES TECHNIQUES PRÉPRESSE ERP — LISTE, APERÇU, PDF, HISTORIQUE
+# ============================================================
+@login_required
+@module_required('prepress')
+@require_GET
+def prepress_technical_sheet_list(request):
+    products = (
+        TechnicalProduct.objects
+        .select_related('client', 'last_modified_by')
+        .annotate(revision_count=Count('revisions', distinct=True))
+        .order_by('is_obsolete', 'client__name', 'name')
+    )
+
+    query = (request.GET.get('q') or '').strip()[:120]
+    client_id = (request.GET.get('client') or '').strip()
+    process = (request.GET.get('process') or '').strip()
+    status = (request.GET.get('status') or '').strip()
+
+    if query:
+        products = products.filter(
+            Q(ref_internal__icontains=query)
+            | Q(name__icontains=query)
+            | Q(client__name__icontains=query)
+            | Q(graveur__icontains=query)
+            | Q(ref_graveur__icontains=query)
+        )
+    if client_id.isdigit():
+        products = products.filter(client_id=int(client_id))
+    if process in dict(TechnicalProduct.PRINTING_PROCESS_CHOICES):
+        products = products.filter(printing_process=process)
+    if status in dict(TechnicalProduct.BAT_STATUS_CHOICES):
+        products = products.filter(bat_status=status)
+
+    paginator = Paginator(products, 40)
+    product_page = paginator.get_page(request.GET.get('page'))
+    preserved = request.GET.copy()
+    preserved.pop('page', None)
+
+    all_products = TechnicalProduct.objects.all()
+    context = {
+        'product_page': product_page,
+        'clients': Client.objects.filter(technicalproduct__isnull=False).distinct().order_by('name'),
+        'process_choices': TechnicalProduct.PRINTING_PROCESS_CHOICES,
+        'status_choices': TechnicalProduct.BAT_STATUS_CHOICES,
+        'query_without_page': preserved.urlencode(),
+        'stats': {
+            'total': all_products.count(),
+            'validated': all_products.filter(bat_status='VALIDE', is_obsolete=False).count(),
+            'waiting': all_products.filter(bat_status='ATTENTE', is_obsolete=False).count(),
+            'obsolete': all_products.filter(is_obsolete=True).count(),
+        },
+    }
+    return render(request, 'prepress/technical_sheet_list.html', context)
+
+
+@login_required
+@module_required('prepress')
+@require_GET
+def prepress_technical_sheet_detail(request, product_id):
+    product = get_object_or_404(
+        TechnicalProduct.objects
+        .select_related('client', 'last_modified_by')
+        .prefetch_related('couleurs_flexo', 'revisions__created_by'),
+        pk=product_id,
+    )
+    context = build_print_context(product)
+    context['colors'] = product.couleurs_flexo.all().order_by('ordre', 'pk')
+    return render(request, 'prepress/technical_sheet_detail.html', context)
+
+
+@login_required
+@module_required('prepress')
+@require_GET
+def prepress_technical_sheet_print(request, product_id):
+    product = get_object_or_404(
+        TechnicalProduct.objects.select_related('client').prefetch_related(
+            'couleurs_flexo', 'revisions'
+        ),
+        pk=product_id,
+    )
+    context = build_print_context(product)
+    context['auto_print'] = request.GET.get('auto') == '1'
+    return render(request, 'prepress/technical_sheet_print.html', context)
+
+
+@login_required
+@module_required('prepress')
+@require_GET
+def prepress_technical_sheet_pdf(request, product_id):
+    product = get_object_or_404(
+        TechnicalProduct.objects.select_related('client').prefetch_related(
+            'couleurs_flexo', 'revisions'
+        ),
+        pk=product_id,
+    )
+    context = build_print_context(product)
+    context['is_pdf'] = True
+    html_string = render_to_string(
+        'prepress/technical_sheet_print.html',
+        context,
+        request=request,
+    )
+    pdf_engine = 'weasyprint'
+    try:
+        from weasyprint import HTML
+
+        pdf_bytes = HTML(
+            string=html_string,
+            base_url=str(settings.BASE_DIR),
+        ).write_pdf()
+    except Exception as weasy_exc:
+        logger.warning(
+            'prepress_pdf_weasyprint_fallback product_id=%s error=%s',
+            product.pk,
+            type(weasy_exc).__name__,
+        )
+        pdf_engine = 'reportlab'
+        try:
+            pdf_bytes = generate_reportlab_pdf(product, context)
+        except Exception as reportlab_exc:
+            logger.error(
+                'prepress_pdf_generation_failed product_id=%s weasy_error=%s reportlab_error=%s',
+                product.pk,
+                type(weasy_exc).__name__,
+                type(reportlab_exc).__name__,
+            )
+            messages.error(
+                request,
+                "La génération PDF serveur a échoué. Utilisez la page Imprimer puis « Enregistrer au format PDF ».",
+            )
+            return redirect('prepress_technical_sheet_print', product_id=product.pk)
+
+    filename = slugify(f'{product.ref_internal}-{product.name}') or f'fiche-{product.pk}'
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['X-PDF-Engine'] = pdf_engine
+    response['Content-Disposition'] = f'attachment; filename="fiche-technique-{filename}.pdf"'
+    response['Cache-Control'] = 'no-store, private'
+    return response
+
+
+@login_required
+@module_required('prepress')
+@require_GET
+def prepress_technical_sheet_revisions(request, product_id):
+    product = get_object_or_404(
+        TechnicalProduct.objects.select_related('client'),
+        pk=product_id,
+    )
+    revisions = product.revisions.select_related('created_by').order_by('-revision_number')
+    revision_page = Paginator(revisions, 20).get_page(request.GET.get('page'))
+    return render(request, 'prepress/technical_sheet_revisions.html', {
+        'product': product,
+        'revision_page': revision_page,
+    })
