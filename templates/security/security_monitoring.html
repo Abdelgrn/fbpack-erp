@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-[1600px] mx-auto space-y-6">
+    <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <h1 class="text-3xl font-bold text-white">👁️ Surveillance des connexions</h1>
+                <span class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-red-500/10 text-red-300 border border-red-500/30">Superadministrateurs uniquement</span>
+            </div>
+            <p class="text-sm text-slate-400 mt-2">Sessions, événements de sécurité et actions de révocation — aucune clé de session brute n’est conservée.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'admin_view' %}" class="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm text-white transition">← Administration ERP</a>
+            <a href="{% url 'security_events_export_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white transition">📊 Exporter Excel</a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="rounded-xl border px-4 py-3 text-sm {% if message.tags == 'error' %}border-red-500/40 bg-red-950/40 text-red-200{% elif message.tags == 'success' %}border-emerald-500/40 bg-emerald-950/40 text-emerald-200{% else %}border-cyan-500/30 bg-cyan-950/30 text-cyan-100{% endif %}" role="alert">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="rounded-2xl border border-emerald-500/30 bg-slate-900/80 p-5 shadow-lg">
+            <div class="flex items-center justify-between"><span class="text-xs uppercase tracking-wider text-emerald-300">Sessions en ligne</span><span class="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.8)]"></span></div>
+            <div class="text-4xl font-black text-white mt-3">{{ stats.online }}</div>
+            <p class="text-xs text-slate-500 mt-2">Activité dans les {{ online_minutes }} dernières minutes</p>
+        </div>
+        <div class="rounded-2xl border border-orange-500/30 bg-slate-900/80 p-5 shadow-lg">
+            <div class="text-xs uppercase tracking-wider text-orange-300">Échecs 24 h</div>
+            <div class="text-4xl font-black text-white mt-3">{{ stats.failures_24h }}</div>
+            <p class="text-xs text-slate-500 mt-2">Échecs, verrouillages et comptes désactivés</p>
+        </div>
+        <div class="rounded-2xl border border-red-500/30 bg-slate-900/80 p-5 shadow-lg">
+            <div class="text-xs uppercase tracking-wider text-red-300">Alertes critiques</div>
+            <div class="text-4xl font-black text-red-300 mt-3">{{ stats.critical_24h }}</div>
+            <p class="text-xs text-slate-500 mt-2">Niveau CRITICAL sur les dernières 24 h</p>
+        </div>
+        <div class="rounded-2xl border border-cyan-500/30 bg-slate-900/80 p-5 shadow-lg">
+            <div class="text-xs uppercase tracking-wider text-cyan-300">Nouvelles IP</div>
+            <div class="text-4xl font-black text-white mt-3">{{ stats.new_ips_24h }}</div>
+            <p class="text-xs text-slate-500 mt-2">Premières observations sur 24 h</p>
+        </div>
+    </div>
+
+    <section class="rounded-2xl border border-purple-500/25 bg-slate-900/75 p-5 shadow-xl">
+        <div class="flex flex-col xl:flex-row xl:items-end gap-4">
+            <div class="flex-1">
+                <h2 class="text-lg font-bold text-white">Actions sur un compte</h2>
+                <p class="text-xs text-slate-400 mt-1">Permet d’agir même si le compte n’a aucune session récente affichée.</p>
+                <select id="security-account-select" class="mt-3 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white">
+                    <option value="">Choisir un compte…</option>
+                    {% for account in filter_users %}
+                    <option value="{{ account.id }}"
+                            data-username="{{ account.username|escapejs }}"
+                            data-revoke-url="{% url 'security_revoke_user_sessions' account.id %}"
+                            data-disable-url="{% url 'security_disable_user' account.id %}"
+                            data-self="{% if account.id == request.user.id %}1{% else %}0{% endif %}"
+                            data-super="{% if account.is_superuser %}1{% else %}0{% endif %}"
+                            data-active="{% if account.is_active %}1{% else %}0{% endif %}">{{ account.username }}{% if account.is_superuser %} — SUPERADMIN{% endif %}{% if not account.is_active %} — INACTIF{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button id="security-selected-revoke" type="button" disabled class="security-action disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2.5 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/30 text-orange-100 text-sm font-bold" data-kind="revoke-all">Révoquer toutes les sessions</button>
+                <button id="security-selected-disable" type="button" disabled class="security-action disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-100 text-sm font-bold" data-kind="disable">Désactiver temporairement</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-700 bg-slate-900/75 overflow-hidden shadow-xl">
+        <div class="p-5 border-b border-slate-700 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div>
+                <h2 class="text-xl font-bold text-white">Sessions suivies</h2>
+                <p class="text-xs text-slate-400 mt-1">Sessions ouvertes et sessions fermées au cours des dernières 24 heures.</p>
+            </div>
+            <div class="flex gap-2 text-[11px]">
+                <span class="px-2 py-1 rounded bg-emerald-500/15 text-emerald-300">● En ligne</span>
+                <span class="px-2 py-1 rounded bg-orange-500/15 text-orange-300">● Inactif</span>
+                <span class="px-2 py-1 rounded bg-slate-500/15 text-slate-300">● Déconnecté</span>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1450px] text-sm">
+                <thead class="bg-slate-950/70 text-[11px] uppercase tracking-wider text-slate-400">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Statut / compte</th>
+                        <th class="px-4 py-3 text-left">Réseau</th>
+                        <th class="px-4 py-3 text-left">Appareil</th>
+                        <th class="px-4 py-3 text-left">Connexion / activité</th>
+                        <th class="px-4 py-3 text-left">Page récente</th>
+                        <th class="px-4 py-3 text-left">Empreinte</th>
+                        <th class="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for session in sessions %}
+                    <tr class="align-top hover:bg-slate-800/35 transition">
+                        <td class="px-4 py-4">
+                            {% if session.monitor_status == 'ONLINE' %}
+                            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-[11px] font-bold"><span class="h-2 w-2 rounded-full bg-emerald-400"></span> EN LIGNE</span>
+                            {% elif session.monitor_status == 'IDLE' %}
+                            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/15 text-orange-300 text-[11px] font-bold"><span class="h-2 w-2 rounded-full bg-orange-400"></span> INACTIF</span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-500/15 text-slate-300 text-[11px] font-bold">DÉCONNECTÉ · {{ session.get_status_display|upper }}</span>
+                            {% endif %}
+                            <div class="font-bold text-white mt-2">{{ session.user.username|default:'Compte supprimé' }}</div>
+                            {% if session.user.is_superuser %}<div class="text-[10px] text-purple-300 mt-1">👑 SUPERADMIN</div>{% endif %}
+                            {% if session.is_current_session %}<div class="text-[10px] text-cyan-300 mt-1">Session actuelle</div>{% endif %}
+                            {% if session.account_security_state.temporarily_disabled_until %}<div class="text-[10px] text-red-300 mt-1">Désactivé jusqu’au {{ session.account_security_state.temporarily_disabled_until|date:'d/m/Y H:i' }}</div>{% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-xs">
+                            <div class="text-slate-200"><span class="text-slate-500">Client :</span> {{ session.client_ip|default:'—' }}</div>
+                            <div class="text-slate-400 mt-1"><span class="text-slate-500">Proxy :</span> {{ session.proxy_ip|default:'—' }}</div>
+                            {% if session.known_ip %}
+                                {% if session.known_ip.is_recognized %}
+                                <span class="inline-block mt-2 px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 text-[10px]">✓ IP reconnue</span>
+                                {% elif session.user %}
+                                <button type="button" class="security-action mt-2 px-2 py-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-[10px]"
+                                        data-action="{% url 'security_recognize_signature' session.known_ip.id %}"
+                                        data-title="Reconnaître cette IP"
+                                        data-help="Compte {{ session.user.username|escapejs }} — {{ session.client_ip|default:'IP inconnue'|escapejs }}"
+                                        data-confirmation="RECONNAITRE"
+                                        data-kind="recognize">Marquer reconnue</button>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-xs">
+                            <div class="text-white font-medium">{{ session.device|default:'Non identifié' }}</div>
+                            <div class="text-slate-400 mt-1">{{ session.browser|default:'—' }}</div>
+                            <div class="text-slate-500 mt-1">{{ session.operating_system|default:'—' }}</div>
+                            {% if session.known_device %}
+                                {% if session.known_device.is_recognized %}
+                                <span class="inline-block mt-2 px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 text-[10px]">✓ Appareil reconnu</span>
+                                {% elif session.user %}
+                                <button type="button" class="security-action mt-2 px-2 py-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-[10px]"
+                                        data-action="{% url 'security_recognize_signature' session.known_device.id %}"
+                                        data-title="Reconnaître cet appareil"
+                                        data-help="{{ session.device|escapejs }} — {{ session.browser|escapejs }}"
+                                        data-confirmation="RECONNAITRE"
+                                        data-kind="recognize">Marquer reconnu</button>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-xs">
+                            <div><span class="text-slate-500">Première :</span> <span class="text-slate-200">{{ session.first_login_at|date:'d/m/Y H:i:s' }}</span></div>
+                            <div class="mt-1"><span class="text-slate-500">Dernière :</span> <span class="text-slate-200">{{ session.last_activity_at|date:'d/m/Y H:i:s' }}</span></div>
+                            {% if session.ended_at %}<div class="mt-1"><span class="text-slate-500">Fin :</span> <span class="text-slate-300">{{ session.ended_at|date:'d/m/Y H:i:s' }}</span></div>{% endif %}
+                        </td>
+                        <td class="px-4 py-4"><code class="text-[11px] text-cyan-200 break-all">{{ session.recent_path|default:'—' }}</code></td>
+                        <td class="px-4 py-4"><code class="text-[11px] text-slate-300" title="Empreinte HMAC irréversible">{{ session.short_session_fingerprint }}…</code></td>
+                        <td class="px-4 py-4">
+                            <div class="flex flex-col items-end gap-2">
+                                {% if session.status == 'ACTIVE' %}
+                                <button type="button" class="security-action w-36 px-3 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/35 border border-red-500/30 text-red-200 text-xs font-bold"
+                                        data-action="{% url 'security_revoke_session' session.id %}"
+                                        data-title="Révoquer la session"
+                                        data-help="{% if session.is_current_session %}Attention : il s’agit de votre session actuelle.{% else %}Compte {{ session.user.username|default:'inconnu'|escapejs }} — empreinte {{ session.short_session_fingerprint }}.{% endif %}"
+                                        data-confirmation="{% if session.is_current_session %}REVOQUER MA SESSION{% else %}REVOQUER{% endif %}"
+                                        data-kind="revoke">Révoquer session</button>
+                                {% endif %}
+                                {% if session.user and session.status == 'ACTIVE' %}
+                                <button type="button" class="security-action w-36 px-3 py-2 rounded-lg bg-orange-600/15 hover:bg-orange-600/25 border border-orange-500/25 text-orange-200 text-xs"
+                                        data-action="{% url 'security_revoke_user_sessions' session.user.id %}"
+                                        data-title="Révoquer toutes les sessions"
+                                        data-help="Toutes les sessions du compte {{ session.user.username|escapejs }} seront fermées."
+                                        data-confirmation="{% if session.user.id == request.user.id %}REVOQUER TOUTES MES SESSIONS{% else %}REVOQUER TOUT{% endif %}"
+                                        data-kind="revoke-all">Tout révoquer</button>
+                                {% endif %}
+                                {% if session.user and session.user.is_active and session.user.id != request.user.id %}
+                                <button type="button" class="security-action w-36 px-3 py-2 rounded-lg bg-purple-600/15 hover:bg-purple-600/25 border border-purple-500/25 text-purple-200 text-xs"
+                                        data-action="{% url 'security_disable_user' session.user.id %}"
+                                        data-title="Désactiver temporairement"
+                                        data-help="Le compte {{ session.user.username|escapejs }} sera désactivé et toutes ses sessions seront révoquées."
+                                        data-confirmation="{% if session.user.is_superuser %}DESACTIVER SUPERADMIN{% else %}DESACTIVER{% endif %}"
+                                        data-kind="disable">Désactiver compte</button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">Aucune session suivie. Les sessions existantes apparaîtront à leur prochaine activité.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-700 bg-slate-900/75 overflow-hidden shadow-xl">
+        <div class="p-5 border-b border-slate-700">
+            <h2 class="text-xl font-bold text-white">Historique de sécurité</h2>
+            <p class="text-xs text-slate-400 mt-1">Rétention détaillée : {{ security_event_retention_days }} jours. La purge est exécutée par commande planifiée.</p>
+        </div>
+        <form method="get" class="p-4 bg-slate-950/40 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8 gap-3">
+            <select name="event_type" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                <option value="">Tous les événements</option>
+                {% for code,label in event_choices %}<option value="{{ code }}" {% if request.GET.event_type == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <select name="risk" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                <option value="">Tous les risques</option>
+                {% for code,label in risk_choices %}<option value="{{ code }}" {% if request.GET.risk == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <select name="user" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                <option value="">Tous les comptes</option>
+                {% for filter_user in filter_users %}<option value="{{ filter_user.id }}" {% if request.GET.user == filter_user.id|stringformat:'s' %}selected{% endif %}>{{ filter_user.username }}</option>{% endfor %}
+            </select>
+            <input name="ip" value="{{ request.GET.ip|default:'' }}" placeholder="IP client exacte" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500">
+            <input type="date" name="date_from" value="{{ request.GET.date_from|default:'' }}" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" title="Du">
+            <input type="date" name="date_to" value="{{ request.GET.date_to|default:'' }}" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" title="Au">
+            <input name="q" value="{{ request.GET.q|default:'' }}" placeholder="Compte, motif, appareil…" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500">
+            <div class="flex gap-2"><button class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg px-3 py-2 text-xs">Filtrer</button><a href="{% url 'security_monitoring' %}" class="bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-3 py-2 text-xs">Effacer</a></div>
+        </form>
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1350px] text-sm">
+                <thead class="bg-slate-950/70 text-[11px] uppercase tracking-wider text-slate-400">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Date</th><th class="px-4 py-3 text-left">Événement</th><th class="px-4 py-3 text-left">Risque</th><th class="px-4 py-3 text-left">Compte / empreinte saisie</th><th class="px-4 py-3 text-left">Réseau</th><th class="px-4 py-3 text-left">Environnement</th><th class="px-4 py-3 text-left">Route / motif</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for event in events_page %}
+                    <tr class="align-top hover:bg-slate-800/30">
+                        <td class="px-4 py-3 text-xs text-slate-300 whitespace-nowrap">{{ event.occurred_at|date:'d/m/Y H:i:s' }}</td>
+                        <td class="px-4 py-3"><div class="text-white font-medium">{{ event.get_event_type_display }}</div><code class="text-[10px] text-slate-500">{{ event.event_type }}</code></td>
+                        <td class="px-4 py-3">
+                            {% if event.risk_level == 'CRITICAL' %}<span class="px-2 py-1 rounded-full bg-red-500/20 border border-red-500/30 text-red-200 text-[10px] font-bold">CRITIQUE</span>
+                            {% elif event.risk_level == 'SUSPICIOUS' %}<span class="px-2 py-1 rounded-full bg-orange-500/20 border border-orange-500/30 text-orange-200 text-[10px] font-bold">SUSPECT</span>
+                            {% elif event.risk_level == 'WARNING' %}<span class="px-2 py-1 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-200 text-[10px] font-bold">AVERTISSEMENT</span>
+                            {% else %}<span class="px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-200 text-[10px] font-bold">NORMAL</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-xs"><div class="text-white">{{ event.user.username|default:'—' }}</div>{% if event.submitted_identity_hash %}<code class="text-[10px] text-slate-500" title="Nom saisi haché">ID {{ event.submitted_identity_hash|slice:':16' }}…</code>{% endif %}</td>
+                        <td class="px-4 py-3 text-xs"><div class="text-slate-200">{{ event.client_ip|default:'—' }}</div><div class="text-slate-500 mt-1">Proxy {{ event.proxy_ip|default:'—' }}</div></td>
+                        <td class="px-4 py-3 text-xs"><div class="text-slate-200">{{ event.device|default:'—' }}</div><div class="text-slate-400 mt-1">{{ event.browser|default:'—' }}</div><div class="text-slate-500 mt-1">{{ event.operating_system|default:'—' }}</div></td>
+                        <td class="px-4 py-3 text-xs max-w-md"><code class="text-cyan-200 break-all">{{ event.route|default:'—' }}</code><div class="text-slate-300 mt-2">{{ event.reason|default:'—' }}</div></td>
+                    </tr>
+                    {% empty %}<tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">Aucun événement pour ces filtres.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if events_page.paginator.num_pages > 1 %}
+        <div class="p-4 border-t border-slate-700 flex items-center justify-between text-xs">
+            <span class="text-slate-400">Page {{ events_page.number }} / {{ events_page.paginator.num_pages }} — {{ events_page.paginator.count }} événement(s)</span>
+            <div class="flex gap-2">
+                {% if events_page.has_previous %}<a class="px-3 py-2 rounded bg-slate-800 text-white hover:bg-slate-700" href="?{% if query_without_page %}{{ query_without_page }}&{% endif %}page={{ events_page.previous_page_number }}">← Précédent</a>{% endif %}
+                {% if events_page.has_next %}<a class="px-3 py-2 rounded bg-slate-800 text-white hover:bg-slate-700" href="?{% if query_without_page %}{{ query_without_page }}&{% endif %}page={{ events_page.next_page_number }}">Suivant →</a>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<div id="security-action-modal" class="hidden fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="security-action-title">
+    <div class="w-full max-w-lg rounded-2xl bg-slate-900 border border-red-500/30 shadow-2xl overflow-hidden">
+        <div class="p-5 border-b border-slate-700 flex items-start justify-between gap-4">
+            <div><h3 id="security-action-title" class="text-xl font-bold text-white">Action de sécurité</h3><p id="security-action-help" class="text-sm text-slate-400 mt-2"></p></div>
+            <button type="button" id="security-action-close" class="text-2xl text-slate-400 hover:text-white" aria-label="Fermer">×</button>
+        </div>
+        <form method="post" id="security-action-form" class="p-5 space-y-4" autocomplete="off">
+            {% csrf_token %}
+            <div id="security-duration-block" class="hidden">
+                <label for="security-duration" class="block text-xs font-bold text-slate-300 mb-2">Durée de désactivation</label>
+                <select id="security-duration" name="duration_minutes" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                    <option value="15">15 minutes</option><option value="60" selected>1 heure</option><option value="240">4 heures</option><option value="1440">24 heures</option><option value="10080">7 jours</option>
+                </select>
+            </div>
+            <div>
+                <label for="security-reason" class="block text-xs font-bold text-slate-300 mb-2">Motif <span id="security-reason-required" class="text-red-300"></span></label>
+                <textarea id="security-reason" name="reason" rows="3" maxlength="255" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Motif de l’action"></textarea>
+            </div>
+            <div>
+                <label for="security-current-password" class="block text-xs font-bold text-slate-300 mb-2">Votre mot de passe actuel *</label>
+                <input id="security-current-password" type="password" name="current_password" required autocomplete="current-password" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white">
+            </div>
+            <div>
+                <label for="security-confirmation" class="block text-xs font-bold text-slate-300 mb-2">Saisissez exactement <code id="security-confirmation-label" class="text-red-300"></code> *</label>
+                <input id="security-confirmation" type="text" name="confirmation" required autocomplete="off" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white">
+            </div>
+            <div class="flex gap-3 pt-2"><button type="submit" class="flex-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold py-3">Confirmer l’action</button><button type="button" id="security-action-cancel" class="px-5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white">Annuler</button></div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var modal = document.getElementById('security-action-modal');
+    var form = document.getElementById('security-action-form');
+    var title = document.getElementById('security-action-title');
+    var help = document.getElementById('security-action-help');
+    var confirmationLabel = document.getElementById('security-confirmation-label');
+    var confirmationInput = document.getElementById('security-confirmation');
+    var passwordInput = document.getElementById('security-current-password');
+    var reasonInput = document.getElementById('security-reason');
+    var durationBlock = document.getElementById('security-duration-block');
+    var reasonRequired = document.getElementById('security-reason-required');
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        form.reset();
+    }
+
+    var accountSelect = document.getElementById('security-account-select');
+    var selectedRevoke = document.getElementById('security-selected-revoke');
+    var selectedDisable = document.getElementById('security-selected-disable');
+    function updateSelectedAccountActions() {
+        if (!accountSelect || !selectedRevoke || !selectedDisable) return;
+        var option = accountSelect.options[accountSelect.selectedIndex];
+        var selected = option && option.value;
+        var username = selected ? option.dataset.username : '';
+        selectedRevoke.disabled = !selected;
+        selectedDisable.disabled = !selected || option.dataset.self === '1' || option.dataset.active !== '1';
+        if (!selected) return;
+
+        selectedRevoke.dataset.action = option.dataset.revokeUrl;
+        selectedRevoke.dataset.title = 'Révoquer toutes les sessions';
+        selectedRevoke.dataset.help = 'Toutes les sessions du compte ' + username + ' seront fermées.';
+        selectedRevoke.dataset.confirmation = option.dataset.self === '1' ? 'REVOQUER TOUTES MES SESSIONS' : 'REVOQUER TOUT';
+
+        selectedDisable.dataset.action = option.dataset.disableUrl;
+        selectedDisable.dataset.title = 'Désactiver temporairement';
+        selectedDisable.dataset.help = 'Le compte ' + username + ' sera désactivé et toutes ses sessions seront révoquées.';
+        selectedDisable.dataset.confirmation = option.dataset.super === '1' ? 'DESACTIVER SUPERADMIN' : 'DESACTIVER';
+    }
+    if (accountSelect) {
+        accountSelect.addEventListener('change', updateSelectedAccountActions);
+        updateSelectedAccountActions();
+    }
+
+    document.querySelectorAll('.security-action').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var kind = button.dataset.kind || '';
+            form.action = button.dataset.action;
+            title.textContent = button.dataset.title || 'Action de sécurité';
+            help.textContent = button.dataset.help || '';
+            confirmationLabel.textContent = button.dataset.confirmation || '';
+            confirmationInput.placeholder = button.dataset.confirmation || '';
+            durationBlock.classList.toggle('hidden', kind !== 'disable');
+            reasonInput.required = kind === 'disable';
+            reasonRequired.textContent = kind === 'disable' ? '*' : '(optionnel)';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            window.setTimeout(function () { passwordInput.focus(); }, 50);
+        });
+    });
+    document.getElementById('security-action-close').addEventListener('click', closeModal);
+    document.getElementById('security-action-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', function (event) { if (event.target === modal) closeModal(); });
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal(); });
+})();
+</script>
+{% endblock %}

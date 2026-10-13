@@ -1,25 +1,125 @@
 {% if user.is_authenticated %}
 <!-- Le bouton IA forme un dock propre avec le bouton Chat existant : IA à gauche, Chat à droite. -->
-<div id="fbAiRoot" class="fixed bottom-20 md:bottom-8 right-20 md:right-24 z-[9998] group">
-  <div class="absolute inset-0 rounded-full bg-cyan-400/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-  <div class="absolute right-0 bottom-full mb-2 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-[10px] font-bold text-cyan-300 whitespace-nowrap opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all pointer-events-none shadow-xl">Assistant IA interne</div>
-  <button type="button" onclick="event.stopPropagation(); window.FBFloatDock && window.FBFloatDock.hide('ai')"
-          class="absolute -top-2 -left-2 z-20 w-6 h-6 rounded-full bg-slate-950 hover:bg-red-600 border border-slate-600 hover:border-red-400 text-gray-400 hover:text-white text-xs font-black opacity-0 group-hover:opacity-100 focus:opacity-100 transition shadow-lg"
-          title="Masquer la bulle IA" aria-label="Masquer la bulle IA">×</button>
-  <button id="fbAiToggle" type="button" class="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-slate-900 hover:bg-slate-800 text-white shadow-xl border-2 border-cyan-500/70 hover:border-cyan-300 flex items-center justify-center hover:scale-105 transition-all" title="Assistant interne FB PACK" aria-label="Ouvrir l’assistant interne FB PACK" aria-expanded="false">
-    <span class="absolute inset-1 rounded-full bg-gradient-to-br from-cyan-500/25 to-blue-600/25"></span>
-    <span class="relative text-xl md:text-2xl">🤖</span>
-    <span class="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-cyan-500 border-2 border-slate-900 text-[8px] leading-4 font-black text-slate-950">IA</span>
-  </button>
-  <section id="fbAiPanel" class="hidden fixed bottom-36 md:bottom-24 right-4 md:right-8 w-[calc(100vw-2rem)] max-w-[420px] h-[min(72vh,620px)] bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl overflow-hidden flex-col">
-    <header class="p-4 bg-gradient-to-r from-cyan-600 to-blue-700 flex justify-between items-center"><div><div class="text-white font-black">🤖 Assistant FB PACK</div><div class="text-[10px] text-cyan-100">Interne · Lecture seule · Données ERP</div></div><div class="flex items-center gap-1"><a href="{% url 'assistant_home' %}" class="text-xs bg-white/15 hover:bg-white/25 text-white px-2 py-1 rounded">Agrandir</a><button type="button" onclick="window.FBFloatDock && window.FBFloatDock.hide('ai')" class="w-7 h-7 rounded-lg hover:bg-red-500/30 text-white" title="Masquer la bulle IA">⊘</button><button id="fbAiClose" type="button" class="w-7 h-7 rounded-lg hover:bg-white/15 text-white text-xl" title="Fermer la fenêtre">×</button></div></header>
-    <div id="fbAiMessages" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/70"><div class="max-w-[88%] p-3 rounded-2xl rounded-bl-sm bg-slate-800 border border-slate-700 text-gray-200 text-sm whitespace-pre-line">Bonjour ! Je peux consulter les données autorisées et comprendre la fiche actuellement ouverte. Je reste strictement en lecture seule.</div></div>
-    <div class="px-3 py-2 flex gap-1 overflow-x-auto bg-slate-900 border-t border-slate-700"><button class="fb-ai-chip">Résume cette page</button><button class="fb-ai-chip">Stock Soliprop Cyan</button><button class="fb-ai-chip">OF en retard</button><button class="fb-ai-chip">Outillages critiques</button></div>
-    <form id="fbAiForm" class="p-3 border-t border-slate-700 bg-slate-900 flex gap-2">{% csrf_token %}<textarea id="fbAiInput" rows="1" maxlength="1000" placeholder="Votre question…" class="flex-1 resize-none bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500"></textarea><button class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl px-4">➤</button></form>
-  </section>
+<div id="fbAiRoot" class="group fixed bottom-20 right-20 z-[9998] md:bottom-8 md:right-24">
+    <div class="pointer-events-none absolute inset-0 rounded-full bg-cyan-400/20 opacity-0 blur-lg transition-opacity group-hover:opacity-100"></div>
+    <div class="pointer-events-none absolute bottom-full right-0 mb-2 translate-y-1 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1 text-[10px] font-bold text-cyan-300 opacity-0 shadow-xl transition-all group-hover:translate-y-0 group-hover:opacity-100">Assistant IA interne</div>
+    <button type="button" onclick="event.stopPropagation(); window.FBFloatDock && window.FBFloatDock.hide('ai')" class="absolute -left-2 -top-2 z-20 h-6 w-6 rounded-full border border-slate-600 bg-slate-950 text-xs font-black text-gray-400 opacity-0 shadow-lg transition hover:border-red-400 hover:bg-red-600 hover:text-white focus:opacity-100 group-hover:opacity-100" title="Masquer la bulle IA" aria-label="Masquer la bulle IA">×</button>
+    <button id="fbAiToggle" type="button" class="relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-cyan-500/70 bg-slate-900 text-white shadow-xl transition-all hover:scale-105 hover:border-cyan-300 hover:bg-slate-800 md:h-14 md:w-14" title="Assistant interne FB PACK" aria-label="Ouvrir l’assistant interne FB PACK" aria-expanded="false">
+        <span class="absolute inset-1 rounded-full bg-gradient-to-br from-cyan-500/25 to-blue-600/25"></span>
+        <span class="relative text-xl md:text-2xl">🤖</span>
+        <span class="absolute -bottom-1 -right-1 h-5 min-w-[20px] rounded-full border-2 border-slate-900 bg-cyan-500 px-1 text-[8px] font-black leading-4 text-slate-950">IA</span>
+    </button>
+
+    <section id="fbAiPanel" class="fixed bottom-36 right-4 hidden h-[min(72vh,620px)] w-[calc(100vw-2rem)] max-w-[420px] flex-col overflow-hidden rounded-2xl border border-slate-600 bg-slate-900 shadow-2xl md:bottom-24 md:right-8">
+        <header class="flex items-center justify-between bg-gradient-to-r from-cyan-600 to-blue-700 p-4">
+            <div><div class="font-black text-white">🤖 Assistant FB PACK</div><div class="text-[10px] text-cyan-100">Fiches produit · Lecture seule · Données autorisées</div></div>
+            <div class="flex items-center gap-1">
+                <a href="{% url 'assistant_home' %}" class="rounded bg-white/15 px-2 py-1 text-xs text-white hover:bg-white/25">Agrandir</a>
+                <button type="button" onclick="window.FBFloatDock && window.FBFloatDock.hide('ai')" class="h-7 w-7 rounded-lg text-white hover:bg-red-500/30" title="Masquer la bulle IA">⊘</button>
+                <button id="fbAiClose" type="button" class="h-7 w-7 rounded-lg text-xl text-white hover:bg-white/15" title="Fermer la fenêtre">×</button>
+            </div>
+        </header>
+        <div id="fbAiMessages" class="flex-1 space-y-3 overflow-y-auto bg-slate-950/70 p-4">
+            <div class="max-w-[88%] whitespace-pre-line rounded-2xl rounded-bl-sm border border-slate-700 bg-slate-800 p-3 text-sm text-gray-200">Bonjour ! Demandez « fiche technique 25F052 » pour obtenir directement la fiche, son impression et son PDF. Je respecte les permissions Prépresse.</div>
+        </div>
+        <div class="flex gap-1 overflow-x-auto border-t border-slate-700 bg-slate-900 px-3 py-2">
+            <button class="fb-ai-chip">Fiche technique 25F052</button>
+            <button class="fb-ai-chip">Résume cette page</button>
+            <button class="fb-ai-chip">Stock Soliprop Cyan</button>
+            <button class="fb-ai-chip">OF en retard</button>
+            <button class="fb-ai-chip">Outillages critiques</button>
+        </div>
+        <form id="fbAiForm" class="flex gap-2 border-t border-slate-700 bg-slate-900 p-3">
+            {% csrf_token %}
+            <textarea id="fbAiInput" rows="1" maxlength="1000" placeholder="Ex. fiche technique 25F052" class="flex-1 resize-none rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"></textarea>
+            <button class="rounded-xl bg-cyan-500 px-4 font-black text-slate-950 hover:bg-cyan-400">➤</button>
+        </form>
+    </section>
 </div>
-<style>.fb-ai-chip{white-space:nowrap;font-size:10px;font-weight:700;color:#a5f3fc;background:#164e6333;border:1px solid #0891b255;padding:5px 8px;border-radius:9999px}.fb-ai-thinking{opacity:.7;animation:fbpulse 1s infinite}@keyframes fbpulse{50%{opacity:.35}}</style>
+<style>
+.fb-ai-chip{white-space:nowrap;font-size:10px;font-weight:700;color:#a5f3fc;background:#164e6333;border:1px solid #0891b255;padding:5px 8px;border-radius:9999px}.fb-ai-thinking{opacity:.7;animation:fbpulse 1s infinite}@keyframes fbpulse{50%{opacity:.35}}
+</style>
 <script>
-(function(){const panel=document.getElementById('fbAiPanel'),toggle=document.getElementById('fbAiToggle'),close=document.getElementById('fbAiClose'),form=document.getElementById('fbAiForm'),input=document.getElementById('fbAiInput'),box=document.getElementById('fbAiMessages');if(!panel)return;function closeExistingChat(){const chatPanel=document.getElementById('fb-chat-panel');if(chatPanel&&!chatPanel.classList.contains('hidden')){const chatFab=document.getElementById('fb-chat-fab');if(chatFab)chatFab.click()}}function open(){closeExistingChat();panel.classList.remove('hidden');panel.classList.add('flex');toggle.setAttribute('aria-expanded','true');input.focus()}function shut(){panel.classList.add('hidden');panel.classList.remove('flex');toggle.setAttribute('aria-expanded','false')}toggle.onclick=function(){panel.classList.contains('hidden')?open():shut()};close.onclick=shut;const chatFab=document.getElementById('fb-chat-fab');if(chatFab){chatFab.addEventListener('click',function(){if(!panel.classList.contains('hidden'))shut()},true)};document.querySelectorAll('.fb-ai-chip').forEach(b=>b.onclick=()=>{input.value=b.textContent;form.requestSubmit()});input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit()}});function msg(text,mine,links){const d=document.createElement('div');d.className=(mine?'ml-auto bg-cyan-600 text-white rounded-br-sm':'bg-slate-800 border border-slate-700 text-gray-200 rounded-bl-sm')+' max-w-[88%] p-3 rounded-2xl text-sm whitespace-pre-line';d.textContent=text;if(links){links.forEach(l=>{const a=document.createElement('a');a.href=l.url;a.textContent='↗ '+l.label;a.className='block mt-2 text-cyan-400 font-bold text-xs';d.appendChild(a)})}box.appendChild(d);box.scrollTop=box.scrollHeight;return d}form.onsubmit=async e=>{e.preventDefault();const q=input.value.trim();if(!q)return;msg(q,true);input.value='';const wait=msg('Analyse des données ERP…',false);wait.classList.add('fb-ai-thinking');try{const data=new FormData();data.append('question',q);data.append('context',(location.pathname+'|'+document.title).slice(0,250));const r=await fetch('{% url "assistant_ask" %}',{method:'POST',headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value},body:data});const j=await r.json();wait.remove();msg(j.answer||'Réponse indisponible.',false,j.links)}catch(x){wait.textContent='Erreur de connexion avec l’assistant interne.';wait.classList.remove('fb-ai-thinking')}}})();
+(function () {
+    const panel = document.getElementById('fbAiPanel');
+    const toggle = document.getElementById('fbAiToggle');
+    const close = document.getElementById('fbAiClose');
+    const form = document.getElementById('fbAiForm');
+    const input = document.getElementById('fbAiInput');
+    const box = document.getElementById('fbAiMessages');
+    if (!panel) return;
+
+    function closeExistingChat() {
+        const chatPanel = document.getElementById('fb-chat-panel');
+        if (chatPanel && !chatPanel.classList.contains('hidden')) {
+            const chatFab = document.getElementById('fb-chat-fab');
+            if (chatFab) chatFab.click();
+        }
+    }
+    function openPanel() {
+        closeExistingChat();
+        panel.classList.remove('hidden');
+        panel.classList.add('flex');
+        toggle.setAttribute('aria-expanded', 'true');
+        input.focus();
+    }
+    function closePanel() {
+        panel.classList.add('hidden');
+        panel.classList.remove('flex');
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+    toggle.onclick = function () { panel.classList.contains('hidden') ? openPanel() : closePanel(); };
+    close.onclick = closePanel;
+    const chatFab = document.getElementById('fb-chat-fab');
+    if (chatFab) chatFab.addEventListener('click', function () { if (!panel.classList.contains('hidden')) closePanel(); }, true);
+
+    document.querySelectorAll('.fb-ai-chip').forEach(function (button) {
+        button.onclick = function () { input.value = button.textContent; form.requestSubmit(); };
+    });
+    input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); }
+    });
+    function message(text, mine, links) {
+        const node = document.createElement('div');
+        node.className = (mine ? 'ml-auto bg-cyan-600 text-white rounded-br-sm' : 'bg-slate-800 border border-slate-700 text-gray-200 rounded-bl-sm') + ' max-w-[88%] p-3 rounded-2xl text-sm whitespace-pre-line';
+        node.textContent = text;
+        (links || []).forEach(function (link) {
+            const anchor = document.createElement('a');
+            anchor.href = link.url;
+            anchor.textContent = link.label || 'Ouvrir';
+            anchor.className = 'block mt-2 rounded-lg border border-cyan-700/50 bg-cyan-950/30 px-3 py-2 text-cyan-300 font-bold text-xs hover:border-cyan-400';
+            if (link.target) { anchor.target = link.target; anchor.rel = 'noopener'; }
+            node.appendChild(anchor);
+        });
+        box.appendChild(node);
+        box.scrollTop = box.scrollHeight;
+        return node;
+    }
+    form.onsubmit = async function (event) {
+        event.preventDefault();
+        const question = input.value.trim();
+        if (!question) return;
+        message(question, true);
+        input.value = '';
+        const waiting = message('Analyse des données ERP…', false);
+        waiting.classList.add('fb-ai-thinking');
+        try {
+            const data = new FormData();
+            data.append('question', question);
+            data.append('context', (location.pathname + '|' + document.title).slice(0, 250));
+            const response = await fetch('{% url "assistant_ask" %}', {
+                method: 'POST',
+                headers: {'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value},
+                body: data
+            });
+            const payload = await response.json();
+            waiting.remove();
+            message(payload.answer || 'Réponse indisponible.', false, payload.links || []);
+        } catch (error) {
+            waiting.textContent = 'Erreur de connexion avec l’assistant interne.';
+            waiting.classList.remove('fb-ai-thinking');
+        }
+    };
+})();
 </script>
 {% endif %}

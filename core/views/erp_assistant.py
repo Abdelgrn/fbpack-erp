@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from ..models import (
@@ -168,7 +169,7 @@ def _context_object(user, context):
         (r'^/stock/lot/(\d+)/?$', ('stock',), StockLot, 'lot'),
         (r'^/maintenance/machine/(\d+)/?$', ('maintenance',), Machine, 'machine'),
         (r'^/maintenance/om/(\d+)/?$', ('maintenance',), OrdreMaintenance, 'maintenance'),
-        (r'^/prepress/edit/(\d+)/?$', ('prepress',), TechnicalProduct, 'produit'),
+        (r'^/prepress/(?:edit|fiche)/(\d+)(?:/(?:imprimer|pdf|revisions))?/?$', ('prepress',), TechnicalProduct, 'produit'),
     ]
     for pattern, modules, model, kind in patterns:
         match = re.match(pattern, path)
@@ -178,6 +179,206 @@ def _context_object(user, context):
             except model.DoesNotExist:
                 return None, None
     return None, None
+
+
+def _technical_sheet_intent(normalized):
+    """Détecte une demande explicite de fiche technique produit."""
+    phrases = (
+        'fiche technique', 'fiches techniques', 'fiche prepress', 'fiches prepress',
+        'fiche produit', 'fiches produit', 'donnees techniques', 'specifications techniques',
+    )
+    if any(phrase in normalized for phrase in phrases):
+        return True
+    return (
+        ('pdf' in normalized or 'imprimer' in normalized or 'telecharger' in normalized)
+        and any(word in normalized for word in ('produit', 'article', 'prepress', 'fiche'))
+    )
+
+
+def _technical_sheet_tokens(normalized):
+    cleaned = normalized
+    phrases = (
+        'fiche technique prepress', 'fiches techniques prepress',
+        'fiche technique', 'fiches techniques', 'fiche prepress', 'fiches prepress',
+        'fiche produit', 'fiches produit', 'donnees techniques',
+        'specifications techniques', 'format pdf', 'fichier pdf',
+    )
+    for phrase in phrases:
+        cleaned = cleaned.replace(phrase, ' ')
+    stop_words = {
+        'affiche', 'afficher', 'article', 'cherche', 'chercher', 'cette', 'donne',
+        'donner', 'du', 'de', 'des', 'en', 'est', 'faire', 'imprime', 'imprimer',
+        'je', 'la', 'le', 'les', 'moi', 'montre', 'montrer', 'ouvre', 'ouvrir',
+        'pdf', 'peux', 'pour', 'produit', 'prepress', 'retrouve', 'sort', 'svp',
+        'technique', 'telecharge', 'telecharger', 'un', 'une', 'veux', 'voir',
+        'ce', 'cet', 'actuel', 'actuelle', 'correspondant', 'correspondante',
+        'client', 'chez', 'dans', 'of',
+    }
+    cleaned = re.sub(r'[^a-z0-9/_-]+', ' ', cleaned)
+    return [token for token in cleaned.split() if len(token) >= 2 and token not in stop_words][:12]
+
+
+def _technical_product_from_context(user, context):
+    kind, obj = _context_object(user, context)
+    if kind == 'produit' and obj:
+        return obj
+    if kind == 'of' and obj:
+        product = getattr(obj, 'produit', None)
+        if getattr(getattr(product, '_meta', None), 'model_name', '') == 'technicalproduct':
+            return product
+    return None
+
+
+def _technical_sheet_links(product):
+    return [
+        {
+            'label': '📄 Télécharger la fiche PDF',
+            'url': reverse('prepress_technical_sheet_pdf', args=[product.pk]),
+            'target': '_blank',
+        },
+        {
+            'label': '👁 Voir la fiche complète',
+            'url': reverse('prepress_technical_sheet', args=[product.pk]),
+        },
+        {
+            'label': '🖨 Imprimer la fiche',
+            'url': reverse('prepress_technical_sheet_print', args=[product.pk]),
+            'target': '_blank',
+        },
+    ]
+
+
+def _technical_sheet_product_answer(product):
+    colors = list(product.couleurs_flexo.all().order_by('ordre', 'pk')[:8])
+    color_names = ', '.join(color.nom_couleur for color in colors) or 'non renseignées'
+    latest_revision = product.revisions.order_by('-revision_number').first()
+    revision = f"R{latest_revision.revision_number}" if latest_revision else 'aucune révision'
+    process = product.get_printing_process_display() if hasattr(product, 'get_printing_process_display') else 'non renseigné'
+    status = product.get_bat_status_display()
+    answer = (
+        f"Fiche technique trouvée — {product.ref_internal}\n"
+        f"• Article : {product.name}\n"
+        f"• Client : {product.client.name}\n"
+        f"• Procédé : {process}\n"
+        f"• BAT : {status}\n"
+        f"• Version / révision : {product.version} / {revision}\n"
+        f"• Pas × poses : {product.cut_length_mm or 0:g} mm × {product.nb_poses_pas or 0} "
+        f"= {product.developpement_mm or 0:g} mm\n"
+        f"• Laize × poses : {product.width_mm or 0:g} mm × {product.nb_poses_laize or 0} "
+        f"= {product.laize_gravure_mm or 0:g} mm\n"
+        f"• Couleurs ({len(colors)}) : {color_names}\n"
+        "La fiche complète et son PDF sont disponibles directement ci-dessous."
+    )
+    kind = 'WARNING' if product.is_obsolete or product.bat_status == 'REFUSE' else ('SUCCESS' if product.bat_status == 'VALIDE' else 'INFO')
+    return answer, kind, _technical_sheet_links(product)
+
+
+def _technical_sheet_answer(user, normalized, context=''):
+    if not _allowed(user, 'prepress'):
+        return "Vous n’avez pas l’autorisation de consulter les fiches techniques Prépresse.", 'ERROR', []
+
+    tokens = _technical_sheet_tokens(normalized)
+    contextual_phrases = (
+        'ce produit', 'cet article', 'cette fiche', 'produit actuel',
+        'article actuel', 'cet of', 'of actuel',
+    )
+    context_product = _technical_product_from_context(user, context)
+    if context_product and (not tokens or any(phrase in normalized for phrase in contextual_phrases)):
+        product = (
+            TechnicalProduct.objects.select_related('client')
+            .prefetch_related('couleurs_flexo')
+            .get(pk=context_product.pk)
+        )
+        return _technical_sheet_product_answer(product)
+
+    if not tokens:
+        return (
+            "Indiquez la référence, le nom du produit ou le client. Exemple : « fiche technique 25F052 ».",
+            'QUESTION',
+            [{'label': '📚 Toutes les fiches techniques', 'url': reverse('prepress_technical_sheet_list')}],
+        )
+
+    query = Q()
+    for token in tokens:
+        query |= (
+            Q(ref_internal__icontains=token)
+            | Q(name__icontains=token)
+            | Q(client__name__icontains=token)
+            | Q(ref_graveur__icontains=token)
+        )
+    candidates = list(
+        TechnicalProduct.objects.filter(query)
+        .select_related('client')
+        .prefetch_related('couleurs_flexo')
+        .order_by('is_obsolete', 'client__name', 'name')[:40]
+    )
+
+    requested = ' '.join(tokens)
+    requested_compact = requested.replace(' ', '').replace('-', '').replace('/', '')
+    scored = []
+    for product in candidates:
+        ref = _normalize(product.ref_internal)
+        name = _normalize(product.name)
+        client_name = _normalize(product.client.name)
+        ref_compact = ref.replace(' ', '').replace('-', '').replace('/', '')
+        score = 0
+        exact = False
+        if requested == ref or requested_compact == ref_compact:
+            score += 120
+            exact = True
+        if requested == name:
+            score += 100
+            exact = True
+        for token in tokens:
+            if token == ref or token.replace('-', '').replace('/', '') == ref_compact:
+                score += 40
+                exact = True
+            elif token in ref:
+                score += 15
+            if token in name:
+                score += 7
+            if token in client_name:
+                score += 4
+        if product.is_obsolete:
+            score -= 2
+        if score > 0:
+            scored.append((score, exact, product))
+    scored.sort(key=lambda item: (-item[0], item[2].is_obsolete, item[2].name.lower()))
+
+    if not scored:
+        return (
+            f"Je n’ai trouvé aucune fiche technique correspondant à « {' '.join(tokens)} ». Vérifiez la référence ou essayez une partie du nom du produit.",
+            'INFO',
+            [{'label': '📚 Parcourir les fiches techniques', 'url': reverse('prepress_technical_sheet_list')}],
+        )
+
+    exact_matches = [item for item in scored if item[1]]
+    if len(exact_matches) == 1:
+        return _technical_sheet_product_answer(exact_matches[0][2])
+    if len(scored) == 1:
+        return _technical_sheet_product_answer(scored[0][2])
+
+    selected = scored[:6]
+    lines = [
+        f"• {product.ref_internal} — {product.name} — {product.client.name}"
+        + (' — OBSOLÈTE' if product.is_obsolete else '')
+        for _, _, product in selected
+    ]
+    links = [
+        {
+            'label': f"📋 {product.ref_internal} — {product.name[:48]}",
+            'url': reverse('prepress_technical_sheet', args=[product.pk]),
+        }
+        for _, _, product in selected
+    ]
+    links.append({'label': '📚 Toutes les fiches techniques', 'url': reverse('prepress_technical_sheet_list')})
+    return (
+        "Plusieurs fiches correspondent à votre demande :\n"
+        + '\n'.join(lines)
+        + "\nChoisissez la bonne fiche ci-dessous ou précisez sa référence exacte.",
+        'QUESTION',
+        links,
+    )
 
 
 def _context_answer(user, context):
@@ -215,7 +416,14 @@ def _context_answer(user, context):
     if kind == 'produit':
         text = (f"Contexte produit — {obj.name}\n• Référence : {obj.ref_internal}\n• Client : {obj.client.name}\n"
                 f"• BAT : {obj.get_bat_status_display()}\n• Structure : {obj.get_structure_type_display()}\n• Couleurs : {obj.num_colors or 0}")
-        return text, 'INFO', [{'label': 'Ouvrir le produit', 'url': f'/prepress/edit/{obj.pk}/'}]
+        return text, 'INFO', [
+            {'label': '📋 Voir la fiche technique', 'url': reverse('prepress_technical_sheet', args=[obj.pk])},
+            {
+                'label': '📄 Télécharger le PDF',
+                'url': reverse('prepress_technical_sheet_pdf', args=[obj.pk]),
+                'target': '_blank',
+            },
+        ]
     return None
 
 
@@ -223,13 +431,15 @@ def answer_question(user, question, context=''):
     normalized = _normalize(question)
     if not normalized:
         return "Posez-moi une question sur les données ERP auxquelles vous avez accès.", 'INFO', []
+    if _technical_sheet_intent(normalized):
+        return _technical_sheet_answer(user, normalized, context)
     if any(phrase in normalized for phrase in ('cette page', 'cet objet', 'ce client', 'cette commande', 'cet of', 'ce lot', 'cette machine', 'resume la page', 'resume cet')):
         contextual = _context_answer(user, context)
         if contextual:
             return contextual
         return "Je ne peux pas identifier un objet métier autorisé sur cette page. Ouvrez sa fiche détaillée puis réessayez.", 'INFO', []
     if any(word in normalized for word in ('bonjour', 'salut', 'bonsoir')) and len(normalized.split()) <= 4:
-        return "Bonjour ! Je suis l’assistant interne FB PACK, en lecture seule. Je respecte vos permissions et peux aussi résumer l’objet actuellement ouvert.", 'SUCCESS', []
+        return "Bonjour ! Je suis l’assistant interne FB PACK, en lecture seule. Je peux notamment retrouver une fiche technique produit et fournir directement sa consultation, son impression ou son PDF, selon vos permissions.", 'SUCCESS', []
     if any(word in normalized for word in ('calcul', 'laize', 'micron', 'bobine mere', 'metrage')) and ('kg' in normalized or 'micron' in normalized):
         if not _allowed(user, 'crm', 'production'):
             return "Vous n’avez pas l’autorisation d’accéder à cette fonction de calcul.", 'ERROR', []
@@ -253,7 +463,7 @@ def answer_question(user, question, context=''):
     contextual = _context_answer(user, context)
     if contextual:
         return contextual
-    return ("Je n’ai pas reconnu cette demande. Je peux répondre, selon vos droits, sur le stock, les calculs matière, les OF, les temps, les outillages et l’objet actuellement ouvert.", 'INFO', [])
+    return ("Je n’ai pas reconnu cette demande. Je peux répondre, selon vos droits, sur les fiches techniques produit, le stock, les calculs matière, les OF, les temps, les outillages et l’objet actuellement ouvert.", 'INFO', [])
 
 @login_required
 def assistant_home(request):

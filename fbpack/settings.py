@@ -93,6 +93,7 @@ TEMPLATES = [
                 'core.context_processors.maintenance_alerts',
                 'core.context_processors.user_permissions',
                 'core.context_processors.alertes_usine_chat',
+                'core.context_processors.security_monitoring_status',
             ],
         },
     },
@@ -169,6 +170,26 @@ MAX_REQUEST_BODY_BYTES = int(os.environ.get('MAX_REQUEST_BODY_BYTES', 25 * 1024 
 DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_REQUEST_BODY_BYTES
 FILE_UPLOAD_MAX_MEMORY_SIZE = min(MAX_REQUEST_BODY_BYTES, 5 * 1024 * 1024)
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
+
+# Centre de surveillance des connexions (migration core 0047).
+# Render remplace X-Forwarded-For ; en local cette confiance reste désactivée.
+SECURITY_TRUST_PROXY_HEADERS = env_bool('SECURITY_TRUST_PROXY_HEADERS', default=IS_RENDER)
+SECURITY_MONITOR_ONLINE_MINUTES = 5
+SECURITY_MONITOR_RECONCILE_SECONDS = int(
+    os.environ.get('SECURITY_MONITOR_RECONCILE_SECONDS', 120)
+)
+SECURITY_EVENT_RETENTION_DAYS = int(
+    os.environ.get('SECURITY_EVENT_RETENTION_DAYS', 90)
+)
+SECURITY_EVENT_EXPORT_LIMIT = int(
+    os.environ.get('SECURITY_EVENT_EXPORT_LIMIT', 50000)
+)
+SECURITY_BUSINESS_HOUR_START = int(
+    os.environ.get('SECURITY_BUSINESS_HOUR_START', 6)
+)
+SECURITY_BUSINESS_HOUR_END = int(
+    os.environ.get('SECURITY_BUSINESS_HOUR_END', 22)
+)
 
 # Le cache sert notamment au verrouillage temporaire des connexions.
 # Sur une instance unique Render, LocMem est suffisant. REDIS_URL pourra être ajouté plus tard.

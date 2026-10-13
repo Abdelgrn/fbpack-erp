@@ -18,11 +18,18 @@ import io
 import os
 import shutil
 import secrets
+from datetime import timedelta
 
 from ..models import Client, Opportunite, Quote, OrdreFabrication, ProductionEntry, Material, Machine
 from ..models.permissions import UserModulePermission, ModuleAdministrator, AdministrationAuditLog
+from ..models.security_audit import SecurityEvent, SecurityRiskLevel, SecuritySession
 from ..models import robust_import_local_data
 from ..services.full_backup import create_full_backup, validate_and_extract, restore_media
+from ..services.security_monitoring import (
+    clear_temporary_disable_state,
+    get_request_network,
+    revoke_all_user_sessions,
+)
 
 
 MODULES_LIST = [
@@ -50,8 +57,9 @@ def _managed_modules(user):
 
 
 def _audit(request, action, target=None, module='', details=''):
+    client_ip, _ = get_request_network(request)
     AdministrationAuditLog.objects.create(actor=request.user, target_user=target, action=action,
-        module=module, details=details, ip_address=request.META.get('REMOTE_ADDR'))
+        module=module, details=details, ip_address=client_ip)
 
 
 def erp_admin_required(view_func):
@@ -132,6 +140,24 @@ def admin_view(request):
 
     recent_actions = LogEntry.objects.select_related('user', 'content_type').order_by('-action_time')[:20]
 
+    security_summary = None
+    if request.user.is_superuser:
+        try:
+            now = timezone.now()
+            security_summary = {
+                'online': SecuritySession.objects.filter(
+                    status=SecuritySession.Status.ACTIVE,
+                    last_activity_at__gte=now - timedelta(minutes=5),
+                ).count(),
+                'alerts': SecurityEvent.objects.filter(
+                    risk_level__in=[SecurityRiskLevel.SUSPICIOUS, SecurityRiskLevel.CRITICAL],
+                    occurred_at__gte=now - timedelta(hours=24),
+                ).count(),
+            }
+        except Exception:
+            # Le tableau Administration reste disponible pendant le déploiement de 0047.
+            security_summary = {'online': 0, 'alerts': 0}
+
     context = {
         'users': users, 'total_users': total_users,
         'active_users': active_users, 'staff_users': staff_users,
@@ -142,6 +168,7 @@ def admin_view(request):
         'managed_modules': managed_modules, 'is_global_admin': request.user.is_superuser,
         'module_delegations': ModuleAdministrator.objects.filter(is_active=True).select_related('user','granted_by'),
         'audit_logs': AdministrationAuditLog.objects.select_related('actor','target_user')[:30],
+        'security_summary': security_summary,
     }
     return render(request, 'admin_custom.html', context)
 
@@ -219,6 +246,7 @@ def admin_edit_user(request, user_id):
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied('Vous ne pouvez pas administrer cet utilisateur.')
 
+    original_is_active = u.is_active
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         email = request.POST.get('email', '').strip()
@@ -253,6 +281,15 @@ def admin_edit_user(request, user_id):
             password_changed = True
 
         u.save()
+
+        if not u.is_superuser and original_is_active != u.is_active:
+            clear_temporary_disable_state(u)
+            if not u.is_active:
+                revoke_all_user_sessions(
+                    u,
+                    request.user,
+                    reason='Compte désactivé depuis Administration ERP',
+                )
 
         # Modules ERP (indépendants du mot de passe)
         perms, created = UserModulePermission.objects.get_or_create(user=u)
@@ -289,8 +326,16 @@ def admin_toggle_user(request, user_id):
         raise PermissionDenied('Vous ne pouvez pas administrer cet utilisateur.')
     if not u.is_superuser:
         u.is_active = not u.is_active
-        u.save()
+        u.save(update_fields=['is_active'])
+        clear_temporary_disable_state(u)
+        if not u.is_active:
+            revoke_all_user_sessions(
+                u,
+                request.user,
+                reason='Compte désactivé depuis Administration ERP',
+            )
         etat = "activé" if u.is_active else "désactivé"
+        _audit(request, 'USER_ENABLED' if u.is_active else 'USER_DISABLED', u, 'admin')
         messages.success(request, f"✅ Utilisateur '{u.username}' {etat}.")
     return redirect('admin_view')
 

@@ -68,6 +68,8 @@ def user_has_module_access(user, module_name):
         return perms.has_module_access(module_name)
     except UserModulePermission.DoesNotExist:
         return False
+
+
 class ModuleAdministrator(models.Model):
     """Délégation d'administration strictement limitée à un module ERP."""
     MODULE_CHOICES = [
@@ -100,3 +102,16 @@ class AdministrationAuditLog(models.Model):
     class Meta:
         app_label = 'core'
         ordering = ['-created_at']
+
+
+# Import cumulatif : core.models.__init__ charge déjà ce module dans le projet
+# existant. Cet import enregistre donc les modèles 0047 sans remplacer ni
+# deviner le contenu actuel de core/models/__init__.py.
+from .security_audit import (  # noqa: E402,F401
+    AccountSecurityState,
+    KnownAccessSignature,
+    SecurityEvent,
+    SecurityEventType,
+    SecurityRiskLevel,
+    SecuritySession,
+)

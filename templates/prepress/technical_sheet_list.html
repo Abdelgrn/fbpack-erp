@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Fiches techniques prépresse | FB Pack ERP{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-[1700px] space-y-6 px-3 py-5 sm:px-6 lg:px-8">
+    <header class="overflow-hidden rounded-3xl border border-slate-700 bg-gradient-to-br from-slate-800 via-slate-900 to-cyan-950 p-6 shadow-2xl">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <p class="mb-2 text-xs font-black uppercase tracking-[.22em] text-cyan-400">Prépresse · Référentiel produit/client</p>
+                <h1 class="text-3xl font-black text-white sm:text-4xl">Fiches techniques ERP</h1>
+                <p class="mt-2 max-w-3xl text-sm text-slate-300">Saisie directe, calculs automatiques, historique des révisions, impression et PDF A4 paysage.</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <a href="{% url 'prepress_view' %}" class="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-cyan-400">Accueil Prépresse</a>
+                <a href="{% url 'add_product' %}" class="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-950 transition hover:-translate-y-0.5">+ Nouvelle fiche</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="rounded-2xl border border-slate-700 bg-slate-800 p-4"><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total</p><p class="mt-1 text-3xl font-black text-white">{{ stats.total }}</p></div>
+        <div class="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-4"><p class="text-xs font-bold uppercase tracking-wider text-emerald-300">BAT validés</p><p class="mt-1 text-3xl font-black text-emerald-100">{{ stats.validated }}</p></div>
+        <div class="rounded-2xl border border-amber-500/30 bg-amber-950/30 p-4"><p class="text-xs font-bold uppercase tracking-wider text-amber-300">En attente</p><p class="mt-1 text-3xl font-black text-amber-100">{{ stats.waiting }}</p></div>
+        <div class="rounded-2xl border border-red-500/30 bg-red-950/30 p-4"><p class="text-xs font-bold uppercase tracking-wider text-red-300">Obsolètes</p><p class="mt-1 text-3xl font-black text-red-100">{{ stats.obsolete }}</p></div>
+    </section>
+
+    <form method="get" class="grid gap-3 rounded-2xl border border-slate-700 bg-slate-800 p-4 shadow-xl md:grid-cols-2 xl:grid-cols-[minmax(300px,2fr)_1fr_1fr_1fr_auto]">
+        <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Référence, désignation, client, graveur…" class="rounded-xl border border-slate-600 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400">
+        <select name="client" class="rounded-xl border border-slate-600 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-cyan-400">
+            <option value="">Tous les clients</option>
+            {% for client in clients %}<option value="{{ client.id }}" {% if request.GET.client == client.id|stringformat:'s' %}selected{% endif %}>{{ client.name }}</option>{% endfor %}
+        </select>
+        <select name="process" class="rounded-xl border border-slate-600 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-cyan-400">
+            <option value="">Tous les procédés</option>
+            {% for value,label in process_choices %}<option value="{{ value }}" {% if request.GET.process == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <select name="status" class="rounded-xl border border-slate-600 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-cyan-400">
+            <option value="">Tous les statuts BAT</option>
+            {% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <button class="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-black text-white hover:bg-cyan-500">Filtrer</button>
+    </form>
+
+    <section class="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 shadow-2xl">
+        <div class="overflow-x-auto">
+            <table class="min-w-[1150px] w-full text-left text-sm">
+                <thead class="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400">
+                    <tr><th class="px-4 py-4">Produit</th><th class="px-4 py-4">Client</th><th class="px-4 py-4">Procédé</th><th class="px-4 py-4">Dimensions</th><th class="px-4 py-4">Couleurs</th><th class="px-4 py-4">BAT / Version</th><th class="px-4 py-4">Révisions</th><th class="px-4 py-4 text-right">Actions</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                {% for product in product_page %}
+                    <tr class="transition hover:bg-slate-700/30 {% if product.is_obsolete %}opacity-60{% endif %}">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-600 bg-white/5">
+                                    {% if product.product_visual %}<img src="{{ product.product_visual.url }}" alt="" class="h-full w-full object-contain">{% else %}<span class="text-lg font-black text-slate-500">FT</span>{% endif %}
+                                </div>
+                                <div><a href="{% url 'prepress_technical_sheet' product.id %}" class="font-black text-white hover:text-cyan-300">{{ product.ref_internal }}</a><p class="max-w-[290px] truncate text-xs text-slate-400" title="{{ product.name }}">{{ product.name }}</p></div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 font-semibold text-slate-200">{{ product.client.name }}</td>
+                        <td class="px-4 py-3"><span class="rounded-full border border-cyan-500/30 bg-cyan-950/50 px-2.5 py-1 text-xs font-bold text-cyan-200">{{ product.get_printing_process_display }}</span></td>
+                        <td class="px-4 py-3 text-xs text-slate-300"><strong class="text-white">{{ product.developpement_mm|default_if_none:'0' }}</strong> × <strong class="text-white">{{ product.laize_gravure_mm|default_if_none:'0' }}</strong> mm<br><span class="text-slate-500">Dév. × laize gravure</span></td>
+                        <td class="px-4 py-3"><span class="text-xl font-black text-white">{{ product.num_colors|default:0 }}</span><span class="ml-1 text-xs text-slate-500">/ 8</span></td>
+                        <td class="px-4 py-3">
+                            {% if product.bat_status == 'VALIDE' %}<span class="rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-bold text-emerald-300">BAT validé</span>
+                            {% elif product.bat_status == 'REFUSE' %}<span class="rounded-full bg-red-500/15 px-2 py-1 text-xs font-bold text-red-300">Suspendu</span>
+                            {% else %}<span class="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-bold text-amber-300">En attente</span>{% endif %}
+                            <p class="mt-1 text-xs text-slate-400">{{ product.version }}</p>
+                        </td>
+                        <td class="px-4 py-3"><a href="{% url 'prepress_technical_sheet_revisions' product.id %}" class="font-black text-violet-300 hover:text-violet-200">{{ product.revision_count }}</a></td>
+                        <td class="px-4 py-3"><div class="flex justify-end gap-2"><a href="{% url 'prepress_technical_sheet' product.id %}" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-bold text-slate-200 hover:border-cyan-400">Voir</a><a href="{% url 'edit_product' product.id %}" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-500">Modifier</a><a href="{% url 'prepress_technical_sheet_pdf' product.id %}" class="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-500">PDF</a></div></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="8" class="px-6 py-16 text-center"><p class="text-lg font-black text-slate-300">Aucune fiche trouvée</p><p class="mt-1 text-sm text-slate-500">Modifiez vos filtres ou créez une nouvelle fiche technique.</p></td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if product_page.paginator.num_pages > 1 %}
+        <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-700 px-4 py-4 text-sm">
+            <span class="text-slate-400">Page {{ product_page.number }} / {{ product_page.paginator.num_pages }}</span>
+            <div class="flex gap-2">
+                {% if product_page.has_previous %}<a class="rounded-lg border border-slate-600 px-3 py-2 font-bold text-slate-200" href="?{% if query_without_page %}{{ query_without_page }}&{% endif %}page={{ product_page.previous_page_number }}">Précédent</a>{% endif %}
+                {% if product_page.has_next %}<a class="rounded-lg border border-slate-600 px-3 py-2 font-bold text-slate-200" href="?{% if query_without_page %}{{ query_without_page }}&{% endif %}page={{ product_page.next_page_number }}">Suivant</a>{% endif %}
+            </div>
+        </nav>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

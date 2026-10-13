@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ product.ref_internal }} · Fiche technique | FB Pack ERP{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-[1700px] space-y-5 px-3 py-5 sm:px-6 lg:px-8">
+    <header class="flex flex-col gap-4 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-xl xl:flex-row xl:items-center xl:justify-between">
+        <div>
+            <p class="text-xs font-black uppercase tracking-[.2em] text-cyan-400">Prépresse · Fiche métier</p>
+            <div class="mt-1 flex flex-wrap items-center gap-3">
+                <h1 class="text-2xl font-black text-white">{{ product.ref_internal }} — {{ product.name }}</h1>
+                {% if product.is_obsolete %}<span class="rounded-full bg-red-600 px-3 py-1 text-xs font-black text-white">OBSOLETE</span>{% endif %}
+            </div>
+            <p class="mt-1 text-sm text-slate-400">{{ product.client.name }} · {{ product.get_bat_status_display }}{% if latest_revision %} · Révision {{ latest_revision.revision_number }}{% endif %}</p>
+        </div>
+        <nav class="flex flex-wrap gap-2" aria-label="Actions fiche technique">
+            <a href="{% url 'prepress_technical_sheet_list' %}" class="rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-black text-slate-200 hover:border-cyan-400">Liste</a>
+            <a href="{% url 'edit_product' product.id %}" class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500">Modifier</a>
+            <a href="{% url 'prepress_technical_sheet_revisions' product.id %}" class="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-black text-white hover:bg-violet-500">Historique</a>
+            <a href="{% url 'prepress_technical_sheet_print' product.id %}" target="_blank" rel="noopener" class="rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-black text-white hover:bg-cyan-600">Imprimer</a>
+            <a href="{% url 'prepress_technical_sheet_pdf' product.id %}" class="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-black text-white hover:bg-red-600">PDF</a>
+        </nav>
+    </header>
+
+    <section class="overflow-x-auto rounded-2xl border border-slate-600 bg-slate-300 p-3 shadow-2xl sm:p-5" aria-label="Aperçu de la fiche technique">
+        {% include 'prepress/_technical_sheet_canvas.html' %}
+    </section>
+</div>
+{% endblock %}
