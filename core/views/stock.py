@@ -1294,13 +1294,13 @@ Renvoie uniquement le format brut JSON, pas de balises markdown, pas de texte d'
             }]
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
         req = urllib.request.Request(
             url, data=json.dumps(payload).encode('utf-8'),
-            headers={'Content-Type': 'application/json'}
+            headers={'Content-Type': 'application/json', 'x-goog-api-key': api_key}
         )
         
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             res_body = json.loads(resp.read().decode('utf-8'))
             text_response = res_body['candidates'][0]['content']['parts'][0]['text'].strip()
             text_clean = re.sub(r'```json\s*|\s*```', '', text_response).strip().strip('`').strip()
