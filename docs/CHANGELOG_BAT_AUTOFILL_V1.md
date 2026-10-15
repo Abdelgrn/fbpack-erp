@@ -1,3 +1,16 @@
+## [BAT-AUTOFILL-V1.11] — 2026-10-15
+### Corrigé (retours Render : crash sur fiche Yahiaoui, PDF Poly Slim partiellement lu)
+- **PDF avec texte** (ex. Poly Slim / Dulcesol) : l'IA Gemini est appelée en premier, comme pour les autres fiches.
+  Avant, un PDF avec texte n'était jamais envoyé à l'IA : seule la lecture texte était utilisée (couleurs « nom à saisir », % manquants).
+- **PDF scanné** : la page entière est envoyée à l'IA (et non plus la bande basse, qui perdait la légende
+  placée en haut sur la fiche Yahiaoui).
+- Repli : si l'IA échoue, l'avertissement « IA Gemini indisponible » est conservé avec la lecture texte.
+### Cause du crash Yahiaoui (sur Render)
+- Lecture locale (OCR) : pic mémoire d'environ 530 Mo pour un PDF scanné (plan gratuit : 512 Mo) et appels OCR multiples.
+- Gunicorn sans `--timeout` : délai de 30 s dépassé → worker tué → 502. Réglage requis : voir le guide (V1.11).
+### Tests
+- `core/tests/test_bat_vision.py` : PDF texte lu par IA d'abord ; repli texte si IA en échec ; sans clé aucun appel.
+
 ## [BAT-AUTOFILL-V1.10] — 2026-10-15
 ### Ajouté
 - **Fournisseur de clichés** sur le calculateur : liste Studio Flexo, Poly Slim, Yahiaoui Photogravure, Autre

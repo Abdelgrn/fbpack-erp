@@ -59,3 +59,7 @@ Calculateur de consommation d'encre (menu prépresse, permission module `prepres
 - **envoi externe** : si `GEMINI_API_KEY` est défini, la fiche BAT (PDF ou image) est envoyée à l'API Gemini de Google pour lecture ; sans clé, rien n'est envoyé (OCR local) ;
 - aucun choix d'Anilox, de densité, de prix : décision opérateur ;
 - le calcul lui-même : uniquement via « Calculer et enregistrer ».
+
+## Réglages Render (V1.11)
+- Start Command : `gunicorn fbpack.wsgi --workers 1 --timeout 180` (une analyse IA peut durer jusqu'à 2 appels de 60 s).
+- Environment : `GEMINI_API_KEY` doit être défini, sinon l'analyse locale (plus lourde en mémoire) est utilisée.
