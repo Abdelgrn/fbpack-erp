@@ -8,10 +8,9 @@ Calculateur de consommation d'encre (menu prépresse, permission module `prepres
 1. Ouvrir le calculateur : un bloc « 📄 Remplissage automatique depuis la fiche BAT »
    surmonte le formulaire.
 2. Cliquer sur le champ fichier et choisir la BAT du fournisseur :
-   - **PDF natif avec texte** (export Esko/Studio…) → noms + cm² + % + laize/poses repris ;
-   - **PDF scanné ou photo/image** (PNG, JPG, WEBP) → couleurs reprises **et, si l'option
-  OCR est installée (`rapidocr-onnxruntime`), cm² / % lus sous chaque pastille** ;
-  sans l'option : valeurs à saisir.
+   - **PDF** (avec ou sans texte) → lu par Gemini, page par page ;
+   - **PNG, JPG, WEBP** → lu par Gemini ;
+   - la fiche est envoyée à Gemini : aucun autre moteur n'est utilisé (V1.11, OCR supprimé).
 3. Cliquer **« 🔍 Analyser la BAT »** (le formulaire n'est PAS enregistré à ce stade).
 4. L'écran affiche :
    - à gauche l'**aperçu** de la fiche (zoom possible via clic droit → ouvrir l'image) ;
@@ -20,7 +19,7 @@ Calculateur de consommation d'encre (menu prépresse, permission module `prepres
      colorée, son nom, son type (Couleur / Blanc TiO₂ / Vernis), sa couverture et sa surface
      si lues. Les champs job (laize, pas de coupe, poses) sont complétés **s'ils étaient vides**.
 5. Les champs **Nom du job, Laize, Pas de coupe, Poses** sont complétés depuis la BAT
-   (scan compris, via OCR) s'ils étaient vides ; la **densité** de chaque ligne arrive
+   (lus par Gemini) s'ils étaient vides ; la **densité** de chaque ligne arrive
    pré-remplie (1,3 / blanc 1,5) et reste modifiable.
 6. **Corriger** : renommer une couleur, supprimer une ligne parasite (logo), ajouter une
    ligne manquante (« + Couleur »), saisir cm² / % manquants, choisir l'Anilox et le prix
@@ -29,11 +28,10 @@ Calculateur de consommation d'encre (menu prépresse, permission module `prepres
    le calcul (couverture × volume Anilox × transfert × densité, + perte) est inchangé.
 
 ## Lecture des avertissements
-- « Valeurs cm² / % lues par OCR sur N ligne(s) : vérifiez-les… » → normal sur scan :
-  l'OCR peut confondre un chiffre (ex. 133.089 lu 133.099) : **corrigez avant calcul**.
-- « BAT scannée : couleurs détectées par colorimétrie, surfaces/couvertures à saisir » → normal.
-- « Valeurs chiffrées non appairées automatiquement (n noms, x surfaces, y %) » → le PDF texte
-  n'a pas rendu les valeurs dans le même ordre : les lignes arrivent nommées, valeurs à saisir.
+- « Lecture IA Gemini : n couleur(s) » → vérifiez chaque valeur avant « Calculer et enregistrer ».
+- « Analyse IA impossible » ou « GEMINI_API_KEY n'est pas définie » → aucune ligne n'est remplie :
+  saisissez les lignes à la main, et prévenez l'administrateur si le message persiste.
+- « Nombre de couleurs différent de la mention » → comparez la fiche et les lignes.
 - « Analyse terminée mais aucune pastille reconnue » → fichier trop dégradé : saisie manuelle.
 
 ## Règles de nommage appliquées
@@ -56,10 +54,10 @@ Calculateur de consommation d'encre (menu prépresse, permission module `prepres
 
 ## Ce qui n'est jamais fait automatiquement
 - aucun enregistrement de job ni fichier BAT stocké par l'application ;
-- **envoi externe** : si `GEMINI_API_KEY` est défini, la fiche BAT (PDF ou image) est envoyée à l'API Gemini de Google pour lecture ; sans clé, rien n'est envoyé (OCR local) ;
+- **envoi externe** : la fiche BAT (PDF ou image) est envoyée à l'API Gemini de Google pour lecture ; sans `GEMINI_API_KEY`, aucune analyse n'est faite ;
 - aucun choix d'Anilox, de densité, de prix : décision opérateur ;
 - le calcul lui-même : uniquement via « Calculer et enregistrer ».
 
 ## Réglages Render (V1.11)
 - Start Command : `gunicorn fbpack.wsgi --workers 1 --timeout 180` (une analyse IA peut durer jusqu'à 2 appels de 60 s).
-- Environment : `GEMINI_API_KEY` doit être défini, sinon l'analyse locale (plus lourde en mémoire) est utilisée.
+- Environment : `GEMINI_API_KEY` doit être défini, sinon l'analyse BAT est indisponible (message affiché).
