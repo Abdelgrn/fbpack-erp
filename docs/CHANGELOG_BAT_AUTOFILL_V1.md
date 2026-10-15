@@ -1,15 +1,23 @@
 ## [BAT-AUTOFILL-V1.11] — 2026-10-15
-### Corrigé (retours Render : crash sur fiche Yahiaoui, PDF Poly Slim partiellement lu)
-- **PDF avec texte** (ex. Poly Slim / Dulcesol) : l'IA Gemini est appelée en premier, comme pour les autres fiches.
-  Avant, un PDF avec texte n'était jamais envoyé à l'IA : seule la lecture texte était utilisée (couleurs « nom à saisir », % manquants).
-- **PDF scanné** : la page entière est envoyée à l'IA (et non plus la bande basse, qui perdait la légende
-  placée en haut sur la fiche Yahiaoui).
-- Repli : si l'IA échoue, l'avertissement « IA Gemini indisponible » est conservé avec la lecture texte.
-### Cause du crash Yahiaoui (sur Render)
-- Lecture locale (OCR) : pic mémoire d'environ 530 Mo pour un PDF scanné (plan gratuit : 512 Mo) et appels OCR multiples.
-- Gunicorn sans `--timeout` : délai de 30 s dépassé → worker tué → 502. Réglage requis : voir le guide (V1.11).
+### Changement de règle (demandé par l'utilisateur)
+- **OCR supprimé** (RapidOCR, lecture colorimétrique, appairage des valeurs, repli local) : **Gemini est le seul moteur**
+  d'analyse des fiches BAT (PNG, JPEG, WEBP, PDF avec ou sans texte).
+- Sans `GEMINI_API_KEY` : message « Analyse IA indisponible » ; aucune ligne n'est inventée.
+- `rapidocr-onnxruntime` retiré de `requirements.txt` (build plus léger, mémoire réduite sur Render).
+### Corrigé
+- Les PDF avec texte (ex. Poly Slim) étaient lus sans IA : ils passent désormais par Gemini.
+- Les scans envoient la page entière à Gemini (la légende peut être en haut de la fiche, ex. Yahiaoui).
+- Crash Render sur fiche Yahiaoui : pic mémoire de l'OCR local (environ 530 Mo) et délai Gunicorn de 30 s.
+  Réglage requis : `gunicorn fbpack.wsgi --workers 1 --timeout 180` (voir le guide).
+### Fichiers
+- `core/services/bat_extractor.py` : réécrit en Gemini seul (fonctions OCR retirées).
+- `core/tests/test_bat_extractor.py` : tests Gemini seul ; `InkHistoryViewTests` conservé à l'identique.
+- `core/tests/test_bat_vision.py` : tests PDF Gemini et erreurs sans repli.
+- `scripts/verify_bat_autofill.py`, `requirements.txt`, docs.
+- Aucun changement de vue, de modèle, de migration ni de moteur de calcul.
 ### Tests
-- `core/tests/test_bat_vision.py` : PDF texte lu par IA d'abord ; repli texte si IA en échec ; sans clé aucun appel.
+- 27 tests hors Django OK (`test_bat_vision`, `test_cliche_suppliers`, `AnalyseGeminiSeulTests`, `DensityDefaultTests`).
+- `InkHistoryViewTests` : base Django, à lancer sur votre poste.
 
 ## [BAT-AUTOFILL-V1.10] — 2026-10-15
 ### Ajouté

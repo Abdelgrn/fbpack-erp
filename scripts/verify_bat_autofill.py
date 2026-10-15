@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contrôle post-installation du LOT BAT AUTOFILL V1.10.
+"""Contrôle post-installation du LOT BAT AUTOFILL V1.11 (Gemini seul).
 
 Usage : python scripts/verify_bat_autofill.py <racine_projet>
 Vérifie par marqueurs que les 5 fichiers métier sont en place et cohérents.
@@ -9,11 +9,9 @@ from pathlib import Path
 
 MARKERS = [
     ('core/services/bat_extractor.py', [
-        'def analyze_bat(', 'def _swatch_patches(', 'def rows_from_text(',
-        'MAX_BAT_BYTES', 'def validate_bat_size(', 'PROCESS_REF',
-        'def pair_ocr_values(', 'def apply_ocr_names(', 'rapidocr_onnxruntime',
-        'def ocr_job_hints(', '_right_neighbor', 'def legend_rows_from_ocr(',
-        '_bottom_band_rows', '_apply_width_rule', '_get_ocr', '_render_pdf_pages', '_pick_legend_page', '_ocr_items_merged', '_pantone_fmt', '_read_with_api', '_supplier_label']),
+        'def analyze_bat(', 'def _render_pdf_pages(', 'def _read_with_api(', 'def _rows_from_api(',
+        'def _hints_from_api(', 'def _supplier_label(', 'MAX_BAT_BYTES', 'def validate_bat_size(',
+        'GEMINI_API_KEY', 'def _pantone_fmt(']),
     ('core/services/bat_vision.py', [
         'def read_bat(', 'x-goog-api-key', 'GEMINI_API_KEY', 'gemini-3.8-flash']),
     ('core/services/cliche_suppliers.py', [
@@ -34,9 +32,8 @@ MARKERS = [
         'Historique des calculs', 'total_prepare_kg', 'detail_url',
         '{% for c in r.job.colors.all %}']),
     ('core/tests/test_bat_extractor.py', [
-        'class BatExtractorTests', 'test_image_detecte_quatre_pastilles_nommees', 'class LegendeOcrTests', 'class LegendeFicheDoreeTests',
-        'test_pdf_texte_lignes_et_hints']),
-    ('requirements.txt', ['pypdf==', 'rapidocr-onnxruntime==']),
+        'class AnalyseGeminiSeulTests', 'test_image_lue_par_gemini', 'class InkHistoryViewTests']),
+    ('requirements.txt', ['pypdfium2==']),
 ]
 
 
