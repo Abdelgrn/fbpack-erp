@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contrôle post-installation du LOT BAT AUTOFILL V1.11 (Gemini seul).
+"""Contrôle post-installation du LOT BAT AUTOFILL V1.15 (OCR local RapidOCR, sans API).
 
 Usage : python scripts/verify_bat_autofill.py <racine_projet>
 Vérifie par marqueurs que les 5 fichiers métier sont en place et cohérents.
@@ -9,11 +9,11 @@ from pathlib import Path
 
 MARKERS = [
     ('core/services/bat_extractor.py', [
-        'def analyze_bat(', 'def _render_pdf_pages(', 'def _read_with_api(', 'def _rows_from_api(',
-        'def _hints_from_api(', 'def _supplier_label(', 'MAX_BAT_BYTES', 'def validate_bat_size(',
-        'GEMINI_API_KEY', 'def _pantone_fmt(']),
-    ('core/services/bat_vision.py', [
-        'def read_bat(', 'x-goog-api-key', 'GEMINI_API_KEY', 'gemini-3.8-flash']),
+        'def analyze_bat(', 'def _render_pdf_pages(', 'def _rows_from_ocr(', 'def _hints(',
+        'MAX_BAT_BYTES', 'def validate_bat_size(', 'from . import bat_ocr', 'def _clean_job_name(']),
+    ('core/services/bat_ocr.py', [
+        'def analyze_pages(', 'def find_cartouche(', 'def parse_fields(', 'def ink_table(',
+        'def build_rows(', 'def canon_ink_name(', 'def _engine(', 'from rapidocr_onnxruntime']),
     ('core/services/cliche_suppliers.py', [
         'def summarize(', 'def supplier_or_blank(', 'SUPPLIER_CHOICES']),
     ('core/services/ink_calculator.py', [
@@ -32,7 +32,9 @@ MARKERS = [
         'Historique des calculs', 'total_prepare_kg', 'detail_url',
         '{% for c in r.job.colors.all %}']),
     ('core/tests/test_bat_extractor.py', [
-        'class AnalyseGeminiSeulTests', 'test_image_lue_par_gemini', 'class InkHistoryViewTests']),
+        'class AnalyzeContractTests', 'test_resultat_mocke_mappe_les_lignes']),
+    ('core/tests/test_bat_ocr.py', [
+        'class ParseFieldsTests', 'class InkTableTests', 'class BuildRowsTests']),
     ('requirements.txt', ['pypdfium2==']),
 ]
 

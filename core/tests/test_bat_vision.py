@@ -72,6 +72,67 @@ class BatVisionCallTests(unittest.TestCase):
         self.assertNotIn(FAKE_KEY, str(ctx.exception))
 
 
+class BatVisionRetryTests(unittest.TestCase):
+    """V1.14 : relances sur 503, chaîne de modèles, réseau limité à 2 échecs, erreurs permanentes non relancées."""
+
+    def _ok(self):
+        reponse = {'candidates': [{'content': {'parts': [{'text': '{"encres": []}'}]}}]}
+        cm = mock.MagicMock()
+        cm.__enter__.return_value.read.return_value = json.dumps(reponse).encode()
+        return cm
+
+    def _http(self, code):
+        return urllib.error.HTTPError('https://x', code, 'x', {}, None)
+
+    def test_503_puis_succes(self):
+        with mock.patch.dict(os.environ, {'GEMINI_API_KEY': FAKE_KEY}, clear=False), \
+                mock.patch('time.sleep') as sl, \
+                mock.patch('urllib.request.urlopen',
+                           side_effect=[self._http(503), self._ok()]) as op:
+            data = bat_vision.call_gemini({'contents': []})
+        self.assertEqual(op.call_count, 2)
+        self.assertEqual([c[0][0] for c in sl.call_args_list], [4])
+        self.assertIn('encres', data)
+
+    def test_503_sur_principal_bascule_sur_lite(self):
+        with mock.patch.dict(os.environ, {'GEMINI_API_KEY': FAKE_KEY}, clear=False), \
+                mock.patch('time.sleep'), \
+                mock.patch('urllib.request.urlopen',
+                           side_effect=[self._http(503), self._http(503), self._ok()]) as op:
+            bat_vision.call_gemini({'contents': []})
+        urls = [c[0][0].full_url for c in op.call_args_list]
+        self.assertIn('gemini-3.8-flash', urls[0])
+        self.assertIn('gemini-3.5-flash-lite', urls[2])
+
+    def test_503_persistant_secours_puis_message(self):
+        with mock.patch.dict(os.environ, {'GEMINI_API_KEY': FAKE_KEY}, clear=False), \
+                mock.patch('time.sleep'), \
+                mock.patch('urllib.request.urlopen', side_effect=self._http(503)) as op:
+            with self.assertRaises(bat_vision.VisionError) as ctx:
+                bat_vision.call_gemini({'contents': []})
+        self.assertEqual(op.call_count, 6)          # 2 essais x 3 modèles de la chaîne
+        urls = [c[0][0].full_url for c in op.call_args_list]
+        self.assertIn('gemini-3.6-flash', urls[-1])
+        self.assertIn('503', str(ctx.exception))
+        self.assertIn('après plusieurs essais', str(ctx.exception))
+        self.assertNotIn(FAKE_KEY, str(ctx.exception))
+
+    def test_reseau_deux_echecs_puis_arret(self):
+        with mock.patch.dict(os.environ, {'GEMINI_API_KEY': FAKE_KEY}, clear=False), \
+                mock.patch('time.sleep'), \
+                mock.patch('urllib.request.urlopen', side_effect=TimeoutError()) as op:
+            with self.assertRaises(bat_vision.VisionError):
+                bat_vision.call_gemini({'contents': []})
+        self.assertEqual(op.call_count, 2)
+
+    def test_400_jamais_relance(self):
+        with mock.patch.dict(os.environ, {'GEMINI_API_KEY': FAKE_KEY}, clear=False), \
+                mock.patch('urllib.request.urlopen', side_effect=self._http(400)) as op:
+            with self.assertRaises(bat_vision.VisionError):
+                bat_vision.call_gemini({'contents': []})
+        self.assertEqual(op.call_count, 1)
+
+
 class BatVisionMappingTests(unittest.TestCase):
     def test_lignes_sans_nom_positionnel(self):
         rows = be._rows_from_api(_REPONSE_IA)

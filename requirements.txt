@@ -66,3 +66,8 @@ zope.interface==8.2
 zopfli==0.4.1
 dj-database-url==2.3.0
 pypdfium2==5.14.0
+
+# OCR des fiches BAT (V1.15) : RapidOCR, sans API ni Tesseract.
+# RapidOCR exige opencv-python : sur Render, installer la variante headless (voir GUIDE).
+rapidocr-onnxruntime==1.2.3
+opencv-python-headless==4.11.0.86
