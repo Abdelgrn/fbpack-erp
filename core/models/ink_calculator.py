@@ -14,6 +14,8 @@ class AniloxRoll(models.Model):
 
 class InkCalculationJob(models.Model):
     PROCESS_CHOICES=[('FLEXO','Flexographie'),('HELIO','Héliogravure')]
+    # doit rester identique à core/services/cliche_suppliers.py (SUPPLIER_CHOICES)
+    CLICHE_SUPPLIER_CHOICES=[(s,s) for s in ['Studio Flexo','Poly Slim','Yahiaoui Photogravure','Autre']]
     CONFIDENCE_CHOICES=[('ESTIMATED','Estimé'),('TECHNICAL','Technique'),('CALIBRATED','Calibré FB PACK')]
     name=models.CharField(max_length=200); process=models.CharField(max_length=10,choices=PROCESS_CHOICES,default='FLEXO')
     client=models.ForeignKey('core.Client',on_delete=models.SET_NULL,null=True,blank=True,related_name='ink_calculations')
@@ -23,6 +25,7 @@ class InkCalculationJob(models.Model):
     repeat_mm=models.FloatField(default=0); poses_across=models.PositiveIntegerField(default=1); poses_repeat=models.PositiveIntegerField(default=1)
     transfer_percent=models.FloatField(validators=[MinValueValidator(0.01),MaxValueValidator(100)]); loss_percent=models.FloatField(default=0,validators=[MinValueValidator(0),MaxValueValidator(100)])
     confidence=models.CharField(max_length=12,choices=CONFIDENCE_CHOICES,default='TECHNICAL')
+    cliche_supplier=models.CharField(max_length=40,choices=CLICHE_SUPPLIER_CHOICES,blank=True,default='')
     created_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='ink_calculations'); created_at=models.DateTimeField(auto_now_add=True)
     class Meta: app_label='core'; ordering=['-created_at']
     @property

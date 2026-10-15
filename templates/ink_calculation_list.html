@@ -1,0 +1,26 @@
+{% extends 'base.html' %}{% block content %}<div class="max-w-7xl mx-auto p-5 text-white">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+<h1 class="text-3xl font-black">📚 Historique des calculs d’encre</h1>
+{% if calc_url %}<a href="{{ calc_url }}" class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded-xl font-black">+ Nouveau calcul</a>{% endif %}
+</div>
+<div class="overflow-x-auto"><table class="w-full text-sm bg-slate-800 rounded-2xl border border-slate-700">
+<thead><tr class="text-left text-xs text-gray-400"><th class="p-3">#</th><th class="p-3">Job</th><th class="p-3">Procédé</th><th class="p-3">Client / Produit / OF</th><th class="p-3">Laize mm</th><th class="p-3">Métrage m</th><th class="p-3">Couleurs</th><th class="p-3">À préparer kg</th><th class="p-3">Coût</th><th class="p-3">Créé</th><th class="p-3"></th></tr></thead>
+<tbody>{% for r in rows %}<tr class="border-t border-slate-700">
+<td class="p-3 text-gray-400">{{ r.job.id }}</td>
+<td class="p-3 font-bold">{{ r.job.name }}</td>
+<td class="p-3">{{ r.job.get_process_display }}</td>
+<td class="p-3 text-gray-300">{{ r.job.client|default:'—' }} / {{ r.job.product|default:'—' }} / {{ r.job.of|default:'—' }}</td>
+<td class="p-3">{{ r.job.width_mm }}</td>
+<td class="p-3">{{ r.job.length_m }}</td>
+<td class="p-3">{{ r.job.colors.all|length }}<small class="block text-gray-400">{% for c in r.job.colors.all %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</small></td>
+<td class="p-3 text-orange-300 font-black">{{ r.job.total_prepare_kg|floatformat:3 }}</td>
+<td class="p-3">{{ r.total_cost|floatformat:2 }}</td>
+<td class="p-3 text-gray-400">{{ r.job.created_at|date:'d/m/Y H:i' }} · {{ r.job.created_by }}</td>
+<td class="p-3">{% if r.detail_url %}<a href="{{ r.detail_url }}" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">Ouvrir</a>{% else %}<span class="text-gray-500">—</span>{% endif %}</td>
+</tr>{% empty %}<tr><td colspan="11" class="p-6 text-gray-400">Aucun calcul enregistré pour l’instant.</td></tr>{% endfor %}</tbody></table></div>
+<h2 class="text-xl font-black mt-8 mb-3">🏭 Consommation par fournisseur de clichés</h2>
+<div class="overflow-x-auto"><table class="w-full text-sm bg-slate-800 rounded-2xl border border-slate-700">
+<thead><tr class="text-left text-xs text-gray-400"><th class="p-3">Fournisseur</th><th class="p-3">Jobs</th><th class="p-3">Total à préparer kg</th><th class="p-3">kg par job</th><th class="p-3">g par m²</th></tr></thead>
+<tbody>{% for s in suppliers %}<tr class="border-t border-slate-700"><td class="p-3 font-bold">{{ s.supplier }}</td><td class="p-3">{{ s.jobs }}</td><td class="p-3 text-orange-300 font-black">{{ s.total_kg|floatformat:3 }}</td><td class="p-3">{{ s.avg_kg|floatformat:3 }}</td><td class="p-3">{{ s.g_per_m2|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="5" class="p-6 text-gray-400">Aucun calcul enregistré.</td></tr>{% endfor %}</tbody></table></div>
+<p class="text-xs text-gray-500 mt-4">Les jobs proviennent du Calculateur de consommation d’encre (« Calculer et enregistrer »). « Ouvrir » donne le détail : graphique, comparaison net / à préparer / réel et saisie des consommations réelles.</p>
+</div>{% endblock %}

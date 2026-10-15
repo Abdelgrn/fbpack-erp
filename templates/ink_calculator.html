@@ -1,1 +1,131 @@
-{% extends 'base.html' %}{% block content %}<div class="max-w-7xl mx-auto p-5 text-white"><h1 class="text-3xl font-black">🧪 Calculateur de consommation d’encre</h1><p class="text-gray-400 mb-6">Calcul technique par couverture, volume Anilox, transfert, densité et perte propre au job.</p><form method="post" class="space-y-5">{% csrf_token %}<section class="grid md:grid-cols-4 gap-3 bg-slate-800 p-5 rounded-2xl border border-slate-700"><input required name="name" placeholder="Nom du job" class="bg-slate-950 p-3 rounded"><select name="process" class="bg-slate-950 p-3 rounded"><option value="FLEXO">Flexographie</option><option value="HELIO">Héliogravure</option></select><input required type="number" step=".01" name="width_mm" placeholder="Laize imprimée mm" class="bg-slate-950 p-3 rounded"><input required type="number" step=".01" name="length_m" placeholder="Métrage m" class="bg-slate-950 p-3 rounded"><input type="number" step=".01" name="repeat_mm" placeholder="Pas de coupe mm" class="bg-slate-950 p-3 rounded"><input name="transfer_percent" required type="number" step=".01" min=".01" max="100" placeholder="Transfert Anilox %" class="bg-slate-950 p-3 rounded"><input name="loss_percent" required type="number" step=".01" min="0" max="100" placeholder="Perte du job %" class="bg-slate-950 p-3 rounded"><input name="poses_across" type="number" min="1" value="1" placeholder="Poses laize" class="bg-slate-950 p-3 rounded"></section><section class="bg-slate-800 p-5 rounded-2xl"><div class="flex justify-between"><h2 class="font-black">Séparation des couleurs</h2><button type="button" onclick="addColor()" class="bg-cyan-600 px-3 py-2 rounded">+ Couleur</button></div><div id="colors" class="space-y-2 mt-4"></div></section><button class="bg-orange-500 text-slate-950 font-black px-7 py-3 rounded-xl">Calculer et enregistrer</button></form></div><template id="row"><div class="grid md:grid-cols-7 gap-2 border border-slate-700 p-3 rounded-xl"><input name="color_name" required placeholder="Couleur" class="bg-slate-950 p-2 rounded"><select name="ink_type" class="bg-slate-950 p-2 rounded"><option value="COLOR">Couleur</option><option value="WHITE">Blanc TiO₂</option><option value="VARNISH">Vernis</option></select><input name="coverage" required type="number" step=".001" min="0" max="100" placeholder="Couverture %" class="bg-slate-950 p-2 rounded"><input name="area_cm2" type="number" step=".001" placeholder="Surface cm²" class="bg-slate-950 p-2 rounded"><select name="anilox" required class="bg-slate-950 p-2 rounded">{% for a in aniloxes %}<option value="{{ a.id }}">{{ a.lineature }} — {{ a.volume_cm3_m2 }} cm³/m²</option>{% endfor %}</select><input name="density" type="number" step=".001" placeholder="Densité (auto si vide)" class="bg-slate-950 p-2 rounded"><input name="price" type="number" step=".01" placeholder="Prix/kg" class="bg-slate-950 p-2 rounded"></div></template><script>function addColor(){document.getElementById('colors').append(document.getElementById('row').content.cloneNode(true))}addColor();</script>{% endblock %}
+{% extends 'base.html' %}{% block content %}<div class="max-w-7xl mx-auto p-5 text-white">
+<h1 class="text-3xl font-black">🧪 Calculateur de consommation d’encre</h1>
+<p class="text-gray-400 mb-6">Calcul technique par couverture, volume Anilox, transfert, densité et perte propre au job.</p>
+{% if history_url %}<a href="{{ history_url }}" class="inline-block bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl font-black mb-4">📚 Historique des calculs</a>{% endif %}
+<form method="post" enctype="multipart/form-data" class="space-y-5">{% csrf_token %}<section class="bg-slate-800 p-5 rounded-2xl border border-slate-700">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+<h2 class="font-black">📄 Remplissage automatique depuis la fiche BAT</h2>
+<span class="text-xs text-gray-400">PDF (texte ou scan), PNG, JPG, WEBP — 10 Mo max. Aucun fichier n’est enregistré sur le serveur.</span>
+</div>
+<div class="grid md:grid-cols-4 gap-3">
+<input type="file" name="bat_file" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp" class="bg-slate-950 p-3 rounded md:col-span-3">
+<button type="submit" name="analyze_bat" value="1" formnovalidate class="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-5 py-3 rounded-xl">🔍 Analyser la BAT</button>
+</div>
+<p class="text-xs text-gray-400 mt-3">L’analyse PRÉ-REMPLIT la séparation des couleurs (et la laize / le pas de coupe / les poses si lisibles). Chaque ligne reste modifiable : validez puis « Calculer et enregistrer ».</p>
+</section>
+{% if bat %}<section class="grid md:grid-cols-2 gap-4 bg-slate-800 p-5 rounded-2xl border border-cyan-700">
+<div>
+<h3 class="font-black mb-2">Aperçu de la fiche BAT <span class="text-xs text-cyan-300">({{ bat.mode }})</span></h3>
+{% if bat.preview_data_uri %}<img src="{{ bat.preview_data_uri }}" alt="Aperçu de la fiche BAT" class="w-full rounded-xl border border-slate-600 bg-white">
+{% else %}<p class="text-sm text-gray-400">Aperçu indisponible pour ce fichier (PDF texte sans image embarquée).</p>{% endif %}
+{% if bat.warnings %}<ul class="mt-3 space-y-1">{% for w in bat.warnings %}<li class="text-xs text-amber-300">⚠ {{ w }}</li>{% endfor %}</ul>{% endif %}
+</div>
+<div>
+<h3 class="font-black mb-2">Lignes détectées (reportées ci-dessous, modifiables)</h3>
+<table class="w-full text-sm"><thead><tr class="text-gray-400 text-xs text-left"><th class="py-1 pr-2">Pastille</th><th class="py-1 pr-2">Couleur</th><th class="py-1 pr-2">Type</th><th class="py-1 pr-2">Couv. %</th><th class="py-1">Surface cm²</th></tr></thead><tbody>
+{% for r in bat.rows %}<tr class="border-t border-slate-700"><td class="py-1 pr-2">{% if r.swatch_hex %}<span class="inline-block w-4 h-4 rounded border border-slate-500" style="background:{{ r.swatch_hex }}"></span>{% else %}—{% endif %}</td><td class="py-1 pr-2">{{ r.name }}</td><td class="py-1 pr-2">{{ r.ink_type }}</td><td class="py-1 pr-2">{% if r.coverage_percent is not None %}{{ r.coverage_percent }}{% else %}<span class="text-amber-300">à saisir</span>{% endif %}</td><td class="py-1">{% if r.coverage_area_cm2 is not None %}{{ r.coverage_area_cm2 }}{% else %}<span class="text-amber-300">à saisir</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="py-2 text-gray-400">Aucune ligne détectée.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+</section>{% endif %}
+<section class="grid md:grid-cols-4 gap-3 bg-slate-800 p-5 rounded-2xl border border-slate-700">
+<input required name="name" id="f_name" placeholder="Nom du job" class="bg-slate-950 p-3 rounded">
+<select name="cliche_supplier" id="f_cliche_supplier" title="Fournisseur de clichés" class="bg-slate-950 p-3 rounded"><option value="">Fournisseur clichés…</option>{% for s in cliche_choices %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select>
+<select name="process" id="f_process" class="bg-slate-950 p-3 rounded">
+<option value="FLEXO">Flexographie</option>
+<option value="HELIO">Héliogravure</option>
+</select>
+<input required type="number" step=".01" name="width_mm" id="f_width_mm" placeholder="Laize totale film mm (toutes pistes)" title="Laize totale = laize d’une piste × poses en laize" class="bg-slate-950 p-3 rounded">
+<input required type="number" step=".01" name="length_m" id="f_length_m" placeholder="Métrage m" class="bg-slate-950 p-3 rounded">
+<input type="number" step=".01" name="repeat_mm" id="f_repeat_mm" placeholder="Pas de coupe mm" class="bg-slate-950 p-3 rounded">
+<input name="transfer_percent" id="f_transfer_percent" required type="number" step=".01" min=".01" max="100" placeholder="Transfert Anilox %" class="bg-slate-950 p-3 rounded">
+<input name="loss_percent" id="f_loss_percent" required type="number" step=".01" min="0" max="100" placeholder="Perte du job %" class="bg-slate-950 p-3 rounded">
+<input name="poses_across" id="f_poses_across" type="number" min="1" placeholder="Poses laize" class="bg-slate-950 p-3 rounded">
+<input name="poses_repeat" id="f_poses_repeat" type="number" min="1" placeholder="Poses coupe" class="bg-slate-950 p-3 rounded">
+</section>
+<section class="bg-slate-800 p-5 rounded-2xl">
+<div class="flex justify-between">
+<h2 class="font-black">Séparation des couleurs</h2>
+<button type="button" onclick="addColor()" class="bg-cyan-600 px-3 py-2 rounded">+ Couleur</button>
+</div>
+<div id="colors" class="space-y-2 mt-4">
+</div>
+</section>
+<button class="bg-orange-500 text-slate-950 font-black px-7 py-3 rounded-xl">Calculer et enregistrer</button>
+</form>
+</div>
+<template id="row">
+<div class="grid md:grid-cols-8 gap-2 border border-slate-700 p-3 rounded-xl items-center">
+<span data-sw class="w-5 h-5 rounded border border-slate-500 inline-block" title="Pastille BAT"></span>
+<input name="color_name" required placeholder="Couleur" class="bg-slate-950 p-2 rounded">
+<select name="ink_type" class="bg-slate-950 p-2 rounded">
+<option value="COLOR">Couleur</option>
+<option value="WHITE">Blanc TiO₂</option>
+<option value="VARNISH">Vernis</option>
+</select>
+<input name="coverage" required type="number" step=".001" min="0" max="100" placeholder="Couverture %" class="bg-slate-950 p-2 rounded">
+<input name="area_cm2" type="number" step=".001" placeholder="Surface cm²" class="bg-slate-950 p-2 rounded">
+<select name="anilox" required class="bg-slate-950 p-2 rounded">{% for a in aniloxes %}<option value="{{ a.id }}">{{ a.lineature }} — {{ a.volume_cm3_m2 }} cm³/m²</option>{% endfor %}</select>
+<input name="density" type="number" step=".001" placeholder="Densité (auto si vide)" class="bg-slate-950 p-2 rounded">
+<input name="price" type="number" step=".01" placeholder="Prix/kg" class="bg-slate-950 p-2 rounded">
+</div>
+</template>
+<script id="bat-rows" type="application/json">{{ bat_rows_json|default:"[]"|safe }}</script>
+<script id="bat-hints" type="application/json">{{ bat_hints_json|default:"{}"|safe }}</script>
+{% if bat %}<span id="bat-analysed" hidden></span>{% endif %}
+<script id="bat-keep" type="application/json">{{ keep_post|default:"{}"|safe }}</script>
+<script>
+var DENSITY_DEFAULT={'COLOR':1.3,'VARNISH':1.3,'WHITE':1.5};
+function wireDensity(row){
+  var d=row.querySelector('[name=density]'),t=row.querySelector('[name=ink_type]');
+  d.addEventListener('input',function(){d.dataset.auto='0';});
+  t.addEventListener('change',function(){if(d.dataset.auto!=='0'){d.value=DENSITY_DEFAULT[t.value]||1.3;d.dataset.auto='1';}});
+}
+function addColor(data){
+  var node=document.getElementById('row').content.cloneNode(true);
+  document.getElementById('colors').append(node);
+  var last=document.getElementById('colors').lastElementChild;
+  if(data){
+    last.querySelector('[name=color_name]').value=data.name||'';
+    last.querySelector('[name=ink_type]').value=data.ink_type||'COLOR';
+    if(data.coverage_percent!==null&&data.coverage_percent!==undefined)last.querySelector('[name=coverage]').value=data.coverage_percent;
+    if(data.coverage_area_cm2!==null&&data.coverage_area_cm2!==undefined)last.querySelector('[name=area_cm2]').value=data.coverage_area_cm2;
+    if(data.swatch_hex)last.querySelector('[data-sw]').style.background=data.swatch_hex;
+  }
+  var d=last.querySelector('[name=density]');
+  var typ=last.querySelector('[name=ink_type]').value||'COLOR';
+  if(data&&data.density!==null&&data.density!==undefined&&data.density!==''){
+    d.value=data.density;d.dataset.auto='0';
+  }else{
+    d.value=DENSITY_DEFAULT[typ]||1.3;d.dataset.auto='1';
+  }
+  wireDensity(last);
+  return last;
+}
+(function(){
+  var keep=JSON.parse(document.getElementById('bat-keep').textContent||'{}');
+  Object.keys(keep).forEach(function(k){
+    var el=document.getElementById('f_'+k);
+    if(el&&keep[k])el.value=keep[k];
+  });
+  var hints=JSON.parse(document.getElementById('bat-hints').textContent||'{}');
+  var map={cliche_supplier:'cliche_supplier',name:'name',width_mm:'width_mm',repeat_mm:'repeat_mm',poses_across:'poses_across',poses_repeat:'poses_repeat'};
+  var analysed=!!document.getElementById('bat-analysed');
+  Object.keys(map).forEach(function(k){
+    var el=document.getElementById('f_'+map[k]);
+    if(!el)return;
+    if(analysed){
+      // V1.8 : après une analyse, la valeur lue remplace l'ancienne ; vide si non lue
+      el.value=(hints[k]!==undefined&&hints[k]!==null)?hints[k]:'';
+    }else if(!el.value&&hints[k]!==undefined&&hints[k]!==null){
+      el.value=hints[k];
+    }
+  });
+  var rows=JSON.parse(document.getElementById('bat-rows').textContent||'[]');
+  if(rows.length){
+    document.getElementById('colors').innerHTML='';
+    rows.forEach(function(r){addColor(r);});
+  }else{
+    addColor();
+  }
+})();
+</script>{% endblock %}

@@ -3,6 +3,7 @@
 
 import argparse
 import ast
+import re
 import sys
 from pathlib import Path
 
@@ -12,12 +13,17 @@ REQUIRED_FILES = [
     'core/models/__init__.py',
     'core/forms/prepress.py',
     'core/views/prepress.py',
+    'core/views/erp_assistant.py',
     'core/services/prepress_technical_sheet.py',
     'core/migrations/0048_prepress_technical_sheet_erp.py',
     'core/urls.py',
     'core/static/logo.png',
+    'core/static/logo_blanc.png',
     'core/test_prepress_technical_sheet.py',
+    'core/test_erp_assistant_technical_sheet.py',
     'templates/prepress.html',
+    'templates/assistant/assistant_home.html',
+    'templates/assistant/_widget.html',
     'templates/prepress/_technical_sheet_canvas.html',
     'templates/prepress/technical_sheet_form.html',
     'templates/prepress/technical_sheet_list.html',
@@ -102,6 +108,18 @@ def main():
         if token not in models:
             fail(f'Élément modèle absent : {token}', errors)
 
+    service = (root / 'core/services/prepress_technical_sheet.py').read_text(encoding='utf-8')
+    for token in ('def compose_roll_image', 'def build_roll_visual_data_uri', 'logo_blanc.png', 'SENS_ROTATION'):
+        if token not in service:
+            fail(f'Élément du lot Bobine V4 absent du service : {token}', errors)
+    if not any(message.startswith('Élément du lot Bobine') for message in errors):
+        ok('Moteur bobine et logo blanc présents dans le service')
+    logo_blanc = (root / 'core/static/logo_blanc.png').read_bytes()
+    if not logo_blanc.startswith(b'\x89PNG\r\n\x1a\n'):
+        fail('core/static/logo_blanc.png n’est pas un PNG valide', errors)
+    else:
+        ok('Logo blanc PNG valide')
+
     views = (root / 'core/views/prepress.py').read_text(encoding='utf-8')
     for token in ("@module_required('prepress')", 'transaction.atomic()', 'create_product_revision', 'generate_reportlab_pdf'):
         if token not in views:
@@ -114,11 +132,26 @@ def main():
     for token in ('roll-picto', 'spot-picto', 'Sens de défilement'):
         if token not in form_template:
             fail(f'Sélecteur graphique absent : {token}', errors)
-    for token in ('ft-title', 'ft-product-image', 'ft-colors', 'ft-metric'):
+    for token in ('ft-title', 'ft-product-image', 'ft-colors', 'ft-metric', 'ft-roll-visual', 'ft-logo-plain'):
         if token not in canvas_template:
             fail(f'Élément de fiche métier absent : {token}', errors)
     if not any(message.startswith(('Sélecteur graphique', 'Élément de fiche métier')) for message in errors):
         ok('Sélecteurs graphiques et fiche métier visuelle détectés')
+
+    assistant_view = (root / 'core/views/erp_assistant.py').read_text(encoding='utf-8')
+    assistant_home = (root / 'templates/assistant/assistant_home.html').read_text(encoding='utf-8')
+    assistant_widget = (root / 'templates/assistant/_widget.html').read_text(encoding='utf-8')
+    for token in (
+        '_technical_sheet_intent', '_technical_sheet_answer',
+        "_allowed(user, 'prepress')", "reverse('prepress_technical_sheet_pdf'",
+    ):
+        if token not in assistant_view:
+            fail(f'Intégration Assistant/Fiche absente : {token}', errors)
+    for token in ('fiche technique du produit 25F052', 'link.target'):
+        if token not in assistant_home and token not in assistant_widget:
+            fail(f'Interface Assistant non enrichie : {token}', errors)
+    if not any(message.startswith(('Intégration Assistant', 'Interface Assistant')) for message in errors):
+        ok('Recherche de fiches techniques intégrée à l’Assistant avec permission Prépresse')
 
     logo = (root / 'core/static/logo.png').read_bytes()
     if not logo.startswith(b'\x89PNG\r\n\x1a\n'):
@@ -136,7 +169,9 @@ def main():
     for relative in REQUIRED_FILES:
         if relative.endswith('.html'):
             text = (root / relative).read_text(encoding='utf-8')
-            if text.count('{%') != text.count('%}') or text.count('{{') != text.count('}}'):
+            tag_pairs = len(re.findall(r'{%.*?%}', text, flags=re.S))
+            variable_pairs = len(re.findall(r'{{.*?}}', text, flags=re.S))
+            if text.count('{%') != tag_pairs or text.count('{{') != variable_pairs:
                 fail(f'Balises Django déséquilibrées : {relative}', errors)
     if not any(message.startswith('Balises Django') for message in errors):
         ok('Délimiteurs des templates Django équilibrés')
@@ -145,7 +180,7 @@ def main():
         print(f'\nÉCHEC : {len(errors)} anomalie(s).')
         return 1
     print('\nSUCCÈS : contrôle statique du lot 0048 terminé sans anomalie.')
-    print('Contrôles dynamiques conseillés : python manage.py check && python manage.py test core.test_prepress_technical_sheet')
+    print('Contrôles dynamiques conseillés : python manage.py check && python manage.py test core.test_prepress_technical_sheet core.test_erp_assistant_technical_sheet')
     return 0
 
 
