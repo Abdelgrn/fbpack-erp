@@ -1,3 +1,89 @@
+## [BAT-AUTOFILL-V1.16] — 2026-10-15
+### Corrigé après essai réel (V1.15)
+- **Gabarit Poly Slim reconnu** (« Carré Décoré Caramel ») : format H = laize par piste, Laize Bobine = laize totale, Dev Cylindre = pas de coupe, N°Piste / N°Pose = poses, Couleurs Utilisées = nombre de couleurs. Le cartouche est lu ; les six encres sont pré-remplies.
+- **Noms Poly Slim** : « P7565 », « P9224 », « P185 » deviennent PANTONE 7565, 9224, 185 ; « Opaque White » devient Blanc.
+- **Surfaces Poly Slim** : calculées sur piste × développement (205 × 480 = 984 cm²). Un avertissement demande de vérifier la base de calcul.
+- **Suffixe Pantone** : tout PANTONE sans suffixe C ou U est signalé « à vérifier » (ex. PANTONE 234, 485, 654).
+- Image agrandie avant lecture si sa largeur est inférieure à 2000 px.
+- Laize totale marquée « non lue » quand le gabarit ne la donne pas (ex. Yahiaoui 1 pose).
+### Non-régression
+- Fiches validées inchangées : RIFKUS spaghetti, HAMAMA moyen 1 kg, HAMAMA FIN 500 g, djari, CHOR KHALED, Bronzi 4717-26.
+### Limites connues
+- Gabarit Dulcesol / Poly Slim : une colonne (Black) n'est pas lue sur l'image 3 (capture de fiche plus petite) ; le total des couleurs annoncées permet de le repérer.
+- « gold » non détecté sur HAMAMA moyen (à saisir).
+- Chips mini RIFKUS ketchup (7 C) : non fourni dans les fichiers de ce tour ; résultat de l'essai utilisateur conservé dans la capture.
+### Fichiers
+- `core/services/bat_ocr.py` (remplacé), `core/services/bat_extractor.py` (remplacé), `core/tests/test_bat_ocr.py` (remplacé).
+### Tests
+- 23 tests hors Django OK ; 1 test réel ignoré sans BAT_SAMPLES_DIR (RIFKUS passe quand il est défini).
+
+## [BAT-AUTOFILL-V1.15] — 2026-10-15
+### Changement de règle (à valider) : OCR local, sans API
+- L'analyse des fiches BAT n'appelle plus Gemini ni aucune API. Elle utilise **RapidOCR** (paquet pip, moteur ONNX) exécuté sur le serveur.
+- **Aucun envoi de la fiche à un tiers** pour le calculateur. Le module stock (scan d'étiquette) garde son propre appel Gemini, inchangé.
+- Variable `GEMINI_API_KEY` : plus nécessaire pour le calculateur (toujours utilisée par le stock).
+### Ce qui est lu
+- Cartouche technique recherché en haut puis en bas de page (gabarits Studio Flexo et Yahiaoui).
+- Champs : laize piste, laize totale, pas de coupe, poses en laize et en coupe, dossier, nombre de couleurs, LPI, épaisseur de cliché, date, nom du job (sans « AMALGAME »).
+- Encres : nom, cm², %. Colonnes ancrées sur les pourcentages ; cm² rattaché à sa colonne par position.
+- **Contrôle croisé** : cm² = % × laize × pas. Un cm² manquant est calculé depuis le % (et inversement) ; une incohérence est signalée et recalculée, avec mention « vérifiez ».
+- Noms ramenés à un vocabulaire fixe (Cyan, Magenta, Yellow, Black, Gold, Blanc, B.Ref, PANTONE xxx [C]). Un nom non reconnu devient « Encre n°k (nom à saisir) » : **aucun nom n'est deviné**.
+- Confiance OCR < 70 % : la valeur est signalée « vérifiez ».
+### Résultats mesurés (fiches réelles, bac à sable)
+- RIFKUS spaghetti (6 C) : 6/6 encres, laize 385 / totale 1155 / pas 240, fournisseur Studio Flexo.
+- Bronzi 4717-26 (6 encres, cartouche en haut) : 6/6 encres, laize 255 / pas 260, fournisseur Yahiaoui.
+- HAMAMA FIN 500 g (6 C) : 6/6 encres, laize 256 / pas 270.
+- HAMAMA couscous moyen 1 kg (6 C) : valeurs justes ; « gold » non détecté par l'OCR (à saisir).
+- Djari couscous moyen 1 kg (4 C) : valeurs justes ; 1 nom à saisir.
+- CHOR KHALED (8 C) : 8 colonnes ; plusieurs valeurs recalculées depuis le % (signalées) ; 1 nom à saisir.
+- Limites connues : gabarit Poly Slim et Dulcesol (ex. « Carré Décoré Caramel ») non reconnu comme cartouche : lecture partielle signalée, à vérifier entièrement.
+- Image non fiche (capture d'écran) : refus propre (« Aucun cartouche reconnu »).
+- Durée : 2 à 7 s par fiche sur le bac à sable.
+### Mémoire (point critique)
+- RapidOCR charge ~125 Mo puis monte à ~420–600 Mo pendant la première lecture. Le plan gratuit Render (512 Mo) est insuffisant avec Django : prévoir un plan d'au moins 1 Go (voir GUIDE).
+### Fichiers
+- `core/services/bat_ocr.py` (nouveau moteur) ; `core/services/bat_extractor.py` (remplacé : même contrat `analyze_bat`) ; `core/tests/test_bat_ocr.py` (nouveau) ; `core/tests/test_bat_extractor.py` (remplacé) ; `requirements.txt` (rapidocr-onnxruntime, opencv-python-headless) ; `scripts/verify_bat_autofill.py`.
+- `core/services/bat_vision.py` (Gemini) : conservé mais n'est plus appelé par le calculateur.
+### Tests
+- 21 tests hors Django OK (dont lecture réelle de la fiche RIFKUS quand BAT_SAMPLES_DIR est défini). Non exécuté ici : suite Django complète (projet non fourni dans le bac à sable).
+
+## [BAT-AUTOFILL-V1.14] — 2026-10-15
+### Corrigé (retour réel : plus de 4 minutes d'attente puis « erreur HTTP 503 après plusieurs essais »)
+- **Durée maximale bornée à 100 s** (au lieu de plus de 4 min) : l'opérateur n'attend plus indéfiniment.
+- **Chaîne de modèles** : `gemini-3.8-flash` (2 essais) -> `gemini-3.5-flash-lite` (2 essais, modèle rapide conçu pour le volume)
+  -> `gemini-3.6-flash` (2 essais). Un 503 sur le modèle principal bascule vers le modèle suivant.
+- Attente de 4 s entre deux essais sur le même modèle ; 2 échecs réseau au total maximum.
+- **Point à vérifier** : le modèle « lite » peut lire un peu moins bien les petits caractères. Les valeurs lues restent à valider dans le formulaire.
+### Fichiers
+- `core/services/bat_vision.py` ; `core/tests/test_bat_vision.py` (18 tests) ; documentation.
+### Tests
+- 30 tests hors Django OK (`test_bat_vision`, `test_cliche_suppliers`, `AnalyseGeminiSeulTests`).
+
+## [BAT-AUTOFILL-V1.13] — 2026-10-15
+### Corrigé (retour réel : « erreur HTTP 503 de l’API » sur les fiches BAT, alors que le stock fonctionne)
+- **Essais plus patients** sur le modèle principal : 4 essais pour 503/429/5xx, attentes de 4 s, 10 s puis 20 s.
+  Le modèle de secours `gemini-3.6-flash` a 2 essais.
+- **Délais réseau** : 2 échecs (délai ou réseau) au total maximum, pour ne pas faire attendre l'opérateur trop longtemps.
+- **Budget total borné à 150 s**, sous le délai Gunicorn de 240 s.
+- Si le message affiché ne contient pas « après plusieurs essais », c'est que la V1.12 ou la V1.13 n'est pas encore déployée.
+### Fichiers
+- `core/services/bat_vision.py` ; `core/tests/test_bat_vision.py` (4 tests de relance) ; documentation.
+- Aucun changement de `bat_extractor.py`, de vue, de modèle ni de migration.
+### Tests
+- 29 tests hors Django OK.
+
+## [BAT-AUTOFILL-V1.12] — 2026-10-15
+### Corrigé (retours réels avec clé : « erreur HTTP 503 » sur Poly Slim, « délai dépassé » sur Yahiaoui et Studio Flexo)
+- **Nouvel essai** : sur erreur passagère (429, 500, 502, 503, 504 ou délai), le modèle principal est réessayé une fois après 3 s.
+- **Modèle de secours** `gemini-3.6-flash` si le principal reste indisponible. Les erreurs permanentes (400, 401, 403, 404) ne sont pas relancées.
+- **Image envoyée réduite** : 2048 px de large, JPEG qualité 85 (au lieu de 2600 px, qualité 90) : moins de données à envoyer.
+- Délai Gunicorn à régler à **240 s** (`--timeout 240`) : pire cas d'une analyse ≈ 183 s.
+### Fichiers
+- `core/services/bat_vision.py` (nouvelle logique d'appel) ; `core/tests/test_bat_vision.py` (4 tests de relance).
+- Aucun changement de `bat_extractor.py`, de vue, de modèle, de migration ni de moteur.
+### Tests
+- 29 tests hors Django OK (`test_bat_vision`, `test_cliche_suppliers`, `AnalyseGeminiSeulTests`).
+
 ## [BAT-AUTOFILL-V1.11] — 2026-10-15
 ### Changement de règle (demandé par l'utilisateur)
 - **OCR supprimé** (RapidOCR, lecture colorimétrique, appairage des valeurs, repli local) : **Gemini est le seul moteur**

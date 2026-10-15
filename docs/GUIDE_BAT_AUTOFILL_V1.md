@@ -29,6 +29,7 @@ Calculateur de consommation d'encre (menu prépresse, permission module `prepres
 
 ## Lecture des avertissements
 - « Lecture IA Gemini : n couleur(s) » → vérifiez chaque valeur avant « Calculer et enregistrer ».
+- « erreur HTTP 503 » ou « délai dépassé » après plusieurs essais → l'API Gemini est surchargée ou lente : réessayez dans quelques minutes.
 - « Analyse IA impossible » ou « GEMINI_API_KEY n'est pas définie » → aucune ligne n'est remplie :
   saisissez les lignes à la main, et prévenez l'administrateur si le message persiste.
 - « Nombre de couleurs différent de la mention » → comparez la fiche et les lignes.
@@ -59,5 +60,18 @@ Calculateur de consommation d'encre (menu prépresse, permission module `prepres
 - le calcul lui-même : uniquement via « Calculer et enregistrer ».
 
 ## Réglages Render (V1.11)
-- Start Command : `gunicorn fbpack.wsgi --workers 1 --timeout 180` (une analyse IA peut durer jusqu'à 2 appels de 60 s).
+- Start Command : `gunicorn fbpack.wsgi --workers 1 --timeout 240` (une analyse IA peut durer jusqu'à environ 3 min en cas d'erreur passagère).
 - Environment : `GEMINI_API_KEY` doit être défini, sinon l'analyse BAT est indisponible (message affiché).
+
+## Moteur OCR local (V1.15)
+- Aucune clé API nécessaire pour le calculateur. La fiche est lue sur le serveur par RapidOCR.
+- Le formulaire est pré-rempli ; vérifiez chaque ligne (surtout celles marquées « vérifiez » ou « à saisir ») avant « Calculer et enregistrer ».
+- Un nom « Encre n°k (nom à saisir) » signifie que l'OCR ne l'a pas lu : saisissez-le. Aucun nom n'est deviné.
+- Un avertissement « Cartouche non reconnu » signifie que le gabarit n'est pas géré : laize et pas à saisir, lecture partielle.
+
+### Déploiement Render (à faire une fois)
+1. Plan : au moins 1 Go de mémoire (le plan gratuit de 512 Mo est insuffisant : la lecture atteint 420–600 Mo).
+2. Commande de build : `pip install -r requirements.txt && pip uninstall -y opencv-python && pip install --force-reinstall --no-deps opencv-python-headless==4.11.0.86`
+   (RapidOCR installe `opencv-python`, qui exige libGL absente des serveurs : la variante headless la remplace.)
+3. Commande de démarrage inchangée : `gunicorn fbpack.wsgi --workers 1 --timeout 240`.
+4. Contrôle après déploiement : `python -c "import cv2, rapidocr_onnxruntime"` doit s'exécuter sans erreur.

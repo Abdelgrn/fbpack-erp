@@ -1,33 +1,33 @@
-"""LOT BAT AUTOFILL — lecture des fiches BAT par l'API Gemini (moteur unique, V1.11).
+"""Analyse des fiches BAT (PDF ou image) par OCR local : RapidOCR, sans API ni Tesseract.
 
-L'OCR local (RapidOCR) et la lecture colorimétrique sont supprimés : la fiche (PNG, JPEG, WEBP
-ou PDF rendu en page) est envoyée à Gemini (clé dans GEMINI_API_KEY, voir bat_vision.py).
-Le résultat PRÉ-REMPLIT le formulaire ; rien n'est enregistré avant « Calculer et enregistrer ».
-Aucune exception ne remonte : `analyze_bat` retourne toujours un dict (clé 'error' si échec).
+Le moteur (core/services/bat_ocr.py) lit le cartouche technique : laize, laize totale, pas de
+coupe, poses, dossier, nombre de couleurs, puis les encres (nom, cm², %). Les cm² et % sont
+contrôlés l'un par l'autre (surface = laize × pas). Rien n'est enregistré : le résultat
+PRÉ-REMPLIT le formulaire et l'opérateur valide avant « Calculer et enregistrer ».
+
+analyze_bat retourne toujours un dict (clé 'error' si échec), sans exception.
 """
 import base64
-import difflib
 import io
 import re
 
 from PIL import Image
 
+from . import bat_ocr
+
 MAX_BAT_BYTES = 10 * 1024 * 1024
+MAX_PAGE_WIDTH = 2400          # px : borne la mémoire (plan Render 512 Mo)
+
+
+def validate_bat_size(size):
+    """True si la taille du fichier BAT est acceptable (non vide, <= 10 Mo)."""
+    return 0 < size <= MAX_BAT_BYTES
 
 
 _NAME_INK_TYPE = (
     ('vernis', 'VARNISH'), ('varnish', 'VARNISH'),
     ('blanc', 'WHITE'), ('white', 'WHITE'), ('tiO2', 'WHITE'),
 )
-
-
-def _f(value):
-    return float(str(value).replace(',', '.'))
-
-
-def validate_bat_size(size):
-    """True si la taille du fichier BAT est acceptable (non vide, <= 10 Mo)."""
-    return 0 < size <= MAX_BAT_BYTES
 
 
 def ink_type_for(name):
@@ -50,12 +50,8 @@ def _preview_data_uri(im, max_w=1300):
         return ''
 
 
-def _render_pdf_pages(data, max_pages=3):
-    """Rend les premières pages du PDF (pypdfium2, pip seul) ; [] si indisponible.
-
-    Un PDF vectoriel n'a pas d'image embarquée exploitable (un QR code peut être la
-    seule image) : on rend donc toujours la page, qui contient la fiche complète.
-    """
+def _render_pdf_pages(data, max_pages=2):
+    """Rend les premières pages du PDF (pypdfium2) ; [] si indisponible."""
     try:
         import pypdfium2 as pdfium
         pdf = pdfium.PdfDocument(data)
@@ -63,239 +59,54 @@ def _render_pdf_pages(data, max_pages=3):
         for i in range(min(len(pdf), max_pages)):
             page = pdf[i]
             wpt = float(page.get_width() or 595)
-            scale = min(300.0 / 72.0, 2600.0 / wpt)
+            scale = min(300.0 / 72.0, MAX_PAGE_WIDTH / wpt)
             out.append(page.render(scale=scale).to_pil().convert('RGB'))
         return out
     except Exception:
         return []
 
 
-_BLANC_SYNONYMES = {'blanc', 'blane', 'bianc', 'blancs', 'white', 'banc'}
+def _clean_job_name(text):
+    t = re.sub(r'\s+', ' ', (text or '')).strip(' |:;,-')
+    t = re.sub(r'\bAMALGAME\b.*$', '', t, flags=re.I).strip()   # jamais « AMALGAME: »
+    return t
 
 
-def _clean_ink_name(text):
-    t = re.sub(r'\s+', ' ', (text or '').strip())
-    if t.lower() in _BLANC_SYNONYMES:
-        return 'BLANC'
-    m = re.fullmatch(r'(PANTONE\s?\d+(?:\s?[A-Z]{1,4})?|PMS\s?\d+|Magenta|Yellow|Jaune|Black|Noir|Cyan|Blanc|White|Vernis|Varnish)', t, re.I)
-    if m:
-        return re.sub(r'\s+', ' ', m.group(1)).strip().upper() if t.upper().startswith(('PANTONE', 'PMS')) else m.group(1).capitalize()
-    return None
-
-
-def _clean_job_name(t):
-    t = (t or '').strip().strip('|').strip()
-    t = re.sub(r'([a-z])([A-Z])', r'\1 \2', t)        # TwinGAUFRETTE -> Twin GAUFRETTE
-    t = re.sub(r'([A-Z]{2,})(\d)', r'\1 \2', t)       # GAUFRETTE20 -> GAUFRETTE 20
-    t = re.sub(r'([A-Z]{2,})([a-z])', r'\1 \2', t)     # RIFKUSketchup -> RIFKUS ketchup
-    t = _JOB_WORDS_RE.sub(' ', t)                        # Chipsmini -> Chips mini
-    return re.sub(r'\s+', ' ', t).strip()
-
-
-_JOB_WORDS_RE = re.compile(r'(?<=[a-z])(?=(?:(?:mini|chips|ketchup|twin|gaufrette|sauce|pizza|couscous|moyen|hamama|djari|rifkus)\b|fin\b|chor(?=khaled)|khaled))', re.I)
-
-
-def _apply_width_rule(h):
-    """Laize du job = laize TOTALE (film) ; à défaut laize piste × poses en laize."""
-    tot = h.get('laize_totale_mm')
-    piste = h.get('laize_piste_mm')
-    pa = h.get('poses_across') or 1
-    if tot:
-        h['width_mm'] = tot
-    elif piste and pa > 1:
-        h['width_mm'] = round(piste * pa, 2)      # poses en laize lues : piste × poses
-    return h                                       # sinon : laize totale à saisir (pas de valeur inventée)
-
-
-def _median(values):
-    vals = sorted(values)
-    if not vals:
-        return 0.0
-    mid = len(vals) // 2
-    return vals[mid] if len(vals) % 2 else (vals[mid - 1] + vals[mid]) / 2.0
-
-
-_CANON_NAMES = ['cyan', 'magenta', 'yellow', 'jaune', 'black', 'noir', 'blanc', 'white', 'vernis', 'varnish']
-
-
-_RE_DEC_NUM = re.compile(r'(\d+[.,]\d{2,3})')
-
-
-def _fuzzy_canon(word):
-    low = (word or '').lower()
-    if low in _CANON_NAMES:
-        return low
-    m = difflib.get_close_matches(low, _CANON_NAMES, n=1, cutoff=0.74)
-    return m[0] if m else None
-
-
-def _legend_name(text):
-    """Nom d'encre lisible lisible ; None si ce n'est pas un nom d'encre."""
-    nm = _clean_ink_name(text)
-    if nm:
-        return nm
-    t = re.sub(r'\s+', ' ', (text or '').strip())
-    if not t or len(t) > 40:
-        return None
-    if re.match(r'(?i)^(pantone|pms)\b', t):
-        rest = re.sub(r'(?i)^(pantone|pms)\s*', '', t).strip()
-        return ('PANTONE ' + rest).strip()
-    word = re.sub(r'[^A-Za-z]', '', t)
-    if word and ' ' not in t and len(word) >= 4:
-        canon = _fuzzy_canon(word)
-        if canon:
-            return _clean_ink_name(canon) or canon.capitalize()
-    return None
-
-
-def _spaced(text):
-    """« BlackC » -> « Black C » ; « Reflex Blue C » inchangé."""
-    return re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', re.sub(r'\s+', ' ', text or '')).strip()
-
-
-def _pantone_fmt(nm):
-    """« PANTONE 7731C » -> « PANTONE 7731 C » (espace avant le suffixe)."""
-    m = re.fullmatch(r'(PANTONE\s*\d+)\s*([A-Za-z]{1,3})', (nm or '').strip(), re.I)
-    return f'{m.group(1)} {m.group(2).upper()}' if m else nm
-
-
-_SUPPLIERS = [('STUDIO', 'Studio Flexo'), ('POLYSLIM', 'Poly Slim'),
-              ('YAHIAOUI', 'Yahiaoui Photogravure')]
-
-
-def _supplier_label(text):
-    """Fournisseur de clichés (libellé fixe) reconnu dans un texte ; None sinon."""
-    t = re.sub(r'[^A-Z]', '', (text or '').upper())
-    for key, label in _SUPPLIERS:
-        if key in t:
-            return label
-    return None
-
-
-def _api_num(v):
-    """Nombre renvoyé par l'IA (nombre ou texte) ; None si absent."""
-    if isinstance(v, bool) or v is None or v == '':
-        return None
-    if isinstance(v, (int, float)):
-        return float(v)
-    m = re.search(r'\d+(?:[.,]\d+)?', str(v))
-    return float(m.group(0).replace(',', '.')) if m else None
-
-
-def _rows_from_api(data):
-    """Lignes couleur depuis la réponse IA (format de la légende).
-
-    Un nom absent reste « à saisir » : aucun nom n'est déduit de la position.
-    """
+def _rows_from_ocr(cols):
     rows = []
-    encres = data.get('encres') or []
-    if not isinstance(encres, list):
-        return rows
-    for i, e in enumerate(encres):
-        if not isinstance(e, dict):
-            continue
-        nom = re.sub(r'\s+', ' ', str(e.get('nom') or '')).strip()
-        check = []
-        name = _legend_name(nom) if nom else None
-        if name is None and nom:
-            name = nom
-            check.append('nom à vérifier')
-        if not name:
-            name = f'Encre n°{i + 1} (nom à saisir)'
-            check.append('nom illisible : à saisir')
-        name = _pantone_fmt(name)
-        pct = _api_num(e.get('pourcent'))
-        if pct is not None and not 0 <= pct <= 100:
-            pct = None
-        rows.append({'name': name, 'ink_type': ink_type_for(name),
-                     'coverage_percent': pct, 'coverage_area_cm2': _api_num(e.get('cm2')),
-                     'swatch_hex': '', 'confidence': 'API_GEMINI', 'values_source': 'API',
-                     'check': ' ; '.join(check), 'patch': None})
+    for c in cols:
+        name = c['name']
+        ink_type = ink_type_for(name)
+        rows.append({'name': name, 'ink_type': ink_type,
+                     'coverage_percent': c['pct'], 'coverage_area_cm2': c['cm2'],
+                     'swatch_hex': '', 'confidence': 'OCR', 'values_source': 'OCR',
+                     'check': c.get('check', ''), 'patch': None})
     return rows
 
 
-def _hints_from_api(data):
-    """Indices job (nom, laize, pas, poses, LPI) depuis la réponse IA."""
+def _hints(fields):
     h = {}
-    if data.get('nom_job'):
-        name = _clean_job_name(str(data['nom_job']))
-        if name:
-            h['name'] = name
-    for key, out in (('laize_piste_mm', 'laize_piste_mm'), ('laize_totale_mm', 'laize_totale_mm'),
-                     ('pas_coupe_mm', 'repeat_mm'), ('lpi', 'lineature_lpi')):
-        v = _api_num(data.get(key))
-        if v:
-            h[out] = v
-    for key, out in (('poses_en_laize', 'poses_across'), ('poses_en_coupe', 'poses_repeat')):
-        v = _api_num(data.get(key))
-        if v:
-            h[out] = int(v)
-    if h.get('laize_totale_mm') and h.get('laize_piste_mm') \
-            and abs(h['laize_totale_mm'] - h['laize_piste_mm']) < 1:
-        h.pop('laize_totale_mm')
-        h['laize_douteuse'] = True
-    return _apply_width_rule(h)
-
-
-def _read_with_api(pages, result):
-    """Lecture par Gemini. True si des couleurs ont été lues.
-
-    pages : images à lire, page 1 d'abord (2 pages au plus). En cas d'échec, result['error']
-    explique la cause ; aucune couleur n'est inventée.
-    """
-    from . import bat_vision
-    for pg in pages[:2]:
-        try:
-            data = bat_vision.read_bat(pg)
-        except bat_vision.VisionError as exc:
-            result['error'] = f'Analyse IA impossible ({exc}). Renseignez les lignes à la main.'
-            return False
-        rows = _rows_from_api(data)
-        if not rows:
-            continue
-        hints = _hints_from_api(data)
-        result['rows'] = rows
-        result['job_hints'] = hints
-        sup_text = str(data.get('fournisseur_cliches') or '')
-        result['cliche_supplier'] = _supplier_label(sup_text) or (sup_text.strip() or None)
-        if result['cliche_supplier']:
-            result['warnings'].append(f"Fournisseur de clichés lu : {result['cliche_supplier']}. Vérifiez.")
-        result['mode'] = (result.get('mode') or 'Image') + ' + IA Gemini'
-        n = len(rows)
-        expected = _api_num(data.get('nombre_couleurs_annonce'))
-        result['warnings'].append(
-            f'Lecture IA Gemini : {n} couleur(s)'
-            + (f' (la fiche annonce {int(expected)} C)' if expected else '')
-            + '. Vérifiez chaque valeur avant « Calculer et enregistrer ».')
-        if expected and int(expected) != n:
-            result['warnings'].append(
-                'Nombre de couleurs différent de la mention « Nbr de couleurs » : vérifiez les lignes.')
-        if hints.get('name'):
-            result['warnings'].append(f"Job lu par IA : « {hints['name']} ». Vérifiez le nom.")
-        if hints.get('laize_douteuse'):
-            result['warnings'].append('Laize totale illisible : saisissez la laize totale.')
-        elif hints.get('laize_totale_mm'):
-            result['warnings'].append(f"Laize totale lue : {hints['laize_totale_mm']:g} mm (toutes pistes).")
-        elif hints.get('laize_piste_mm'):
-            result['warnings'].append('Laize totale non lue : saisissez-la.')
-        pattern = None
-        if hints.get('laize_piste_mm') and hints.get('repeat_mm'):
-            pattern = hints['laize_piste_mm'] * hints['repeat_mm'] / 100.0
-        if pattern:
-            for r in rows:
-                if r['coverage_area_cm2'] is not None and r['coverage_percent'] is not None:
-                    calc = 100.0 * r['coverage_area_cm2'] / pattern
-                    if abs(calc - r['coverage_percent']) > 1.0:
-                        r['check'] = (r['check'] + ' ; ' if r['check'] else '') + \
-                            f"% lu {r['coverage_percent']} incohérent avec la surface (calculé {calc:.1f} %)"
-        return True
-    result['error'] = ('Gemini n\'a trouvé aucune couleur sur la fiche. '
-                       'Vérifiez le fichier ou renseignez les lignes à la main.')
-    return False
+    job = _clean_job_name(fields.get('job_raw'))
+    if job:
+        h['name'] = job
+    for key in ('laize_piste_mm', 'laize_totale_mm', 'repeat_mm', 'porte_cliche_mm',
+                'lineature_lpi', 'epaisseur_cliche_mm'):
+        if fields.get(key):
+            h[key] = fields[key]
+    for key in ('poses_across', 'poses_repeat'):
+        if fields.get(key):
+            h[key] = int(fields[key])
+    if fields.get('dossier'):
+        h['dossier'] = fields['dossier']
+    if h.get('laize_totale_mm'):
+        h['width_mm'] = h['laize_totale_mm']
+    elif h.get('laize_piste_mm') and h.get('poses_across', 1) > 1:
+        h['width_mm'] = round(h['laize_piste_mm'] * h['poses_across'], 2)
+    return h
 
 
 def analyze_bat(data, filename=''):
-    """Analyse une fiche BAT avec Gemini ; retourne toujours un dict (jamais d'exception)."""
+    """Analyse une fiche BAT par OCR ; retourne toujours un dict (jamais d'exception)."""
     result = {'mode': '', 'source': filename or 'fiche BAT', 'preview_data_uri': '',
               'rows': [], 'job_hints': {}, 'warnings': [], 'cliche_supplier': None}
     if not data:
@@ -304,26 +115,65 @@ def analyze_bat(data, filename=''):
     if len(data) > MAX_BAT_BYTES:
         result['error'] = 'Fiche BAT trop lourde (10 Mo max).'
         return result
-    from . import bat_vision
-    if not bat_vision.api_configured():
-        result['error'] = ("Analyse IA indisponible : la variable GEMINI_API_KEY n'est pas définie "
-                           "sur le serveur. Renseignez les lignes à la main.")
-        return result
     try:
         if data[:5] == b'%PDF-':
             pages = _render_pdf_pages(data)
             if not pages:
                 result['error'] = 'PDF illisible : exportez la fiche en PNG ou JPEG.'
                 return result
-            result['mode'] = 'PDF'
+            result['mode'] = 'PDF + OCR'
         else:
             im = Image.open(io.BytesIO(data))
             im.load()
-            pages = [im]
-            result['mode'] = 'Image'
-        result['preview_data_uri'] = _preview_data_uri(pages[0])
-        _read_with_api(pages, result)
+            pages = [im.convert('RGB')]
+            if pages[0].width > MAX_PAGE_WIDTH:
+                w = MAX_PAGE_WIDTH
+                pages[0] = pages[0].resize((w, int(pages[0].height * w / pages[0].width)), Image.LANCZOS)
+            result['mode'] = 'Image + OCR'
+    except Exception:
+        result['error'] = 'Fichier non reconnu : PDF, PNG, JPEG ou WEBP attendu.'
         return result
-    except Exception as exc:  # fichier illisible, PDF chiffré…
-        result['error'] = f'Lecture impossible : {exc.__class__.__name__}.'
+
+    result['preview_data_uri'] = _preview_data_uri(pages[0])
+    try:
+        ocr = bat_ocr.analyze_pages(pages)
+    except Exception:
+        result['error'] = ('Lecture OCR impossible sur ce fichier. '
+                           'Renseignez les lignes à la main.')
         return result
+
+    fields = ocr.get('fields') or {}
+    if not ocr.get('rows'):
+        result['error'] = ("Aucun cartouche technique reconnu sur cette fiche (laize, pas, encres). "
+                           'Renseignez les lignes à la main ou envoyez la fiche complète.')
+        return result
+
+    result['rows'] = _rows_from_ocr(ocr['rows'])
+    result['job_hints'] = _hints(fields)
+    result['cliche_supplier'] = ocr.get('supplier')
+    warn = result['warnings']
+    n = len(result['rows'])
+    expected = fields.get('nombre_couleurs')
+    warn.append(f'Lecture OCR : {n} couleur(s)'
+                + (f' (la fiche annonce {expected} C)' if expected else '')
+                + '. Vérifiez chaque valeur avant « Calculer et enregistrer ».')
+    if expected and expected != n:
+        warn.append('Nombre de couleurs différent de la mention « Nbr de couleurs » : vérifiez les lignes.')
+    if result['cliche_supplier']:
+        warn.append(f"Fournisseur de clichés lu : {result['cliche_supplier']}. Vérifiez.")
+    if result['job_hints'].get('name'):
+        warn.append(f"Job lu : « {result['job_hints']['name']} ». Vérifiez le nom.")
+    if result['job_hints'].get('laize_totale_mm'):
+        warn.append(f"Laize totale lue : {result['job_hints']['laize_totale_mm']:g} mm (toutes pistes).")
+    elif result['job_hints'].get('laize_piste_mm'):
+        warn.append('Laize totale non lue : saisissez-la.')
+    if not (result['job_hints'].get('laize_piste_mm') or result['job_hints'].get('repeat_mm')):
+        warn.insert(0, 'Cartouche non reconnu (gabarit différent) : laize et pas de coupe à saisir. '
+                       'Lecture partielle : vérifiez chaque ligne.')
+    if ocr.get('gabarit') == 'polyslim':
+        warn.append('Gabarit Poly Slim : surfaces calculées sur piste × développement cylindre '
+                    f"({result['job_hints'].get('laize_piste_mm', '?'):g} × {result['job_hints'].get('repeat_mm', '?'):g} mm). "
+                    'Vérifiez la base de calcul.')
+    if any('à saisir' in r['name'] for r in result['rows']):
+        warn.append('Certains noms d\'encre sont illisibles : saisissez-les (aucun nom n\'est deviné).')
+    return result
