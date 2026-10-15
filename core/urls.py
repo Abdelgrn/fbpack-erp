@@ -113,6 +113,7 @@ ink_calculator_of_compat = _existing_feature_view(
 )
 
 
+from core.views.ink_calculator import ink_calculation_actual, ink_calculation_detail, ink_calculation_list
 urlpatterns = [
     # ==========================================
     # MANIFEST PWA DYNAMIQUE (LOGO AUTOMATIQUE)
@@ -230,8 +231,16 @@ urlpatterns = [
     # Le calculateur possède une page globale appelée sans argument depuis
     # templates/prepress.html, tout en conservant l'accès contextuel par OF.
     path('prepress/ink-calculator/', ink_calculator_global_compat, name='ink_calculator'),
+    path('ink/detail/<int:job_id>', ink_calculation_detail, name='ink_calculation_detail'),
+    path('ink/detail/<int:job_id>/actual/', ink_calculation_actual, name='ink_calculation_actual'),
+    path('ink/history/', ink_calculation_list, name='ink_calculation_list'),
+
     path('crm/of/<int:of_id>/ink-calculator/', ink_calculator_of_compat, name='ink_consumption_calculator'),
     path('crm/of/<int:of_id>/ink-calculator/', ink_calculator_of_compat, name='ink_calculator'),
+    path('ink/detail/<int:job_id>', ink_calculation_detail, name='ink_calculation_detail'),
+    path('ink/detail/<int:job_id>/actual/', ink_calculation_actual, name='ink_calculation_actual'),
+    path('ink/history/', ink_calculation_list, name='ink_calculation_list'),
+
     path('crm/api/stock-check/', views.api_check_material_stock, name='api_check_material_stock'),
 
     # ==========================================

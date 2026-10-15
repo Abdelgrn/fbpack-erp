@@ -210,3 +210,59 @@ class PrepressTechnicalSheetTests(TestCase):
         self.client.force_login(unauthorized_user)
         response = self.client.get(reverse('prepress_technical_sheet', args=[product.pk]))
         self.assertEqual(response.status_code, 403)
+
+    def test_roll_visual_composed_from_product_visual(self):
+        """Lot Bobine V4 : la maquette seule produit le visuel bobine, orienté par le sens."""
+        from PIL import Image
+
+        from core.services.prepress_technical_sheet import (
+            build_print_context, build_roll_visual_data_uri,
+        )
+
+        buffer = BytesIO()
+        Image.new('RGB', (120, 80), '#B5121B').save(buffer, format='PNG')
+        upload = SimpleUploadedFile('maquette.png', buffer.getvalue(), content_type='image/png')
+        product = TechnicalProduct.objects.create(
+            client=self.customer,
+            ref_internal='ROLL-001',
+            name='Bobine test',
+            width_mm=120,
+            cut_length_mm=200,
+            nb_poses_pas=1,
+            nb_poses_laize=2,
+            sens_bobine='2',
+        )
+        product.product_visual = upload
+        product.save()
+
+        uri = build_roll_visual_data_uri(product)
+        self.assertTrue(uri.startswith('data:image/png;base64,'))
+        context = build_print_context(product)
+        self.assertEqual(context['roll_visual_data_uri'], uri)
+        self.assertEqual(context['sens_rotation_deg'], 0)
+        self.assertEqual(context['spot_css'], 'left:3px;bottom:3px;')
+
+        product.sens_bobine = '1'
+        product.save()
+        self.assertNotEqual(build_roll_visual_data_uri(product), uri)
+
+    def test_roll_visual_graceful_without_maquette(self):
+        """Lot Bobine V4 : sans maquette, aucun crash et placeholder conservé."""
+        from core.services.prepress_technical_sheet import build_print_context
+
+        product = TechnicalProduct.objects.create(
+            client=self.customer,
+            ref_internal='ROLL-002',
+            name='Sans visuel',
+            width_mm=100,
+            cut_length_mm=100,
+            nb_poses_pas=1,
+            nb_poses_laize=1,
+        )
+        context = build_print_context(product)
+        self.assertEqual(context['roll_visual_data_uri'], '')
+        self.assertEqual(context['product_visual_data_uri'], '')
+
+        response = self.client.get(reverse('prepress_technical_sheet', args=[product.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Visuel / maquette')

@@ -1,0 +1,61 @@
+# Guide d'utilisation — Remplissage automatique depuis la fiche BAT (LOT BAT AUTOFILL V1)
+
+## Écran concerné
+Calculateur de consommation d'encre (menu prépresse, permission module `prepress`).
+
+## Mode opératoire quotidien
+
+1. Ouvrir le calculateur : un bloc « 📄 Remplissage automatique depuis la fiche BAT »
+   surmonte le formulaire.
+2. Cliquer sur le champ fichier et choisir la BAT du fournisseur :
+   - **PDF natif avec texte** (export Esko/Studio…) → noms + cm² + % + laize/poses repris ;
+   - **PDF scanné ou photo/image** (PNG, JPG, WEBP) → couleurs reprises **et, si l'option
+  OCR est installée (`rapidocr-onnxruntime`), cm² / % lus sous chaque pastille** ;
+  sans l'option : valeurs à saisir.
+3. Cliquer **« 🔍 Analyser la BAT »** (le formulaire n'est PAS enregistré à ce stade).
+4. L'écran affiche :
+   - à gauche l'**aperçu** de la fiche (zoom possible via clic droit → ouvrir l'image) ;
+   - à droite le **récapitulatif détecté** (pastille / nom / type / couv. % / surface cm²) ;
+   - dessous, la **Séparation des couleurs pré-remplie** : chaque ligne porte sa pastille
+     colorée, son nom, son type (Couleur / Blanc TiO₂ / Vernis), sa couverture et sa surface
+     si lues. Les champs job (laize, pas de coupe, poses) sont complétés **s'ils étaient vides**.
+5. Les champs **Nom du job, Laize, Pas de coupe, Poses** sont complétés depuis la BAT
+   (scan compris, via OCR) s'ils étaient vides ; la **densité** de chaque ligne arrive
+   pré-remplie (1,3 / blanc 1,5) et reste modifiable.
+6. **Corriger** : renommer une couleur, supprimer une ligne parasite (logo), ajouter une
+   ligne manquante (« + Couleur »), saisir cm² / % manquants, choisir l'Anilox et le prix
+   de chaque ligne (non fournis par la BAT).
+7. Compléter métrage, transfert, perte puis **« Calculer et enregistrer »** :
+   le calcul (couverture × volume Anilox × transfert × densité, + perte) est inchangé.
+
+## Lecture des avertissements
+- « Valeurs cm² / % lues par OCR sur N ligne(s) : vérifiez-les… » → normal sur scan :
+  l'OCR peut confondre un chiffre (ex. 133.089 lu 133.099) : **corrigez avant calcul**.
+- « BAT scannée : couleurs détectées par colorimétrie, surfaces/couvertures à saisir » → normal.
+- « Valeurs chiffrées non appairées automatiquement (n noms, x surfaces, y %) » → le PDF texte
+  n'a pas rendu les valeurs dans le même ordre : les lignes arrivent nommées, valeurs à saisir.
+- « Analyse terminée mais aucune pastille reconnue » → fichier trop dégradé : saisie manuelle.
+
+## Règles de nommage appliquées
+- Process : `CYAN`, `MAGENTA`, `JAUNE`, `NOIR` (tolérance serrée, prioritaires).
+- Pantone usuels flexo : `PANTONE 485 C`, `186 C`, `032 C`, `WARM RED C`, `RUBINE RED C`,
+  `RHODAMINE RED C`, `REFLEX BLUE C`, `072 C`, `VIOLET C`, `2685 C`, `355 C`, `347 C`,
+  `GREEN C`, `3272 C`, `ORANGE 021 C`, `151 C`, `1235 C`, `BROWN C`, `4695 C`, `BLACK C`…
+- Mots-clés : `blanc`/`white` → Blanc TiO₂ ; `vernis`/`varnish` → Vernis.
+- Couleur hors référentiel : `Couleur BAT #RRGGBB` (renommer librement).
+
+## Retrouver ses calculs enregistrés
+- Bouton « 📚 Historique des calculs » en haut du calculateur, ou route `ink/history/`.
+- Chaque ligne s'ouvre sur la fiche détail : graphique net / à préparer / réel,
+  tableau par couleur et saisie des consommations réelles (« Enregistrer le réel »).
+
+## Fournisseur de clichés (V1.10)
+- Champ « Fournisseur clichés… » à côté du nom du job : Studio Flexo, Poly Slim, Yahiaoui Photogravure, Autre.
+- Pré-rempli si la fiche le montre ; à vérifier puis enregistré avec le calcul.
+- Tableau « consommation par fournisseur » sur la liste des calculs : kg totaux, moyenne par job, g/m².
+
+## Ce qui n'est jamais fait automatiquement
+- aucun enregistrement de job ni fichier BAT stocké par l'application ;
+- **envoi externe** : si `GEMINI_API_KEY` est défini, la fiche BAT (PDF ou image) est envoyée à l'API Gemini de Google pour lecture ; sans clé, rien n'est envoyé (OCR local) ;
+- aucun choix d'Anilox, de densité, de prix : décision opérateur ;
+- le calcul lui-même : uniquement via « Calculer et enregistrer ».

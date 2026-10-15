@@ -41,10 +41,12 @@ pydyf==0.12.1
 pyinstaller==6.19.0
 pyinstaller-hooks-contrib==2026.1
 pyOpenSSL==26.0.0
+pypdf==6.20.1
 pyphen==0.17.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 pywin32-ctypes==0.2.3
+rapidocr-onnxruntime==1.2.3
 redis==7.4.0
 reportlab==4.4.10
 service-identity==24.2.0
@@ -64,3 +66,4 @@ whitenoise==6.12.0
 zope.interface==8.2
 zopfli==0.4.1
 dj-database-url==2.3.0
+pypdfium2==5.14.0
