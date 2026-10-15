@@ -139,5 +139,45 @@ class BatVisionAnalyseTests(unittest.TestCase):
         self.assertEqual(r['mode'], 'Image')
 
 
+def _pdf_texte_bytes():
+    from reportlab.pdfgen import canvas
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf)
+    y = 760
+    for line in ['Chips mini RIFKUS ketchup', 'LAIZE TOTALE: 1035 mm', 'PAS DE COUPE: 190 mm',
+                 'Cyan 48,11 %', 'Magenta 7,79 %', 'Blanc 100 %']:
+        c.drawString(60, y, line)
+        y -= 18
+    c.save()
+    return buf.getvalue()
+
+
+class BatVisionPdfTexteTests(unittest.TestCase):
+    def test_pdf_texte_lu_par_ia_d_abord(self):
+        with mock.patch.dict(os.environ, {'GEMINI_API_KEY': FAKE_KEY}, clear=False), \
+                mock.patch.object(bat_vision, 'read_bat', return_value=_REPONSE_IA) as spy:
+            r = be.analyze_bat(_pdf_texte_bytes(), 'fiche.pdf')
+        self.assertTrue(spy.called)
+        self.assertIn('IA Gemini', r['mode'])
+        self.assertEqual(len(r['rows']), 4)
+
+    def test_pdf_texte_ia_en_echec_repli_texte(self):
+        err = bat_vision.VisionError('délai dépassé')
+        with mock.patch.dict(os.environ, {'GEMINI_API_KEY': FAKE_KEY}, clear=False), \
+                mock.patch.object(bat_vision, 'read_bat', side_effect=err):
+            r = be.analyze_bat(_pdf_texte_bytes(), 'fiche.pdf')
+        self.assertNotIn('IA Gemini', r['mode'])
+        self.assertIn('PDF texte', r['mode'])
+        self.assertTrue(any('IA Gemini indisponible' in w for w in r['warnings']))
+        self.assertNotIn('error', r)
+
+    def test_pdf_texte_sans_cle_aucun_appel(self):
+        with mock.patch.dict(os.environ, {}, clear=True), \
+                mock.patch.object(bat_vision, 'read_bat') as spy:
+            r = be.analyze_bat(_pdf_texte_bytes(), 'fiche.pdf')
+        spy.assert_not_called()
+        self.assertEqual(r['mode'], 'PDF texte')
+
+
 if __name__ == '__main__':
     unittest.main()

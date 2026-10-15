@@ -1223,9 +1223,18 @@ def analyze_bat(data, filename=''):
             text = '\n'.join((page.extract_text() or '') for page in reader.pages)
             if text.strip() and _RE_NAME.search(text):
                 result['mode'] = 'PDF texte'
+                # V1.11 : l'IA passe en premier aussi pour les PDF avec texte (règle identique aux autres
+                # fiches). Sans clé, ou si l'IA échoue (avertissement ajouté), la lecture texte reprend.
+                from . import bat_vision
+                if bat_vision.api_configured():
+                    pages = _render_pdf_pages(data)
+                    if pages and _read_with_api(pages, result):
+                        result['preview_data_uri'] = _preview_data_uri(pages[0])
+                        return result
+                    result['mode'] = 'PDF texte'
                 rows, warnings = rows_from_text(text)
                 result['rows'] = rows
-                result['warnings'] = warnings
+                result['warnings'] = result.get('warnings', []) + warnings  # garde l'avis IA éventuel
                 result['job_hints'] = job_hints_from_text(text)
                 im = _first_embedded_image(reader)
                 if im is not None:
@@ -1238,7 +1247,9 @@ def analyze_bat(data, filename=''):
             if pages:
                 result['mode'] = 'PDF scanné'
                 result['preview_data_uri'] = _preview_data_uri(pages[0])
-                if _read_with_api([_bottom_strip(pg) for pg in pages], result):
+                # V1.11 : page entière (la légende des couleurs peut être en haut, comme sur la fiche
+                # Yahiaoui) ; la bande basse ne servait qu'au repli OCR.
+                if _read_with_api(pages, result):
                     return result
                 page, strip, items = _pick_legend_page(pages)
                 result['preview_data_uri'] = _preview_data_uri(page)
