@@ -114,6 +114,7 @@ ink_calculator_of_compat = _existing_feature_view(
 
 
 from core.views.ink_calculator import ink_calculation_actual, ink_calculation_detail, ink_calculation_list
+from core.views.ink_history import ink_calculation_edit, ink_calculation_delete
 urlpatterns = [
     # ==========================================
     # MANIFEST PWA DYNAMIQUE (LOGO AUTOMATIQUE)
@@ -233,6 +234,8 @@ urlpatterns = [
     path('prepress/ink-calculator/', ink_calculator_global_compat, name='ink_calculator'),
     path('ink/detail/<int:job_id>', ink_calculation_detail, name='ink_calculation_detail'),
     path('ink/detail/<int:job_id>/actual/', ink_calculation_actual, name='ink_calculation_actual'),
+    path('ink/historique/<int:job_id>/modifier/', ink_calculation_edit, name='ink_calculation_edit'),
+    path('ink/historique/<int:job_id>/supprimer/', ink_calculation_delete, name='ink_calculation_delete'),
     path('ink/history/', ink_calculation_list, name='ink_calculation_list'),
 
     path('crm/of/<int:of_id>/ink-calculator/', ink_calculator_of_compat, name='ink_consumption_calculator'),

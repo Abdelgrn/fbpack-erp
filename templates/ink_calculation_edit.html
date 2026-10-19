@@ -1,0 +1,36 @@
+{% extends 'base.html' %}{% block content %}<div class="max-w-6xl mx-auto p-5 text-white">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+<div><h1 class="text-3xl font-black">✏️ Modifier le calcul n°{{ job.id }}</h1><p class="text-gray-400 text-sm">Les totaux (net, à préparer, g/m²) sont recalculés à l'enregistrement. Le réel saisi est conservé.</p></div>
+<a href="{% url 'ink_calculation_detail' job.id %}" class="border border-slate-600 p-3 rounded-xl">Annuler</a>
+</div>
+<form method="post" action="{% url 'ink_calculation_edit' job.id %}" class="space-y-6">{% csrf_token %}
+<section class="bg-slate-900 border border-slate-700 rounded-2xl p-5">
+<h2 class="font-black text-lg mb-4">Données du job</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+<label class="flex flex-col gap-1 md:col-span-2">Nom du job<input name="name" value="{{ jf.name }}" required class="bg-slate-950 p-2 rounded"></label>
+<label class="flex flex-col gap-1">Fournisseur de clichés<select name="cliche_supplier" class="bg-slate-950 p-2 rounded"><option value="">— non renseigné —</option>{% for s in suppliers %}<option value="{{ s }}" {% if s == jf.cliche_supplier %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+<label class="flex flex-col gap-1">Laize totale (mm)<input name="width_mm" value="{{ jf.width_mm }}" required class="bg-slate-950 p-2 rounded"></label>
+<label class="flex flex-col gap-1">Métrage (m)<input name="length_m" value="{{ jf.length_m }}" required class="bg-slate-950 p-2 rounded"></label>
+<label class="flex flex-col gap-1">Pas de coupe (mm)<input name="repeat_mm" value="{{ jf.repeat_mm }}" class="bg-slate-950 p-2 rounded"></label>
+<label class="flex flex-col gap-1">Transfert (%)<input name="transfer_percent" value="{{ jf.transfer_percent }}" required class="bg-slate-950 p-2 rounded"></label>
+<label class="flex flex-col gap-1">Perte à préparer (%)<input name="loss_percent" value="{{ jf.loss_percent }}" class="bg-slate-950 p-2 rounded"></label>
+</div>
+</section>
+<section class="bg-slate-900 border border-slate-700 rounded-2xl p-5">
+<h2 class="font-black text-lg mb-4">Couleurs</h2>
+<div class="overflow-x-auto"><table class="w-full text-sm">
+<thead><tr class="text-left text-xs text-gray-400"><th class="p-2">Nom</th><th class="p-2">Type</th><th class="p-2">Couverture %</th><th class="p-2">Surface cm²</th><th class="p-2">Anilox</th><th class="p-2">Densité</th><th class="p-2">Prix €/kg</th></tr></thead>
+<tbody>{% for c in cf %}<tr class="border-t border-slate-700">
+<td class="p-2"><input name="c{{ c.id }}_name" value="{{ c.name }}" required class="bg-slate-950 p-2 rounded w-40"></td>
+<td class="p-2"><select name="c{{ c.id }}_ink_type" class="bg-slate-950 p-2 rounded">{% for code,label in ink_types %}<option value="{{ code }}" {% if code == c.ink_type %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+<td class="p-2"><input name="c{{ c.id }}_coverage" value="{{ c.coverage }}" required class="bg-slate-950 p-2 rounded w-24"></td>
+<td class="p-2"><input name="c{{ c.id }}_area" value="{{ c.area }}" class="bg-slate-950 p-2 rounded w-28"></td>
+<td class="p-2"><select name="c{{ c.id }}_anilox" class="bg-slate-950 p-2 rounded">{% for a in aniloxes %}<option value="{{ a.id }}" {% if a.id == c.anilox_id %}selected{% endif %}>{{ a.lineature }}/{{ a.volume_cm3_m2 }}</option>{% endfor %}</select></td>
+<td class="p-2"><input name="c{{ c.id }}_density" value="{{ c.density }}" class="bg-slate-950 p-2 rounded w-20"></td>
+<td class="p-2"><input name="c{{ c.id }}_price" value="{{ c.price }}" class="bg-slate-950 p-2 rounded w-24"></td>
+</tr>{% endfor %}</tbody></table></div>
+<p class="text-xs text-slate-500 mt-3">Ajout ou suppression de couleurs : non disponible dans cette version (à refaire en nouveau calcul).</p>
+</section>
+<button type="submit" class="bg-emerald-600 px-5 py-3 rounded-xl font-black">Enregistrer les modifications</button>
+</form>
+</div>{% endblock %}

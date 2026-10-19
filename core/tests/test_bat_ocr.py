@@ -160,3 +160,35 @@ class LiveSampleTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def _box(t, xc, yc, h=14.0, c=0.9, w=60.0):
+    return {'t': t, 'x0': xc - w / 2, 'x1': xc + w / 2, 'y0': yc - h / 2, 'y1': yc + h / 2,
+            'xc': xc, 'yc': yc, 'h': h, 'c': c}
+
+
+class InkTableV117Tests(unittest.TestCase):
+    """V1.17 : cm² seuls ne deviennent jamais un %, cm² fusionnés séparés, noms sans valeur conservés."""
+
+    def test_cm2_seuls_ne_sont_pas_des_pourcentages(self):
+        from core.services import bat_ocr
+        boxes = [_box('Magenta', 100, 100), _box('81.658cm', 100, 130),
+                 _box('Blanc', 300, 100), _box('2105.550cm', 300, 130)]
+        cols = bat_ocr.ink_table(boxes)
+        self.assertEqual(len(cols), 2)
+        for c in cols:
+            self.assertIsNone(c['pct'])
+            self.assertIsNotNone(c['cm2'])
+
+    def test_cm2_fusionnes_dans_une_boite(self):
+        from core.services import bat_ocr
+        boxes = [_box('Magenta', 100, 100), _box('Blanc', 300, 100),
+                 _box('81.658cm 2105.550cm', 200, 130, w=260)]
+        cols = bat_ocr.ink_table(boxes)
+        valeurs = sorted(c['cm2'] for c in cols if c['cm2'] is not None)
+        self.assertEqual(valeurs, [81.658, 2105.55])
+
+    def test_nom_pantone_black_c_mal_lu(self):
+        from core.services import bat_ocr
+        self.assertEqual(bat_ocr.canon_ink_name('PANTONE BluckC'), 'PANTONE Black C')
+        self.assertEqual(bat_ocr.canon_ink_name('PANTONE 485 C'), 'PANTONE 485 C')

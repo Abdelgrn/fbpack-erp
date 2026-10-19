@@ -204,7 +204,7 @@ def canon_ink_name(raw):
         return None
     if re.match(r'(?i)^pantone', t):
         rest = re.sub(r'(?i)^pantone\s*', '', t).strip()
-        if re.fullmatch(r'(?i)black\s*c', rest.replace(' ', '')):
+        if re.fullmatch(r'(?i)bl[a-z]{2,4}\s*c', rest.replace(' ', '')):   # « Black C » lu « BluckC »
             return 'PANTONE Black C'
         m2 = re.match(r'(\d{3,4})\s*([A-Za-z]{1,2})?$', rest.replace(' ', ''))
         if m2:
@@ -255,11 +255,14 @@ def ink_table(boxes, n_expected=None):
             pct_tok.append({'xc': b['xc'], 'yc': b['yc'], 'h': b['h'], 'v': _num(m.group(1)), 'c': b['c']})
     cm_tok = []
     for b in boxes:
-        m = _CM2_RE.search(b['t'])
-        if m:
+        # plusieurs cm² peuvent être fusionnés dans une même boîte OCR : position estimée par caractère
+        for m in _CM2_RE.finditer(b['t']):
             v = _parse_cm2(m.group(1))
-            if v is not None:
-                cm_tok.append({'xc': b['xc'], 'yc': b['yc'], 'h': b['h'], 'v': v, 'c': b['c']})
+            if v is None:
+                continue
+            frac = (m.start() + m.end()) / 2.0 / max(1, len(b['t']))
+            xc = b['x0'] + (b['x1'] - b['x0']) * frac
+            cm_tok.append({'xc': xc, 'yc': b['yc'], 'h': b['h'], 'v': v, 'c': b['c']})
     anchors_src = pct_tok if len(pct_tok) >= 2 else cm_tok
     if not anchors_src:
         return []
@@ -273,27 +276,44 @@ def ink_table(boxes, n_expected=None):
     anchors = sorted(row, key=lambda t: t['xc'])
     xs = [a['xc'] for a in anchors]
     spacing = (xs[-1] - xs[0]) / max(1, len(xs) - 1) if len(xs) > 1 else 200.0
-    cols = [{'xc': x, 'cm2': None, 'pct': a['v'], 'yc': a['yc'], 'pct_conf': a['c'], 'cm2_conf': None} for x, a in zip(xs, anchors)]
+    from_cm = anchors_src is cm_tok or all(a in cm_tok for a in anchors)
+    if from_cm:
+        cols = [{'xc': x, 'cm2': a['v'], 'pct': None, 'yc': a['yc'], 'pct_conf': None, 'cm2_conf': a['c']}
+                for x, a in zip(xs, anchors)]
+    else:
+        cols = [{'xc': x, 'cm2': None, 'pct': a['v'], 'yc': a['yc'], 'pct_conf': a['c'], 'cm2_conf': None}
+                for x, a in zip(xs, anchors)]
     for t in cm_tok:
         j = min(range(len(cols)), key=lambda k: abs(cols[k]['xc'] - t['xc']))
         if abs(cols[j]['xc'] - t['xc']) < 0.6 * spacing and abs(t['yc'] - row_y) < 2.5 * row_h \
                 and cols[j]['cm2'] is None:
             cols[j]['cm2'] = t['v']
             cols[j]['cm2_conf'] = t['c']
-    # noms : texte situé au-dessus de la rangée, dans la bande de la colonne
+    # noms : boîtes de texte autour de la rangée de valeurs (au-dessus ou sur la même ligne)
     values_ids = {id(b) for b in boxes if _CM2_RE.search(b['t']) or _PCT_RE.search(b['t'])}
     name_boxes = [b for b in boxes if id(b) not in values_ids and not _LABEL_RE.search(b['t'])
-                  and row_y - 4.0 * row_h < b['yc'] < row_y - 0.3 * row_h]
+                  and row_y - 3.5 * row_h < b['yc'] < row_y + 0.6 * row_h]
+    # colonnes de nom sans valeur lisible (ex. cyan dont le cm² est illisible)
+    extra = []
+    for b in name_boxes:
+        if canon_ink_name(b['t']) and min(abs(x - b['xc']) for x in xs) > 0.6 * spacing:
+            if not any(abs(b['xc'] - e) < 0.6 * spacing for e in extra):
+                extra.append(b['xc'])
+    for e in extra:
+        cols.append({'xc': e, 'cm2': None, 'pct': None, 'yc': row_y, 'pct_conf': None, 'cm2_conf': None})
+    cols.sort(key=lambda c: c['xc'])
+    cx = [c['xc'] for c in cols]
     buckets = {i: [] for i in range(len(cols))}
     for b in name_boxes:
-        j = min(range(len(xs)), key=lambda k: abs(xs[k] - b['xc']))
-        if abs(xs[j] - b['xc']) < 0.6 * spacing:
+        j = min(range(len(cx)), key=lambda k: abs(cx[k] - b['xc']))
+        if abs(cx[j] - b['xc']) < 0.6 * spacing:
             buckets[j].append(b)
     for j, c in enumerate(cols):
         parts = sorted(buckets[j], key=lambda b: (b['yc'], b['x0']))
         c['name_raw'] = re.sub(r'^[\d.,\s]+(?=[A-Za-z])', '', ' '.join(p['t'] for p in parts).strip())
         c['name'] = canon_ink_name(c['name_raw']) or ''
         c['name_unknown'] = not c['name']
+        c['name_conf'] = min((p['c'] for p in parts), default=None)
     return cols
 
 
@@ -339,6 +359,11 @@ def build_rows(fields, cols):
             elif pct is None and cm2 is not None:
                 pct = round(100.0 * cm2 / surf, 2)
                 check.append('% calculé depuis les cm²')
+        if c.get('cm2') is None and c.get('pct') is None:
+            check.append('cm² et % non lus : à saisir')
+        seuil = 0.8 if name.startswith('PANTONE') else 0.7
+        if c.get('name_conf') is not None and c['name_conf'] < seuil and name and not name.startswith('Encre'):
+            check.append('nom peu sûr (lecture OCR) : vérifiez le numéro et la couleur')
         if re.fullmatch(r'PANTONE \d{3,4}', name):
             check.append('suffixe C ou U à vérifier')
         rows.append({'name': name, 'cm2': cm2, 'pct': pct, 'check': ' ; '.join(check)})
