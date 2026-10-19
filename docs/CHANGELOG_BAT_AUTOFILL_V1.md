@@ -1,3 +1,21 @@
+## [BAT-AUTOFILL-V1.17] — 2026-10-18
+### Corrigé après essai réel (fiche Sultana, 7 C, image-2)
+- **cm² seuls ne deviennent plus des %** : si la fiche n'imprime que les cm², la colonne garde le cm² lu et calcule le % (ex. Magenta 81,658 cm² = 3,34 %, et non plus 81,668 % / 1999 cm²).
+- **Cm² fusionnés séparés** : deux valeurs lues dans une même boîte OCR (ex. « 1285.713cm 2105.550cm ») sont rattachées à leurs colonnes.
+- **Noms sans valeur lisible conservés** : une colonne d'encre nommée mais dont le cm² est illisible (ex. Cyan) apparaît avec « cm² et % non lus : à saisir ».
+- **Bande de noms élargie** : les noms situés sur la même ligne que les valeurs sont associés à leur colonne.
+- « PANTONE BluckC » lu comme PANTONE Black C.
+- Avertissement « nom peu sûr » : seuil 0,8 pour les PANTONE, 0,7 pour les autres noms (évite le bruit sur les fiches déjà validées).
+### Non-régression
+- Valeurs identiques à V1.16 sur les 8 fiches PDF de référence (RIFKUS, HAMAMA, djari, CHOR, Bronzi, Poly Slim).
+### Limites connues
+- Sultana : Black (178,949 ou 170,949 ?), Magenta (81,658 ou 81,668 ?), Blanc (2105,550 ou 2305,550 ?) et PANTONE 485 C à valider sur la fiche originale ; le nom « blanc » n'est pas lu (saisie manuelle).
+- `core/tests/test_bat_vision.py` : ancien module API (non inclus, à retirer du dépôt après audit ; 10 échecs connus, identiques en V1.16).
+### Fichiers
+- `core/services/bat_ocr.py` (remplacé), `core/tests/test_bat_ocr.py` (remplacé), `docs/CHANGELOG_BAT_AUTOFILL_V1.md` (remplacé). `bat_extractor.py` inchangé (V1.16).
+### Tests
+- `python manage.py test core.tests.test_bat_ocr core.tests.test_bat_extractor` : 25 OK, 1 ignoré.
+
 ## [BAT-AUTOFILL-V1.16] — 2026-10-15
 ### Corrigé après essai réel (V1.15)
 - **Gabarit Poly Slim reconnu** (« Carré Décoré Caramel ») : format H = laize par piste, Laize Bobine = laize totale, Dev Cylindre = pas de coupe, N°Piste / N°Pose = poses, Couleurs Utilisées = nombre de couleurs. Le cartouche est lu ; les six encres sont pré-remplies.

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}{% block content %}<div class="max-w-7xl mx-auto p-5 text-white">
 <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
 <h1 class="text-3xl font-black">📚 Historique des calculs d’encre</h1>
-{% if calc_url %}<a href="{{ calc_url }}" class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded-xl font-black">+ Nouveau calcul</a>{% endif %}
+<div class="flex flex-wrap gap-2"><a href="{% url 'ink_calculator' %}" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl font-black">← Calculateur</a>{% if calc_url %}<a href="{{ calc_url }}" class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded-xl font-black">+ Nouveau calcul</a>{% endif %}</div>
 </div>
 <div class="overflow-x-auto"><table class="w-full text-sm bg-slate-800 rounded-2xl border border-slate-700">
 <thead><tr class="text-left text-xs text-gray-400"><th class="p-3">#</th><th class="p-3">Job</th><th class="p-3">Procédé</th><th class="p-3">Client / Produit / OF</th><th class="p-3">Laize mm</th><th class="p-3">Métrage m</th><th class="p-3">Couleurs</th><th class="p-3">À préparer kg</th><th class="p-3">Coût</th><th class="p-3">Créé</th><th class="p-3"></th></tr></thead>
@@ -16,11 +16,11 @@
 <td class="p-3 text-orange-300 font-black">{{ r.job.total_prepare_kg|floatformat:3 }}</td>
 <td class="p-3">{{ r.total_cost|floatformat:2 }}</td>
 <td class="p-3 text-gray-400">{{ r.job.created_at|date:'d/m/Y H:i' }} · {{ r.job.created_by }}</td>
-<td class="p-3">{% if r.detail_url %}<a href="{{ r.detail_url }}" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">Ouvrir</a>{% else %}<span class="text-gray-500">—</span>{% endif %}</td>
+<td class="p-3"><div class="flex flex-wrap gap-2">{% if r.detail_url %}<a href="{{ r.detail_url }}" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">Ouvrir</a>{% endif %}{% url 'ink_calculation_edit' r.job.id as edit_url %}{% if edit_url %}<a href="{{ edit_url }}" class="bg-cyan-700 hover:bg-cyan-600 px-3 py-1 rounded">Modifier</a>{% endif %}{% url 'ink_calculation_delete' r.job.id as delete_url %}{% if delete_url %}<form method="post" action="{{ delete_url }}" onsubmit="return confirm('Supprimer le calcul « {{ r.job.name|escapejs }} » ? Cette action est définitive.');">{% csrf_token %}<button type="submit" class="bg-red-700 hover:bg-red-600 px-3 py-1 rounded">Supprimer</button></form>{% endif %}{% if not r.detail_url and not edit_url %}<span class="text-gray-500">—</span>{% endif %}</div></td>
 </tr>{% empty %}<tr><td colspan="11" class="p-6 text-gray-400">Aucun calcul enregistré pour l’instant.</td></tr>{% endfor %}</tbody></table></div>
 <h2 class="text-xl font-black mt-8 mb-3">🏭 Consommation par fournisseur de clichés</h2>
 <div class="overflow-x-auto"><table class="w-full text-sm bg-slate-800 rounded-2xl border border-slate-700">
 <thead><tr class="text-left text-xs text-gray-400"><th class="p-3">Fournisseur</th><th class="p-3">Jobs</th><th class="p-3">Total à préparer kg</th><th class="p-3">kg par job</th><th class="p-3">g par m²</th></tr></thead>
 <tbody>{% for s in suppliers %}<tr class="border-t border-slate-700"><td class="p-3 font-bold">{{ s.supplier }}</td><td class="p-3">{{ s.jobs }}</td><td class="p-3 text-orange-300 font-black">{{ s.total_kg|floatformat:3 }}</td><td class="p-3">{{ s.avg_kg|floatformat:3 }}</td><td class="p-3">{{ s.g_per_m2|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="5" class="p-6 text-gray-400">Aucun calcul enregistré.</td></tr>{% endfor %}</tbody></table></div>
-<p class="text-xs text-gray-500 mt-4">Les jobs proviennent du Calculateur de consommation d’encre (« Calculer et enregistrer »). « Ouvrir » donne le détail : graphique, comparaison net / à préparer / réel et saisie des consommations réelles.</p>
+<p class="text-xs text-gray-500 mt-4">Les jobs proviennent du Calculateur de consommation d’encre (« Calculer et enregistrer »). « Modifier » corrige les données du calcul (le réel saisi est conservé). « Supprimer » efface le calcul. « Ouvrir » donne le détail : graphique, comparaison net / à préparer / réel et saisie des consommations réelles.</p>
 </div>{% endblock %}
