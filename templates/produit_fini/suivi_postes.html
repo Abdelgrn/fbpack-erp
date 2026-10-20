@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto p-5 text-white">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <h1 class="text-3xl font-black">🏭 Suivi par machine</h1>
+    <a href="{% url 'stock_produit_fini' %}" class="text-sm text-emerald-300 hover:underline">📦 Voir le stock produit fini →</a>
+  </div>
+
+  {# Tuiles machine : un clic = la liste de cette machine #}
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
+    {% for t in tuiles %}
+    <a href="{{ t.url }}"
+       class="block rounded-2xl p-4 border {% if t.actif %}border-amber-400 bg-slate-700{% else %}border-slate-700 bg-slate-800 hover:bg-slate-700{% endif %}">
+      <div class="font-black text-lg">{% if t.nom == 'Toutes les machines' %}📋{% else %}🏭{% endif %} {{ t.nom }}</div>
+      <div class="text-sm text-gray-300 mt-1">{{ t.res.nb_bobines }} bobine(s) · {{ t.res.kg|floatformat:3 }} kg</div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <form method="get" class="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+    <input type="hidden" name="vue" value="{{ vue }}">
+    <label class="text-xs text-gray-400">Machine
+      <select name="poste" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white">
+        <option value="">Toutes les machines</option>
+        {% for p in liste_postes %}
+        <option value="{{ p }}" {% if p == filtre_poste %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="text-xs text-gray-400 md:col-span-2">Recherche (client, produit, lot, palette)
+      <input type="text" name="q" value="{{ filtre_q }}" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white">
+    </label>
+    <label class="text-xs text-gray-400">Du
+      <input type="date" name="date_debut" value="{{ filtre_date_debut }}" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white">
+    </label>
+    <label class="text-xs text-gray-400">Au
+      <input type="date" name="date_fin" value="{{ filtre_date_fin }}" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 text-white">
+    </label>
+    <div class="md:col-span-5 flex gap-2">
+      <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg">Filtrer</button>
+      <a href="{% url 'suivi_postes' %}" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-lg">Réinitialiser</a>
+    </div>
+  </form>
+
+  {# Onglets de vue : Clients (arborescence) / Palettes (à plat) #}
+  <div class="flex gap-2 mb-4">
+    <a href="{{ url_vue_clients }}" class="px-4 py-2 rounded-lg font-bold {% if vue == 'clients' %}bg-amber-400 text-slate-900{% else %}bg-slate-700 text-white hover:bg-slate-600{% endif %}">🏢 Vue par client</a>
+    <a href="{{ url_vue_palettes }}" class="px-4 py-2 rounded-lg font-bold {% if vue == 'palettes' %}bg-amber-400 text-slate-900{% else %}bg-slate-700 text-white hover:bg-slate-600{% endif %}">📦 Vue palettes</a>
+    <a href="{{ url_vue_lots }}" class="px-4 py-2 rounded-lg font-bold {% if vue == 'lots' %}bg-amber-400 text-slate-900{% else %}bg-slate-700 text-white hover:bg-slate-600{% endif %}">🔢 Vue par numéro de lot</a>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-5 font-bold">
+    Total affiché : {{ total.nb_bobines }} bobine(s) · {{ total.kg|floatformat:3 }} kg
+  </div>
+
+  {% if vue == 'lots' %}
+    {% for g in lots %}
+    <details class="bg-slate-800 border border-slate-700 rounded-2xl mb-4 p-4" open>
+      <summary class="cursor-pointer">
+        <span class="font-black text-xl">🔢 Lot {{ g.numero_lot }}</span>
+        <span class="text-gray-300 ml-3">{{ g.clients|join:" · " }}{% if g.produits %} — {{ g.produits|join:" · " }}{% endif %}</span>
+        <span class="text-sm text-gray-400 ml-3">{{ g.res.nb_bobines }} bobine(s) · {{ g.res.kg|floatformat:3 }} kg</span>
+        {% if g.a_relier %}<span class="text-xs text-amber-300 ml-2">⚠ à relier</span>{% endif %}
+        {% for e in g.etats %}{% if e == 'EN_STOCK' %}<span class="text-xs text-sky-300 ml-2">📦 en stock produit fini</span>{% elif e == 'A_ENTRER' %}<span class="text-xs text-emerald-300 ml-2">✓ job terminé — à entrer en stock</span>{% else %}<span class="text-xs text-gray-400 ml-2">en cours</span>{% endif %}{% endfor %}
+      </summary>
+
+      {% if g.of %}
+      <div class="mt-3 ml-2 p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm">
+        <span class="font-bold">Ordre de fabrication {{ g.of.numero }}</span>
+        {% if g.of.client %}· {{ g.of.client }}{% endif %}
+        {% if g.of.produit %}· {{ g.of.produit }}{% endif %}
+        {% if g.of.statut %}· {{ g.of.statut }}{% endif %}
+        {% if g.of.url %}<a href="{{ g.of.url }}" class="ml-3 text-sky-300 hover:underline">Voir l'OF →</a>{% endif %}
+      </div>
+      {% else %}
+      <p class="mt-3 ml-2 text-xs text-gray-500 italic">Aucun ordre de fabrication relié à ce numéro de lot.</p>
+      {% endif %}
+
+      <div class="mt-3 ml-2">
+        <div class="text-xs uppercase text-gray-400 mb-1">Répartition par machine</div>
+        <table class="w-full text-sm">
+          <thead><tr class="text-gray-400 text-xs uppercase border-b border-slate-700"><th class="text-left p-1">Machine</th><th class="text-right p-1">Nb bobines</th><th class="text-right p-1">Poids (kg)</th></tr></thead>
+          <tbody>
+            {% for m in g.par_machine %}
+            <tr class="border-t border-slate-700"><td class="p-1">🏭 {{ m.nom }}</td><td class="p-1 text-right">{{ m.res.nb_bobines }}</td><td class="p-1 text-right font-mono">{{ m.res.kg|floatformat:3 }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-3 ml-2">
+        <div class="text-xs uppercase text-gray-400 mb-1">Palettes</div>
+        <table class="w-full text-sm">
+          <thead><tr class="text-gray-400 text-xs uppercase border-b border-slate-700"><th class="text-left p-1">N° Palette</th><th class="text-left p-1">Machine</th><th class="text-left p-1">Client</th><th class="text-right p-1">Nb bobines</th><th class="text-right p-1">Poids (kg)</th></tr></thead>
+          <tbody>
+            {% for pl in g.palettes %}
+            <tr class="border-t border-slate-700"><td class="p-1 font-semibold">{{ pl.numero }}</td><td class="p-1">{{ pl.machine }}</td><td class="p-1">{{ pl.client }}</td><td class="p-1 text-right">{{ pl.res.nb_bobines }}</td><td class="p-1 text-right font-mono">{{ pl.res.kg|floatformat:3 }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if g.derniere_saisie %}<p class="mt-2 ml-2 text-xs text-gray-500">Dernière saisie : {{ g.derniere_saisie|date:"d/m/Y H:i" }}</p>{% endif %}
+    </details>
+    {% empty %}
+    <div class="p-8 text-center text-gray-400 italic">Aucun lot pour ces filtres.</div>
+    {% endfor %}
+  {% elif vue == 'palettes' %}
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-3 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-gray-400 text-xs uppercase border-b border-slate-700">
+            <th class="text-left p-2">N° Palette</th>
+            <th class="text-left p-2">Machine</th>
+            <th class="text-left p-2">Client</th>
+            <th class="text-left p-2">Article / Produit</th>
+            <th class="text-left p-2">N° Lot</th>
+            <th class="text-right p-2">Nb bobines</th>
+            <th class="text-right p-2">Poids total (kg)</th>
+            <th class="text-right p-2">Moy. (kg)</th>
+            <th class="text-left p-2">Équipe</th>
+            <th class="text-left p-2">Dernière saisie</th>
+            <th class="text-left p-2">État</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in palettes %}
+          <tr class="border-t border-slate-700 hover:bg-slate-700/40">
+            <td class="p-2 font-semibold">{{ l.numero }}</td>
+            <td class="p-2">{{ l.machine }}</td>
+            <td class="p-2">{{ l.client }}</td>
+            <td class="p-2">{{ l.produit }}</td>
+            <td class="p-2">{{ l.numero_lot }} {% if l.a_relier %}<span class="text-amber-300">⚠</span>{% endif %}</td>
+            <td class="p-2 text-right">{{ l.nb_bobines }}</td>
+            <td class="p-2 text-right font-mono">{{ l.kg|floatformat:3 }}</td>
+            <td class="p-2 text-right font-mono">{{ l.moy|floatformat:3 }}</td>
+            <td class="p-2">{{ l.equipe }}</td>
+            <td class="p-2">{% if l.derniere_saisie %}{{ l.derniere_saisie|date:"d/m/Y H:i" }}{% endif %}</td>
+            <td class="p-2">{% if l.etat == 'EN_STOCK' %}📦 en stock{% elif l.etat == 'A_ENTRER' %}✓ à entrer{% else %}en cours{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="11" class="p-8 text-center text-gray-400 italic">Aucune palette pour ces filtres.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {% for poste in postes %}
+    {% if not machine_selectionnee %}
+    {# Vue « Toutes les machines » : un niveau par machine #}
+    <details class="bg-slate-800 border border-slate-700 rounded-2xl mb-4 p-4" open>
+      <summary class="cursor-pointer font-black text-xl">
+        🏭 {{ poste.nom }}
+        <span class="text-sm font-normal text-gray-400 ml-3">{{ poste.res.nb_bobines }} bobine(s) · {{ poste.res.kg|floatformat:3 }} kg</span>
+      </summary>
+    {% endif %}
+
+      {% for client in poste.clients %}
+      <details class="ml-4 mt-3 bg-slate-900 rounded-xl p-3" open>
+        <summary class="cursor-pointer font-bold text-lg">
+          {{ client.nom }}
+          <span class="text-sm font-normal text-gray-400 ml-3">{{ client.res.nb_bobines }} bobine(s) · {{ client.res.kg|floatformat:3 }} kg</span>
+        </summary>
+
+        {% for lot in client.lots %}
+        <details class="ml-4 mt-3 bg-slate-800 rounded-xl p-3" open>
+          <summary class="cursor-pointer font-semibold">
+            {{ lot.produit }} — Lot {{ lot.numero_lot }}
+            {% if lot.etat == 'EN_STOCK' %}<span class="text-xs text-sky-300 ml-2">📦 en stock produit fini</span>{% elif lot.etat == 'A_ENTRER' %}<span class="text-xs text-emerald-300 ml-2">✓ job terminé — à entrer en stock</span>{% else %}<span class="text-xs text-gray-400 ml-2">en cours</span>{% endif %}
+            {% if lot.a_relier %}<span class="text-xs text-amber-300 ml-2">⚠ à relier</span>{% endif %}
+            <span class="text-sm font-normal text-gray-400 ml-3">{{ lot.res.nb_bobines }} bobine(s) · {{ lot.res.kg|floatformat:3 }} kg</span>
+          </summary>
+          {% if lot.etat == 'A_ENTRER' %}
+          <form method="post" action="{% url 'entrer_en_stock_produit_fini' lot.lot_id %}" class="mt-2 ml-4"
+                onsubmit="return confirm('Entrer le lot {{ lot.numero_lot }} en stock produit fini ?');">
+            {% csrf_token %}
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1 px-3 rounded-lg text-sm">📦 Entrer en stock produit fini</button>
+          </form>
+          {% endif %}
+
+          {% for pal in lot.palettes %}
+          <details class="ml-4 mt-2 bg-slate-900 rounded-lg p-2">
+            <summary class="cursor-pointer">
+              Palette {{ pal.numero }}
+              <span class="text-sm text-gray-400 ml-3">{{ pal.res.nb_bobines }} bobine(s) · {{ pal.res.kg|floatformat:3 }} kg</span>
+            </summary>
+            <table class="w-full text-sm mt-2">
+              <thead><tr class="text-gray-400 text-xs uppercase"><th class="text-left p-1">N° bobine</th><th class="text-left p-1">Pesée le</th><th class="text-left p-1">Équipe</th><th class="text-left p-1">Opérateur</th><th class="text-right p-1">Poids net (kg)</th></tr></thead>
+              <tbody>
+                {% for b in pal.bobines %}
+                <tr class="border-t border-slate-700">
+                  <td class="p-1">{{ b.numero_bobine }}</td>
+                  <td class="p-1">{{ b.date_heure|date:"d/m/Y H:i" }}</td>
+                  <td class="p-1">{{ b.equipe }}</td>
+                  <td class="p-1">{{ b.operateur }}</td>
+                  <td class="p-1 text-right font-mono">{{ b.poids_kg|floatformat:3 }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </details>
+          {% endfor %}
+        </details>
+        {% endfor %}
+      </details>
+      {% endfor %}
+
+      {% if not poste.clients %}
+      <p class="{% if machine_selectionnee %}mt-3 text-center p-6 text-gray-400 italic{% else %}ml-4 mt-3 text-sm italic text-gray-400{% endif %}">{% if machine_selectionnee %}Aucune pesée pour ces filtres.{% else %}Aucune pesée sur cette machine pour ces filtres.{% endif %}</p>
+      {% endif %}
+    {% if not machine_selectionnee %}
+    </details>
+    {% endif %}
+    {% empty %}
+    <div class="p-8 text-center text-gray-400 italic">Aucune pesée pour ces filtres.</div>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}
