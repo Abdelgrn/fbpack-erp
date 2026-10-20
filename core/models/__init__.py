@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.apps import apps
 from django.conf import settings
 from django.db import transaction, connection
+from .stock_produit_fini import ProduitFiniLot, ProduitFiniPalette, ProduitFiniBobine, ProduitFiniMouvement
 
 # CRM
 from .crm import (
@@ -115,7 +116,7 @@ def robust_import_local_data(specific_file=None):
 
     admin_user = User.objects.filter(is_superuser=True).first()
     if not admin_user:
-        admin_user = User.objects.create_superuser('admin', 'admin@fbpack.com', 'admin1234')
+        return False, "Aucun superutilisateur : import annulé (créez-en un avec createsuperuser)."
 
     model_priority = [
         'auth.user', 'auth.group', 'core.usermodulepermission', 'core.atelier',
@@ -276,17 +277,6 @@ def auto_init_super_admin_et_permissions(sender, **kwargs):
             from django.contrib.auth.models import User
             from .crm import Client
 
-            if not Client.objects.exists():
-                robust_import_local_data()
-
-            if not User.objects.filter(is_superuser=True).exists():
-                admin_user, created = User.objects.get_or_create(username='admin')
-                if created:
-                    admin_user.set_password('admin1234')
-                    admin_user.is_superuser = True
-                    admin_user.is_staff = True
-                    admin_user.save()
-
             for u in User.objects.all():
                 p, _ = UserModulePermission.objects.get_or_create(user=u)
                 if u.is_superuser:
@@ -316,4 +306,5 @@ __all__ = [
     'OFPrelaunchCheck',
     'AniloxRoll', 'InkCalculationJob', 'InkCalculationColor',
     'OFMaterialRequirement', 'StockReservation', 'StockReservationEvent',
+    'ProduitFiniLot', 'ProduitFiniPalette', 'ProduitFiniBobine', 'ProduitFiniMouvement',
 ]

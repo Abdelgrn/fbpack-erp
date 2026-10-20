@@ -1,0 +1,705 @@
+{
+  "format": "fbpack-ink-history",
+  "version": 1,
+  "count": 6,
+  "jobs": [
+    {
+      "name": "Chips RIFKUS spaghetti bolonaise",
+      "process": "FLEXO",
+      "width_mm": 1155.0,
+      "length_m": 20000.0,
+      "repeat_mm": 240.0,
+      "poses_across": 3,
+      "poses_repeat": 3,
+      "transfer_percent": 32.0,
+      "loss_percent": 10.0,
+      "confidence": "TECHNICAL",
+      "created_by": "admin",
+      "created_at": "2026-10-15T13:59:22.771519+00:00",
+      "colors": [
+        {
+          "name": "Cyan",
+          "ink_type": "COLOR",
+          "coverage_percent": 33.64,
+          "coverage_area_cm2": 310.875,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Magenta",
+          "ink_type": "COLOR",
+          "coverage_percent": 5.78,
+          "coverage_area_cm2": 53.411,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Yellow",
+          "ink_type": "COLOR",
+          "coverage_percent": 14.58,
+          "coverage_area_cm2": 134.685,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Black",
+          "ink_type": "COLOR",
+          "coverage_percent": 15.51,
+          "coverage_area_cm2": 143.35,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 234",
+          "ink_type": "COLOR",
+          "coverage_percent": 66.12,
+          "coverage_area_cm2": 610.925,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Blanc",
+          "ink_type": "WHITE",
+          "coverage_percent": 100.0,
+          "coverage_area_cm2": 924.0,
+          "anilox": {
+            "lineature": 100,
+            "volume_cm3_m2": "9.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        }
+      ]
+    },
+    {
+      "name": "SULTANA 1",
+      "process": "FLEXO",
+      "width_mm": 680.0,
+      "length_m": 87648.0,
+      "repeat_mm": 360.0,
+      "poses_across": 1,
+      "poses_repeat": 2,
+      "transfer_percent": 32.0,
+      "loss_percent": 10.0,
+      "confidence": "TECHNICAL",
+      "created_by": "admin",
+      "created_at": "2026-10-18T11:12:31.760900+00:00",
+      "colors": [
+        {
+          "name": "Cyan",
+          "ink_type": "COLOR",
+          "coverage_percent": 1.11,
+          "coverage_area_cm2": 27.26,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Magenta",
+          "ink_type": "COLOR",
+          "coverage_percent": 3.34,
+          "coverage_area_cm2": 81.668,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Yellow",
+          "ink_type": "COLOR",
+          "coverage_percent": 12.05,
+          "coverage_area_cm2": 294.894,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Black",
+          "ink_type": "COLOR",
+          "coverage_percent": 7.23,
+          "coverage_area_cm2": 176.949,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE Black C",
+          "ink_type": "COLOR",
+          "coverage_percent": 2.22,
+          "coverage_area_cm2": 54.277,
+          "anilox": {
+            "lineature": 220,
+            "volume_cm3_m2": "7.50"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 485",
+          "ink_type": "COLOR",
+          "coverage_percent": 52.56,
+          "coverage_area_cm2": 1286.718,
+          "anilox": {
+            "lineature": 160,
+            "volume_cm3_m2": "9.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Blanc",
+          "ink_type": "WHITE",
+          "coverage_percent": 94.18,
+          "coverage_area_cm2": 2305.55,
+          "anilox": {
+            "lineature": 120,
+            "volume_cm3_m2": "11.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        }
+      ]
+    },
+    {
+      "name": "Chips RIFKUS ZVITI HOT",
+      "process": "FLEXO",
+      "width_mm": 1155.0,
+      "length_m": 66551.0,
+      "repeat_mm": 240.0,
+      "poses_across": 3,
+      "poses_repeat": 3,
+      "transfer_percent": 32.0,
+      "loss_percent": 10.0,
+      "confidence": "TECHNICAL",
+      "created_by": "admin",
+      "created_at": "2026-10-18T11:20:35.027133+00:00",
+      "colors": [
+        {
+          "name": "Cyan",
+          "ink_type": "COLOR",
+          "coverage_percent": 1.39,
+          "coverage_area_cm2": 12.867,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Magenta",
+          "ink_type": "COLOR",
+          "coverage_percent": 68.26,
+          "coverage_area_cm2": 630.767,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Yellow",
+          "ink_type": "COLOR",
+          "coverage_percent": 74.96,
+          "coverage_area_cm2": 692.664,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Black",
+          "ink_type": "COLOR",
+          "coverage_percent": 55.77,
+          "coverage_area_cm2": 515.28,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE Black C",
+          "ink_type": "COLOR",
+          "coverage_percent": 40.87,
+          "coverage_area_cm2": 377.629,
+          "anilox": {
+            "lineature": 260,
+            "volume_cm3_m2": "5.50"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Blanc",
+          "ink_type": "WHITE",
+          "coverage_percent": 100.0,
+          "coverage_area_cm2": 924.0,
+          "anilox": {
+            "lineature": 120,
+            "volume_cm3_m2": "11.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        }
+      ]
+    },
+    {
+      "name": "COUSCOUS MOYEN 1KG CHOR KHALED",
+      "process": "FLEXO",
+      "width_mm": 975.0,
+      "length_m": 69618.0,
+      "repeat_mm": 325.0,
+      "poses_across": 3,
+      "poses_repeat": 2,
+      "transfer_percent": 32.0,
+      "loss_percent": 10.0,
+      "confidence": "TECHNICAL",
+      "created_by": "admin",
+      "created_at": "2026-10-18T11:29:19.348522+00:00",
+      "colors": [
+        {
+          "name": "Cyan",
+          "ink_type": "COLOR",
+          "coverage_percent": 1.4,
+          "coverage_area_cm2": 14.796,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Magenta",
+          "ink_type": "COLOR",
+          "coverage_percent": 2.18,
+          "coverage_area_cm2": 22.997,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Yellow",
+          "ink_type": "COLOR",
+          "coverage_percent": 2.54,
+          "coverage_area_cm2": 26.829,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Black",
+          "ink_type": "COLOR",
+          "coverage_percent": 2.33,
+          "coverage_area_cm2": 24.611,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Gold",
+          "ink_type": "COLOR",
+          "coverage_percent": 4.61,
+          "coverage_area_cm2": 48.693,
+          "anilox": {
+            "lineature": 240,
+            "volume_cm3_m2": "6.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 485",
+          "ink_type": "COLOR",
+          "coverage_percent": 62.17,
+          "coverage_area_cm2": 656.671,
+          "anilox": {
+            "lineature": 220,
+            "volume_cm3_m2": "7.50"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Bleu reflex",
+          "ink_type": "COLOR",
+          "coverage_percent": 0.34,
+          "coverage_area_cm2": 3.602,
+          "anilox": {
+            "lineature": 260,
+            "volume_cm3_m2": "6.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Blanc",
+          "ink_type": "WHITE",
+          "coverage_percent": 79.92,
+          "coverage_area_cm2": 839.537,
+          "anilox": {
+            "lineature": 120,
+            "volume_cm3_m2": "11.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        }
+      ]
+    },
+    {
+      "name": "DulcesoIPANDORINO",
+      "process": "FLEXO",
+      "width_mm": 825.0,
+      "length_m": 176460.0,
+      "repeat_mm": 165.0,
+      "poses_across": 3,
+      "poses_repeat": 4,
+      "transfer_percent": 32.0,
+      "loss_percent": 10.0,
+      "confidence": "TECHNICAL",
+      "created_by": "admin",
+      "created_at": "2026-10-18T13:32:17.504186+00:00",
+      "colors": [
+        {
+          "name": "Magenta",
+          "ink_type": "COLOR",
+          "coverage_percent": 8.6,
+          "coverage_area_cm2": 38.648,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Yellow",
+          "ink_type": "COLOR",
+          "coverage_percent": 10.07,
+          "coverage_area_cm2": 45.693,
+          "anilox": {
+            "lineature": 360,
+            "volume_cm3_m2": "4.50"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Black",
+          "ink_type": "COLOR",
+          "coverage_percent": 14.32,
+          "coverage_area_cm2": 64.97,
+          "anilox": {
+            "lineature": 400,
+            "volume_cm3_m2": "4.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 7442C",
+          "ink_type": "COLOR",
+          "coverage_percent": 29.46,
+          "coverage_area_cm2": 133.676,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 485",
+          "ink_type": "COLOR",
+          "coverage_percent": 1.97,
+          "coverage_area_cm2": 8.934,
+          "anilox": {
+            "lineature": 220,
+            "volume_cm3_m2": "7.50"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 7385",
+          "ink_type": "COLOR",
+          "coverage_percent": 3.4,
+          "coverage_area_cm2": 15.403,
+          "anilox": {
+            "lineature": 180,
+            "volume_cm3_m2": "8.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 607 C",
+          "ink_type": "COLOR",
+          "coverage_percent": 25.53,
+          "coverage_area_cm2": 115.84,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "blanc",
+          "ink_type": "WHITE",
+          "coverage_percent": 0.53,
+          "coverage_area_cm2": 2.405,
+          "anilox": {
+            "lineature": 160,
+            "volume_cm3_m2": "9.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        }
+      ]
+    },
+    {
+      "name": "MAMAMIA VERT 50 Grs",
+      "process": "FLEXO",
+      "width_mm": 1100.0,
+      "length_m": 318619.0,
+      "repeat_mm": 180.0,
+      "poses_across": 5,
+      "poses_repeat": 3,
+      "transfer_percent": 32.0,
+      "loss_percent": 10.0,
+      "confidence": "TECHNICAL",
+      "created_by": "admin",
+      "created_at": "2026-10-18T13:45:03.081742+00:00",
+      "colors": [
+        {
+          "name": "Cyan",
+          "ink_type": "COLOR",
+          "coverage_percent": 1.37,
+          "coverage_area_cm2": 5.434,
+          "anilox": {
+            "lineature": 400,
+            "volume_cm3_m2": "3.50"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Magenta",
+          "ink_type": "COLOR",
+          "coverage_percent": 3.77,
+          "coverage_area_cm2": 14.929,
+          "anilox": {
+            "lineature": 400,
+            "volume_cm3_m2": "4.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Yellow",
+          "ink_type": "COLOR",
+          "coverage_percent": 5.71,
+          "coverage_area_cm2": 22.617,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Black",
+          "ink_type": "COLOR",
+          "coverage_percent": 5.43,
+          "coverage_area_cm2": 21.506,
+          "anilox": {
+            "lineature": 360,
+            "volume_cm3_m2": "4.50"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 3272 C",
+          "ink_type": "COLOR",
+          "coverage_percent": 46.73,
+          "coverage_area_cm2": 185.066,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 3278 C",
+          "ink_type": "COLOR",
+          "coverage_percent": 11.17,
+          "coverage_area_cm2": 44.225,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "PANTONE 254 C",
+          "ink_type": "COLOR",
+          "coverage_percent": 6.36,
+          "coverage_area_cm2": 25.197,
+          "anilox": {
+            "lineature": 420,
+            "volume_cm3_m2": "5.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        },
+        {
+          "name": "Blanc",
+          "ink_type": "WHITE",
+          "coverage_percent": 88.93,
+          "coverage_area_cm2": 352.16,
+          "anilox": {
+            "lineature": 120,
+            "volume_cm3_m2": "11.00"
+          },
+          "density": 0.87,
+          "price_per_kg": "0.00",
+          "actual_consumed_kg": null,
+          "recovered_kg": 0.0
+        }
+      ]
+    }
+  ]
+}

@@ -1325,6 +1325,21 @@
 
                 {% endif %}
 
+                {% if user.is_superuser or user.module_permissions.can_access_suivi_postes %}
+
+                <a
+                    href="{% url 'suivi_postes' %}"
+                    class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 {% if 'suivi-postes' in request.path %}active{% endif %}"
+                >
+
+                    <span class="mr-3">🏭</span>
+
+                    Suivi par poste
+
+                </a>
+
+                {% endif %}
+
 
                 {% if 'maintenance' in user_modules %}
 

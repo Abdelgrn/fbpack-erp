@@ -213,14 +213,19 @@ class PrepressTechnicalSheetTests(TestCase):
 
     def test_roll_visual_composed_from_product_visual(self):
         """Lot Bobine V4 : la maquette seule produit le visuel bobine, orienté par le sens."""
-        from PIL import Image
+        from PIL import Image, ImageDraw
 
         from core.services.prepress_technical_sheet import (
             build_print_context, build_roll_visual_data_uri,
         )
 
         buffer = BytesIO()
-        Image.new('RGB', (120, 80), '#B5121B').save(buffer, format='PNG')
+        # Maquette asymetrique : une image unie reste identique apres rotation de 180 deg,
+        # le test ne pourrait donc pas detecter un changement de sens.
+        maquette = Image.new('RGB', (120, 80), '#B5121B')
+        ImageDraw.Draw(maquette).rectangle([0, 0, 60, 20], fill=(255, 255, 255))
+        ImageDraw.Draw(maquette).rectangle([80, 50, 119, 79], fill=(0, 0, 0))
+        maquette.save(buffer, format='PNG')
         upload = SimpleUploadedFile('maquette.png', buffer.getvalue(), content_type='image/png')
         product = TechnicalProduct.objects.create(
             client=self.customer,
@@ -231,6 +236,7 @@ class PrepressTechnicalSheetTests(TestCase):
             nb_poses_pas=1,
             nb_poses_laize=2,
             sens_bobine='2',
+            spot_placement='1',
         )
         product.product_visual = upload
         product.save()

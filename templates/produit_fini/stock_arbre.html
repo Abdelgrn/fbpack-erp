@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto p-5 text-white">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <h1 class="text-3xl font-black">📦 Stock produit fini</h1>
+    {% if nb_a_relier %}<span class="text-amber-300 text-sm">⚠ {{ nb_a_relier }} lot(s) à relier (client ou produit non reconnu)</span>{% endif %}
+  </div>
+
+  {% if messages %}
+    {% for m in messages %}
+      <div class="mb-3 p-3 rounded-xl {% if m.tags == 'error' %}bg-red-900 text-red-100{% else %}bg-emerald-900 text-emerald-100{% endif %}">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% for client in clients %}
+  <details class="bg-slate-800 border border-slate-700 rounded-2xl mb-4 p-4" open>
+    <summary class="cursor-pointer font-black text-xl">
+      {{ client.nom }}
+      <span class="text-sm font-normal text-gray-400 ml-3">
+        {{ client.res.nb_palettes }} palette(s) · {{ client.res.nb_bobines }} bobine(s) · {{ client.res.kg_total|floatformat:3 }} kg
+        · en stock : {{ client.res.nb_restantes }} bobine(s), {{ client.res.kg_restants|floatformat:3 }} kg
+      </span>
+    </summary>
+
+    {% for produit in client.produits %}
+    <details class="ml-4 mt-3 bg-slate-900 rounded-xl p-3" open>
+      <summary class="cursor-pointer font-bold text-lg">{{ produit.nom }}</summary>
+
+      {% for lot_node in produit.lots %}
+      {% with lot=lot_node.obj res=lot_node.res %}
+      <details class="ml-4 mt-3 border border-slate-700 rounded-xl p-3">
+        <summary class="cursor-pointer">
+          <span class="font-black">Lot {{ lot.numero_lot }}</span>
+          <span class="text-sm text-gray-400 ml-2">
+            {{ lot_node.palettes|length }} palette(s) · {{ res.nb_bobines }} bobine(s) · {{ res.kg_total|floatformat:3 }} kg
+          </span>
+          {% if res.statut == 'EN_STOCK' %}<span class="ml-2 px-2 py-1 rounded bg-emerald-700 text-xs">En stock</span>
+          {% elif res.statut == 'PARTIEL' %}<span class="ml-2 px-2 py-1 rounded bg-amber-600 text-xs">Partiel</span>
+          {% elif res.statut == 'SORTI' %}<span class="ml-2 px-2 py-1 rounded bg-slate-600 text-xs">Sorti</span>{% endif %}
+          {% if lot.a_relier %}<span class="ml-2 px-2 py-1 rounded bg-amber-800 text-xs">à relier</span>{% endif %}
+          {% if lot.job_clos_le %}<span class="ml-2 px-2 py-1 rounded bg-cyan-800 text-xs">job clôturé</span>{% endif %}
+        </summary>
+
+        <form method="post" action="{% url 'destocker_produit_fini' lot.id %}" class="mt-3">
+          {% csrf_token %}
+          <table class="w-full text-sm">
+            <thead><tr class="text-left text-xs text-gray-400">
+              <th class="py-1">Choisir</th><th>Palette</th><th>Bobines</th><th>kg</th><th>Restant</th><th>Statut</th>
+            </tr></thead>
+            <tbody>
+            {% for pal in lot_node.palettes %}
+              <tr class="border-t border-slate-700">
+                <td class="py-1">{% if pal.res.nb_restantes %}<input type="checkbox" name="palette" value="{{ pal.obj.id }}">{% endif %}</td>
+                <td class="font-bold">{{ pal.obj.numero_palette }}{% if pal.obj.poste %} <span class="text-xs font-normal text-gray-400">· {{ pal.obj.poste }}</span>{% endif %}</td>
+                <td>{{ pal.res.nb_bobines }}</td>
+                <td>{{ pal.res.kg_total|floatformat:3 }}</td>
+                <td>{{ pal.res.nb_restantes }} bob. · {{ pal.res.kg_restants|floatformat:3 }} kg</td>
+                <td>{{ pal.res.statut }}</td>
+              </tr>
+              <tr><td></td><td colspan="5" class="text-xs text-gray-500 pb-2">
+                {% for b in pal.bobines %}{{ b.numero_bobine }} ({{ b.poids_kg|floatformat:3 }}){% if b.date_sortie %} ✗{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}
+              </td></tr>
+            {% empty %}
+              <tr><td colspan="6" class="py-2 text-gray-400">Aucune palette.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+
+          {% if res.nb_restantes %}
+          <div class="flex flex-wrap gap-2 items-center mt-3">
+            <input name="motif" maxlength="200" placeholder="Motif (ex. Livraison BL-123)" class="bg-slate-950 p-2 rounded w-80">
+            <button name="action" value="selection" class="bg-cyan-700 hover:bg-cyan-600 px-3 py-2 rounded font-black">Déstocker la sélection</button>
+            <button name="action" value="tout" class="bg-orange-600 hover:bg-orange-500 px-3 py-2 rounded font-black"
+                    onclick="return confirm('Déstocker tout le lot restant ?')">Déstocker tout le lot restant</button>
+          </div>
+          {% endif %}
+        </form>
+
+        {% if lot_node.mouvements %}
+        <details class="mt-3 text-sm">
+          <summary class="cursor-pointer text-gray-300">Historique des mouvements ({{ lot_node.mouvements|length }})</summary>
+          <table class="w-full mt-2">
+            <thead><tr class="text-left text-xs text-gray-400"><th>Date</th><th>Type</th><th>Bobines</th><th>kg</th><th>Palettes</th><th>Motif</th><th>Par</th><th></th></tr></thead>
+            <tbody>
+            {% for mv in lot_node.mouvements %}
+              <tr class="border-t border-slate-800 {% if mv.annule %}text-gray-500 line-through{% endif %}">
+                <td>{{ mv.date|date:'d/m/Y H:i' }}</td>
+                <td>{{ mv.get_type_display }}</td>
+                <td>{{ mv.nb_bobines }}</td>
+                <td>{{ mv.poids_kg|floatformat:3 }}</td>
+                <td>{{ mv.palettes_libelle }}</td>
+                <td>{{ mv.motif }}{% if mv.annule %} — annulé : {{ mv.motif_annulation }}{% endif %}</td>
+                <td>{{ mv.utilisateur|default:'—' }}</td>
+                <td>{% if mv.type == 'SORTIE' and not mv.annule %}
+                  <form method="post" action="{% url 'annuler_mouvement_produit_fini' mv.id %}" onsubmit="return confirm('Annuler cette sortie ?')">
+                    {% csrf_token %}<button class="bg-red-800 hover:bg-red-700 px-2 py-1 rounded text-xs">Annuler</button>
+                  </form>{% endif %}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </details>
+        {% endif %}
+      </details>
+      {% endwith %}
+      {% endfor %}
+    </details>
+    {% endfor %}
+  </details>
+  {% empty %}
+  <p class="text-gray-400">Aucun produit fini reçu de la pesée pour l’instant.</p>
+  {% endfor %}
+</div>
+{% endblock %}

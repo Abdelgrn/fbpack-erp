@@ -42,7 +42,11 @@ from .views.security_monitoring import (
     security_monitoring,
 )
 
-
+from core.views.produit_fini import (
+    stock_produit_fini_arbre, destocker_produit_fini,
+    annuler_mouvement_produit_fini, api_pesee_sync,
+)
+from core.views.suivi_postes import suivi_postes, entrer_en_stock_produit_fini
 def _existing_feature_view(module_path, candidate_names, feature_label):
     """Adaptateur cumulatif pour les noms de vues livrés par les lots 0042/0044.
 
@@ -359,7 +363,12 @@ urlpatterns = [
     path('stock/bc/<int:id>/reception/', views.bc_reception, name='bc_reception'),
     path('stock/seuil/<int:material_id>/update/', views.seuil_update, name='seuil_update'),
     path('stock/api/dashboard/', views.stock_dashboard_data, name='stock_dashboard_data'),
-
+    path('stock/produit-fini/', stock_produit_fini_arbre, name='stock_produit_fini'),
+    path('stock/produit-fini/lot/<int:lot_id>/destocker/', destocker_produit_fini, name='destocker_produit_fini'),
+    path('stock/produit-fini/mouvement/<int:mv_id>/annuler/', annuler_mouvement_produit_fini, name='annuler_mouvement_produit_fini'),
+    path('stock/suivi-postes/', suivi_postes, name='suivi_postes'),
+    path('stock/suivi-postes/lot/<int:lot_id>/entrer/', entrer_en_stock_produit_fini, name='entrer_en_stock_produit_fini'),
+    path('api/pesee/sync/', api_pesee_sync, name='api_pesee_sync'),
     # ==========================================
     # PARC MACHINE
     # ==========================================

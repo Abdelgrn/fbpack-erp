@@ -170,7 +170,8 @@ MAX_REQUEST_BODY_BYTES = int(os.environ.get('MAX_REQUEST_BODY_BYTES', 25 * 1024 
 DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_REQUEST_BODY_BYTES
 FILE_UPLOAD_MAX_MEMORY_SIZE = min(MAX_REQUEST_BODY_BYTES, 5 * 1024 * 1024)
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
-
+# Jeton de la pesée (à définir dans Render : PESEE_SYNC_TOKEN, valeur longue et aléatoire)
+PESEE_SYNC_TOKEN = os.environ.get('PESEE_SYNC_TOKEN', '')
 # Centre de surveillance des connexions (migration core 0047).
 # Render remplace X-Forwarded-For ; en local cette confiance reste désactivée.
 SECURITY_TRUST_PROXY_HEADERS = env_bool('SECURITY_TRUST_PROXY_HEADERS', default=IS_RENDER)

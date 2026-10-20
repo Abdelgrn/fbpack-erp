@@ -20,6 +20,16 @@
     <button onclick="showTab('fournisseurs')" id="tabBtn-fournisseurs" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
         🏢 Fournisseurs
     </button>
+    <a href="{% url 'stock_produit_fini' %}" id="tabLink-produit-fini"
+        class="px-5 py-3 text-sm font-bold border-b-2 border-transparent text-emerald-400 hover:text-emerald-300 transition whitespace-nowrap">
+        📦 Produit fini
+    </a>
+    {% if user.is_superuser or user.module_permissions.can_access_suivi_postes %}
+    <a href="{% url 'suivi_postes' %}" id="tabLink-suivi-postes"
+        class="px-5 py-3 text-sm font-bold border-b-2 border-transparent text-sky-400 hover:text-sky-300 transition whitespace-nowrap">
+        🏭 Suivi par poste
+    </a>
+    {% endif %}
 </div>
 
 
