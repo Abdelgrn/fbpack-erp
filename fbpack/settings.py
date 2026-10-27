@@ -134,13 +134,20 @@ if IS_RENDER and os.environ.get('DATABASE_URL'):
         )
     }
 else:
+    # SQLite (développement local). Le chat et les notifications écrivent en continu :
+    # sans réglage, SQLite répond « database is locked ».
+    _sqlite_options = {'timeout': 30}  # attend jusqu'à 30 s qu'une écriture se termine
+    if django.VERSION >= (5, 1):
+        # IMMEDIATE : une transaction réserve l'écriture dès son début et attend son tour,
+        #             au lieu d'échouer en cours de route.
+        # WAL       : les lectures (chat, notifications) ne bloquent plus les écritures.
+        _sqlite_options['transaction_mode'] = 'IMMEDIATE'
+        _sqlite_options['init_command'] = 'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;'
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
-            # Attend jusqu'à 30 s qu'une écriture simultanée se termine (défaut : 5 s),
-            # ce qui évite « database is locked » avec le chat et les notifications en local.
-            'OPTIONS': {'timeout': 30},
+            'OPTIONS': _sqlite_options,
         }
     }
 
