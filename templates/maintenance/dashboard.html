@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load security_tags %}
 
 {% block content %}
 <!-- EN-TÊTE -->
@@ -265,9 +266,9 @@
 new Chart(document.getElementById('chartRepartition'), {
     type: 'doughnut',
     data: {
-        labels: {{ repartition_type_labels|safe }},
+        labels: {{ repartition_type_labels|json_embed }},
         datasets: [{
-            data: {{ repartition_type_data|safe }},
+            data: {{ repartition_type_data|json_embed }},
             backgroundColor: ['#ef4444', '#3b82f6', '#a855f7', '#22c55e'],
             borderWidth: 0,
         }]
@@ -282,10 +283,10 @@ new Chart(document.getElementById('chartRepartition'), {
 new Chart(document.getElementById('chartTopPannes'), {
     type: 'bar',
     data: {
-        labels: {{ top_pannes_labels|safe }},
+        labels: {{ top_pannes_labels|json_embed }},
         datasets: [{
             label: 'Pannes',
-            data: {{ top_pannes_data|safe }},
+            data: {{ top_pannes_data|json_embed }},
             backgroundColor: '#ef4444',
             borderRadius: 6,
         }]
@@ -304,10 +305,10 @@ new Chart(document.getElementById('chartTopPannes'), {
 new Chart(document.getElementById('chartEvolution'), {
     type: 'line',
     data: {
-        labels: {{ evolution_arret_mois|safe }},
+        labels: {{ evolution_arret_mois|json_embed }},
         datasets: [{
             label: "Heures d'arrêt",
-            data: {{ evolution_arret_data|safe }},
+            data: {{ evolution_arret_data|json_embed }},
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245,158,11,0.1)',
             fill: true,

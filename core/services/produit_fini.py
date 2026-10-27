@@ -51,8 +51,14 @@ def _lot_pour(client_nom, produit_nom, numero_lot):
     """Retourne le lot (créé si besoin), en rattachant client/produit s'ils sont reconnus."""
     client = _trouver_client(client_nom)
     produit = _trouver_produit(client, produit_nom)
-    lot, _ = ProduitFiniLot.objects.get_or_create(
-        client_nom=client_nom, produit_nom=produit_nom, numero_lot=numero_lot)
+    # Casse et espaces ignorées : « chor khaled » et « CHOR KHALED » désignent le même lot.
+    lot = (ProduitFiniLot.objects
+           .filter(client_nom__iexact=client_nom, produit_nom__iexact=produit_nom,
+                   numero_lot__iexact=numero_lot)
+           .order_by('id').first())
+    if lot is None:
+        lot = ProduitFiniLot.objects.create(
+            client_nom=client_nom, produit_nom=produit_nom, numero_lot=numero_lot)
     changes = []
     if lot.client_id is None and client is not None:
         lot.client = client
@@ -116,7 +122,15 @@ def enregistrer_cloture_job(p):
         lot = _lot_pour(client_nom, produit_nom, numero_lot)
         if lot.job_clos_le is None:
             lot.job_clos_le = timezone.now()
-            lot.save(update_fields=['job_clos_le'])
+            champs = ['job_clos_le']
+            temps = p.get('temps_production_min')
+            if temps is not None and str(temps).strip() != '':
+                try:
+                    lot.temps_production_min = max(0, int(round(float(temps))))
+                    champs.append('temps_production_min')
+                except (TypeError, ValueError):
+                    pass  # temps illisible : le job reste clôturé, sans temps
+            lot.save(update_fields=champs)
     return 'cloture'
 
 

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load security_tags %}
 {% block content %}
 
 <h1 class="text-3xl font-black text-white mb-2">🎨 Détail — {{ conso.job_name }}</h1>
@@ -93,10 +94,10 @@
 new Chart(document.getElementById('chartDetail'), {
     type: 'doughnut',
     data: {
-        labels:   {{ pie_noms_json|safe }},
+        labels:   {{ pie_noms_json|json_embed }},
         datasets: [{
-            data:            {{ pie_vals_json|safe }},
-            backgroundColor: {{ pie_cols_json|safe }},
+            data:            {{ pie_vals_json|json_embed }},
+            backgroundColor: {{ pie_cols_json|json_embed }},
             borderColor:     '#1e293b',
             borderWidth:     3,
         }]

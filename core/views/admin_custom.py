@@ -1,24 +1,24 @@
-from django.shortcuts import redirect, get_object_or_404, render
-from django.contrib.auth.decorators import login_required
-from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.models import User, Group
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
-from django.views.decorators.http import require_POST
-from django.contrib.admin.models import LogEntry
-from django.db.models import Count, Q
-from django.contrib import messages
-from django.http import HttpResponse, JsonResponse, FileResponse
-from django.core.management import call_command
-from django.utils import timezone
-from django.conf import settings
-from django.templatetags.static import static
-import traceback
-import io
-import os
+import hmac
+import logging
 import shutil
-import secrets
 from datetime import timedelta
+from functools import wraps
+
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.admin.models import LogEntry
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import Group, User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.validators import validate_email
+from django.db import IntegrityError, transaction
+from django.db.models import Count, Q
+from django.http import FileResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from ..models import Client, Opportunite, Quote, OrdreFabrication, ProductionEntry, Material, Machine
 from ..models.permissions import UserModulePermission, ModuleAdministrator, AdministrationAuditLog
@@ -30,6 +30,8 @@ from ..services.security_monitoring import (
     get_request_network,
     revoke_all_user_sessions,
 )
+
+logger = logging.getLogger('security')
 
 
 MODULES_LIST = [
@@ -49,6 +51,11 @@ MODULES_LIST = [
     ('admin', '⚙️ Administration'),
 ]
 
+# Modules accordés à (presque) tout le monde : ils ne comptent pas pour décider
+# si un administrateur délégué a « tout le contrôle » sur un compte.
+COMMON_MODULES = {'dashboard', 'chat', 'kpi'}
+MAX_USERNAME_LENGTH = 150
+
 
 def _managed_modules(user):
     if user.is_superuser:
@@ -63,11 +70,10 @@ def _audit(request, action, target=None, module='', details=''):
 
 
 def erp_admin_required(view_func):
-    from functools import wraps
-    from django.core.exceptions import PermissionDenied
     @wraps(view_func)
     def wrapped(request, *args, **kwargs):
-        if request.user.is_superuser or _managed_modules(request.user):
+        user = request.user
+        if user.is_active and (user.is_superuser or _managed_modules(user)):
             return view_func(request, *args, **kwargs)
         raise PermissionDenied("Accès Administration ERP refusé.")
     return wrapped
@@ -83,6 +89,22 @@ def _can_manage_user(actor, target):
         return bool(set(managed) & set(target.module_permissions.get_allowed_modules()))
     except UserModulePermission.DoesNotExist:
         return False
+
+
+def _has_full_control(actor, target):
+    """Nom, e-mail et mot de passe : un administrateur délégué ne peut les modifier que si
+    tous les modules (hors Dashboard, Chat, KPI) du compte cible relèvent de lui.
+    Sinon il pourrait réinitialiser le mot de passe d'un compte qui a aussi accès à d'autres
+    modules (ex. RH) et en prendre le contrôle."""
+    if actor.is_superuser:
+        return True
+    if not _can_manage_user(actor, target):
+        return False
+    try:
+        target_modules = set(target.module_permissions.get_allowed_modules())
+    except UserModulePermission.DoesNotExist:
+        return False
+    return (target_modules - COMMON_MODULES).issubset(set(_managed_modules(actor)))
 
 
 @login_required
@@ -177,56 +199,78 @@ def admin_view(request):
 @erp_admin_required
 @require_POST
 def admin_add_user(request):
-    if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '').strip()
-        is_staff = request.POST.get('is_staff') == 'on' if request.user.is_superuser else False
-        is_active = request.POST.get('is_active') == 'on'
-        create_superuser = request.POST.get('create_superuser') == 'on'
-        if create_superuser:
-            if not request.user.is_superuser:
-                from django.core.exceptions import PermissionDenied
-                raise PermissionDenied("Seul un superadministrateur peut créer un autre superadministrateur.")
-            if not request.user.check_password(request.POST.get('admin_current_password', '')):
-                messages.error(request, "Mot de passe du superadministrateur connecté incorrect.")
-                return redirect('admin_view')
-            if request.POST.get('admin_confirmation', '').strip().upper() != 'CONFIRMER':
-                messages.error(request, "Saisissez exactement CONFIRMER pour créer le superadministrateur.")
-                return redirect('admin_view')
-            is_staff = True
-            is_active = True
+    username = request.POST.get('username', '').strip()
+    email = request.POST.get('email', '').strip()
+    password = request.POST.get('password', '').strip()
+    is_staff = request.POST.get('is_staff') == 'on' if request.user.is_superuser else False
+    is_active = request.POST.get('is_active') == 'on'
+    create_superuser = request.POST.get('create_superuser') == 'on'
 
-        # Création : mot de passe OBLIGATOIRE et validé par la politique Django.
-        if username and password:
-            try:
-                validate_password(password)
-            except ValidationError as exc:
-                messages.error(request, "❌ Mot de passe refusé : " + " ".join(exc.messages))
-                return redirect('admin_view')
-            if not User.objects.filter(username=username).exists():
-                u = User.objects.create_user(username=username, email=email, password=password)
-                u.is_staff = is_staff
-                u.is_superuser = create_superuser
-                u.is_active = is_active
-                u.save()
+    if create_superuser:
+        if not request.user.is_superuser:
+            raise PermissionDenied("Seul un superadministrateur peut créer un autre superadministrateur.")
+        if not request.user.check_password(request.POST.get('admin_current_password', '')):
+            messages.error(request, "Mot de passe du superadministrateur connecté incorrect.")
+            return redirect('admin_view')
+        if request.POST.get('admin_confirmation', '').strip().upper() != 'CONFIRMER':
+            messages.error(request, "Saisissez exactement CONFIRMER pour créer le superadministrateur.")
+            return redirect('admin_view')
+        is_staff = True
+        is_active = True
 
-                perms = UserModulePermission.objects.create(user=u)
-                for module_code, _ in MODULES_LIST:
-                    field_name = f'can_access_{module_code}'
-                    value = create_superuser or (request.POST.get(f'module_{module_code}') == 'on' and module_code in _managed_modules(request.user))
-                    setattr(perms, field_name, value)
-                perms.save()
+    # Création : nom d'utilisateur et mot de passe OBLIGATOIRES, validés par la politique Django.
+    if not (username and password):
+        messages.error(request, "❌ Nom d'utilisateur et mot de passe obligatoires pour la création.")
+        return redirect('admin_view')
 
-                _audit(request, 'SUPERUSER_CREATED' if create_superuser else 'USER_CREATED', u, 'admin' if create_superuser else '', request.POST.get('admin_reason', '').strip())
-                if create_superuser:
-                    messages.success(request, f"👑 Superadministrateur '{username}' créé avec succès.")
-                else:
-                    messages.success(request, f"✅ Utilisateur '{username}' créé avec succès !")
-            else:
+    try:
+        if len(username) > MAX_USERNAME_LENGTH:
+            raise ValidationError(f"Nom d'utilisateur limité à {MAX_USERNAME_LENGTH} caractères.")
+        User.username_validator(username)
+        if email:
+            validate_email(email)
+        # L'utilisateur provisoire permet de refuser un mot de passe proche du nom ou de l'e-mail.
+        validate_password(password, user=User(username=username, email=email))
+    except ValidationError as exc:
+        messages.error(request, "❌ Données refusées : " + " ".join(exc.messages))
+        return redirect('admin_view')
+
+    managed = set(_managed_modules(request.user))
+    try:
+        with transaction.atomic():
+            if User.objects.filter(username__iexact=username).exists():
                 messages.error(request, f"❌ Le nom d'utilisateur '{username}' existe déjà.")
-        else:
-            messages.error(request, "❌ Nom d'utilisateur et mot de passe obligatoires pour la création.")
+                return redirect('admin_view')
+
+            u = User.objects.create_user(username=username, email=email, password=password)
+            u.is_staff = is_staff
+            u.is_superuser = create_superuser
+            u.is_active = is_active
+            u.save()
+
+            perms = UserModulePermission.objects.create(user=u)
+            for module_code, _ in MODULES_LIST:
+                value = create_superuser or (
+                    request.POST.get(f'module_{module_code}') == 'on' and module_code in managed
+                )
+                setattr(perms, f'can_access_{module_code}', value)
+            perms.save()
+
+            _audit(
+                request,
+                'SUPERUSER_CREATED' if create_superuser else 'USER_CREATED',
+                u,
+                'admin' if create_superuser else '',
+                request.POST.get('admin_reason', '').strip(),
+            )
+    except IntegrityError:
+        messages.error(request, "❌ Création impossible : ce compte existe déjà.")
+        return redirect('admin_view')
+
+    if create_superuser:
+        messages.success(request, f"👑 Superadministrateur '{username}' créé avec succès.")
+    else:
+        messages.success(request, f"✅ Utilisateur '{username}' créé avec succès !")
     return redirect('admin_view')
 
 
@@ -236,83 +280,107 @@ def admin_add_user(request):
 def admin_edit_user(request, user_id):
     """
     Modification d'un utilisateur :
-    - modules / email / staff / actif : toujours modifiables
-    - mot de passe : OPTIONNEL
-      → si vide  = on GARDE l'ancien mot de passe (le manager n'a pas besoin de le connaître)
-      → si rempli = on change uniquement le mot de passe
+    - modules / staff / actif : toujours modifiables (dans le périmètre de l'administrateur)
+    - nom, e-mail, mot de passe : superadministrateur, ou administrateur délégué ayant tout
+      le contrôle du compte (voir _has_full_control)
+    - mot de passe : OPTIONNEL (vide = on garde l'ancien)
     """
     u = get_object_or_404(User, id=user_id)
     if not _can_manage_user(request.user, u):
-        from django.core.exceptions import PermissionDenied
         raise PermissionDenied('Vous ne pouvez pas administrer cet utilisateur.')
 
+    managed = set(_managed_modules(request.user))
+    full_control = _has_full_control(request.user, u)
     original_is_active = u.is_active
-    if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '').strip()  # peut être vide
-        is_staff = request.POST.get('is_staff') == 'on' if request.user.is_superuser else u.is_staff
-        is_active = request.POST.get('is_active') == 'on'
 
-        # Sécurité : ne pas retomber sur un username déjà pris par un autre compte
-        if username and username != u.username and User.objects.filter(username=username).exclude(id=u.id).exists():
-            messages.error(request, f"❌ Le nom d'utilisateur '{username}' est déjà utilisé.")
+    username = request.POST.get('username', '').strip()
+    email = request.POST.get('email', '').strip()
+    password = request.POST.get('password', '').strip()  # peut être vide
+    is_staff = request.POST.get('is_staff') == 'on' if request.user.is_superuser else u.is_staff
+    is_active = request.POST.get('is_active') == 'on'
+
+    if not full_control and (password or (username and username != u.username) or email != u.email):
+        messages.warning(
+            request,
+            "⚠️ Nom, e-mail et mot de passe non modifiés : ce compte a des accès en dehors de "
+            "vos modules. Demandez à un superadministrateur.",
+        )
+        username, email, password = u.username, u.email, ''
+
+    # Ne pas retomber sur un username déjà pris par un autre compte.
+    if username and username != u.username:
+        if len(username) > MAX_USERNAME_LENGTH or User.objects.filter(username__iexact=username).exclude(id=u.id).exists():
+            messages.error(request, f"❌ Le nom d'utilisateur '{username}' est invalide ou déjà utilisé.")
+            return redirect('admin_view')
+        try:
+            User.username_validator(username)
+        except ValidationError as exc:
+            messages.error(request, "❌ Nom d'utilisateur refusé : " + " ".join(exc.messages))
             return redirect('admin_view')
 
-        # Infos de base (sans toucher au mot de passe)
+    if email and email != u.email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.error(request, "❌ Adresse e-mail invalide.")
+            return redirect('admin_view')
+
+    if password:
+        try:
+            validate_password(password, user=u)
+        except ValidationError as exc:
+            messages.error(request, "❌ Mot de passe refusé : " + " ".join(exc.messages))
+            return redirect('admin_view')
+
+    with transaction.atomic():
         if username:
             u.username = username
         u.email = email
 
-        # Ne pas retirer is_staff / is_active d'un superuser par erreur de case
+        # Ne pas retirer is_staff / is_active d'un superuser par erreur de case.
         if not u.is_superuser:
             u.is_staff = is_staff
             u.is_active = is_active
 
         password_changed = False
-        # >>> CLÉ MÉTIER : mot de passe optionnel à l'édition <<<
         if password:
-            try:
-                validate_password(password, user=u)
-            except ValidationError as exc:
-                messages.error(request, "❌ Mot de passe refusé : " + " ".join(exc.messages))
-                return redirect('admin_view')
             u.set_password(password)
             password_changed = True
 
         u.save()
 
-        if not u.is_superuser and original_is_active != u.is_active:
-            clear_temporary_disable_state(u)
-            if not u.is_active:
-                revoke_all_user_sessions(
-                    u,
-                    request.user,
-                    reason='Compte désactivé depuis Administration ERP',
-                )
-
-        # Modules ERP (indépendants du mot de passe)
-        perms, created = UserModulePermission.objects.get_or_create(user=u)
+        # Modules ERP (indépendants du mot de passe).
+        perms, _created = UserModulePermission.objects.get_or_create(user=u)
         for module_code, _ in MODULES_LIST:
-            field_name = f'can_access_{module_code}'
-            # Les superusers gardent tout ; on enregistre quand même les cases pour cohérence
-            if request.user.is_superuser or module_code in _managed_modules(request.user):
-                value = request.POST.get(f'module_{module_code}') == 'on'
-                setattr(perms, field_name, value)
+            if request.user.is_superuser or module_code in managed:
+                setattr(perms, f'can_access_{module_code}', request.POST.get(f'module_{module_code}') == 'on')
         perms.save()
 
-        if password_changed:
-            messages.success(
-                request,
-                f"✅ Utilisateur '{u.username}' mis à jour (modules + nouveau mot de passe)."
-            )
-        else:
-            messages.success(
-                request,
-                f"✅ Utilisateur '{u.username}' mis à jour. "
-                f"Le mot de passe existant a été conservé (aucune saisie requise)."
+        _audit(
+            request,
+            'PASSWORD_CHANGED' if password_changed else 'USER_UPDATED',
+            u,
+            '',
+            'Mot de passe modifié' if password_changed else '',
+        )
+
+    if not u.is_superuser and original_is_active != u.is_active:
+        clear_temporary_disable_state(u)
+        if not u.is_active:
+            revoke_all_user_sessions(
+                u,
+                request.user,
+                reason='Compte désactivé depuis Administration ERP',
             )
 
+    if password_changed:
+        messages.success(request, f"✅ Utilisateur '{u.username}' mis à jour (modules + nouveau mot de passe).")
+    else:
+        messages.success(
+            request,
+            f"✅ Utilisateur '{u.username}' mis à jour. "
+            f"Le mot de passe existant a été conservé (aucune saisie requise).",
+        )
     return redirect('admin_view')
 
 
@@ -322,7 +390,6 @@ def admin_edit_user(request, user_id):
 def admin_toggle_user(request, user_id):
     u = get_object_or_404(User, id=user_id)
     if not _can_manage_user(request.user, u):
-        from django.core.exceptions import PermissionDenied
         raise PermissionDenied('Vous ne pouvez pas administrer cet utilisateur.')
     if not u.is_superuser:
         u.is_active = not u.is_active
@@ -344,7 +411,6 @@ def admin_toggle_user(request, user_id):
 @require_POST
 def admin_promote_superuser(request, user_id):
     if not request.user.is_superuser:
-        from django.core.exceptions import PermissionDenied
         raise PermissionDenied("Action réservée au superadministrateur.")
     target = get_object_or_404(User, pk=user_id)
     password = request.POST.get('current_password', '')
@@ -357,7 +423,9 @@ def admin_promote_superuser(request, user_id):
     elif target.is_superuser:
         messages.info(request, f"{target.username} est déjà superadministrateur.")
     else:
-        target.is_active = True; target.is_staff = True; target.is_superuser = True
+        target.is_active = True
+        target.is_staff = True
+        target.is_superuser = True
         target.save(update_fields=['is_active', 'is_staff', 'is_superuser'])
         _audit(request, 'SUPERUSER_GRANTED', target, 'admin', reason or 'Promotion depuis Administration ERP')
         messages.success(request, f"{target.username} est maintenant superadministrateur ERP.")
@@ -368,7 +436,6 @@ def admin_promote_superuser(request, user_id):
 @require_POST
 def admin_demote_superuser(request, user_id):
     if not request.user.is_superuser:
-        from django.core.exceptions import PermissionDenied
         raise PermissionDenied("Action réservée au superadministrateur.")
     target = get_object_or_404(User, pk=user_id)
     password = request.POST.get('current_password', '')
@@ -385,7 +452,8 @@ def admin_demote_superuser(request, user_id):
     elif not target.is_superuser:
         messages.info(request, f"{target.username} n'est pas superadministrateur.")
     else:
-        target.is_superuser = False; target.is_staff = False
+        target.is_superuser = False
+        target.is_staff = False
         target.save(update_fields=['is_superuser', 'is_staff'])
         _audit(request, 'SUPERUSER_REVOKED', target, 'admin', reason or 'Rétrogradation depuis Administration ERP')
         messages.success(request, f"Les droits superadministrateur de {target.username} ont été retirés.")
@@ -396,49 +464,70 @@ def admin_demote_superuser(request, user_id):
 @require_POST
 def admin_assign_module_manager(request):
     if not request.user.is_superuser:
-        from django.core.exceptions import PermissionDenied
-        raise PermissionDenied
-    user = get_object_or_404(User, pk=request.POST.get('user_id'))
+        raise PermissionDenied("Action réservée au superadministrateur.")
+    try:
+        target_id = int(request.POST.get('user_id', ''))
+    except (TypeError, ValueError):
+        messages.error(request, 'Délégation invalide.')
+        return redirect('admin_view')
+    user = get_object_or_404(User, pk=target_id)
     module = request.POST.get('module')
     if module not in dict(MODULES_LIST) or module == 'admin' or user.is_superuser:
         messages.error(request, 'Délégation invalide.')
     else:
-        ModuleAdministrator.objects.update_or_create(user=user, module=module,
-            defaults={'granted_by': request.user, 'is_active': True})
-        perms, _ = UserModulePermission.objects.get_or_create(user=user)
-        setattr(perms, f'can_access_{module}', True); perms.can_access_admin = True; perms.save()
-        _audit(request, 'MODULE_ADMIN_GRANTED', user, module)
+        with transaction.atomic():
+            ModuleAdministrator.objects.update_or_create(
+                user=user, module=module,
+                defaults={'granted_by': request.user, 'is_active': True},
+            )
+            perms, _created = UserModulePermission.objects.get_or_create(user=user)
+            setattr(perms, f'can_access_{module}', True)
+            perms.can_access_admin = True
+            perms.save()
+            _audit(request, 'MODULE_ADMIN_GRANTED', user, module)
         messages.success(request, f'{user.username} est maintenant administrateur du module {module}.')
     return redirect('admin_view')
+
 
 @login_required
 @require_POST
 def admin_revoke_module_manager(request, delegation_id):
     if not request.user.is_superuser:
-        from django.core.exceptions import PermissionDenied
-        raise PermissionDenied
+        raise PermissionDenied("Action réservée au superadministrateur.")
     delegation = get_object_or_404(ModuleAdministrator, pk=delegation_id)
-    delegation.is_active = False; delegation.save(update_fields=['is_active'])
-    _audit(request, 'MODULE_ADMIN_REVOKED', delegation.user, delegation.module)
+    with transaction.atomic():
+        delegation.is_active = False
+        delegation.save(update_fields=['is_active'])
+        # Plus aucune délégation active : on retire aussi l'accès « Administration » accordé
+        # automatiquement lors de la délégation.
+        if not ModuleAdministrator.objects.filter(user=delegation.user, is_active=True).exists():
+            UserModulePermission.objects.filter(user=delegation.user).update(can_access_admin=False)
+        _audit(request, 'MODULE_ADMIN_REVOKED', delegation.user, delegation.module)
     messages.success(request, 'Délégation retirée.')
     return redirect('admin_view')
 
 
 @login_required
-@staff_member_required
 @require_POST
 def admin_import_data_view(request):
-    """Bouton d'importation manuelle des données du PC en 1 clic"""
+    """Importation manuelle des données du PC en 1 clic. Réservée au superadministrateur."""
+    if not request.user.is_superuser:
+        raise PermissionDenied("Action réservée au superadministrateur.")
     try:
         success, message = robust_import_local_data()
+        _audit(request, 'DATA_IMPORT', request.user, 'admin',
+               'Import manuel des données' + ('' if success else ' (échec)'))
         if success:
             messages.success(request, message)
         else:
             messages.error(request, message)
-    except Exception as e:
-        print("=== ERREUR IMPORT DATA ===")
-        print(traceback.format_exc())
-        messages.error(request, f"❌ Erreur critique lors de l'importation: {type(e).__name__} - {str(e)}")
+    except Exception as exc:
+        logger.exception('admin_import_data_failed')
+        messages.error(
+            request,
+            f"❌ Erreur critique lors de l'importation : {type(exc).__name__}. "
+            "Détails dans les journaux du serveur.",
+        )
     return redirect('admin_view')
 
 
@@ -446,44 +535,97 @@ def admin_import_data_view(request):
 @require_POST
 def admin_restore_backup_view(request):
     if not request.user.is_superuser:
-        return JsonResponse({'error':'Accès refusé'},status=403)
-    uploaded=request.FILES.get('backup_file')
+        return JsonResponse({'error': 'Accès refusé'}, status=403)
+
+    uploaded = request.FILES.get('backup_file')
     if not uploaded or not uploaded.name.lower().endswith('.zip'):
-        messages.error(request,'Sélectionnez une sauvegarde complète .zip.'); return redirect('admin_view')
-    if not request.user.check_password(request.POST.get('current_password','')) or request.POST.get('confirmation','').strip().upper()!='RESTAURER':
-        messages.error(request,'Mot de passe incorrect ou confirmation RESTAURER absente.'); return redirect('admin_view')
-    root=work=None
+        messages.error(request, 'Sélectionnez une sauvegarde complète .zip.')
+        return redirect('admin_view')
+
+    max_bytes = int(getattr(settings, 'BACKUP_MAX_UPLOAD_BYTES', 1024 * 1024 * 1024))
+    if uploaded.size > max_bytes:
+        messages.error(request, 'Archive trop volumineuse.')
+        return redirect('admin_view')
+
+    if (
+        not request.user.check_password(request.POST.get('current_password', ''))
+        or request.POST.get('confirmation', '').strip().upper() != 'RESTAURER'
+    ):
+        messages.error(request, 'Mot de passe incorrect ou confirmation RESTAURER absente.')
+        return redirect('admin_view')
+
+    root = work = None
     try:
-        # Sauvegarde de sécurité avant toute modification.
-        emergency, emergency_work=create_full_backup()
-        root,work=validate_and_extract(uploaded)
-        success,message=robust_import_local_data(specific_file=str(root/'database.json'))
-        if not success: raise RuntimeError(message)
+        # Sauvegarde de sécurité avant toute modification (conservée côté serveur).
+        emergency_archive, _emergency_work = create_full_backup()
+        logger.info('full_restore_emergency_backup name=%s', getattr(emergency_archive, 'name', ''))
+
+        root, work = validate_and_extract(uploaded)
+        success, message = robust_import_local_data(specific_file=str(root / 'database.json'))
+        if not success:
+            raise RuntimeError(message)
         restore_media(root)
-        _audit(request,'FULL_RESTORE',request.user,'admin',f'Archive {uploaded.name}')
-        messages.success(request,'Restauration complète réussie. Une sauvegarde de sécurité préalable a été créée côté serveur.')
-    except Exception as exc:
-        messages.error(request,f'Restauration annulée : {exc}')
+
+        _audit(request, 'FULL_RESTORE', request.user, 'admin', f'Archive {uploaded.name}')
+        messages.success(
+            request,
+            'Restauration complète réussie. Une sauvegarde de sécurité préalable a été créée côté serveur.',
+        )
+    except (ValueError, RuntimeError) as exc:
+        logger.warning('full_restore_refused error=%s', type(exc).__name__)
+        messages.error(request, f'Restauration annulée : {exc}')
+    except Exception:
+        logger.exception('full_restore_failed')
+        messages.error(request, 'Restauration annulée : erreur interne. Détails dans les journaux du serveur.')
     finally:
-        if work: shutil.rmtree(work,ignore_errors=True)
+        if work:
+            shutil.rmtree(work, ignore_errors=True)
     return redirect('admin_view')
 
 
 def export_database_backup(request):
-    expected=getattr(settings,'BACKUP_AGENT_TOKEN','')
-    auth=request.headers.get('Authorization','')
-    token=auth[7:] if auth.startswith('Bearer ') else ''
-    authorized=(request.user.is_authenticated and request.user.is_superuser) or (expected and secrets.compare_digest(token,expected))
-    if not authorized: return JsonResponse({'error':'Accès non autorisé'},status=403)
-    archive=work=None
+    """Téléchargement de la sauvegarde complète.
+
+    Autorisé uniquement : (1) à un superadministrateur connecté, ou (2) à l'agent de sauvegarde
+    avec l'en-tête « Authorization: Bearer <BACKUP_AGENT_TOKEN> ». Si le jeton n'est pas
+    configuré, seule la voie (1) fonctionne.
+    """
+    expected = (getattr(settings, 'BACKUP_AGENT_TOKEN', '') or '').strip()
+    auth = request.headers.get('Authorization', '')
+    token = auth[7:].strip() if auth.startswith('Bearer ') else ''
+
+    user = request.user
+    by_session = bool(user.is_authenticated and user.is_active and user.is_superuser)
+    # Comparaison à temps constant, sur des octets (accepte les caractères non ASCII sans erreur).
+    by_token = bool(expected) and bool(token) and hmac.compare_digest(
+        token.encode('utf-8'), expected.encode('utf-8')
+    )
+    if not (by_session or by_token):
+        logger.warning('backup_download_refused')
+        return JsonResponse({'error': 'Accès non autorisé'}, status=403)
+
+    archive = work = None
     try:
-        archive,work=create_full_backup()
-        response=FileResponse(open(archive,'rb'),content_type='application/zip',as_attachment=True,filename=archive.name)
-        response._resource_closers.append(lambda: shutil.rmtree(work,ignore_errors=True))
+        archive, work = create_full_backup()
+        response = FileResponse(
+            open(archive, 'rb'),
+            content_type='application/zip',
+            as_attachment=True,
+            filename=archive.name,
+        )
+        response._resource_closers.append(lambda: shutil.rmtree(work, ignore_errors=True))
+        logger.info('backup_download_ok by=%s', 'session' if by_session else 'token')
+        if by_session:
+            try:
+                _audit(request, 'BACKUP_DOWNLOADED', request.user, 'admin')
+            except Exception:
+                logger.exception('backup_download_audit_failed')
         return response
     except Exception:
-        if work: shutil.rmtree(work,ignore_errors=True)
-        return JsonResponse({'error':'Échec de création de la sauvegarde'},status=500)
+        logger.exception('backup_download_failed')
+        if work:
+            shutil.rmtree(work, ignore_errors=True)
+        return JsonResponse({'error': 'Échec de création de la sauvegarde'}, status=500)
 
 
 def manifest_view(request):

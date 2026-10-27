@@ -1,14 +1,19 @@
 import json
+import logging
 import openpyxl
 from collections import defaultdict
 from datetime import timedelta, date
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from openpyxl.styles import Font, PatternFill
+
+from ..decorators import module_required
+from .security_utils import parse_date, parse_int, parse_time, safe_json, self_approval_blocked, xl_safe
 
 from ..models import (
     Employee, Department, Position, Skill, EmployeeSkill, MachineAuthorization,
@@ -21,7 +26,13 @@ from ..forms import (
     WorkIncidentForm, MedicalVisitForm, ProtectiveEquipmentForm, DepartmentForm, PositionForm, ShiftForm
 )
 
+logger = logging.getLogger('security')
+
+# Bulletins figés : ni recalcul ni nouvelle validation.
+LOCKED_PAYSLIP_STATUSES = ('VALIDE', 'PAYE')
+
 @login_required
+@module_required('drh')
 def drh_dashboard(request):
     today = timezone.now().date()
     current_month = today.month
@@ -109,11 +120,11 @@ def drh_dashboard(request):
         'masse_salariale': masse_salariale,
         'incidents_mois': incidents_mois,
         'visites_a_planifier': visites_a_planifier,
-        'repartition_dept_labels': json.dumps([d['name'] for d in repartition_dept]),
-        'repartition_dept_data': json.dumps([d['nb_emp'] for d in repartition_dept]),
+        'repartition_dept_labels': safe_json([d['name'] for d in repartition_dept]),
+        'repartition_dept_data': safe_json([d['nb_emp'] for d in repartition_dept]),
         'repartition_contrat': list(repartition_contrat),
-        'evolution_mois': json.dumps([e['mois'] for e in evolution_effectifs]),
-        'evolution_data': json.dumps([e['count'] for e in evolution_effectifs]),
+        'evolution_mois': safe_json([e['mois'] for e in evolution_effectifs]),
+        'evolution_data': safe_json([e['count'] for e in evolution_effectifs]),
         'employes_recents': employes_recents,
         'conges_recents': conges_recents,
         'today': today,
@@ -123,6 +134,7 @@ def drh_dashboard(request):
 
 
 @login_required
+@module_required('drh')
 def employee_list(request):
     search = request.GET.get('q', '')
     department = request.GET.get('department', '')
@@ -168,6 +180,7 @@ def employee_list(request):
 
 
 @login_required
+@module_required('drh')
 def employee_detail(request, emp_id):
     employee = get_object_or_404(
         Employee.objects.select_related(
@@ -209,6 +222,7 @@ def employee_detail(request, emp_id):
 
 
 @login_required
+@module_required('drh')
 def employee_create(request):
     if request.method == 'POST':
         form = EmployeeForm(request.POST, request.FILES)
@@ -226,6 +240,7 @@ def employee_create(request):
 
 
 @login_required
+@module_required('drh')
 def employee_edit(request, emp_id):
     employee = get_object_or_404(Employee, id=emp_id)
 
@@ -246,6 +261,7 @@ def employee_edit(request, emp_id):
 
 
 @login_required
+@module_required('drh')
 def employee_document_add(request, emp_id):
     employee = get_object_or_404(Employee, id=emp_id)
 
@@ -265,6 +281,7 @@ def employee_document_add(request, emp_id):
 
 
 @login_required
+@module_required('drh')
 def skill_list(request):
     skills = Skill.objects.select_related('machine_associee').order_by('category', 'name')
 
@@ -282,6 +299,7 @@ def skill_list(request):
 
 
 @login_required
+@module_required('drh')
 def employee_skill_add(request, emp_id):
     employee = get_object_or_404(Employee, id=emp_id)
 
@@ -301,6 +319,7 @@ def employee_skill_add(request, emp_id):
 
 
 @login_required
+@module_required('drh')
 def machine_authorization_add(request, emp_id):
     employee = get_object_or_404(Employee, id=emp_id)
 
@@ -320,6 +339,7 @@ def machine_authorization_add(request, emp_id):
 
 
 @login_required
+@module_required('drh')
 def machine_authorization_validate(request, auth_id):
     auth = get_object_or_404(MachineAuthorization, id=auth_id)
 
@@ -339,14 +359,14 @@ def machine_authorization_validate(request, auth_id):
 
 
 @login_required
+@module_required('drh')
 def attendance_list(request):
     date_filter = request.GET.get('date', '')
     department = request.GET.get('department', '')
     shift = request.GET.get('shift', '')
     statut = request.GET.get('statut', '')
 
-    if not date_filter:
-        date_filter = timezone.now().date().isoformat()
+    date_filter = (parse_date(date_filter) or timezone.now().date()).isoformat()
 
     attendances = Attendance.objects.select_related(
         'employee', 'employee__department', 'shift', 'machine'
@@ -384,6 +404,7 @@ def attendance_list(request):
 
 
 @login_required
+@module_required('drh')
 def attendance_create(request):
     if request.method == 'POST':
         form = AttendanceForm(request.POST)
@@ -400,33 +421,41 @@ def attendance_create(request):
 
 
 @login_required
+@module_required('drh')
 def attendance_bulk(request):
     if request.method == 'POST':
-        date = request.POST.get('date')
-        shift_id = request.POST.get('shift')
-        department_id = request.POST.get('department')
+        day = parse_date(request.POST.get('date'))
+        if day is None:
+            messages.error(request, "Date invalide.")
+            return redirect('attendance_bulk')
+        shift_id = parse_int(request.POST.get('shift'))
+        department_id = parse_int(request.POST.get('department'))
 
         employees = Employee.objects.filter(statut='ACTIF')
         if department_id:
             employees = employees.filter(department_id=department_id)
 
-        shift = Shift.objects.get(id=shift_id) if shift_id else None
+        shift = Shift.objects.filter(id=shift_id).first() if shift_id else None
+        valid_statuts = {code for code, _label in Attendance.STATUT_CHOICES}
         created = 0
 
-        for emp in employees:
-            if not Attendance.objects.filter(employee=emp, date=date).exists():
-                statut = request.POST.get(f'statut_{emp.id}', 'PRESENT')
-                heure_arrivee = request.POST.get(f'arrivee_{emp.id}') or None
-                heure_depart = request.POST.get(f'depart_{emp.id}') or None
+        with transaction.atomic():
+            for emp in employees:
+                if not Attendance.objects.filter(employee=emp, date=day).exists():
+                    statut = request.POST.get(f'statut_{emp.id}', 'PRESENT')
+                    if statut not in valid_statuts:
+                        statut = 'PRESENT'
+                    heure_arrivee = parse_time(request.POST.get(f'arrivee_{emp.id}'))
+                    heure_depart = parse_time(request.POST.get(f'depart_{emp.id}'))
 
-                attendance = Attendance.objects.create(
-                    employee=emp, date=date, shift=shift,
-                    statut=statut, heure_arrivee=heure_arrivee,
-                    heure_depart=heure_depart,
-                    machine=emp.machine_affectee,
-                )
-                attendance.calculer_heures()
-                created += 1
+                    attendance = Attendance.objects.create(
+                        employee=emp, date=day, shift=shift,
+                        statut=statut, heure_arrivee=heure_arrivee,
+                        heure_depart=heure_depart,
+                        machine=emp.machine_affectee,
+                    )
+                    attendance.calculer_heures()
+                    created += 1
 
         messages.success(request, f"{created} pointages créés !")
         return redirect('attendance_list')
@@ -439,6 +468,7 @@ def attendance_bulk(request):
 
 
 @login_required
+@module_required('drh')
 def leave_list(request):
     statut = request.GET.get('statut', '')
     type_conge = request.GET.get('type', '')
@@ -476,6 +506,7 @@ def leave_list(request):
 
 
 @login_required
+@module_required('drh')
 def leave_create(request, emp_id=None):
     employee = None
     if emp_id:
@@ -490,7 +521,7 @@ def leave_create(request, emp_id=None):
             if employee:
                 leave.employee = employee
             else:
-                leave.employee = get_object_or_404(Employee, id=emp_id_form)
+                leave.employee = get_object_or_404(Employee, id=parse_int(emp_id_form, default=0))
             leave.statut = 'SOUMISE'
             leave.save()
             messages.success(request, "Demande de congé soumise !")
@@ -507,58 +538,70 @@ def leave_create(request, emp_id=None):
 
 
 @login_required
+@module_required('drh')
 def leave_validate_n1(request, leave_id):
     leave = get_object_or_404(LeaveRequest, id=leave_id)
 
     if request.method == 'POST':
-        try:
-            validateur = Employee.objects.get(user=request.user)
-        except Employee.DoesNotExist:
-            validateur = None
+        validateur = Employee.objects.filter(user=request.user).first()
 
-        leave.valider_n1(validateur)
-        messages.success(request, f"Congé validé (N+1) pour {leave.employee.nom_complet}")
+        if self_approval_blocked(request.user, leave.employee.user_id):
+            messages.error(request, "Vous ne pouvez pas valider votre propre demande de congé.")
+        elif leave.statut != 'SOUMISE':
+            messages.warning(request, "Cette demande n'est plus en attente de validation N+1.")
+        else:
+            leave.valider_n1(validateur)
+            messages.success(request, f"Congé validé (N+1) pour {leave.employee.nom_complet}")
 
     return redirect('leave_list')
 
 
 @login_required
+@module_required('drh')
 def leave_validate_rh(request, leave_id):
-    leave = get_object_or_404(LeaveRequest, id=leave_id)
+    if request.method != 'POST':
+        get_object_or_404(LeaveRequest, id=leave_id)
+        return redirect('leave_list')
 
-    if request.method == 'POST':
-        try:
-            validateur = Employee.objects.get(user=request.user)
-        except Employee.DoesNotExist:
-            validateur = None
+    validateur = Employee.objects.filter(user=request.user).first()
 
-        leave.valider_rh(validateur)
-        messages.success(request, f"Congé validé (RH) pour {leave.employee.nom_complet}. Solde déduit : {leave.nb_jours} jours")
+    # Verrou : deux clics ou deux onglets ne peuvent plus déduire le solde deux fois.
+    with transaction.atomic():
+        leave = get_object_or_404(LeaveRequest.objects.select_for_update(), id=leave_id)
+        if self_approval_blocked(request.user, leave.employee.user_id):
+            messages.error(request, "Vous ne pouvez pas valider votre propre demande de congé.")
+        elif leave.statut in ('VALIDEE_RH', 'REFUSEE'):
+            messages.warning(request, "Cette demande est déjà traitée.")
+        else:
+            leave.valider_rh(validateur)
+            messages.success(request, f"Congé validé (RH) pour {leave.employee.nom_complet}. Solde déduit : {leave.nb_jours} jours")
 
     return redirect('leave_list')
 
 
 @login_required
+@module_required('drh')
 def leave_reject(request, leave_id):
     leave = get_object_or_404(LeaveRequest, id=leave_id)
 
     if request.method == 'POST':
-        motif = request.POST.get('motif_refus', '')
-        try:
-            validateur = Employee.objects.get(user=request.user)
-        except Employee.DoesNotExist:
-            validateur = None
+        motif = request.POST.get('motif_refus', '')[:1000]
+        validateur = Employee.objects.filter(user=request.user).first()
 
-        leave.refuser(validateur, motif)
-        messages.warning(request, f"Congé refusé pour {leave.employee.nom_complet}")
+        if leave.statut in ('VALIDEE_RH', 'REFUSEE'):
+            messages.warning(request, "Cette demande est déjà traitée : refus impossible.")
+        else:
+            leave.refuser(validateur, motif)
+            messages.warning(request, f"Congé refusé pour {leave.employee.nom_complet}")
 
     return redirect('leave_list')
 
 
 @login_required
+@module_required('drh')
 def payslip_list(request):
-    mois = request.GET.get('mois', timezone.now().month)
-    annee = request.GET.get('annee', timezone.now().year)
+    mois = parse_int(request.GET.get('mois'), default=timezone.now().month, minimum=1, maximum=12)
+    annee = parse_int(request.GET.get('annee'), default=timezone.now().year, minimum=2000, maximum=2100)
     department = request.GET.get('department', '')
     statut = request.GET.get('statut', '')
 
@@ -594,6 +637,7 @@ def payslip_list(request):
 
 
 @login_required
+@module_required('drh')
 def payslip_create(request):
     if request.method == 'POST':
         form = PayslipForm(request.POST)
@@ -614,6 +658,7 @@ def payslip_create(request):
 
 
 @login_required
+@module_required('drh')
 def payslip_detail(request, slip_id):
     payslip = get_object_or_404(
         Payslip.objects.select_related('employee', 'employee__department', 'employee__position'),
@@ -624,39 +669,48 @@ def payslip_detail(request, slip_id):
 
 
 @login_required
+@module_required('drh')
 def payslip_calculate(request, slip_id):
     payslip = get_object_or_404(Payslip, id=slip_id)
     if request.method == 'POST':
-        payslip.calculer()
-        messages.success(request, "Bulletin recalculé !")
+        if payslip.statut in LOCKED_PAYSLIP_STATUSES:
+            messages.error(request, "Bulletin déjà validé : recalcul impossible.")
+        else:
+            payslip.calculer()
+            messages.success(request, "Bulletin recalculé !")
     return redirect('payslip_detail', slip_id=slip_id)
 
 
 @login_required
+@module_required('drh')
 def payslip_validate(request, slip_id):
     payslip = get_object_or_404(Payslip, id=slip_id)
 
     if request.method == 'POST':
-        try:
-            validateur = Employee.objects.get(user=request.user)
-        except Employee.DoesNotExist:
-            validateur = None
+        validateur = Employee.objects.filter(user=request.user).first()
 
-        payslip.statut = 'VALIDE'
-        payslip.date_validation = timezone.now()
-        payslip.valide_par = validateur
-        payslip.save()
-        messages.success(request, "Bulletin validé !")
+        if self_approval_blocked(request.user, payslip.employee.user_id):
+            messages.error(request, "Vous ne pouvez pas valider votre propre bulletin.")
+        elif payslip.statut in LOCKED_PAYSLIP_STATUSES:
+            messages.warning(request, "Ce bulletin est déjà validé.")
+        else:
+            payslip.statut = 'VALIDE'
+            payslip.date_validation = timezone.now()
+            payslip.valide_par = validateur
+            payslip.save()
+            logger.info('payslip_validated user_id=%s payslip_id=%s', request.user.id, payslip.id)
+            messages.success(request, "Bulletin validé !")
 
     return redirect('payslip_detail', slip_id=slip_id)
 
 
 @login_required
+@module_required('drh')
 def payslip_bulk_generate(request):
     if request.method == 'POST':
-        mois = int(request.POST.get('mois', timezone.now().month))
-        annee = int(request.POST.get('annee', timezone.now().year))
-        department_id = request.POST.get('department')
+        mois = parse_int(request.POST.get('mois'), default=timezone.now().month, minimum=1, maximum=12)
+        annee = parse_int(request.POST.get('annee'), default=timezone.now().year, minimum=2000, maximum=2100)
+        department_id = parse_int(request.POST.get('department'))
 
         employees = Employee.objects.filter(statut='ACTIF')
         if department_id:
@@ -696,6 +750,7 @@ def payslip_bulk_generate(request):
 
 
 @login_required
+@module_required('drh')
 def schedule_list(request):
     schedules = WorkSchedule.objects.select_related(
         'department', 'machine', 'cree_par'
@@ -705,6 +760,7 @@ def schedule_list(request):
 
 
 @login_required
+@module_required('drh')
 def schedule_detail(request, schedule_id):
     schedule = get_object_or_404(WorkSchedule, id=schedule_id)
 
@@ -726,6 +782,7 @@ def schedule_detail(request, schedule_id):
 
 
 @login_required
+@module_required('drh')
 def shift_assignment_add(request, schedule_id):
     schedule = get_object_or_404(WorkSchedule, id=schedule_id)
 
@@ -745,6 +802,7 @@ def shift_assignment_add(request, schedule_id):
 
 
 @login_required
+@module_required('drh')
 def incident_list(request):
     type_incident = request.GET.get('type', '')
     gravite = request.GET.get('gravite', '')
@@ -780,6 +838,7 @@ def incident_list(request):
 
 
 @login_required
+@module_required('drh')
 def incident_create(request):
     if request.method == 'POST':
         form = WorkIncidentForm(request.POST, request.FILES)
@@ -800,6 +859,7 @@ def incident_create(request):
 
 
 @login_required
+@module_required('drh')
 def incident_detail(request, incident_id):
     incident = get_object_or_404(
         WorkIncident.objects.select_related('employee', 'machine', 'cree_par'),
@@ -810,6 +870,7 @@ def incident_detail(request, incident_id):
 
 
 @login_required
+@module_required('drh')
 def medical_visit_list(request):
     visits = MedicalVisit.objects.select_related('employee').order_by('-date_visite')
     today = timezone.now().date()
@@ -823,6 +884,7 @@ def medical_visit_list(request):
 
 
 @login_required
+@module_required('drh')
 def medical_visit_create(request):
     if request.method == 'POST':
         form = MedicalVisitForm(request.POST, request.FILES)
@@ -837,6 +899,7 @@ def medical_visit_create(request):
 
 
 @login_required
+@module_required('drh')
 def epi_list(request):
     epis = ProtectiveEquipment.objects.select_related('employee').order_by('-date_attribution')
     today = timezone.now().date()
@@ -846,6 +909,7 @@ def epi_list(request):
 
 
 @login_required
+@module_required('drh')
 def epi_create(request):
     if request.method == 'POST':
         form = ProtectiveEquipmentForm(request.POST)
@@ -860,6 +924,7 @@ def epi_create(request):
 
 
 @login_required
+@module_required('drh')
 def department_list(request):
     departments = Department.objects.annotate(
         nb_emp=Count('employees', filter=Q(employees__statut='ACTIF'))
@@ -879,6 +944,7 @@ def department_list(request):
 
 
 @login_required
+@module_required('drh')
 def position_list(request):
     positions = Position.objects.select_related('department').annotate(
         nb_emp=Count('employees', filter=Q(employees__statut='ACTIF'))
@@ -898,6 +964,7 @@ def position_list(request):
 
 
 @login_required
+@module_required('drh')
 def shift_list(request):
     shifts = Shift.objects.all().order_by('heure_debut')
 
@@ -915,11 +982,13 @@ def shift_list(request):
 
 
 @login_required
+@module_required('drh')
 def export_employees_excel(request):
     employees = Employee.objects.select_related(
         'department', 'position'
     ).filter(statut='ACTIF').order_by('nom')
 
+    logger.info('drh_export_employees user_id=%s', request.user.id)
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Employés"
@@ -936,17 +1005,17 @@ def export_employees_excel(request):
         cell.fill = header_fill
 
     for row, emp in enumerate(employees, 2):
-        ws.cell(row=row, column=1, value=emp.matricule)
-        ws.cell(row=row, column=2, value=emp.nom)
-        ws.cell(row=row, column=3, value=emp.prenom)
-        ws.cell(row=row, column=4, value=emp.cin)
-        ws.cell(row=row, column=5, value=emp.department.name if emp.department else '')
-        ws.cell(row=row, column=6, value=emp.position.name if emp.position else '')
+        ws.cell(row=row, column=1, value=xl_safe(emp.matricule))
+        ws.cell(row=row, column=2, value=xl_safe(emp.nom))
+        ws.cell(row=row, column=3, value=xl_safe(emp.prenom))
+        ws.cell(row=row, column=4, value=xl_safe(emp.cin))
+        ws.cell(row=row, column=5, value=xl_safe(emp.department.name) if emp.department else '')
+        ws.cell(row=row, column=6, value=xl_safe(emp.position.name) if emp.position else '')
         ws.cell(row=row, column=7, value=emp.date_embauche.strftime('%d/%m/%Y') if emp.date_embauche else '')
         ws.cell(row=row, column=8, value=emp.get_type_contrat_display())
         ws.cell(row=row, column=9, value=float(emp.salaire_base))
-        ws.cell(row=row, column=10, value=emp.telephone)
-        ws.cell(row=row, column=11, value=emp.email)
+        ws.cell(row=row, column=10, value=xl_safe(emp.telephone))
+        ws.cell(row=row, column=11, value=xl_safe(emp.email))
 
     for col in ws.columns:
         max_length = max(len(str(cell.value or '')) for cell in col)
@@ -961,14 +1030,16 @@ def export_employees_excel(request):
 
 
 @login_required
+@module_required('drh')
 def export_payslips_excel(request):
-    mois = request.GET.get('mois', timezone.now().month)
-    annee = request.GET.get('annee', timezone.now().year)
+    mois = parse_int(request.GET.get('mois'), default=timezone.now().month, minimum=1, maximum=12)
+    annee = parse_int(request.GET.get('annee'), default=timezone.now().year, minimum=2000, maximum=2100)
 
     payslips = Payslip.objects.select_related(
         'employee', 'employee__department'
     ).filter(mois=mois, annee=annee).order_by('employee__nom')
 
+    logger.info('drh_export_payslips user_id=%s period=%02d/%s', request.user.id, mois, annee)
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = f"Paie {mois:02d}-{annee}"
@@ -989,9 +1060,9 @@ def export_payslips_excel(request):
                        slip.prime_anciennete + slip.prime_transport + slip.prime_panier +
                        slip.heures_sup_montant + slip.autres_primes)
 
-        ws.cell(row=row, column=1, value=slip.employee.matricule)
-        ws.cell(row=row, column=2, value=slip.employee.nom_complet)
-        ws.cell(row=row, column=3, value=slip.employee.department.name if slip.employee.department else '')
+        ws.cell(row=row, column=1, value=xl_safe(slip.employee.matricule))
+        ws.cell(row=row, column=2, value=xl_safe(slip.employee.nom_complet))
+        ws.cell(row=row, column=3, value=xl_safe(slip.employee.department.name) if slip.employee.department else '')
         ws.cell(row=row, column=4, value=float(slip.salaire_base))
         ws.cell(row=row, column=5, value=primes)
         ws.cell(row=row, column=6, value=float(slip.salaire_brut))

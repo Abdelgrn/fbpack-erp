@@ -104,9 +104,13 @@ def construire_arbre(poste=None, recherche=None, date_debut=None, date_fin=None)
         noeud_lot = noeud_client['lots'].setdefault(cle_lot, {
             'lot_id': lot.id, 'produit': cle_lot[0], 'numero_lot': lot.numero_lot,
             'a_relier': lot.a_relier, 'job_clos_le': lot.job_clos_le,
+            'temps_production_min': lot.temps_production_min,
+            'debut': None,  # première pesée du lot (dans le filtre)
             'entree_stock_le': lot.entree_stock_le, 'etat': etat_lot(lot),
             'res': _res_vide(), 'palettes': OrderedDict()})
         _ajouter(noeud_lot['res'], b)
+        if noeud_lot['debut'] is None or b.date_heure < noeud_lot['debut']:
+            noeud_lot['debut'] = b.date_heure
 
         noeud_pal = noeud_lot['palettes'].setdefault(pal.id, {
             'numero': pal.numero_palette, 'res': _res_vide(), 'bobines': []})

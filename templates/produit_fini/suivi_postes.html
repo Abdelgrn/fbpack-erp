@@ -167,6 +167,8 @@
             {{ lot.produit }} — Lot {{ lot.numero_lot }}
             {% if lot.etat == 'EN_STOCK' %}<span class="text-xs text-sky-300 ml-2">📦 en stock produit fini</span>{% elif lot.etat == 'A_ENTRER' %}<span class="text-xs text-emerald-300 ml-2">✓ job terminé — à entrer en stock</span>{% else %}<span class="text-xs text-gray-400 ml-2">en cours</span>{% endif %}
             {% if lot.a_relier %}<span class="text-xs text-amber-300 ml-2">⚠ à relier</span>{% endif %}
+            {% if lot.temps_production_min is not None %}<span class="text-xs text-violet-300 ml-2">⏱ {{ lot.temps_production_min }} min de production</span>{% endif %}
+            {% if lot.debut %}<span class="text-xs text-gray-300 ml-2">📅 du {{ lot.debut|date:"d/m/Y H:i" }}{% if lot.job_clos_le %} au {{ lot.job_clos_le|date:"d/m/Y H:i" }}{% else %} (en cours){% endif %}</span>{% endif %}
             <span class="text-sm font-normal text-gray-400 ml-3">{{ lot.res.nb_bobines }} bobine(s) · {{ lot.res.kg|floatformat:3 }} kg</span>
           </summary>
           {% if lot.etat == 'A_ENTRER' %}

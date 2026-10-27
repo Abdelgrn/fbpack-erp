@@ -1,0 +1,4072 @@
+F811 [*] Redefinition of unused `ProductionEntry` from line 11
+  --> core\admin.py:13:21
+   |
+ 9 |     ConsommationPiece, PlanMaintenancePreventive, AlerteMaintenance,
+10 |     ProductionOrder, ConsumptionLog, PurchaseOrder,
+11 |     Quote, ConsommationEncre, ProductionEntry
+   |                               --------------- previous definition of `ProductionEntry` here
+12 | )
+13 | from .models import ProductionEntry
+   |                     ^^^^^^^^^^^^^^^ `ProductionEntry` redefined here
+help: Remove definition: `ProductionEntry`
+   |
+12 | )
+   - from .models import ProductionEntry
+13 |
+   |
+
+F401 [*] `django.utils.timezone` imported but unused
+ --> core\consumers.py:4:26
+  |
+2 | from channels.generic.websocket import AsyncWebsocketConsumer
+3 | from channels.db import database_sync_to_async
+4 | from django.utils import timezone
+  |                          ^^^^^^^^
+help: Remove unused import: `django.utils.timezone`
+  |
+3 | from channels.db import database_sync_to_async
+  - from django.utils import timezone
+4 |
+  |
+
+F401 [*] `core.models.Machine` imported but unused
+ --> core\forms\drh.py:5:85
+  |
+3 |     Department, Position, Employee, EmployeeDocument, Skill, EmployeeSkill,
+4 |     MachineAuthorization, Shift, Attendance, LeaveType, LeaveRequest, Payslip,
+5 |     WorkSchedule, ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment, Machine
+  |                                                                                     ^^^^^^^
+6 | )
+  |
+help: Remove unused import: `core.models.Machine`
+  |
+4 |     MachineAuthorization, Shift, Attendance, LeaveType, LeaveRequest, Payslip,
+  -     WorkSchedule, ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment, Machine
+5 +     WorkSchedule, ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+6 | )
+  |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> core\ink_history.py:28:9
+   |
+26 |         return float(value)
+27 |     except ValueError:
+28 |         raise ValueError(f'Valeur numérique invalide : « {value} ».')
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> core\management\commands\import_ink_history.py:41:13
+   |
+39 |                 payload = json.load(f)
+40 |         except (OSError, json.JSONDecodeError) as exc:
+41 |             raise CommandError(f'Fichier illisible : {exc}')
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+42 |         if payload.get('format') != 'fbpack-ink-history':
+43 |             raise CommandError("Ce fichier n'est pas un export d'historique d'encre.")
+   |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> core\management\commands\import_ink_history.py:54:13
+   |
+52 |               InkCalculationJob.objects.count()
+53 |           except Exception as exc:
+54 | /             raise CommandError(
+55 | |                 f"La table des calculs n'existe pas sur cette base ({exc}). "
+56 | |                 "Lance d'abord : python manage.py migrate")
+   | |___________________________________________________________^
+57 |
+58 |           User = get_user_model()
+   |
+
+F401 `.fiches.FicheImpressionBobineEntree` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:56:5
+   |
+54 | from .fiches import (
+55 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+56 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |
+help: Add unused import `FicheImpressionBobineEntree` to __all__
+
+F401 `.fiches.FicheImpressionBobineImprimee` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:56:34
+   |
+54 | from .fiches import (
+55 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+56 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee,
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |
+help: Add unused import `FicheImpressionBobineImprimee` to __all__
+
+F401 `.fiches.FicheImpressionEncreGroupe` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:57:5
+   |
+55 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+56 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee,
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |
+help: Add unused import `FicheImpressionEncreGroupe` to __all__
+
+F401 `.fiches.FicheComplexageDerouleur1` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:57:33
+   |
+55 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+56 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee,
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |
+help: Add unused import `FicheComplexageDerouleur1` to __all__
+
+F401 `.fiches.FicheComplexageDerouleur2` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:58:5
+   |
+56 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee,
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+60 |     FicheDecoupeArret, FicheDecoupeControle,
+   |
+help: Add unused import `FicheComplexageDerouleur2` to __all__
+
+F401 `.fiches.FicheComplexageEnrouleur` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:58:32
+   |
+56 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee,
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+60 |     FicheDecoupeArret, FicheDecoupeControle,
+   |
+help: Add unused import `FicheComplexageEnrouleur` to __all__
+
+F401 `.fiches.FicheFondCarreEquipe` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:59:5
+   |
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |     ^^^^^^^^^^^^^^^^^^^^
+60 |     FicheDecoupeArret, FicheDecoupeControle,
+61 | )
+   |
+help: Add unused import `FicheFondCarreEquipe` to __all__
+
+F401 `.fiches.FicheDecoupeBobineMere` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:59:27
+   |
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |                           ^^^^^^^^^^^^^^^^^^^^^^
+60 |     FicheDecoupeArret, FicheDecoupeControle,
+61 | )
+   |
+help: Add unused import `FicheDecoupeBobineMere` to __all__
+
+F401 `.fiches.FicheDecoupeBobineFille` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:59:51
+   |
+57 |     FicheImpressionEncreGroupe, FicheComplexageDerouleur1,
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^
+60 |     FicheDecoupeArret, FicheDecoupeControle,
+61 | )
+   |
+help: Add unused import `FicheDecoupeBobineFille` to __all__
+
+F401 `.fiches.FicheDecoupeArret` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:60:5
+   |
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+60 |     FicheDecoupeArret, FicheDecoupeControle,
+   |     ^^^^^^^^^^^^^^^^^
+61 | )
+   |
+help: Add unused import `FicheDecoupeArret` to __all__
+
+F401 `.fiches.FicheDecoupeControle` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:60:24
+   |
+58 |     FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+59 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+60 |     FicheDecoupeArret, FicheDecoupeControle,
+   |                        ^^^^^^^^^^^^^^^^^^^^
+61 | )
+   |
+help: Add unused import `FicheDecoupeControle` to __all__
+
+F401 `.drh.MachineAuthorization` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:66:20
+   |
+64 | from .drh import (
+65 |     Department, Position, Employee, EmployeeDocument, Skill,
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+   |                    ^^^^^^^^^^^^^^^^^^^^
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+   |
+help: Add unused import `MachineAuthorization` to __all__
+
+F401 `.drh.Shift` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:66:42
+   |
+64 | from .drh import (
+65 |     Department, Position, Employee, EmployeeDocument, Skill,
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+   |                                          ^^^^^
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+   |
+help: Add unused import `Shift` to __all__
+
+F401 `.drh.Attendance` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:66:49
+   |
+64 | from .drh import (
+65 |     Department, Position, Employee, EmployeeDocument, Skill,
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+   |                                                 ^^^^^^^^^^
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+   |
+help: Add unused import `Attendance` to __all__
+
+F401 `.drh.LeaveType` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:67:5
+   |
+65 |     Department, Position, Employee, EmployeeDocument, Skill,
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+   |     ^^^^^^^^^
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+69 | )
+   |
+help: Add unused import `LeaveType` to __all__
+
+F401 `.drh.LeaveRequest` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:67:16
+   |
+65 |     Department, Position, Employee, EmployeeDocument, Skill,
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+   |                ^^^^^^^^^^^^
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+69 | )
+   |
+help: Add unused import `LeaveRequest` to __all__
+
+F401 `.drh.SalaryGrid` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:67:30
+   |
+65 |     Department, Position, Employee, EmployeeDocument, Skill,
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+   |                              ^^^^^^^^^^
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+69 | )
+   |
+help: Add unused import `SalaryGrid` to __all__
+
+F401 `.drh.Payslip` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:67:42
+   |
+65 |     Department, Position, Employee, EmployeeDocument, Skill,
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+   |                                          ^^^^^^^
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+69 | )
+   |
+help: Add unused import `Payslip` to __all__
+
+F401 `.drh.WorkSchedule` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:67:51
+   |
+65 |     Department, Position, Employee, EmployeeDocument, Skill,
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+   |                                                   ^^^^^^^^^^^^
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+69 | )
+   |
+help: Add unused import `WorkSchedule` to __all__
+
+F401 `.drh.ShiftAssignment` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:68:5
+   |
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+   |     ^^^^^^^^^^^^^^^
+69 | )
+   |
+help: Add unused import `ShiftAssignment` to __all__
+
+F401 `.drh.MedicalVisit` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:68:22
+   |
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+   |                      ^^^^^^^^^^^^
+69 | )
+   |
+help: Add unused import `MedicalVisit` to __all__
+
+F401 `.drh.WorkIncident` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:68:36
+   |
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+   |                                    ^^^^^^^^^^^^
+69 | )
+   |
+help: Add unused import `WorkIncident` to __all__
+
+F401 `.drh.ProtectiveEquipment` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\models\__init__.py:68:50
+   |
+66 |     EmployeeSkill, MachineAuthorization, Shift, Attendance,
+67 |     LeaveType, LeaveRequest, SalaryGrid, Payslip, WorkSchedule,
+68 |     ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment
+   |                                                  ^^^^^^^^^^^^^^^^^^^
+69 | )
+   |
+help: Add unused import `ProtectiveEquipment` to __all__
+
+F841 [*] Local variable `err1` is assigned to but never used
+   --> core\models\__init__.py:219:29
+    |
+217 |                             pass
+218 |                 success = True
+219 |         except Exception as err1:
+    |                             ^^^^
+220 |             try:
+221 |                 with transaction.atomic():
+    |
+help: Remove assignment to unused variable `err1`
+    |
+218 |                 success = True
+    -         except Exception as err1:
+219 +         except Exception:
+220 |             try:
+    |
+
+F401 `.crm.Client` imported but unused
+   --> core\models\__init__.py:278:30
+    |
+276 |         try:
+277 |             from django.contrib.auth.models import User
+278 |             from .crm import Client
+    |                              ^^^^^^
+279 |
+280 |             for u in User.objects.all():
+    |
+help: Remove unused import: `.crm.Client`
+
+B905 `zip()` without an explicit `strict=` parameter
+   --> core\services\bat_ocr.py:282:29
+    |
+280 |     if from_cm:
+281 |         cols = [{'xc': x, 'cm2': a['v'], 'pct': None, 'yc': a['yc'], 'pct_conf': None, 'cm2_conf': a['c']}
+282 |                 for x, a in zip(xs, anchors)]
+    |                             ^^^^^^^^^^^^^^^^
+283 |     else:
+284 |         cols = [{'xc': x, 'cm2': None, 'pct': a['v'], 'yc': a['yc'], 'pct_conf': a['c'], 'cm2_conf': None}
+    |
+help: Add explicit value for parameter `strict=`
+    |
+281 |         cols = [{'xc': x, 'cm2': a['v'], 'pct': None, 'yc': a['yc'], 'pct_conf': None, 'cm2_conf': a['c']}
+    -                 for x, a in zip(xs, anchors)]
+282 +                 for x, a in zip(xs, anchors, strict=False)]
+283 |     else:
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+B905 `zip()` without an explicit `strict=` parameter
+   --> core\services\bat_ocr.py:285:29
+    |
+283 |     else:
+284 |         cols = [{'xc': x, 'cm2': None, 'pct': a['v'], 'yc': a['yc'], 'pct_conf': a['c'], 'cm2_conf': None}
+285 |                 for x, a in zip(xs, anchors)]
+    |                             ^^^^^^^^^^^^^^^^
+286 |     for t in cm_tok:
+287 |         j = min(range(len(cols)), key=lambda k: abs(cols[k]['xc'] - t['xc']))
+    |
+help: Add explicit value for parameter `strict=`
+    |
+284 |         cols = [{'xc': x, 'cm2': None, 'pct': a['v'], 'yc': a['yc'], 'pct_conf': a['c'], 'cm2_conf': None}
+    -                 for x, a in zip(xs, anchors)]
+285 +                 for x, a in zip(xs, anchors, strict=False)]
+286 |     for t in cm_tok:
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+F401 [*] `os` imported but unused
+ --> core\services\full_backup.py:1:23
+  |
+1 | import hashlib, json, os, shutil, tempfile, zipfile
+  |                       ^^
+2 | from pathlib import Path
+3 | from django.conf import settings
+  |
+help: Remove unused import: `os`
+  |
+  - import hashlib, json, os, shutil, tempfile, zipfile
+1 + import hashlib, json, shutil, tempfile, zipfile
+2 | from pathlib import Path
+  |
+
+F401 [*] `django.utils.timezone` imported but unused
+ --> core\services\prelaunch.py:2:26
+  |
+1 | from django.db.models import Q, Sum
+2 | from django.utils import timezone
+  |                          ^^^^^^^^
+3 |
+4 | from ..models import Material, OFMaterialRequirement, OFPrelaunchCheck, StockLot, Tooling
+  |
+help: Remove unused import: `django.utils.timezone`
+  |
+1 | from django.db.models import Q, Sum
+  - from django.utils import timezone
+2 |
+  |
+
+F401 [*] `xml.sax.saxutils.escape` imported but unused
+  --> core\services\prepress_technical_sheet.py:15:30
+   |
+13 | from io import BytesIO
+14 | from pathlib import Path
+15 | from xml.sax.saxutils import escape
+   |                              ^^^^^^
+16 |
+17 | from PIL import Image, ImageDraw, ImageEnhance
+   |
+help: Remove unused import: `xml.sax.saxutils.escape`
+   |
+14 | from pathlib import Path
+   - from xml.sax.saxutils import escape
+15 |
+   |
+
+B905 `zip()` without an explicit `strict=` parameter
+   --> core\services\prepress_technical_sheet.py:191:27
+    |
+189 |     """Coefficients PIL (dest -> source) pour mapper src_quad dans dest_quad."""
+190 |     matrix, vector = [], []
+191 |     for (x, y), (u, v) in zip(dest_quad, src_quad):
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^
+192 |         matrix.append([x, y, 1, 0, 0, 0, -u * x, -u * y])
+193 |         vector.append(u)
+    |
+help: Add explicit value for parameter `strict=`
+    |
+190 |     matrix, vector = [], []
+    -     for (x, y), (u, v) in zip(dest_quad, src_quad):
+191 +     for (x, y), (u, v) in zip(dest_quad, src_quad, strict=False):
+192 |         matrix.append([x, y, 1, 0, 0, 0, -u * x, -u * y])
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+F401 [*] `django.db.models.Q` imported but unused
+  --> core\services\produit_fini.py:9:30
+   |
+ 7 | from django.apps import apps
+ 8 | from django.db import IntegrityError, transaction
+ 9 | from django.db.models import Q
+   |                              ^
+10 | from django.utils import timezone
+11 | from django.utils.dateparse import parse_datetime
+   |
+help: Remove unused import: `django.db.models.Q`
+  |
+8 | from django.db import IntegrityError, transaction
+  - from django.db.models import Q
+9 | from django.utils import timezone
+  |
+
+B905 `zip()` without an explicit `strict=` parameter
+  --> core\tests\test_bat_ocr.py:72:39
+   |
+70 |         pcts = ['4.71%', '61.21%', '6.90%', '69.16%']
+71 |         cms = ['50.566 cm²', '656.434 cm²', '74.012 cm²', '741.774 cm²']
+72 |         for i, (n, p, c) in enumerate(zip(names, pcts, cms)):
+   |                                       ^^^^^^^^^^^^^^^^^^^^^
+73 |             x = 500 + i * 110
+74 |             boxes += [_box(n, x, 782), _box(p, x, 830), _box(c, x, 808)]
+   |
+help: Add explicit value for parameter `strict=`
+   |
+71 |         cms = ['50.566 cm²', '656.434 cm²', '74.012 cm²', '741.774 cm²']
+   -         for i, (n, p, c) in enumerate(zip(names, pcts, cms)):
+72 +         for i, (n, p, c) in enumerate(zip(names, pcts, cms, strict=False)):
+73 |             x = 500 + i * 110
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+F401 [*] `core.models.TechnicalProduct` imported but unused
+ --> core\tests\test_suivi_postes.py:6:33
+  |
+4 | from django.urls import reverse
+5 |
+6 | from core.models import Client, TechnicalProduct, UserModulePermission
+  |                                 ^^^^^^^^^^^^^^^^
+7 | from core.models.stock_produit_fini import ProduitFiniBobine, ProduitFiniLot, ProduitFiniPalette
+8 | from core.services.produit_fini import enregistrer_bobine, traiter_evenement
+  |
+help: Remove unused import: `core.models.TechnicalProduct`
+  |
+5 |
+  - from core.models import Client, TechnicalProduct, UserModulePermission
+6 + from core.models import Client, UserModulePermission
+7 | from core.models.stock_produit_fini import ProduitFiniBobine, ProduitFiniLot, ProduitFiniPalette
+  |
+
+F401 `.imports_export.import_stock_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> core\views\__init__.py:2:5
+  |
+1 | from .imports_export import (
+2 |     import_stock_view, download_template_special_prod, download_template_stock, download_template_tools
+  |     ^^^^^^^^^^^^^^^^^
+3 | )
+  |
+help: Use an explicit re-export: `import_stock_view as import_stock_view`
+
+F401 `.imports_export.download_template_special_prod` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> core\views\__init__.py:2:24
+  |
+1 | from .imports_export import (
+2 |     import_stock_view, download_template_special_prod, download_template_stock, download_template_tools
+  |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 | )
+  |
+help: Use an explicit re-export: `download_template_special_prod as download_template_special_prod`
+
+F401 `.imports_export.download_template_stock` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> core\views\__init__.py:2:56
+  |
+1 | from .imports_export import (
+2 |     import_stock_view, download_template_special_prod, download_template_stock, download_template_tools
+  |                                                        ^^^^^^^^^^^^^^^^^^^^^^^
+3 | )
+  |
+help: Use an explicit re-export: `download_template_stock as download_template_stock`
+
+F401 `.imports_export.download_template_tools` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> core\views\__init__.py:2:81
+  |
+1 | from .imports_export import (
+2 |     import_stock_view, download_template_special_prod, download_template_stock, download_template_tools
+  |                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^
+3 | )
+  |
+help: Use an explicit re-export: `download_template_tools as download_template_tools`
+
+F401 `.dashboard.dashboard` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> core\views\__init__.py:6:5
+  |
+5 | from .dashboard import (
+6 |     dashboard, production_gantt, reporting
+  |     ^^^^^^^^^
+7 | )
+  |
+help: Use an explicit re-export: `dashboard as dashboard`
+
+F401 `.dashboard.production_gantt` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> core\views\__init__.py:6:16
+  |
+5 | from .dashboard import (
+6 |     dashboard, production_gantt, reporting
+  |                ^^^^^^^^^^^^^^^^
+7 | )
+  |
+help: Use an explicit re-export: `production_gantt as production_gantt`
+
+F401 `.dashboard.reporting` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+ --> core\views\__init__.py:6:34
+  |
+5 | from .dashboard import (
+6 |     dashboard, production_gantt, reporting
+  |                                  ^^^^^^^^^
+7 | )
+  |
+help: Use an explicit re-export: `reporting as reporting`
+
+F401 `.crm.crm_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:10:5
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+   |     ^^^^^^^^
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |
+help: Use an explicit re-export: `crm_view as crm_view`
+
+F401 `.crm.client_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:10:15
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+   |               ^^^^^^^^^^^^^
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |
+help: Use an explicit re-export: `client_detail as client_detail`
+
+F401 `.crm.add_client` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:10:30
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+   |                              ^^^^^^^^^^
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |
+help: Use an explicit re-export: `add_client as add_client`
+
+F401 `.crm.edit_client` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:10:42
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+   |                                          ^^^^^^^^^^^
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |
+help: Use an explicit re-export: `edit_client as edit_client`
+
+F401 `.crm.import_clients` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:10:55
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+   |                                                       ^^^^^^^^^^^^^^
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |
+help: Use an explicit re-export: `import_clients as import_clients`
+
+F401 `.crm.add_contact` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:11:5
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+   |     ^^^^^^^^^^^
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+   |
+help: Use an explicit re-export: `add_contact as add_contact`
+
+F401 `.crm.edit_contact` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:11:18
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+   |                  ^^^^^^^^^^^^
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+   |
+help: Use an explicit re-export: `edit_contact as edit_contact`
+
+F401 `.crm.delete_contact` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:11:32
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+   |                                ^^^^^^^^^^^^^^
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+   |
+help: Use an explicit re-export: `delete_contact as delete_contact`
+
+F401 `.crm.add_interaction` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:11:48
+   |
+ 9 | from .crm import (
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+   |                                                ^^^^^^^^^^^^^^^
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+   |
+help: Use an explicit re-export: `add_interaction as add_interaction`
+
+F401 `.crm.opportunites_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:12:5
+   |
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |     ^^^^^^^^^^^^^^^^^
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+   |
+help: Use an explicit re-export: `opportunites_view as opportunites_view`
+
+F401 `.crm.add_opportunite` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:12:24
+   |
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |                        ^^^^^^^^^^^^^^^
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+   |
+help: Use an explicit re-export: `add_opportunite as add_opportunite`
+
+F401 `.crm.edit_opportunite` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:12:41
+   |
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |                                         ^^^^^^^^^^^^^^^^
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+   |
+help: Use an explicit re-export: `edit_opportunite as edit_opportunite`
+
+F401 `.crm.delete_opportunite` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:12:59
+   |
+10 |     crm_view, client_detail, add_client, edit_client, import_clients,
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+   |                                                           ^^^^^^^^^^^^^^^^^^
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+   |
+help: Use an explicit re-export: `delete_opportunite as delete_opportunite`
+
+F401 `.crm.quotes_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:13:5
+   |
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+   |     ^^^^^^^^^^^
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+   |
+help: Use an explicit re-export: `quotes_view as quotes_view`
+
+F401 `.crm.add_quote` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:13:18
+   |
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+   |                  ^^^^^^^^^
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+   |
+help: Use an explicit re-export: `add_quote as add_quote`
+
+F401 `.crm.edit_quote` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:13:29
+   |
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+   |                             ^^^^^^^^^^
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+   |
+help: Use an explicit re-export: `edit_quote as edit_quote`
+
+F401 `.crm.convert_quote_to_order` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:13:41
+   |
+11 |     add_contact, edit_contact, delete_contact, add_interaction,
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+   |
+help: Use an explicit re-export: `convert_quote_to_order as convert_quote_to_order`
+
+F401 `.crm.convertir_prospect` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:14:5
+   |
+12 |     opportunites_view, add_opportunite, edit_opportunite, delete_opportunite,
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+   |     ^^^^^^^^^^^^^^^^^^
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+   |
+help: Use an explicit re-export: `convertir_prospect as convertir_prospect`
+
+F401 `.crm.commandes_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:15:5
+   |
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+   |     ^^^^^^^^^^^^^^
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+   |
+help: Use an explicit re-export: `commandes_list as commandes_list`
+
+F401 `.crm.commande_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:15:21
+   |
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+   |                     ^^^^^^^^^^^^^^^
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+   |
+help: Use an explicit re-export: `commande_detail as commande_detail`
+
+F401 `.crm.add_commande` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:15:38
+   |
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+   |                                      ^^^^^^^^^^^^
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+   |
+help: Use an explicit re-export: `add_commande as add_commande`
+
+F401 `.crm.edit_commande` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:15:52
+   |
+13 |     quotes_view, add_quote, edit_quote, convert_quote_to_order,
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+   |                                                    ^^^^^^^^^^^^^
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+   |
+help: Use an explicit re-export: `edit_commande as edit_commande`
+
+F401 `.crm.commande_changer_statut` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:16:5
+   |
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+   |
+help: Use an explicit re-export: `commande_changer_statut as commande_changer_statut`
+
+F401 `.crm.commande_check_stock` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:16:30
+   |
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+   |                              ^^^^^^^^^^^^^^^^^^^^
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+   |
+help: Use an explicit re-export: `commande_check_stock as commande_check_stock`
+
+F401 `.crm.commande_creer_of` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:16:52
+   |
+14 |     convertir_prospect,
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+   |                                                    ^^^^^^^^^^^^^^^^^
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+   |
+help: Use an explicit re-export: `commande_creer_of as commande_creer_of`
+
+F401 `.crm.demandes_prix_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:17:5
+   |
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+   |     ^^^^^^^^^^^^^^^^^^
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+19 |     crm_of_edit, crm_of_changer_statut,
+   |
+help: Use an explicit re-export: `demandes_prix_list as demandes_prix_list`
+
+F401 `.crm.add_demande_prix` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:17:25
+   |
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+   |                         ^^^^^^^^^^^^^^^^
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+19 |     crm_of_edit, crm_of_changer_statut,
+   |
+help: Use an explicit re-export: `add_demande_prix as add_demande_prix`
+
+F401 `.crm.edit_demande_prix` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:17:43
+   |
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+   |                                           ^^^^^^^^^^^^^^^^^
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+19 |     crm_of_edit, crm_of_changer_statut,
+   |
+help: Use an explicit re-export: `edit_demande_prix as edit_demande_prix`
+
+F401 `.crm.demande_prix_vers_devis` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:17:62
+   |
+15 |     commandes_list, commande_detail, add_commande, edit_commande,
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+   |                                                              ^^^^^^^^^^^^^^^^^^^^^^^
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+19 |     crm_of_edit, crm_of_changer_statut,
+   |
+help: Use an explicit re-export: `demande_prix_vers_devis as demande_prix_vers_devis`
+
+F401 `.crm.api_check_material_stock` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:18:5
+   |
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+19 |     crm_of_edit, crm_of_changer_statut,
+20 | )
+   |
+help: Use an explicit re-export: `api_check_material_stock as api_check_material_stock`
+
+F401 `.crm.crm_of_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:18:31
+   |
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+   |                               ^^^^^^^^^^^
+19 |     crm_of_edit, crm_of_changer_statut,
+20 | )
+   |
+help: Use an explicit re-export: `crm_of_list as crm_of_list`
+
+F401 `.crm.crm_of_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:18:44
+   |
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+   |                                            ^^^^^^^^^^^^^
+19 |     crm_of_edit, crm_of_changer_statut,
+20 | )
+   |
+help: Use an explicit re-export: `crm_of_create as crm_of_create`
+
+F401 `.crm.crm_of_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:18:59
+   |
+16 |     commande_changer_statut, commande_check_stock, commande_creer_of,
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+   |                                                           ^^^^^^^^^^^^^
+19 |     crm_of_edit, crm_of_changer_statut,
+20 | )
+   |
+help: Use an explicit re-export: `crm_of_detail as crm_of_detail`
+
+F401 `.crm.crm_of_edit` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:19:5
+   |
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+19 |     crm_of_edit, crm_of_changer_statut,
+   |     ^^^^^^^^^^^
+20 | )
+   |
+help: Use an explicit re-export: `crm_of_edit as crm_of_edit`
+
+F401 `.crm.crm_of_changer_statut` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:19:18
+   |
+17 |     demandes_prix_list, add_demande_prix, edit_demande_prix, demande_prix_vers_devis,
+18 |     api_check_material_stock, crm_of_list, crm_of_create, crm_of_detail,
+19 |     crm_of_edit, crm_of_changer_statut,
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+20 | )
+   |
+help: Use an explicit re-export: `crm_of_changer_statut as crm_of_changer_statut`
+
+F401 `.prepress.prepress_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:23:5
+   |
+22 | from .prepress import (
+23 |     prepress_view, prepress_client_products, add_product, edit_product, add_tool, edit_tool
+   |     ^^^^^^^^^^^^^
+24 | )
+   |
+help: Use an explicit re-export: `prepress_view as prepress_view`
+
+F401 `.prepress.prepress_client_products` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:23:20
+   |
+22 | from .prepress import (
+23 |     prepress_view, prepress_client_products, add_product, edit_product, add_tool, edit_tool
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^
+24 | )
+   |
+help: Use an explicit re-export: `prepress_client_products as prepress_client_products`
+
+F401 `.prepress.add_product` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:23:46
+   |
+22 | from .prepress import (
+23 |     prepress_view, prepress_client_products, add_product, edit_product, add_tool, edit_tool
+   |                                              ^^^^^^^^^^^
+24 | )
+   |
+help: Use an explicit re-export: `add_product as add_product`
+
+F401 `.prepress.edit_product` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:23:59
+   |
+22 | from .prepress import (
+23 |     prepress_view, prepress_client_products, add_product, edit_product, add_tool, edit_tool
+   |                                                           ^^^^^^^^^^^^
+24 | )
+   |
+help: Use an explicit re-export: `edit_product as edit_product`
+
+F401 `.prepress.add_tool` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:23:73
+   |
+22 | from .prepress import (
+23 |     prepress_view, prepress_client_products, add_product, edit_product, add_tool, edit_tool
+   |                                                                         ^^^^^^^^
+24 | )
+   |
+help: Use an explicit re-export: `add_tool as add_tool`
+
+F401 `.prepress.edit_tool` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:23:83
+   |
+22 | from .prepress import (
+23 |     prepress_view, prepress_client_products, add_product, edit_product, add_tool, edit_tool
+   |                                                                                   ^^^^^^^^^
+24 | )
+   |
+help: Use an explicit re-export: `edit_tool as edit_tool`
+
+F401 `.production_of.production_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:27:5
+   |
+26 | from .production_of import (
+27 |     production_view, add_production, edit_production,
+   |     ^^^^^^^^^^^^^^^
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+   |
+help: Use an explicit re-export: `production_view as production_view`
+
+F401 `.production_of.add_production` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:27:22
+   |
+26 | from .production_of import (
+27 |     production_view, add_production, edit_production,
+   |                      ^^^^^^^^^^^^^^
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+   |
+help: Use an explicit re-export: `add_production as add_production`
+
+F401 `.production_of.edit_production` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:27:38
+   |
+26 | from .production_of import (
+27 |     production_view, add_production, edit_production,
+   |                                      ^^^^^^^^^^^^^^^
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+   |
+help: Use an explicit re-export: `edit_production as edit_production`
+
+F401 `.production_of.of_list_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:28:5
+   |
+26 | from .production_of import (
+27 |     production_view, add_production, edit_production,
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+   |     ^^^^^^^^^^^^
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |
+help: Use an explicit re-export: `of_list_view as of_list_view`
+
+F401 `.production_of.of_create_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:28:19
+   |
+26 | from .production_of import (
+27 |     production_view, add_production, edit_production,
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+   |                   ^^^^^^^^^^^^^^
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |
+help: Use an explicit re-export: `of_create_view as of_create_view`
+
+F401 `.production_of.of_detail_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:28:35
+   |
+26 | from .production_of import (
+27 |     production_view, add_production, edit_production,
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+   |                                   ^^^^^^^^^^^^^^
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |
+help: Use an explicit re-export: `of_detail_view as of_detail_view`
+
+F401 `.production_of.of_edit_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:28:51
+   |
+26 | from .production_of import (
+27 |     production_view, add_production, edit_production,
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+   |                                                   ^^^^^^^^^^^^
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |
+help: Use an explicit re-export: `of_edit_view as of_edit_view`
+
+F401 `.production_of.of_delete_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:28:65
+   |
+26 | from .production_of import (
+27 |     production_view, add_production, edit_production,
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+   |                                                                 ^^^^^^^^^^^^^^
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |
+help: Use an explicit re-export: `of_delete_view as of_delete_view`
+
+F401 `.production_of.of_changer_statut` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:29:5
+   |
+27 |     production_view, add_production, edit_production,
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+   |     ^^^^^^^^^^^^^^^^^
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+31 |     process_type_list, process_type_delete, of_stats_api
+   |
+help: Use an explicit re-export: `of_changer_statut as of_changer_statut`
+
+F401 `.production_of.of_lancement_rapide` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:29:24
+   |
+27 |     production_view, add_production, edit_production,
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+   |                        ^^^^^^^^^^^^^^^^^^^
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+31 |     process_type_list, process_type_delete, of_stats_api
+   |
+help: Use an explicit re-export: `of_lancement_rapide as of_lancement_rapide`
+
+F401 `.production_of.etape_detail_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:29:45
+   |
+27 |     production_view, add_production, edit_production,
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+   |                                             ^^^^^^^^^^^^^^^^^
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+31 |     process_type_list, process_type_delete, of_stats_api
+   |
+help: Use an explicit re-export: `etape_detail_view as etape_detail_view`
+
+F401 `.production_of.etape_demarrer` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:30:5
+   |
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |     ^^^^^^^^^^^^^^
+31 |     process_type_list, process_type_delete, of_stats_api
+32 | )
+   |
+help: Use an explicit re-export: `etape_demarrer as etape_demarrer`
+
+F401 `.production_of.etape_terminer` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:30:21
+   |
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |                     ^^^^^^^^^^^^^^
+31 |     process_type_list, process_type_delete, of_stats_api
+32 | )
+   |
+help: Use an explicit re-export: `etape_terminer as etape_terminer`
+
+F401 `.production_of.semi_produit_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:30:37
+   |
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |                                     ^^^^^^^^^^^^^^^^^
+31 |     process_type_list, process_type_delete, of_stats_api
+32 | )
+   |
+help: Use an explicit re-export: `semi_produit_list as semi_produit_list`
+
+F401 `.production_of.semi_produit_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:30:56
+   |
+28 |     of_list_view, of_create_view, of_detail_view, of_edit_view, of_delete_view,
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+   |                                                        ^^^^^^^^^^^^^^^^^^^
+31 |     process_type_list, process_type_delete, of_stats_api
+32 | )
+   |
+help: Use an explicit re-export: `semi_produit_detail as semi_produit_detail`
+
+F401 `.production_of.process_type_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:31:5
+   |
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+31 |     process_type_list, process_type_delete, of_stats_api
+   |     ^^^^^^^^^^^^^^^^^
+32 | )
+   |
+help: Use an explicit re-export: `process_type_list as process_type_list`
+
+F401 `.production_of.process_type_delete` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:31:24
+   |
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+31 |     process_type_list, process_type_delete, of_stats_api
+   |                        ^^^^^^^^^^^^^^^^^^^
+32 | )
+   |
+help: Use an explicit re-export: `process_type_delete as process_type_delete`
+
+F401 `.production_of.of_stats_api` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:31:45
+   |
+29 |     of_changer_statut, of_lancement_rapide, etape_detail_view,
+30 |     etape_demarrer, etape_terminer, semi_produit_list, semi_produit_detail,
+31 |     process_type_list, process_type_delete, of_stats_api
+   |                                             ^^^^^^^^^^^^
+32 | )
+   |
+help: Use an explicit re-export: `of_stats_api as of_stats_api`
+
+F401 `.stock.stock_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:35:5
+   |
+34 | from .stock import (
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+   |     ^^^^^^^^^^
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |
+help: Use an explicit re-export: `stock_view as stock_view`
+
+F401 `.stock.add_material` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:35:17
+   |
+34 | from .stock import (
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+   |                 ^^^^^^^^^^^^
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |
+help: Use an explicit re-export: `add_material as add_material`
+
+F401 `.stock.edit_material` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:35:31
+   |
+34 | from .stock import (
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+   |                               ^^^^^^^^^^^^^
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |
+help: Use an explicit re-export: `edit_material as edit_material`
+
+F401 `.stock.delete_material` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:35:46
+   |
+34 | from .stock import (
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+   |                                              ^^^^^^^^^^^^^^^
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |
+help: Use an explicit re-export: `delete_material as delete_material`
+
+F401 `.stock.material_restore` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:35:63
+   |
+34 | from .stock import (
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+   |                                                               ^^^^^^^^^^^^^^^^
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |
+help: Use an explicit re-export: `material_restore as material_restore`
+
+F401 `.stock.clear_all_stock` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:35:81
+   |
+34 | from .stock import (
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+   |                                                                                 ^^^^^^^^^^^^^^^
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |
+help: Use an explicit re-export: `clear_all_stock as clear_all_stock`
+
+F401 `.stock.bulk_delete_materials` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:36:5
+   |
+34 | from .stock import (
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+36 |     bulk_delete_materials, bulk_delete_movements,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+   |
+help: Use an explicit re-export: `bulk_delete_materials as bulk_delete_materials`
+
+F401 `.stock.bulk_delete_movements` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:36:28
+   |
+34 | from .stock import (
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+36 |     bulk_delete_materials, bulk_delete_movements,
+   |                            ^^^^^^^^^^^^^^^^^^^^^
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+   |
+help: Use an explicit re-export: `bulk_delete_movements as bulk_delete_movements`
+
+F401 `.stock.add_supplier` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:37:5
+   |
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |     ^^^^^^^^^^^^
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |
+help: Use an explicit re-export: `add_supplier as add_supplier`
+
+F401 `.stock.edit_supplier` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:37:19
+   |
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |                   ^^^^^^^^^^^^^
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |
+help: Use an explicit re-export: `edit_supplier as edit_supplier`
+
+F401 `.stock.delete_supplier` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:37:34
+   |
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |                                  ^^^^^^^^^^^^^^^
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |
+help: Use an explicit re-export: `delete_supplier as delete_supplier`
+
+F401 `.stock.add_consommation` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:37:51
+   |
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |                                                   ^^^^^^^^^^^^^^^^
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |
+help: Use an explicit re-export: `add_consommation as add_consommation`
+
+F401 `.stock.conso_list_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:37:69
+   |
+35 |     stock_view, add_material, edit_material, delete_material, material_restore, clear_all_stock,
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+   |                                                                     ^^^^^^^^^^^^^^^
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |
+help: Use an explicit re-export: `conso_list_view as conso_list_view`
+
+F401 `.stock.stock_advanced_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:38:5
+   |
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+   |     ^^^^^^^^^^^^^^^^^^^
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |
+help: Use an explicit re-export: `stock_advanced_view as stock_advanced_view`
+
+F401 `.stock.material_search_api` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:38:26
+   |
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+   |                          ^^^^^^^^^^^^^^^^^^^
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |
+help: Use an explicit re-export: `material_search_api as material_search_api`
+
+F401 `.stock.export_search_results` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:38:47
+   |
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+   |                                               ^^^^^^^^^^^^^^^^^^^^^
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |
+help: Use an explicit re-export: `export_search_results as export_search_results`
+
+F401 `.stock.export_mouvements` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:38:70
+   |
+36 |     bulk_delete_materials, bulk_delete_movements,
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+   |                                                                      ^^^^^^^^^^^^^^^^^
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |
+help: Use an explicit re-export: `export_mouvements as export_mouvements`
+
+F401 `.stock.location_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:39:5
+   |
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |     ^^^^^^^^^^^^^
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |
+help: Use an explicit re-export: `location_list as location_list`
+
+F401 `.stock.location_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:39:20
+   |
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |                    ^^^^^^^^^^^^
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |
+help: Use an explicit re-export: `location_add as location_add`
+
+F401 `.stock.location_delete` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:39:34
+   |
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |                                  ^^^^^^^^^^^^^^^
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |
+help: Use an explicit re-export: `location_delete as location_delete`
+
+F401 `.stock.lot_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:39:51
+   |
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |                                                   ^^^^^^^^
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |
+help: Use an explicit re-export: `lot_list as lot_list`
+
+F401 `.stock.lot_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:39:61
+   |
+37 |     add_supplier, edit_supplier, delete_supplier, add_consommation, conso_list_view,
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+   |                                                             ^^^^^^^
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |
+help: Use an explicit re-export: `lot_add as lot_add`
+
+F401 `.stock.lot_valider` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:40:5
+   |
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |     ^^^^^^^^^^^
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |
+help: Use an explicit re-export: `lot_valider as lot_valider`
+
+F401 `.stock.lot_bloquer` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:40:18
+   |
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |                  ^^^^^^^^^^^
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |
+help: Use an explicit re-export: `lot_bloquer as lot_bloquer`
+
+F401 `.stock.lot_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:40:31
+   |
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |                               ^^^^^^^^^^
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |
+help: Use an explicit re-export: `lot_detail as lot_detail`
+
+F401 `.stock.mouvement_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:40:43
+   |
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |                                           ^^^^^^^^^^^^^
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |
+help: Use an explicit re-export: `mouvement_add as mouvement_add`
+
+F401 `.stock.mouvement_annuler` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:40:58
+   |
+38 |     stock_advanced_view, material_search_api, export_search_results, export_mouvements,
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+   |                                                          ^^^^^^^^^^^^^^^^^
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |
+help: Use an explicit re-export: `mouvement_annuler as mouvement_annuler`
+
+F401 `.stock.controle_stock_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:41:5
+   |
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |     ^^^^^^^^^^^^^^^^^^^
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+43 | )
+   |
+help: Use an explicit re-export: `controle_stock_view as controle_stock_view`
+
+F401 `.stock.seuils_recalculer` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:41:26
+   |
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |                          ^^^^^^^^^^^^^^^^^
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+43 | )
+   |
+help: Use an explicit re-export: `seuils_recalculer as seuils_recalculer`
+
+F401 `.stock.da_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:41:45
+   |
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |                                             ^^^^^^
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+43 | )
+   |
+help: Use an explicit re-export: `da_add as da_add`
+
+F401 `.stock.da_valider` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:41:53
+   |
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |                                                     ^^^^^^^^^^
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+43 | )
+   |
+help: Use an explicit re-export: `da_valider as da_valider`
+
+F401 `.stock.da_refuser` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:41:65
+   |
+39 |     location_list, location_add, location_delete, lot_list, lot_add,
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+   |                                                                 ^^^^^^^^^^
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+43 | )
+   |
+help: Use an explicit re-export: `da_refuser as da_refuser`
+
+F401 `.stock.bc_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:42:5
+   |
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |     ^^^^^^
+43 | )
+   |
+help: Use an explicit re-export: `bc_add as bc_add`
+
+F401 `.stock.bc_envoyer` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:42:13
+   |
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |             ^^^^^^^^^^
+43 | )
+   |
+help: Use an explicit re-export: `bc_envoyer as bc_envoyer`
+
+F401 `.stock.bc_reception` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:42:25
+   |
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |                         ^^^^^^^^^^^^
+43 | )
+   |
+help: Use an explicit re-export: `bc_reception as bc_reception`
+
+F401 `.stock.seuil_update` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:42:39
+   |
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |                                       ^^^^^^^^^^^^
+43 | )
+   |
+help: Use an explicit re-export: `seuil_update as seuil_update`
+
+F401 `.stock.stock_dashboard_data` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:42:53
+   |
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |                                                     ^^^^^^^^^^^^^^^^^^^^
+43 | )
+   |
+help: Use an explicit re-export: `stock_dashboard_data as stock_dashboard_data`
+
+F401 `.stock.scan_label_ai` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:42:75
+   |
+40 |     lot_valider, lot_bloquer, lot_detail, mouvement_add, mouvement_annuler,
+41 |     controle_stock_view, seuils_recalculer, da_add, da_valider, da_refuser,
+42 |     bc_add, bc_envoyer, bc_reception, seuil_update, stock_dashboard_data, scan_label_ai
+   |                                                                           ^^^^^^^^^^^^^
+43 | )
+   |
+help: Use an explicit re-export: `scan_label_ai as scan_label_ai`
+
+F401 `.machines.machine_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:46:5
+   |
+45 | from .machines import (
+46 |     machine_view, add_machine
+   |     ^^^^^^^^^^^^
+47 | )
+   |
+help: Use an explicit re-export: `machine_view as machine_view`
+
+F401 `.machines.add_machine` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:46:19
+   |
+45 | from .machines import (
+46 |     machine_view, add_machine
+   |                   ^^^^^^^^^^^
+47 | )
+   |
+help: Use an explicit re-export: `add_machine as add_machine`
+
+F401 `.production_speciale.prod_dashboard` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:50:5
+   |
+49 | from .production_speciale import (
+50 |     prod_dashboard, prod_saisie, prod_edit_entry, prod_delete_entry,
+   |     ^^^^^^^^^^^^^^
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+   |
+help: Use an explicit re-export: `prod_dashboard as prod_dashboard`
+
+F401 `.production_speciale.prod_saisie` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:50:21
+   |
+49 | from .production_speciale import (
+50 |     prod_dashboard, prod_saisie, prod_edit_entry, prod_delete_entry,
+   |                     ^^^^^^^^^^^
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+   |
+help: Use an explicit re-export: `prod_saisie as prod_saisie`
+
+F401 `.production_speciale.prod_edit_entry` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:50:34
+   |
+49 | from .production_speciale import (
+50 |     prod_dashboard, prod_saisie, prod_edit_entry, prod_delete_entry,
+   |                                  ^^^^^^^^^^^^^^^
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+   |
+help: Use an explicit re-export: `prod_edit_entry as prod_edit_entry`
+
+F401 `.production_speciale.prod_delete_entry` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:50:51
+   |
+49 | from .production_speciale import (
+50 |     prod_dashboard, prod_saisie, prod_edit_entry, prod_delete_entry,
+   |                                                   ^^^^^^^^^^^^^^^^^
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+   |
+help: Use an explicit re-export: `prod_delete_entry as prod_delete_entry`
+
+F401 `.production_speciale.prod_edit_fiche` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:51:5
+   |
+49 | from .production_speciale import (
+50 |     prod_dashboard, prod_saisie, prod_edit_entry, prod_delete_entry,
+51 |     prod_edit_fiche,
+   |     ^^^^^^^^^^^^^^^
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+53 |     prod_calculer_temps, prod_calculer_temps_save, prod_calculer_temps_delete
+   |
+help: Use an explicit re-export: `prod_edit_fiche as prod_edit_fiche`
+
+F401 `.production_speciale.prod_base` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:52:5
+   |
+50 |     prod_dashboard, prod_saisie, prod_edit_entry, prod_delete_entry,
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+   |     ^^^^^^^^^
+53 |     prod_calculer_temps, prod_calculer_temps_save, prod_calculer_temps_delete
+54 | )
+   |
+help: Use an explicit re-export: `prod_base as prod_base`
+
+F401 `.production_speciale.prod_detail_qualite` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:52:16
+   |
+50 |     prod_dashboard, prod_saisie, prod_edit_entry, prod_delete_entry,
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+   |                ^^^^^^^^^^^^^^^^^^^
+53 |     prod_calculer_temps, prod_calculer_temps_save, prod_calculer_temps_delete
+54 | )
+   |
+help: Use an explicit re-export: `prod_detail_qualite as prod_detail_qualite`
+
+F401 `.production_speciale.prod_synthese_temps` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:52:37
+   |
+50 |     prod_dashboard, prod_saisie, prod_edit_entry, prod_delete_entry,
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+   |                                     ^^^^^^^^^^^^^^^^^^^
+53 |     prod_calculer_temps, prod_calculer_temps_save, prod_calculer_temps_delete
+54 | )
+   |
+help: Use an explicit re-export: `prod_synthese_temps as prod_synthese_temps`
+
+F401 `.production_speciale.prod_calculer_temps` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:53:5
+   |
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+53 |     prod_calculer_temps, prod_calculer_temps_save, prod_calculer_temps_delete
+   |     ^^^^^^^^^^^^^^^^^^^
+54 | )
+   |
+help: Use an explicit re-export: `prod_calculer_temps as prod_calculer_temps`
+
+F401 `.production_speciale.prod_calculer_temps_save` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:53:26
+   |
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+53 |     prod_calculer_temps, prod_calculer_temps_save, prod_calculer_temps_delete
+   |                          ^^^^^^^^^^^^^^^^^^^^^^^^
+54 | )
+   |
+help: Use an explicit re-export: `prod_calculer_temps_save as prod_calculer_temps_save`
+
+F401 `.production_speciale.prod_calculer_temps_delete` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:53:52
+   |
+51 |     prod_edit_fiche,
+52 |     prod_base, prod_detail_qualite, prod_synthese_temps,
+53 |     prod_calculer_temps, prod_calculer_temps_save, prod_calculer_temps_delete
+   |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+54 | )
+   |
+help: Use an explicit re-export: `prod_calculer_temps_delete as prod_calculer_temps_delete`
+
+F401 `.encre.encre_dashboard` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:57:5
+   |
+56 | from .encre import (
+57 |     encre_dashboard, encre_saisie, encre_edit, encre_delete, encre_detail, encre_analyse
+   |     ^^^^^^^^^^^^^^^
+58 | )
+   |
+help: Use an explicit re-export: `encre_dashboard as encre_dashboard`
+
+F401 `.encre.encre_saisie` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:57:22
+   |
+56 | from .encre import (
+57 |     encre_dashboard, encre_saisie, encre_edit, encre_delete, encre_detail, encre_analyse
+   |                      ^^^^^^^^^^^^
+58 | )
+   |
+help: Use an explicit re-export: `encre_saisie as encre_saisie`
+
+F401 `.encre.encre_edit` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:57:36
+   |
+56 | from .encre import (
+57 |     encre_dashboard, encre_saisie, encre_edit, encre_delete, encre_detail, encre_analyse
+   |                                    ^^^^^^^^^^
+58 | )
+   |
+help: Use an explicit re-export: `encre_edit as encre_edit`
+
+F401 `.encre.encre_delete` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:57:48
+   |
+56 | from .encre import (
+57 |     encre_dashboard, encre_saisie, encre_edit, encre_delete, encre_detail, encre_analyse
+   |                                                ^^^^^^^^^^^^
+58 | )
+   |
+help: Use an explicit re-export: `encre_delete as encre_delete`
+
+F401 `.encre.encre_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:57:62
+   |
+56 | from .encre import (
+57 |     encre_dashboard, encre_saisie, encre_edit, encre_delete, encre_detail, encre_analyse
+   |                                                              ^^^^^^^^^^^^
+58 | )
+   |
+help: Use an explicit re-export: `encre_detail as encre_detail`
+
+F401 `.encre.encre_analyse` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:57:76
+   |
+56 | from .encre import (
+57 |     encre_dashboard, encre_saisie, encre_edit, encre_delete, encre_detail, encre_analyse
+   |                                                                            ^^^^^^^^^^^^^
+58 | )
+   |
+help: Use an explicit re-export: `encre_analyse as encre_analyse`
+
+F401 `.admin_custom.admin_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:61:5
+   |
+60 | from .admin_custom import (
+61 |     admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+   |     ^^^^^^^^^^
+62 |     admin_restore_backup_view, export_database_backup, manifest_view
+63 | )
+   |
+help: Use an explicit re-export: `admin_view as admin_view`
+
+F401 `.admin_custom.admin_add_user` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:61:17
+   |
+60 | from .admin_custom import (
+61 |     admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+   |                 ^^^^^^^^^^^^^^
+62 |     admin_restore_backup_view, export_database_backup, manifest_view
+63 | )
+   |
+help: Use an explicit re-export: `admin_add_user as admin_add_user`
+
+F401 `.admin_custom.admin_edit_user` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:61:33
+   |
+60 | from .admin_custom import (
+61 |     admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+   |                                 ^^^^^^^^^^^^^^^
+62 |     admin_restore_backup_view, export_database_backup, manifest_view
+63 | )
+   |
+help: Use an explicit re-export: `admin_edit_user as admin_edit_user`
+
+F401 `.admin_custom.admin_toggle_user` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:61:50
+   |
+60 | from .admin_custom import (
+61 |     admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+   |                                                  ^^^^^^^^^^^^^^^^^
+62 |     admin_restore_backup_view, export_database_backup, manifest_view
+63 | )
+   |
+help: Use an explicit re-export: `admin_toggle_user as admin_toggle_user`
+
+F401 `.admin_custom.admin_import_data_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:61:69
+   |
+60 | from .admin_custom import (
+61 |     admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+   |                                                                     ^^^^^^^^^^^^^^^^^^^^^^
+62 |     admin_restore_backup_view, export_database_backup, manifest_view
+63 | )
+   |
+help: Use an explicit re-export: `admin_import_data_view as admin_import_data_view`
+
+F401 `.admin_custom.admin_restore_backup_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:62:5
+   |
+60 | from .admin_custom import (
+61 |     admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+62 |     admin_restore_backup_view, export_database_backup, manifest_view
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+63 | )
+   |
+help: Use an explicit re-export: `admin_restore_backup_view as admin_restore_backup_view`
+
+F401 `.admin_custom.export_database_backup` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:62:32
+   |
+60 | from .admin_custom import (
+61 |     admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+62 |     admin_restore_backup_view, export_database_backup, manifest_view
+   |                                ^^^^^^^^^^^^^^^^^^^^^^
+63 | )
+   |
+help: Use an explicit re-export: `export_database_backup as export_database_backup`
+
+F401 `.admin_custom.manifest_view` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:62:56
+   |
+60 | from .admin_custom import (
+61 |     admin_view, admin_add_user, admin_edit_user, admin_toggle_user, admin_import_data_view,
+62 |     admin_restore_backup_view, export_database_backup, manifest_view
+   |                                                        ^^^^^^^^^^^^^
+63 | )
+   |
+help: Use an explicit re-export: `manifest_view as manifest_view`
+
+F401 `.drh.drh_dashboard` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:66:5
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+   |     ^^^^^^^^^^^^^
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |
+help: Use an explicit re-export: `drh_dashboard as drh_dashboard`
+
+F401 `.drh.employee_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:66:20
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+   |                    ^^^^^^^^^^^^^
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |
+help: Use an explicit re-export: `employee_list as employee_list`
+
+F401 `.drh.employee_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:66:35
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+   |                                   ^^^^^^^^^^^^^^^
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |
+help: Use an explicit re-export: `employee_detail as employee_detail`
+
+F401 `.drh.employee_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:66:52
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+   |                                                    ^^^^^^^^^^^^^^^
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |
+help: Use an explicit re-export: `employee_create as employee_create`
+
+F401 `.drh.employee_edit` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:66:69
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+   |                                                                     ^^^^^^^^^^^^^
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |
+help: Use an explicit re-export: `employee_edit as employee_edit`
+
+F401 `.drh.employee_document_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:67:5
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |
+help: Use an explicit re-export: `employee_document_add as employee_document_add`
+
+F401 `.drh.skill_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:67:28
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+   |                            ^^^^^^^^^^
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |
+help: Use an explicit re-export: `skill_list as skill_list`
+
+F401 `.drh.employee_skill_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:67:40
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+   |                                        ^^^^^^^^^^^^^^^^^^
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |
+help: Use an explicit re-export: `employee_skill_add as employee_skill_add`
+
+F401 `.drh.machine_authorization_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:67:60
+   |
+65 | from .drh import (
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+   |                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |
+help: Use an explicit re-export: `machine_authorization_add as machine_authorization_add`
+
+F401 `.drh.machine_authorization_validate` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:68:5
+   |
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |
+help: Use an explicit re-export: `machine_authorization_validate as machine_authorization_validate`
+
+F401 `.drh.attendance_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:68:37
+   |
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |                                     ^^^^^^^^^^^^^^^
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |
+help: Use an explicit re-export: `attendance_list as attendance_list`
+
+F401 `.drh.attendance_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:68:54
+   |
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |                                                      ^^^^^^^^^^^^^^^^^
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |
+help: Use an explicit re-export: `attendance_create as attendance_create`
+
+F401 `.drh.attendance_bulk` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:68:73
+   |
+66 |     drh_dashboard, employee_list, employee_detail, employee_create, employee_edit,
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+   |                                                                         ^^^^^^^^^^^^^^^
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |
+help: Use an explicit re-export: `attendance_bulk as attendance_bulk`
+
+F401 `.drh.leave_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:69:5
+   |
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |     ^^^^^^^^^^
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |
+help: Use an explicit re-export: `leave_list as leave_list`
+
+F401 `.drh.leave_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:69:17
+   |
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |                 ^^^^^^^^^^^^
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |
+help: Use an explicit re-export: `leave_create as leave_create`
+
+F401 `.drh.leave_validate_n1` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:69:31
+   |
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |                               ^^^^^^^^^^^^^^^^^
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |
+help: Use an explicit re-export: `leave_validate_n1 as leave_validate_n1`
+
+F401 `.drh.leave_validate_rh` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:69:50
+   |
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |                                                  ^^^^^^^^^^^^^^^^^
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |
+help: Use an explicit re-export: `leave_validate_rh as leave_validate_rh`
+
+F401 `.drh.leave_reject` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:69:69
+   |
+67 |     employee_document_add, skill_list, employee_skill_add, machine_authorization_add,
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+   |                                                                     ^^^^^^^^^^^^
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |
+help: Use an explicit re-export: `leave_reject as leave_reject`
+
+F401 `.drh.payslip_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:70:5
+   |
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |     ^^^^^^^^^^^^
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |
+help: Use an explicit re-export: `payslip_list as payslip_list`
+
+F401 `.drh.payslip_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:70:19
+   |
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |                   ^^^^^^^^^^^^^^
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |
+help: Use an explicit re-export: `payslip_create as payslip_create`
+
+F401 `.drh.payslip_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:70:35
+   |
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |                                   ^^^^^^^^^^^^^^
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |
+help: Use an explicit re-export: `payslip_detail as payslip_detail`
+
+F401 `.drh.payslip_calculate` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:70:51
+   |
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |                                                   ^^^^^^^^^^^^^^^^^
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |
+help: Use an explicit re-export: `payslip_calculate as payslip_calculate`
+
+F401 `.drh.payslip_validate` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:70:70
+   |
+68 |     machine_authorization_validate, attendance_list, attendance_create, attendance_bulk,
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+   |                                                                      ^^^^^^^^^^^^^^^^
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |
+help: Use an explicit re-export: `payslip_validate as payslip_validate`
+
+F401 `.drh.payslip_bulk_generate` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:71:5
+   |
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |
+help: Use an explicit re-export: `payslip_bulk_generate as payslip_bulk_generate`
+
+F401 `.drh.schedule_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:71:28
+   |
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |                            ^^^^^^^^^^^^^
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |
+help: Use an explicit re-export: `schedule_list as schedule_list`
+
+F401 `.drh.schedule_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:71:43
+   |
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |                                           ^^^^^^^^^^^^^^^
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |
+help: Use an explicit re-export: `schedule_detail as schedule_detail`
+
+F401 `.drh.shift_assignment_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:71:60
+   |
+69 |     leave_list, leave_create, leave_validate_n1, leave_validate_rh, leave_reject,
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+   |                                                            ^^^^^^^^^^^^^^^^^^^^
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |
+help: Use an explicit re-export: `shift_assignment_add as shift_assignment_add`
+
+F401 `.drh.incident_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:72:5
+   |
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |     ^^^^^^^^^^^^^
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+74 |     shift_list, export_employees_excel, export_payslips_excel
+   |
+help: Use an explicit re-export: `incident_list as incident_list`
+
+F401 `.drh.incident_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:72:20
+   |
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |                    ^^^^^^^^^^^^^^^
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+74 |     shift_list, export_employees_excel, export_payslips_excel
+   |
+help: Use an explicit re-export: `incident_create as incident_create`
+
+F401 `.drh.incident_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:72:37
+   |
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |                                     ^^^^^^^^^^^^^^^
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+74 |     shift_list, export_employees_excel, export_payslips_excel
+   |
+help: Use an explicit re-export: `incident_detail as incident_detail`
+
+F401 `.drh.medical_visit_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:72:54
+   |
+70 |     payslip_list, payslip_create, payslip_detail, payslip_calculate, payslip_validate,
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+   |                                                      ^^^^^^^^^^^^^^^^^^
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+74 |     shift_list, export_employees_excel, export_payslips_excel
+   |
+help: Use an explicit re-export: `medical_visit_list as medical_visit_list`
+
+F401 `.drh.medical_visit_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:73:5
+   |
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |     ^^^^^^^^^^^^^^^^^^^^
+74 |     shift_list, export_employees_excel, export_payslips_excel
+75 | )
+   |
+help: Use an explicit re-export: `medical_visit_create as medical_visit_create`
+
+F401 `.drh.epi_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:73:27
+   |
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |                           ^^^^^^^^
+74 |     shift_list, export_employees_excel, export_payslips_excel
+75 | )
+   |
+help: Use an explicit re-export: `epi_list as epi_list`
+
+F401 `.drh.epi_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:73:37
+   |
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |                                     ^^^^^^^^^^
+74 |     shift_list, export_employees_excel, export_payslips_excel
+75 | )
+   |
+help: Use an explicit re-export: `epi_create as epi_create`
+
+F401 `.drh.department_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:73:49
+   |
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |                                                 ^^^^^^^^^^^^^^^
+74 |     shift_list, export_employees_excel, export_payslips_excel
+75 | )
+   |
+help: Use an explicit re-export: `department_list as department_list`
+
+F401 `.drh.position_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:73:66
+   |
+71 |     payslip_bulk_generate, schedule_list, schedule_detail, shift_assignment_add,
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+   |                                                                  ^^^^^^^^^^^^^
+74 |     shift_list, export_employees_excel, export_payslips_excel
+75 | )
+   |
+help: Use an explicit re-export: `position_list as position_list`
+
+F401 `.drh.shift_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:74:5
+   |
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+74 |     shift_list, export_employees_excel, export_payslips_excel
+   |     ^^^^^^^^^^
+75 | )
+   |
+help: Use an explicit re-export: `shift_list as shift_list`
+
+F401 `.drh.export_employees_excel` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:74:17
+   |
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+74 |     shift_list, export_employees_excel, export_payslips_excel
+   |                 ^^^^^^^^^^^^^^^^^^^^^^
+75 | )
+   |
+help: Use an explicit re-export: `export_employees_excel as export_employees_excel`
+
+F401 `.drh.export_payslips_excel` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:74:41
+   |
+72 |     incident_list, incident_create, incident_detail, medical_visit_list,
+73 |     medical_visit_create, epi_list, epi_create, department_list, position_list,
+74 |     shift_list, export_employees_excel, export_payslips_excel
+   |                                         ^^^^^^^^^^^^^^^^^^^^^
+75 | )
+   |
+help: Use an explicit re-export: `export_payslips_excel as export_payslips_excel`
+
+F401 `.chat.chat_home` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:78:5
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+   |     ^^^^^^^^^
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+80 | )
+   |
+help: Use an explicit re-export: `chat_home as chat_home`
+
+F401 `.chat.chat_room` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:78:16
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+   |                ^^^^^^^^^
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+80 | )
+   |
+help: Use an explicit re-export: `chat_room as chat_room`
+
+F401 `.chat.chat_send_message` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:78:27
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+   |                           ^^^^^^^^^^^^^^^^^
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+80 | )
+   |
+help: Use an explicit re-export: `chat_send_message as chat_send_message`
+
+F401 `.chat.chat_get_messages` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:78:46
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+   |                                              ^^^^^^^^^^^^^^^^^
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+80 | )
+   |
+help: Use an explicit re-export: `chat_get_messages as chat_get_messages`
+
+F401 `.chat.send_system_notification` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:78:65
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+   |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+80 | )
+   |
+help: Use an explicit re-export: `send_system_notification as send_system_notification`
+
+F401 `.chat.chat_private_init` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:79:5
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+   |     ^^^^^^^^^^^^^^^^^
+80 | )
+   |
+help: Use an explicit re-export: `chat_private_init as chat_private_init`
+
+F401 `.chat.chat_notifications_api` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:79:24
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+   |                        ^^^^^^^^^^^^^^^^^^^^^^
+80 | )
+   |
+help: Use an explicit re-export: `chat_notifications_api as chat_notifications_api`
+
+F401 `.chat.chat_widget_data` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:79:48
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+   |                                                ^^^^^^^^^^^^^^^^
+80 | )
+   |
+help: Use an explicit re-export: `chat_widget_data as chat_widget_data`
+
+F401 `.chat.chat_private_api` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:79:66
+   |
+77 | from .chat import (
+78 |     chat_home, chat_room, chat_send_message, chat_get_messages, send_system_notification,
+79 |     chat_private_init, chat_notifications_api, chat_widget_data, chat_private_api
+   |                                                                  ^^^^^^^^^^^^^^^^
+80 | )
+   |
+help: Use an explicit re-export: `chat_private_api as chat_private_api`
+
+F401 `.maintenance.maintenance_dashboard` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:83:5
+   |
+82 | from .maintenance import (
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+   |
+help: Use an explicit re-export: `maintenance_dashboard as maintenance_dashboard`
+
+F401 `.maintenance.atelier_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:83:28
+   |
+82 | from .maintenance import (
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+   |                            ^^^^^^^^^^^^
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+   |
+help: Use an explicit re-export: `atelier_list as atelier_list`
+
+F401 `.maintenance.atelier_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:83:42
+   |
+82 | from .maintenance import (
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+   |                                          ^^^^^^^^^^^^^^
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+   |
+help: Use an explicit re-export: `atelier_create as atelier_create`
+
+F401 `.maintenance.maintenance_machine_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:83:58
+   |
+82 | from .maintenance import (
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+   |                                                          ^^^^^^^^^^^^^^^^^^^^^^^^
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+   |
+help: Use an explicit re-export: `maintenance_machine_list as maintenance_machine_list`
+
+F401 `.maintenance.maintenance_machine_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:84:5
+   |
+82 | from .maintenance import (
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+   |
+help: Use an explicit re-export: `maintenance_machine_create as maintenance_machine_create`
+
+F401 `.maintenance.maintenance_machine_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:84:33
+   |
+82 | from .maintenance import (
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+   |
+help: Use an explicit re-export: `maintenance_machine_detail as maintenance_machine_detail`
+
+F401 `.maintenance.maintenance_machine_edit` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:84:61
+   |
+82 | from .maintenance import (
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+   |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+   |
+help: Use an explicit re-export: `maintenance_machine_edit as maintenance_machine_edit`
+
+F401 `.maintenance.maintenance_machine_delete` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:85:5
+   |
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+   |
+help: Use an explicit re-export: `maintenance_machine_delete as maintenance_machine_delete`
+
+F401 `.maintenance.machine_compteur_add` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:85:33
+   |
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+   |                                 ^^^^^^^^^^^^^^^^^^^^
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+   |
+help: Use an explicit re-export: `machine_compteur_add as machine_compteur_add`
+
+F401 `.maintenance.om_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:85:55
+   |
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+   |                                                       ^^^^^^^
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+   |
+help: Use an explicit re-export: `om_list as om_list`
+
+F401 `.maintenance.om_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:85:64
+   |
+83 |     maintenance_dashboard, atelier_list, atelier_create, maintenance_machine_list,
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+   |                                                                ^^^^^^^^^
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+   |
+help: Use an explicit re-export: `om_create as om_create`
+
+F401 `.maintenance.om_create_panne` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:86:5
+   |
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+   |     ^^^^^^^^^^^^^^^
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |
+help: Use an explicit re-export: `om_create_panne as om_create_panne`
+
+F401 `.maintenance.om_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:86:22
+   |
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+   |                      ^^^^^^^^^
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |
+help: Use an explicit re-export: `om_detail as om_detail`
+
+F401 `.maintenance.om_demarrer` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:86:33
+   |
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+   |                                 ^^^^^^^^^^^
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |
+help: Use an explicit re-export: `om_demarrer as om_demarrer`
+
+F401 `.maintenance.om_cloturer` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:86:46
+   |
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+   |                                              ^^^^^^^^^^^
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |
+help: Use an explicit re-export: `om_cloturer as om_cloturer`
+
+F401 `.maintenance.om_ajouter_piece` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:86:59
+   |
+84 |     maintenance_machine_create, maintenance_machine_detail, maintenance_machine_edit,
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+   |                                                           ^^^^^^^^^^^^^^^^
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |
+help: Use an explicit re-export: `om_ajouter_piece as om_ajouter_piece`
+
+F401 `.maintenance.plan_preventif_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:87:5
+   |
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+   |     ^^^^^^^^^^^^^^^^^^^
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+   |
+help: Use an explicit re-export: `plan_preventif_list as plan_preventif_list`
+
+F401 `.maintenance.plan_preventif_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:87:26
+   |
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+   |                          ^^^^^^^^^^^^^^^^^^^^^
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+   |
+help: Use an explicit re-export: `plan_preventif_create as plan_preventif_create`
+
+F401 `.maintenance.plan_preventif_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:87:49
+   |
+85 |     maintenance_machine_delete, machine_compteur_add, om_list, om_create,
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+   |
+help: Use an explicit re-export: `plan_preventif_detail as plan_preventif_detail`
+
+F401 `.maintenance.plan_preventif_generer_om` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:88:5
+   |
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |
+help: Use an explicit re-export: `plan_preventif_generer_om as plan_preventif_generer_om`
+
+F401 `.maintenance.generer_om_preventifs_auto` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:88:32
+   |
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |
+help: Use an explicit re-export: `generer_om_preventifs_auto as generer_om_preventifs_auto`
+
+F401 `.maintenance.piece_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:88:60
+   |
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |                                                            ^^^^^^^^^^
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |
+help: Use an explicit re-export: `piece_list as piece_list`
+
+F401 `.maintenance.piece_create` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:88:72
+   |
+86 |     om_create_panne, om_detail, om_demarrer, om_cloturer, om_ajouter_piece,
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+   |                                                                        ^^^^^^^^^^^^
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |
+help: Use an explicit re-export: `piece_create as piece_create`
+
+F401 `.maintenance.piece_detail` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:89:5
+   |
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+   |     ^^^^^^^^^^^^
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+91 | )
+   |
+help: Use an explicit re-export: `piece_detail as piece_detail`
+
+F401 `.maintenance.piece_edit` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:89:19
+   |
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+   |                   ^^^^^^^^^^
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+91 | )
+   |
+help: Use an explicit re-export: `piece_edit as piece_edit`
+
+F401 `.maintenance.piece_mouvement` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:89:31
+   |
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+   |                               ^^^^^^^^^^^^^^^
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+91 | )
+   |
+help: Use an explicit re-export: `piece_mouvement as piece_mouvement`
+
+F401 `.maintenance.categorie_piece_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:89:48
+   |
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+   |                                                ^^^^^^^^^^^^^^^^^^^^
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+91 | )
+   |
+help: Use an explicit re-export: `categorie_piece_list as categorie_piece_list`
+
+F401 `.maintenance.alerte_list` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:89:70
+   |
+87 |     plan_preventif_list, plan_preventif_create, plan_preventif_detail,
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+   |                                                                      ^^^^^^^^^^^
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+91 | )
+   |
+help: Use an explicit re-export: `alerte_list as alerte_list`
+
+F401 `.maintenance.alerte_traiter` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:90:5
+   |
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |     ^^^^^^^^^^^^^^
+91 | )
+   |
+help: Use an explicit re-export: `alerte_traiter as alerte_traiter`
+
+F401 `.maintenance.generer_alertes` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:90:21
+   |
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |                     ^^^^^^^^^^^^^^^
+91 | )
+   |
+help: Use an explicit re-export: `generer_alertes as generer_alertes`
+
+F401 `.maintenance.maintenance_kpi` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:90:38
+   |
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |                                      ^^^^^^^^^^^^^^^
+91 | )
+   |
+help: Use an explicit re-export: `maintenance_kpi as maintenance_kpi`
+
+F401 `.maintenance.maintenance_stats_api` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:90:55
+   |
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^
+91 | )
+   |
+help: Use an explicit re-export: `maintenance_stats_api as maintenance_stats_api`
+
+F401 `.maintenance.maintenance_calendrier` imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+  --> core\views\__init__.py:90:78
+   |
+88 |     plan_preventif_generer_om, generer_om_preventifs_auto, piece_list, piece_create,
+89 |     piece_detail, piece_edit, piece_mouvement, categorie_piece_list, alerte_list,
+90 |     alerte_traiter, generer_alertes, maintenance_kpi, maintenance_stats_api, maintenance_calendrier
+   |                                                                              ^^^^^^^^^^^^^^^^^^^^^^
+91 | )
+   |
+help: Use an explicit re-export: `maintenance_calendrier as maintenance_calendrier`
+
+F401 [*] `django.http.HttpResponse` imported but unused
+  --> core\views\admin_custom.py:11:25
+   |
+ 9 | from django.db.models import Count, Q
+10 | from django.contrib import messages
+11 | from django.http import HttpResponse, JsonResponse, FileResponse
+   |                         ^^^^^^^^^^^^
+12 | from django.core.management import call_command
+13 | from django.utils import timezone
+   |
+help: Remove unused import: `django.http.HttpResponse`
+   |
+10 | from django.contrib import messages
+   - from django.http import HttpResponse, JsonResponse, FileResponse
+11 + from django.http import JsonResponse, FileResponse
+12 | from django.core.management import call_command
+   |
+
+F401 [*] `django.core.management.call_command` imported but unused
+  --> core\views\admin_custom.py:12:36
+   |
+10 | from django.contrib import messages
+11 | from django.http import HttpResponse, JsonResponse, FileResponse
+12 | from django.core.management import call_command
+   |                                    ^^^^^^^^^^^^
+13 | from django.utils import timezone
+14 | from django.conf import settings
+   |
+help: Remove unused import: `django.core.management.call_command`
+   |
+11 | from django.http import HttpResponse, JsonResponse, FileResponse
+   - from django.core.management import call_command
+12 | from django.utils import timezone
+   |
+
+F401 [*] `io` imported but unused
+  --> core\views\admin_custom.py:17:8
+   |
+15 | from django.templatetags.static import static
+16 | import traceback
+17 | import io
+   |        ^^
+18 | import os
+19 | import shutil
+   |
+help: Remove unused import: `io`
+   |
+16 | import traceback
+   - import io
+17 | import os
+   |
+
+F401 [*] `os` imported but unused
+  --> core\views\admin_custom.py:18:8
+   |
+16 | import traceback
+17 | import io
+18 | import os
+   |        ^^
+19 | import shutil
+20 | import secrets
+   |
+help: Remove unused import: `os`
+   |
+17 | import io
+   - import os
+18 | import shutil
+   |
+
+F401 [*] `django.contrib.messages` imported but unused
+ --> core\views\chat.py:4:28
+  |
+2 | from django.contrib.auth.decorators import login_required
+3 | from django.http import JsonResponse
+4 | from django.contrib import messages
+  |                            ^^^^^^^^
+5 | from django.contrib.auth.models import User
+6 | from django.utils import timezone
+  |
+help: Remove unused import: `django.contrib.messages`
+  |
+3 | from django.http import JsonResponse
+  - from django.contrib import messages
+4 | from django.contrib.auth.models import User
+  |
+
+F401 [*] `django.db.models.Q` imported but unused
+  --> core\views\chat.py:8:30
+   |
+ 6 | from django.utils import timezone
+ 7 | from datetime import timedelta
+ 8 | from django.db.models import Q, Max, Count, Prefetch
+   |                              ^
+ 9 |
+10 | from ..models import ChatRoom, ChatMessage, UserPresence
+   |
+help: Remove unused import
+  |
+7 | from datetime import timedelta
+  - from django.db.models import Q, Max, Count, Prefetch
+8 + from django.db.models import Max, Count
+9 |
+  |
+
+F401 [*] `django.db.models.Prefetch` imported but unused
+  --> core\views\chat.py:8:45
+   |
+ 6 | from django.utils import timezone
+ 7 | from datetime import timedelta
+ 8 | from django.db.models import Q, Max, Count, Prefetch
+   |                                             ^^^^^^^^
+ 9 |
+10 | from ..models import ChatRoom, ChatMessage, UserPresence
+   |
+help: Remove unused import
+  |
+7 | from datetime import timedelta
+  - from django.db.models import Q, Max, Count, Prefetch
+8 + from django.db.models import Max, Count
+9 |
+  |
+
+F401 [*] `..models.permissions.UserModulePermission` imported but unused
+  --> core\views\chat.py:37:42
+   |
+36 |     try:
+37 |         from ..models.permissions import UserModulePermission
+   |                                          ^^^^^^^^^^^^^^^^^^^^
+38 |         perms = user.module_permissions
+39 |         modules = set(perms.get_allowed_modules() or [])
+   |
+help: Remove unused import: `..models.permissions.UserModulePermission`
+   |
+36 |     try:
+   -         from ..models.permissions import UserModulePermission
+37 |         perms = user.module_permissions
+   |
+
+F841 Local variable `rooms` is assigned to but never used
+  --> core\views\communication.py:9:5
+   |
+ 7 | @login_required
+ 8 | def chat_home(request):
+ 9 |     rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
+   |     ^^^^^
+10 |     default_rooms = [
+11 |         {'name': 'Général', 'slug': 'general', 'type': 'GENERAL', 'icone': '💬'},
+   |
+help: Remove assignment to unused variable `rooms`
+   |
+8  | def chat_home(request):
+   -     rooms = ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
+9  +     ChatRoom.objects.filter(est_actif=True).order_by('type', 'name')
+10 |     default_rooms = [
+   |
+note: This is an unsafe fix and may change runtime behavior
+
+F401 [*] `django.db.models.Count` imported but unused
+ --> core\views\crm.py:3:38
+  |
+1 | from django.shortcuts import render, redirect, get_object_or_404
+2 | from django.contrib.auth.decorators import login_required
+3 | from django.db.models import Sum, Q, Count, Prefetch
+  |                                      ^^^^^
+4 | from django.contrib import messages
+5 | from django.utils import timezone
+  |
+help: Remove unused import
+  |
+2 | from django.contrib.auth.decorators import login_required
+  - from django.db.models import Sum, Q, Count, Prefetch
+3 + from django.db.models import Sum, Q
+4 | from django.contrib import messages
+  |
+
+F401 [*] `django.db.models.Prefetch` imported but unused
+ --> core\views\crm.py:3:45
+  |
+1 | from django.shortcuts import render, redirect, get_object_or_404
+2 | from django.contrib.auth.decorators import login_required
+3 | from django.db.models import Sum, Q, Count, Prefetch
+  |                                             ^^^^^^^^
+4 | from django.contrib import messages
+5 | from django.utils import timezone
+  |
+help: Remove unused import
+  |
+2 | from django.contrib.auth.decorators import login_required
+  - from django.db.models import Sum, Q, Count, Prefetch
+3 + from django.db.models import Sum, Q
+4 | from django.contrib import messages
+  |
+
+B007 Loop control variable `index` not used within loop body
+   --> core\views\crm.py:243:25
+    |
+242 |                 with transaction.atomic():
+243 |                     for index, row in df.iterrows():
+    |                         ^^^^^
+244 |                         code_client = str(row.get('ID Client', '')).strip()
+245 |                         nom = str(row.get('Nom Client', '')).strip()
+    |
+help: Rename unused `index` to `_index`
+    |
+242 |                 with transaction.atomic():
+    -                     for index, row in df.iterrows():
+243 +                     for _index, row in df.iterrows():
+244 |                         code_client = str(row.get('ID Client', '')).strip()
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+F401 [*] `datetime.date` imported but unused
+ --> core\views\drh.py:4:33
+  |
+2 | import openpyxl
+3 | from collections import defaultdict
+4 | from datetime import timedelta, date
+  |                                 ^^^^
+5 | from django.shortcuts import render, redirect, get_object_or_404
+6 | from django.contrib.auth.decorators import login_required
+  |
+help: Remove unused import: `datetime.date`
+  |
+3 | from collections import defaultdict
+  - from datetime import timedelta, date
+4 + from datetime import timedelta
+5 | from django.shortcuts import render, redirect, get_object_or_404
+  |
+
+F401 [*] `django.http.JsonResponse` imported but unused
+  --> core\views\drh.py:9:39
+   |
+ 7 | from django.db.models import Count, Sum, Q
+ 8 | from django.utils import timezone
+ 9 | from django.http import HttpResponse, JsonResponse
+   |                                       ^^^^^^^^^^^^
+10 | from django.contrib import messages
+11 | from openpyxl.styles import Font, PatternFill
+   |
+help: Remove unused import: `django.http.JsonResponse`
+   |
+8  | from django.utils import timezone
+   - from django.http import HttpResponse, JsonResponse
+9  + from django.http import HttpResponse
+10 | from django.contrib import messages
+   |
+
+F401 [*] `..models.EmployeeSkill` imported but unused
+  --> core\views\drh.py:14:44
+   |
+13 | from ..models import (
+14 |     Employee, Department, Position, Skill, EmployeeSkill, MachineAuthorization,
+   |                                            ^^^^^^^^^^^^^
+15 |     Shift, Attendance, LeaveType, LeaveRequest, Payslip, WorkSchedule,
+16 |     WorkIncident, MedicalVisit, ProtectiveEquipment, ShiftAssignment
+   |
+help: Remove unused import
+   |
+13 | from ..models import (
+   -     Employee, Department, Position, Skill, EmployeeSkill, MachineAuthorization,
+14 +     Employee, Department, Position, Skill, MachineAuthorization,
+15 |     Shift, Attendance, LeaveType, LeaveRequest, Payslip, WorkSchedule,
+   -     WorkIncident, MedicalVisit, ProtectiveEquipment, ShiftAssignment
+16 +     WorkIncident, MedicalVisit, ProtectiveEquipment
+17 | )
+   |
+
+F401 [*] `..models.ShiftAssignment` imported but unused
+  --> core\views\drh.py:16:54
+   |
+14 |     Employee, Department, Position, Skill, EmployeeSkill, MachineAuthorization,
+15 |     Shift, Attendance, LeaveType, LeaveRequest, Payslip, WorkSchedule,
+16 |     WorkIncident, MedicalVisit, ProtectiveEquipment, ShiftAssignment
+   |                                                      ^^^^^^^^^^^^^^^
+17 | )
+18 | from ..forms import (
+   |
+help: Remove unused import
+   |
+13 | from ..models import (
+   -     Employee, Department, Position, Skill, EmployeeSkill, MachineAuthorization,
+14 +     Employee, Department, Position, Skill, MachineAuthorization,
+15 |     Shift, Attendance, LeaveType, LeaveRequest, Payslip, WorkSchedule,
+   -     WorkIncident, MedicalVisit, ProtectiveEquipment, ShiftAssignment
+16 +     WorkIncident, MedicalVisit, ProtectiveEquipment
+17 | )
+   |
+
+F401 [*] `django.db.models.Sum` imported but unused
+ --> core\views\encre.py:6:30
+  |
+4 | from django.shortcuts import render, redirect, get_object_or_404
+5 | from django.contrib.auth.decorators import login_required
+6 | from django.db.models import Sum
+  |                              ^^^
+7 | from django.contrib import messages
+  |
+help: Remove unused import: `django.db.models.Sum`
+  |
+5 | from django.contrib.auth.decorators import login_required
+  - from django.db.models import Sum
+6 | from django.contrib import messages
+  |
+
+F401 [*] `..models.FicheImpressionEncreGroupe` imported but unused
+  --> core\views\encre.py:12:33
+   |
+10 |     ConsommationEncre,
+11 |     # 🆕 Fusion avec les fiches de production Flexo/Hélio
+12 |     FicheProductionJournaliere, FicheImpressionEncreGroupe,
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+13 | )
+14 | from ..forms import ConsommationEncreForm
+   |
+help: Remove unused import: `..models.FicheImpressionEncreGroupe`
+   |
+11 |     # 🆕 Fusion avec les fiches de production Flexo/Hélio
+   -     FicheProductionJournaliere, FicheImpressionEncreGroupe,
+12 +     FicheProductionJournaliere,
+13 | )
+   |
+
+B905 `zip()` without an explicit `strict=` parameter
+   --> core\views\encre.py:266:24
+    |
+264 |     couleurs_table = [
+265 |         {'nom': n, 'val': v, 'color': c}
+266 |         for n, v, c in zip(couleurs_noms, couleurs_vals, couleurs_colors) if v > 0
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+267 |     ]
+    |
+help: Add explicit value for parameter `strict=`
+    |
+265 |         {'nom': n, 'val': v, 'color': c}
+    -         for n, v, c in zip(couleurs_noms, couleurs_vals, couleurs_colors) if v > 0
+266 +         for n, v, c in zip(couleurs_noms, couleurs_vals, couleurs_colors, strict=False) if v > 0
+267 |     ]
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+F401 [*] `math.ceil` imported but unused
+ --> core\views\erp_assistant.py:3:18
+  |
+1 | import re
+2 | import unicodedata
+3 | from math import ceil
+  |                  ^^^^
+4 |
+5 | from django.contrib.auth.decorators import login_required
+  |
+help: Remove unused import: `math.ceil`
+  |
+2 | import unicodedata
+  - from math import ceil
+3 |
+  |
+
+F401 [*] `django.shortcuts.redirect` imported but unused
+  --> core\views\imports_export.py:11:38
+   |
+10 | from django.contrib.auth.decorators import login_required
+11 | from django.shortcuts import render, redirect, get_object_or_404
+   |                                      ^^^^^^^^
+12 | from django.core.files.storage import FileSystemStorage
+13 | from django.http import HttpResponse, JsonResponse
+   |
+help: Remove unused import
+   |
+10 | from django.contrib.auth.decorators import login_required
+   - from django.shortcuts import render, redirect, get_object_or_404
+11 + from django.shortcuts import render
+12 | from django.core.files.storage import FileSystemStorage
+   |
+
+F401 [*] `django.shortcuts.get_object_or_404` imported but unused
+  --> core\views\imports_export.py:11:48
+   |
+10 | from django.contrib.auth.decorators import login_required
+11 | from django.shortcuts import render, redirect, get_object_or_404
+   |                                                ^^^^^^^^^^^^^^^^^
+12 | from django.core.files.storage import FileSystemStorage
+13 | from django.http import HttpResponse, JsonResponse
+   |
+help: Remove unused import
+   |
+10 | from django.contrib.auth.decorators import login_required
+   - from django.shortcuts import render, redirect, get_object_or_404
+11 + from django.shortcuts import render
+12 | from django.core.files.storage import FileSystemStorage
+   |
+
+F401 [*] `django.http.JsonResponse` imported but unused
+  --> core\views\imports_export.py:13:39
+   |
+11 | from django.shortcuts import render, redirect, get_object_or_404
+12 | from django.core.files.storage import FileSystemStorage
+13 | from django.http import HttpResponse, JsonResponse
+   |                                       ^^^^^^^^^^^^
+14 | from django.utils import timezone
+15 | from django.db.models import Q
+   |
+help: Remove unused import: `django.http.JsonResponse`
+   |
+12 | from django.core.files.storage import FileSystemStorage
+   - from django.http import HttpResponse, JsonResponse
+13 + from django.http import HttpResponse
+14 | from django.utils import timezone
+   |
+
+F401 [*] `..models.Quote` imported but unused
+  --> core\views\imports_export.py:19:40
+   |
+18 | from ..models import (
+19 |     Client, TechnicalProduct, Tooling, Quote, ProductionOrder, Machine,
+   |                                        ^^^^^
+20 |     Material, ConsommationEncre, ProductionEntry, Supplier
+21 | )
+   |
+help: Remove unused import: `..models.Quote`
+   |
+18 | from ..models import (
+   -     Client, TechnicalProduct, Tooling, Quote, ProductionOrder, Machine,
+19 +     Client, TechnicalProduct, Tooling, ProductionOrder, Machine,
+20 |     Material, ConsommationEncre, ProductionEntry, Supplier
+   |
+
+F401 [*] `.stock.StockService` imported but unused
+  --> core\views\imports_export.py:22:20
+   |
+20 |     Material, ConsommationEncre, ProductionEntry, Supplier
+21 | )
+22 | from .stock import StockService
+   |                    ^^^^^^^^^^^^
+help: Remove unused import: `.stock.StockService`
+   |
+21 | )
+   - from .stock import StockService
+22 |
+   |
+
+F541 [*] f-string without any placeholders
+   --> core\views\imports_export.py:474:36
+    |
+472 | …         details.append(f"ℹ️ Tous les clients seront assignés au commercial : {forced_commercial.get_full_name() or forced_commercial…
+473 | …     else:
+474 | …         details.append(f"ℹ️ Détection auto du commercial selon le fichier Excel.")
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+475 | …     
+476 | …     for idx, row in df.iterrows():
+    |
+help: Remove extraneous `f` prefix
+    |
+473 |                 else:
+    -                     details.append(f"ℹ️ Détection auto du commercial selon le fichier Excel.")
+474 +                     details.append("ℹ️ Détection auto du commercial selon le fichier Excel.")
+475 |                 
+    |
+
+B007 Loop control variable `label` not used within loop body
+   --> core\views\imports_export.py:505:39
+    |
+503 | …     if region_raw:
+504 | …         rr = region_raw.upper()
+505 | …         for code, label in [('NORD', 'NORD'), ('SUD', 'SUD'), ('EST', 'EST'), ('OUEST', 'OUEST'), ('CENTRE', 'CENTRE'), ('EXPORT', …
+    |                     ^^^^^
+506 | …             if code in rr:
+507 | …                 region = code
+    |
+help: Rename unused `label` to `_label`
+    |
+504 |                             rr = region_raw.upper()
+    -                             for code, label in [('NORD', 'NORD'), ('SUD', 'SUD'), ('EST', 'EST'), ('OUEST', 'OUEST'), ('CENTRE', 'CENTRE'), ('EXPORT', 'EXPORT')]:
+505 +                             for code, _label in [('NORD', 'NORD'), ('SUD', 'SUD'), ('EST', 'EST'), ('OUEST', 'OUEST'), ('CENTRE', 'CENTRE'), ('EXPORT', 'EXPORT')]:
+506 |                                 if code in rr:
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> core\views\ink_history.py:28:9
+   |
+26 |         return float(value)
+27 |     except ValueError:
+28 |         raise ValueError(f'Valeur numérique invalide : « {value} ».')
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+F401 [*] `calendar` imported but unused
+ --> core\views\maintenance.py:2:8
+  |
+1 | import json
+2 | import calendar
+  |        ^^^^^^^^
+3 | from collections import defaultdict
+4 | from datetime import timedelta, date
+  |
+help: Remove unused import: `calendar`
+  |
+1 | import json
+  - import calendar
+2 | from collections import defaultdict
+  |
+
+F401 [*] `datetime.date` imported but unused
+ --> core\views\maintenance.py:4:33
+  |
+2 | import calendar
+3 | from collections import defaultdict
+4 | from datetime import timedelta, date
+  |                                 ^^^^
+5 | from django.shortcuts import render, redirect, get_object_or_404
+6 | from django.contrib.auth.decorators import login_required
+  |
+help: Remove unused import: `datetime.date`
+  |
+3 | from collections import defaultdict
+  - from datetime import timedelta, date
+4 + from datetime import timedelta
+5 | from django.shortcuts import render, redirect, get_object_or_404
+  |
+
+F401 [*] `django.db.models.Q` imported but unused
+ --> core\views\notifications.py:2:30
+  |
+1 | from django.contrib.auth.decorators import login_required
+2 | from django.db.models import Q
+  |                              ^
+3 | from django.http import JsonResponse
+4 | from django.shortcuts import get_object_or_404, render
+  |
+help: Remove unused import: `django.db.models.Q`
+  |
+1 | from django.contrib.auth.decorators import login_required
+  - from django.db.models import Q
+2 | from django.http import JsonResponse
+  |
+
+F401 [*] `..models.OFPrelaunchCheck` imported but unused
+  --> core\views\prelaunch.py:8:22
+   |
+ 6 | from django.views.decorators.http import require_http_methods
+ 7 |
+ 8 | from ..models import OFPrelaunchCheck, OrdreFabrication
+   |                      ^^^^^^^^^^^^^^^^
+ 9 | from ..models.permissions import user_has_module_access
+10 | from ..services.prelaunch import can_override_prelaunch, run_prelaunch_check
+   |
+help: Remove unused import: `..models.OFPrelaunchCheck`
+  |
+7 |
+  - from ..models import OFPrelaunchCheck, OrdreFabrication
+8 + from ..models import OrdreFabrication
+9 | from ..models.permissions import user_has_module_access
+  |
+
+F401 [*] `django.db.models.Avg` imported but unused
+ --> core\views\production.py:6:45
+  |
+4 | from django.shortcuts import render, redirect, get_object_or_404
+5 | from django.contrib.auth.decorators import login_required
+6 | from django.db.models import Count, Sum, Q, Avg, F
+  |                                             ^^^
+7 | from django.utils import timezone
+8 | from django.http import JsonResponse
+  |
+help: Remove unused import
+  |
+5 | from django.contrib.auth.decorators import login_required
+  - from django.db.models import Count, Sum, Q, Avg, F
+6 + from django.db.models import Count, Sum, Q
+7 | from django.utils import timezone
+  |
+
+F401 [*] `django.db.models.F` imported but unused
+ --> core\views\production.py:6:50
+  |
+4 | from django.shortcuts import render, redirect, get_object_or_404
+5 | from django.contrib.auth.decorators import login_required
+6 | from django.db.models import Count, Sum, Q, Avg, F
+  |                                                  ^
+7 | from django.utils import timezone
+8 | from django.http import JsonResponse
+  |
+help: Remove unused import
+  |
+5 | from django.contrib.auth.decorators import login_required
+  - from django.db.models import Count, Sum, Q, Avg, F
+6 + from django.db.models import Count, Sum, Q
+7 | from django.utils import timezone
+  |
+
+B007 Loop control variable `label` not used within loop body
+   --> core\views\production_of.py:577:15
+    |
+575 | def of_stats_api(request):
+576 |     statuts = {}
+577 |     for code, label in OrdreFabrication.STATUT_CHOICES:
+    |               ^^^^^
+578 |         statuts[code] = OrdreFabrication.objects.filter(statut=code).count()
+    |
+help: Rename unused `label` to `_label`
+    |
+576 |     statuts = {}
+    -     for code, label in OrdreFabrication.STATUT_CHOICES:
+577 +     for code, _label in OrdreFabrication.STATUT_CHOICES:
+578 |         statuts[code] = OrdreFabrication.objects.filter(statut=code).count()
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+F401 [*] `..models.FicheExtrusionMatiere` imported but unused
+  --> core\views\production_speciale.py:15:33
+   |
+13 |     Machine, ProductionEntry, CalculTempsProduction, OrdreFabrication,
+14 |     # --- NOUVEAUX MODELES ---
+15 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   |                                 ^^^^^^^^^^^^^^^^^^^^^
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheExtrusionArret` imported but unused
+  --> core\views\production_speciale.py:15:56
+   |
+13 |     Machine, ProductionEntry, CalculTempsProduction, OrdreFabrication,
+14 |     # --- NOUVEAUX MODELES ---
+15 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   |                                                        ^^^^^^^^^^^^^^^^^^^
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheImpressionBobineEntree` imported but unused
+  --> core\views\production_speciale.py:16:5
+   |
+14 |     # --- NOUVEAUX MODELES ---
+15 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheImpressionBobineImprimee` imported but unused
+  --> core\views\production_speciale.py:16:34
+   |
+14 |     # --- NOUVEAUX MODELES ---
+15 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheImpressionEncreGroupe` imported but unused
+  --> core\views\production_speciale.py:16:65
+   |
+14 |     # --- NOUVEAUX MODELES ---
+15 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheComplexageDerouleur1` imported but unused
+  --> core\views\production_speciale.py:17:5
+   |
+15 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+19 |     FicheDecoupeArret, FicheDecoupeControle,
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheComplexageDerouleur2` imported but unused
+  --> core\views\production_speciale.py:17:32
+   |
+15 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+19 |     FicheDecoupeArret, FicheDecoupeControle,
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheComplexageEnrouleur` imported but unused
+  --> core\views\production_speciale.py:17:59
+   |
+15 |     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   |                                                           ^^^^^^^^^^^^^^^^^^^^^^^^
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+19 |     FicheDecoupeArret, FicheDecoupeControle,
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheFondCarreEquipe` imported but unused
+  --> core\views\production_speciale.py:18:5
+   |
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |     ^^^^^^^^^^^^^^^^^^^^
+19 |     FicheDecoupeArret, FicheDecoupeControle,
+20 | )
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheDecoupeBobineMere` imported but unused
+  --> core\views\production_speciale.py:18:27
+   |
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |                           ^^^^^^^^^^^^^^^^^^^^^^
+19 |     FicheDecoupeArret, FicheDecoupeControle,
+20 | )
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheDecoupeBobineFille` imported but unused
+  --> core\views\production_speciale.py:18:51
+   |
+16 |     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^
+19 |     FicheDecoupeArret, FicheDecoupeControle,
+20 | )
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheDecoupeArret` imported but unused
+  --> core\views\production_speciale.py:19:5
+   |
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+19 |     FicheDecoupeArret, FicheDecoupeControle,
+   |     ^^^^^^^^^^^^^^^^^
+20 | )
+21 | from ..forms import (
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F401 [*] `..models.FicheDecoupeControle` imported but unused
+  --> core\views\production_speciale.py:19:24
+   |
+17 |     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+18 |     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+19 |     FicheDecoupeArret, FicheDecoupeControle,
+   |                        ^^^^^^^^^^^^^^^^^^^^
+20 | )
+21 | from ..forms import (
+   |
+help: Remove unused import
+   |
+14 |     # --- NOUVEAUX MODELES ---
+   -     FicheProductionJournaliere, FicheExtrusionMatiere, FicheExtrusionArret,
+   -     FicheImpressionBobineEntree, FicheImpressionBobineImprimee, FicheImpressionEncreGroupe,
+   -     FicheComplexageDerouleur1, FicheComplexageDerouleur2, FicheComplexageEnrouleur,
+   -     FicheFondCarreEquipe, FicheDecoupeBobineMere, FicheDecoupeBobineFille,
+   -     FicheDecoupeArret, FicheDecoupeControle,
+15 +     FicheProductionJournaliere,
+16 | )
+   |
+
+F841 Local variable `causes_decoupe_init` is assigned to but never used
+   --> core\views\production_speciale.py:642:5
+    |
+640 |     type_f = fiche.type_fiche
+641 |
+642 |     causes_decoupe_init = [{'cause': c} for c in [
+    |     ^^^^^^^^^^^^^^^^^^^
+643 |         'CHANGEMENT DE FORMAT', 'DEMARAGE', 'ESSAI', 'PREPARATION BOBINES MERE',
+644 |         'PREPARATION BOBINES FILLES', 'NETTOYAGE MACHINE', 'PREVENTIF',
+    |
+help: Remove assignment to unused variable `causes_decoupe_init`
+    |
+641 |
+    -     causes_decoupe_init = [{'cause': c} for c in [
+642 +     [{'cause': c} for c in [
+643 |         'CHANGEMENT DE FORMAT', 'DEMARAGE', 'ESSAI', 'PREPARATION BOBINES MERE',
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+F401 [*] `datetime.datetime` imported but unused
+  --> core\views\stock.py:9:22
+   |
+ 7 | import urllib.request
+ 8 | import urllib.error
+ 9 | from datetime import datetime, date
+   |                      ^^^^^^^^
+10 | from django.shortcuts import render, redirect, get_object_or_404
+11 | from django.contrib.auth.decorators import login_required
+   |
+help: Remove unused import
+  |
+8 | import urllib.error
+  - from datetime import datetime, date
+9 | from django.shortcuts import render, redirect, get_object_or_404
+  |
+
+F401 [*] `datetime.date` imported but unused
+  --> core\views\stock.py:9:32
+   |
+ 7 | import urllib.request
+ 8 | import urllib.error
+ 9 | from datetime import datetime, date
+   |                                ^^^^
+10 | from django.shortcuts import render, redirect, get_object_or_404
+11 | from django.contrib.auth.decorators import login_required
+   |
+help: Remove unused import
+  |
+8 | import urllib.error
+  - from datetime import datetime, date
+9 | from django.shortcuts import render, redirect, get_object_or_404
+  |
+
+F401 [*] `django.db.models` imported but unused
+  --> core\views\stock.py:14:23
+   |
+12 | from django.http import HttpResponse, JsonResponse
+13 | from django.contrib import messages
+14 | from django.db import models, transaction
+   |                       ^^^^^^
+15 | from django.db.models import Sum, Q, F
+16 | from django.utils import timezone
+   |
+help: Remove unused import: `django.db.models`
+   |
+13 | from django.contrib import messages
+   - from django.db import models, transaction
+14 + from django.db import transaction
+15 | from django.db.models import Sum, Q, F
+   |
+
+F401 [*] `django.db.models.F` imported but unused
+  --> core\views\stock.py:15:38
+   |
+13 | from django.contrib import messages
+14 | from django.db import models, transaction
+15 | from django.db.models import Sum, Q, F
+   |                                      ^
+16 | from django.utils import timezone
+17 | from django.views.decorators.csrf import csrf_exempt
+   |
+help: Remove unused import: `django.db.models.F`
+   |
+14 | from django.db import models, transaction
+   - from django.db.models import Sum, Q, F
+15 + from django.db.models import Sum, Q
+16 | from django.utils import timezone
+   |
+
+F401 [*] `django.views.decorators.csrf.csrf_exempt` imported but unused
+  --> core\views\stock.py:17:42
+   |
+15 | from django.db.models import Sum, Q, F
+16 | from django.utils import timezone
+17 | from django.views.decorators.csrf import csrf_exempt
+   |                                          ^^^^^^^^^^^
+18 | from django.contrib.auth.models import User
+19 | from django.core.paginator import Paginator
+   |
+help: Remove unused import: `django.views.decorators.csrf.csrf_exempt`
+   |
+16 | from django.utils import timezone
+   - from django.views.decorators.csrf import csrf_exempt
+17 | from django.contrib.auth.models import User
+   |
+
+F401 `core.models.ConsommationEncre` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> core\views\stock.py:26:29
+   |
+24 | )
+25 | try:
+26 |     from core.models import ConsommationEncre, ProductionOrder
+   |                             ^^^^^^^^^^^^^^^^^
+27 | except ImportError:
+28 |     pass
+   |
+help: Remove unused import
+
+F401 `core.models.ProductionOrder` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> core\views\stock.py:26:48
+   |
+24 | )
+25 | try:
+26 |     from core.models import ConsommationEncre, ProductionOrder
+   |                                                ^^^^^^^^^^^^^^^
+27 | except ImportError:
+28 |     pass
+   |
+help: Remove unused import
+
+F401 [*] `core.forms.SupplierForm` imported but unused
+  --> core\views\stock.py:29:38
+   |
+27 | except ImportError:
+28 |     pass
+29 | from core.forms import MaterialForm, SupplierForm
+   |                                      ^^^^^^^^^^^^
+30 | from .helpers import highlight_search
+   |
+help: Remove unused import: `core.forms.SupplierForm`
+   |
+28 |     pass
+   - from core.forms import MaterialForm, SupplierForm
+29 + from core.forms import MaterialForm
+30 | from .helpers import highlight_search
+   |
+
+F401 [*] `.helpers.highlight_search` imported but unused
+  --> core\views\stock.py:30:22
+   |
+28 |     pass
+29 | from core.forms import MaterialForm, SupplierForm
+30 | from .helpers import highlight_search
+   |                      ^^^^^^^^^^^^^^^^
+31 |
+32 | # ===========================================================================
+   |
+help: Remove unused import: `.helpers.highlight_search`
+   |
+29 | from core.forms import MaterialForm, SupplierForm
+   - from .helpers import highlight_search
+30 |
+   |
+
+F841 Local variable `raw_date` is assigned to but never used
+    --> core\views\stock.py:1022:17
+     |
+1020 |         if import_type == 'MOUVEMENTS':
+1021 |             for row_idx in range(2, ws.max_row + 1):
+1022 |                 raw_date = ws.cell(row=row_idx, column=1).value
+     |                 ^^^^^^^^
+1023 |                 raw_machine = ws.cell(row=row_idx, column=2).value
+1024 |                 raw_produit = ws.cell(row=row_idx, column=3).value
+     |
+help: Remove assignment to unused variable `raw_date`
+     |
+1021 |             for row_idx in range(2, ws.max_row + 1):
+     -                 raw_date = ws.cell(row=row_idx, column=1).value
+1022 +                 ws.cell(row=row_idx, column=1).value
+1023 |                 raw_machine = ws.cell(row=row_idx, column=2).value
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+F841 Local variable `raw_machine` is assigned to but never used
+    --> core\views\stock.py:1023:17
+     |
+1021 |             for row_idx in range(2, ws.max_row + 1):
+1022 |                 raw_date = ws.cell(row=row_idx, column=1).value
+1023 |                 raw_machine = ws.cell(row=row_idx, column=2).value
+     |                 ^^^^^^^^^^^
+1024 |                 raw_produit = ws.cell(row=row_idx, column=3).value
+1025 |                 raw_quantite = ws.cell(row=row_idx, column=4).value
+     |
+help: Remove assignment to unused variable `raw_machine`
+     |
+1022 |                 raw_date = ws.cell(row=row_idx, column=1).value
+     -                 raw_machine = ws.cell(row=row_idx, column=2).value
+1023 +                 ws.cell(row=row_idx, column=2).value
+1024 |                 raw_produit = ws.cell(row=row_idx, column=3).value
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+Found 312 errors.
+[*] 58 fixable with `--fix` (12 unsafe fixes available with `--fix --unsafe-fixes`).

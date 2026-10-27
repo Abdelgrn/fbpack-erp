@@ -126,7 +126,7 @@ def destocker_produit_fini(request, lot_id):
     action = request.POST.get('action', '')
     palette_ids = None
     if action == 'selection':
-        palette_ids = [int(x) for x in request.POST.getlist('palette') if x.isdigit()]
+        palette_ids = [int(x) for x in request.POST.getlist('palette') if x.isdecimal()]
         if not palette_ids:
             messages.error(request, 'Coche au moins une palette.')
             return redirect('stock_produit_fini')

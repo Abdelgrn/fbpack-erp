@@ -29,6 +29,28 @@ except ImportError:
 from core.forms import MaterialForm, SupplierForm
 from .helpers import highlight_search
 
+import logging
+import math
+from urllib.parse import quote
+
+from core.decorators import module_required
+from .security_utils import (
+    parse_date, parse_float, parse_int, rate_limited, safe_json,
+    self_approval_blocked, validate_upload, xl_safe,
+)
+
+logger = logging.getLogger('security')
+
+LOT_STATUTS = ('EN_ATTENTE', 'CONFORME', 'BLOQUE', 'QUARANTAINE')
+CERTIFICATE_EXTENSIONS = frozenset({'pdf', 'png', 'jpg', 'jpeg'})
+CERTIFICATE_MAX_BYTES = 10 * 1024 * 1024
+IMPORT_EXTENSIONS = frozenset({'xlsx', 'xlsm'})
+IMPORT_MAX_BYTES = 10 * 1024 * 1024
+IMPORT_MAX_ROWS = 20000
+LABEL_IMAGE_TYPES = frozenset({'image/jpeg', 'image/png', 'image/webp'})
+LABEL_MAX_BYTES = 6 * 1024 * 1024
+_ISO_DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
 # ===========================================================================
 # --- DROITS ET LOGIQUE DE SÉCURITÉ ---
 # ===========================================================================
@@ -38,6 +60,50 @@ def can_manage_stock(user):
 
 def can_validate_purchase(user):
     return user.is_staff or user.groups.filter(name__in=['DIRECTION', 'ADMIN']).exists()
+
+
+def _refuse_manage(request):
+    messages.error(request, "Accès refusé.")
+    return redirect('stock_advanced')
+
+
+def _positive_float(value, label):
+    number = parse_float(value)
+    if number is None or number <= 0:
+        raise ValueError(f"{label} invalide : une valeur positive est requise.")
+    return number
+
+
+def _non_negative_float(value, label):
+    number = parse_float(value)
+    if number is None or number < 0:
+        raise ValueError(f"{label} invalide.")
+    return number
+
+
+def _clean_iso_date(value):
+    """Date AAAA-MM-JJ valide, sinon '' (None et '' sont conservés tels quels)."""
+    if not value:
+        return value
+    return value if _ISO_DATE.match(value) and parse_date(value) else ''
+
+
+def _clean_int_str(value):
+    if not value:
+        return value
+    return value if str(value).isdecimal() else ''
+
+
+def _clean_ids(data):
+    raw = data.getlist('ids') if hasattr(data, 'getlist') else data.get('ids', [])
+    if not isinstance(raw, (list, tuple)):
+        return []
+    ids = []
+    for value in raw[:1000]:
+        number = parse_int(value, minimum=1)
+        if number is not None:
+            ids.append(number)
+    return ids
 
 # ===========================================================================
 # --- VUE COMPATIBILITÉ HISTORIQUE STOCK_VIEW ---
@@ -49,18 +115,22 @@ def stock_view(request):
     return redirect('stock_advanced')
 
 @login_required
+@module_required('stock')
 def clear_all_stock(request):
     if not request.user.is_superuser:
         messages.error(request, "Action réservée aux super-administrateurs.")
         return redirect('stock_advanced')
     if request.method == 'POST':
         try:
-            StockMovement.objects.all().delete()
-            StockLot.objects.all().delete()
-            count, _ = Material.objects.all().delete()
+            with transaction.atomic():
+                StockMovement.objects.all().delete()
+                StockLot.objects.all().delete()
+                count, _ = Material.objects.all().delete()
+            logger.warning('stock_cleared user_id=%s deleted_rows=%s', request.user.id, count)
             messages.success(request, f"⚠️ Tout le stock a été vidé ({count} matières supprimées).")
-        except Exception as e:
-            messages.error(request, f"Erreur lors de la vidange : {e}")
+        except Exception:
+            logger.exception('stock_clear_failed')
+            messages.error(request, "Erreur lors de la vidange. Détails dans les journaux du serveur.")
     return redirect('stock_advanced')
 
 # ===========================================================================
@@ -71,8 +141,21 @@ class StockService:
     @staticmethod
     @transaction.atomic
     def enregistrer_mouvement(type_mvt, material, quantite, lot=None, src=None, dst=None, of=None, machine=None, user=None, motif=""):
-        if quantite <= 0:
+        try:
+            quantite_valide = math.isfinite(float(quantite)) and quantite > 0
+        except (TypeError, ValueError):
+            quantite_valide = False
+        if not quantite_valide:
             raise ValueError("La quantité doit être strictement positive.")
+        if type_mvt not in {code for code, _label in StockMovement.TYPE_CHOICES}:
+            raise ValueError("Type de mouvement inconnu.")
+
+        # Verrou des lignes concernées : deux mouvements simultanés ne s'écrasent plus.
+        Material.objects.select_for_update().filter(pk=material.pk).first()
+        material.refresh_from_db(fields=['quantity'])
+        if lot:
+            StockLot.objects.select_for_update().filter(pk=lot.pk).first()
+            lot.refresh_from_db(fields=['quantite_restante'])
 
         if type_mvt in ['SORTIE', 'PERTE', 'RETOUR']:
             if lot and lot.quantite_restante < quantite:
@@ -103,6 +186,13 @@ class StockService:
     @staticmethod
     @transaction.atomic
     def annuler_mouvement(mouvement, motif_annulation, user):
+        # Verrou puis relecture : une annulation en double ne contre-passe plus deux fois.
+        StockMovement.objects.select_for_update().filter(pk=mouvement.pk).first()
+        Material.objects.select_for_update().filter(pk=mouvement.material_id).first()
+        if mouvement.lot_id:
+            StockLot.objects.select_for_update().filter(pk=mouvement.lot_id).first()
+        mouvement.refresh_from_db()
+
         if mouvement.annule:
             raise ValueError("Ce mouvement est déjà annulé.")
 
@@ -133,6 +223,7 @@ class StockService:
 # ===========================================================================
 
 @login_required
+@module_required('stock')
 def controle_stock_view(request):
     materials = Material.objects.filter(is_archived=False)
     ecarts = []
@@ -157,6 +248,7 @@ def controle_stock_view(request):
 
 
 @login_required
+@module_required('stock')
 def seuils_recalculer(request):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
@@ -187,6 +279,7 @@ def seuils_recalculer(request):
 # ===========================================================================
 
 @login_required
+@module_required('stock')
 def stock_advanced_view(request):
     try:
         tab = request.GET.get('tab', 'matieres')
@@ -310,6 +403,7 @@ def stock_advanced_view(request):
         mvt_type = request.GET.get('mvt_type')
         mvt_cat = request.GET.get('mvt_cat')
         mvt_loc = request.GET.get('mvt_loc')
+        mvt_from, mvt_to, mvt_loc = _clean_iso_date(mvt_from), _clean_iso_date(mvt_to), _clean_int_str(mvt_loc)
         mvt_q = request.GET.get('mvt_q')
         mvt_annules = request.GET.get('mvt_annules') == '1'
 
@@ -383,14 +477,14 @@ def stock_advanced_view(request):
             'alertes_stock': alertes_stock, 'nb_alertes': len(alertes_stock),
             'nb_ruptures': nb_ruptures, 'nb_critiques': nb_critiques,
             'nb_alertes_simples': nb_alertes_simples, 'top_alertes': alertes_stock[:5],
-            'top_alertes_noms': json.dumps(top_alertes_noms),
-            'top_alertes_stock': json.dumps(top_alertes_stock),
-            'top_alertes_seuil': json.dumps(top_alertes_seuil),
-            'top_alertes_couleurs': json.dumps(top_alertes_couleurs),
-            'cat_labels_json': json.dumps(cat_labels),
-            'cat_rupture_json': json.dumps(cat_rupture),
-            'cat_critique_json': json.dumps(cat_critique),
-            'cat_alerte_json': json.dumps(cat_alerte),
+            'top_alertes_noms': safe_json(top_alertes_noms),
+            'top_alertes_stock': safe_json(top_alertes_stock),
+            'top_alertes_seuil': safe_json(top_alertes_seuil),
+            'top_alertes_couleurs': safe_json(top_alertes_couleurs),
+            'cat_labels_json': safe_json(cat_labels),
+            'cat_rupture_json': safe_json(cat_rupture),
+            'cat_critique_json': safe_json(cat_critique),
+            'cat_alerte_json': safe_json(cat_alerte),
             'previsions': previsions, 'lots_peremption': lots_peremption,
             'lots_a_traiter': lots_a_traiter, 'lots': lots_tous,
             'lots_bloques': StockLot.objects.filter(statut='BLOQUE').count(),
@@ -401,17 +495,18 @@ def stock_advanced_view(request):
             'valeur_stock_total': valeur_stock_total, 'categories': Material.CAT_CHOICES,
             'types_mouvement': StockMovement.TYPE_CHOICES,
             'peut_gerer': peut_gerer, 'peut_valider': peut_valider,
-            'qs_mat': f"tab=matieres&q={search_query}&category={category_filter}&supplier={supplier_filter}&sort={sort_by}",
-            'qs_mvt': f"tab=mouvements&mvt_from={mvt_from or ''}&mvt_to={mvt_to or ''}&mvt_type={mvt_type or ''}&mvt_cat={mvt_cat or ''}&mvt_loc={mvt_loc or ''}&mvt_q={mvt_q or ''}&mvt_annules={request.GET.get('mvt_annules', '')}"
+            'qs_mat': f"tab=matieres&q={quote(str(search_query))}&category={quote(str(category_filter))}&supplier={quote(str(supplier_filter))}&sort={quote(str(sort_by))}",
+            'qs_mvt': f"tab=mouvements&mvt_from={quote(str(mvt_from or ''))}&mvt_to={quote(str(mvt_to or ''))}&mvt_type={quote(str(mvt_type or ''))}&mvt_cat={quote(str(mvt_cat or ''))}&mvt_loc={quote(str(mvt_loc or ''))}&mvt_q={quote(str(mvt_q or ''))}&mvt_annules={quote(request.GET.get('mvt_annules', ''))}"
         }
         return render(request, 'stock/stock_advanced.html', context)
-    except Exception as e:
-        print(traceback.format_exc())
-        messages.error(request, f"❌ Erreur critique : {str(e)}")
+    except Exception:
+        logger.exception('stock_advanced_failed')
+        messages.error(request, "❌ Erreur critique. Détails dans les journaux du serveur.")
         return redirect('dashboard')
 
 
 @login_required
+@module_required('stock')
 def add_material(request):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
@@ -435,6 +530,7 @@ def add_material(request):
 
 
 @login_required
+@module_required('stock')
 def edit_material(request, id):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
@@ -455,6 +551,7 @@ def edit_material(request, id):
 
 
 @login_required
+@module_required('stock')
 def delete_material(request, id):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
@@ -469,6 +566,7 @@ def delete_material(request, id):
 
 
 @login_required
+@module_required('stock')
 def material_restore(request, id):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
@@ -487,6 +585,7 @@ def material_restore(request, id):
 # ===========================================================================
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def bulk_delete_materials(request):
     if not can_manage_stock(request.user):
@@ -495,19 +594,25 @@ def bulk_delete_materials(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body) if request.content_type == 'application/json' else request.POST
-            ids = data.get('ids', [])
+            ids = _clean_ids(data)
             if ids:
                 materials = Material.objects.filter(id__in=ids)
                 count = materials.count()
                 materials.update(is_archived=True)
                 return JsonResponse({'status': 'success', 'message': f'📁 {count} matière(s) archivée(s) avec succès.'})
             return JsonResponse({'status': 'error', 'message': 'Sélection vide.'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
+        except ValueError as exc:
+            transaction.set_rollback(True)
+            return JsonResponse({'status': 'error', 'message': str(exc)})
+        except Exception:
+            transaction.set_rollback(True)
+            logger.exception('stock_bulk_action_failed')
+            return JsonResponse({'status': 'error', 'message': "Opération impossible. Détails dans les journaux du serveur."}, status=500)
     return redirect('stock_advanced')
 
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def bulk_delete_movements(request):
     if not can_manage_stock(request.user):
@@ -516,8 +621,8 @@ def bulk_delete_movements(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            ids = data.get('ids', [])
-            motif = data.get('motif', 'Annulation groupée').strip()
+            ids = _clean_ids(data)
+            motif = str(data.get('motif', 'Annulation groupée')).strip()[:500]
             
             if ids:
                 mouvements = StockMovement.objects.filter(id__in=ids, annule=False)
@@ -526,8 +631,13 @@ def bulk_delete_movements(request):
                     StockService.annuler_mouvement(m, motif, request.user)
                 return JsonResponse({'status': 'success', 'message': f'↩ {count} mouvement(s) annulé(s) (contre-passation effectuée).'})
             return JsonResponse({'status': 'error', 'message': 'Sélection vide.'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
+        except ValueError as exc:
+            transaction.set_rollback(True)
+            return JsonResponse({'status': 'error', 'message': str(exc)})
+        except Exception:
+            transaction.set_rollback(True)
+            logger.exception('stock_bulk_action_failed')
+            return JsonResponse({'status': 'error', 'message': "Opération impossible. Détails dans les journaux du serveur."}, status=500)
     return redirect('stock_advanced')
 
 
@@ -536,6 +646,7 @@ def bulk_delete_movements(request):
 # ===========================================================================
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def lot_add(request):
     if not can_manage_stock(request.user):
@@ -551,12 +662,20 @@ def lot_add(request):
             date_reception = request.POST.get('date_reception')
             fournisseur_id = request.POST.get('fournisseur') or None
             emplacement_id = request.POST.get('emplacement') or None
-            quantite = float(request.POST.get('quantite_initiale', 0))
-            prix = float(request.POST.get('prix_unitaire', 0))
+            quantite = _positive_float(request.POST.get('quantite_initiale'), 'Quantité')
+            prix = _non_negative_float(request.POST.get('prix_unitaire', 0), 'Prix unitaire')
             statut = request.POST.get('statut', 'EN_ATTENTE')
+            if statut not in LOT_STATUTS:
+                raise ValueError("Statut de lot invalide.")
             notes = request.POST.get('notes', '')
             laize = request.POST.get('laize') or None
             longueur = request.POST.get('longueur') or None
+
+            if not _clean_iso_date(date_reception):
+                raise ValueError("Date de réception invalide.")
+            certificat = request.FILES.get('certificat_qualite')
+            if certificat:
+                validate_upload(certificat, CERTIFICATE_EXTENSIONS, CERTIFICATE_MAX_BYTES)
 
             if material_id:
                 material = get_object_or_404(Material, id=material_id)
@@ -592,12 +711,18 @@ def lot_add(request):
                 )
 
             messages.success(request, f"✅ Lot {numero_lot} créé avec succès en Magasin Général.")
-        except Exception as e:
-            messages.error(request, f"❌ Erreur lors de la création du lot : {str(e)}")
+        except ValueError as exc:
+            transaction.set_rollback(True)
+            messages.error(request, f"❌ Erreur lors de la création du lot : {exc}")
+        except Exception:
+            transaction.set_rollback(True)
+            logger.exception('stock_lot_add_failed')
+            messages.error(request, "❌ Erreur lors de la création du lot. Détails dans les journaux du serveur.")
     return redirect('stock_advanced')
 
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def lot_valider(request, id):
     if not can_validate_purchase(request.user):
@@ -610,7 +735,8 @@ def lot_valider(request, id):
         lot.statut = 'CONFORME'
         lot.save()
 
-        if ancien_statut != 'CONFORME':
+        deja_entre_en_stock = lot.mouvements.filter(type='ENTREE', annule=False).exists()
+        if ancien_statut != 'CONFORME' and not deja_entre_en_stock and lot.quantite_restante > 0:
             StockService.enregistrer_mouvement(
                 type_mvt='ENTREE', material=lot.material, quantite=lot.quantite_restante,
                 lot=lot, dst=lot.emplacement, user=request.user, motif=f"Validation Qualité Lot {lot.numero_lot}"
@@ -620,6 +746,7 @@ def lot_valider(request, id):
 
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def lot_bloquer(request, id):
     if not can_validate_purchase(request.user):
@@ -635,6 +762,7 @@ def lot_bloquer(request, id):
 
 
 @login_required
+@module_required('stock')
 def lot_detail(request, id):
     lot = get_object_or_404(StockLot, id=id)
     mouvements = lot.mouvements.all().order_by('-date')
@@ -646,6 +774,7 @@ def lot_detail(request, id):
 # ===========================================================================
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def mouvement_add(request):
     if not can_manage_stock(request.user):
@@ -656,7 +785,7 @@ def mouvement_add(request):
         try:
             material = get_object_or_404(Material, id=request.POST.get('material'))
             type_mvt = request.POST.get('type')
-            quantite = float(request.POST.get('quantite', 0))
+            quantite = _positive_float(request.POST.get('quantite'), 'Quantité')
             lot_id = request.POST.get('lot') or None
             src_id = request.POST.get('emplacement_source') or None
             dst_id = request.POST.get('emplacement_destination') or None
@@ -668,6 +797,9 @@ def mouvement_add(request):
             src = StockLocation.objects.filter(id=src_id).first() if src_id else None
             dst = StockLocation.objects.filter(id=dst_id).first() if dst_id else None
             machine_obj = Machine.objects.filter(id=machine_id).first() if machine_id else None
+
+            if lot and lot.material_id != material.id:
+                raise ValueError("Ce lot n'appartient pas à la matière sélectionnée.")
 
             if material.category == 'INK' and type_mvt == 'SORTIE':
                 if not of_id or not machine_id:
@@ -684,12 +816,18 @@ def mouvement_add(request):
                 src=src, dst=dst, machine=machine_obj, user=request.user, motif=motif
             )
             messages.success(request, f"🔄 Mouvement enregistré : {quantite} kg de {material.name}.")
-        except Exception as e:
-            messages.error(request, f"❌ Erreur : {str(e)}")
+        except ValueError as exc:
+            transaction.set_rollback(True)
+            messages.error(request, f"❌ Erreur : {exc}")
+        except Exception:
+            transaction.set_rollback(True)
+            logger.exception('stock_movement_failed')
+            messages.error(request, "❌ Erreur inattendue. Détails dans les journaux du serveur.")
     return redirect('stock_advanced')
 
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def mouvement_annuler(request, id):
     if not can_manage_stock(request.user):
@@ -705,8 +843,13 @@ def mouvement_annuler(request, id):
         try:
             StockService.annuler_mouvement(mvt, motif, request.user)
             messages.success(request, "✅ Mouvement annulé et contre-passé avec succès.")
-        except Exception as e:
-            messages.error(request, f"❌ Erreur : {str(e)}")
+        except ValueError as exc:
+            transaction.set_rollback(True)
+            messages.error(request, f"❌ Erreur : {exc}")
+        except Exception:
+            transaction.set_rollback(True)
+            logger.exception('stock_movement_failed')
+            messages.error(request, "❌ Erreur inattendue. Détails dans les journaux du serveur.")
     return redirect('stock_advanced')
 
 
@@ -715,6 +858,7 @@ def mouvement_annuler(request, id):
 # ===========================================================================
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def da_add(request):
     if request.method == 'POST':
@@ -732,19 +876,25 @@ def da_add(request):
             material = get_object_or_404(Material, id=request.POST.get('material'))
             DemandeAchat.objects.create(
                 reference=ref, material=material,
-                quantite_demandee=float(request.POST.get('quantite_demandee', 0)),
+                quantite_demandee=_positive_float(request.POST.get('quantite_demandee'), 'Quantité'),
                 motif=request.POST.get('motif', ''),
                 urgence=request.POST.get('urgence', 'NORMALE'),
                 statut='SOUMISE', demandeur=request.user,
-                date_besoin=request.POST.get('date_besoin') or None,
+                date_besoin=_clean_iso_date(request.POST.get('date_besoin')) or None,
             )
             messages.success(request, f"📋 Demande d'achat {ref} soumise à la direction.")
-        except Exception as e:
-            messages.error(request, f"Erreur : {str(e)}")
+        except ValueError as exc:
+            transaction.set_rollback(True)
+            messages.error(request, f"Erreur : {exc}")
+        except Exception:
+            transaction.set_rollback(True)
+            logger.exception('stock_purchase_failed')
+            messages.error(request, "Erreur inattendue. Détails dans les journaux du serveur.")
     return redirect('stock_advanced')
 
 
 @login_required
+@module_required('stock')
 def da_valider(request, id):
     if not can_validate_purchase(request.user):
         messages.error(request, "Accès refusé.")
@@ -752,6 +902,12 @@ def da_valider(request, id):
 
     da = get_object_or_404(DemandeAchat, id=id)
     if request.method == 'POST':
+        if da.statut != 'SOUMISE':
+            messages.warning(request, f"DA {da.reference} : déjà traitée.")
+            return redirect('stock_advanced')
+        if self_approval_blocked(request.user, da.demandeur_id):
+            messages.error(request, "Vous ne pouvez pas valider votre propre demande d'achat.")
+            return redirect('stock_advanced')
         da.statut = 'VALIDEE'
         da.valideur = request.user
         da.date_validation = timezone.now().date()
@@ -761,6 +917,7 @@ def da_valider(request, id):
 
 
 @login_required
+@module_required('stock')
 def da_refuser(request, id):
     if not can_validate_purchase(request.user):
         messages.error(request, "Accès refusé.")
@@ -768,6 +925,9 @@ def da_refuser(request, id):
 
     da = get_object_or_404(DemandeAchat, id=id)
     if request.method == 'POST':
+        if da.statut not in ('SOUMISE', 'VALIDEE'):
+            messages.warning(request, f"DA {da.reference} : déjà traitée.")
+            return redirect('stock_advanced')
         da.statut = 'REFUSEE'
         da.save()
         messages.warning(request, f"DA {da.reference} refusée.")
@@ -775,6 +935,7 @@ def da_refuser(request, id):
 
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def bc_add(request):
     if not can_manage_stock(request.user):
@@ -796,16 +957,16 @@ def bc_add(request):
             fournisseur = get_object_or_404(Supplier, id=request.POST.get('fournisseur'))
             bc = BonCommande.objects.create(
                 reference=ref, fournisseur=fournisseur, statut='BROUILLON',
-                date_livraison_prevue=request.POST.get('date_livraison_prevue') or None,
+                date_livraison_prevue=_clean_iso_date(request.POST.get('date_livraison_prevue')) or None,
                 notes=request.POST.get('notes', ''), cree_par=request.user,
             )
             idx = 1
             total = 0
-            while request.POST.get(f'material_{idx}'):
+            while idx <= 200 and request.POST.get(f'material_{idx}'):
                 mat = Material.objects.filter(id=request.POST.get(f'material_{idx}')).first()
                 if mat:
-                    qte = float(request.POST.get(f'quantite_{idx}', 0))
-                    prix = float(request.POST.get(f'prix_{idx}', 0))
+                    qte = _positive_float(request.POST.get(f'quantite_{idx}'), 'Quantité')
+                    prix = _non_negative_float(request.POST.get(f'prix_{idx}', 0), 'Prix')
                     LigneBonCommande.objects.create(
                         bon_commande=bc, material=mat,
                         quantite_commandee=qte, prix_unitaire=prix
@@ -813,10 +974,11 @@ def bc_add(request):
                     total += qte * prix
                 idx += 1
             
-            da_id = request.GET.get('da')
+            da_id = parse_int(request.GET.get('da'))
             if da_id:
                 da = DemandeAchat.objects.filter(id=da_id).first()
-                if da:
+                # Seule une demande déjà validée par la direction peut devenir un bon de commande.
+                if da and da.statut == 'VALIDEE':
                     da.statut = 'COMMANDEE'
                     da.bon_commande = bc
                     da.save()
@@ -824,15 +986,26 @@ def bc_add(request):
             bc.montant_total = total
             bc.save()
             messages.success(request, f"📄 BC {bc.reference} généré avec succès.")
-        except Exception as e:
-            messages.error(request, f"Erreur : {str(e)}")
+        except ValueError as exc:
+            transaction.set_rollback(True)
+            messages.error(request, f"Erreur : {exc}")
+        except Exception:
+            transaction.set_rollback(True)
+            logger.exception('stock_purchase_failed')
+            messages.error(request, "Erreur inattendue. Détails dans les journaux du serveur.")
     return redirect('stock_advanced')
 
 
 @login_required
+@module_required('stock')
 def bc_envoyer(request, id):
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
     bc = get_object_or_404(BonCommande, id=id)
     if request.method == 'POST':
+        if bc.statut != 'BROUILLON':
+            messages.warning(request, f"BC {bc.reference} : déjà envoyé ou clôturé.")
+            return redirect('stock_advanced')
         bc.statut = 'ENVOYE'
         bc.save()
         messages.success(request, f"BC {bc.reference} marqué comme envoyé au fournisseur.")
@@ -840,10 +1013,17 @@ def bc_envoyer(request, id):
 
 
 @login_required
+@module_required('stock')
 @transaction.atomic
 def bc_reception(request, id):
-    bc = get_object_or_404(BonCommande, id=id)
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
+    bc = get_object_or_404(BonCommande.objects.select_for_update(), id=id)
     if request.method == 'POST':
+        # Une réception répétée (double clic, rechargement) ne recrée plus les lots.
+        if bc.statut == 'RECU_TOTAL':
+            messages.warning(request, f"BC {bc.reference} : déjà réceptionné.")
+            return redirect('stock_advanced')
         bc.statut = 'RECU_TOTAL'
         bc.date_livraison_reelle = timezone.now().date()
         bc.save()
@@ -870,23 +1050,35 @@ def bc_reception(request, id):
 # ===========================================================================
 
 @login_required
+@module_required('stock')
 def seuil_update(request, material_id):
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
     material = get_object_or_404(Material, id=material_id)
     if request.method == 'POST':
         seuil, _ = StockSeuil.objects.get_or_create(
             material=material,
             defaults={'consommation_journaliere_moy': 0, 'delai_fournisseur_jours': 7}
         )
-        seuil.consommation_journaliere_moy = float(request.POST.get('conso_jour', 0))
-        seuil.delai_fournisseur_jours = int(request.POST.get('delai_jours', 7))
-        seuil.stock_securite_jours = int(request.POST.get('securite_jours', 3))
+        conso = parse_float(request.POST.get('conso_jour', 0), minimum=0)
+        delai = parse_int(request.POST.get('delai_jours', 7), minimum=0, maximum=3650)
+        securite = parse_int(request.POST.get('securite_jours', 3), minimum=0, maximum=3650)
+        if conso is None or delai is None or securite is None:
+            messages.error(request, "❌ Valeurs invalides.")
+            return redirect('stock_advanced')
+        seuil.consommation_journaliere_moy = conso
+        seuil.delai_fournisseur_jours = delai
+        seuil.stock_securite_jours = securite
         seuil.save()
         messages.success(request, f"🔮 Paramètres prévisionnels mis à jour pour {material.name}.")
     return redirect('stock_advanced')
 
 
 @login_required
+@module_required('stock')
 def location_add(request):
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         type_loc = request.POST.get('type', 'GENERAL')
@@ -898,7 +1090,10 @@ def location_add(request):
 
 
 @login_required
+@module_required('stock')
 def location_delete(request, id):
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
     loc = get_object_or_404(StockLocation, id=id)
     if request.method == 'POST':
         loc.delete()
@@ -907,7 +1102,10 @@ def location_delete(request, id):
 
 
 @login_required
+@module_required('stock')
 def add_supplier(request):
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         email = request.POST.get('email', '').strip()
@@ -933,7 +1131,10 @@ def add_supplier(request):
 
 
 @login_required
+@module_required('stock')
 def edit_supplier(request, id):
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
     supplier = get_object_or_404(Supplier, id=id)
     if request.method == 'POST':
         supplier.name = request.POST.get('name', supplier.name)
@@ -945,7 +1146,10 @@ def edit_supplier(request, id):
 
 
 @login_required
+@module_required('stock')
 def delete_supplier(request, id):
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
     supplier = get_object_or_404(Supplier, id=id)
     if request.method == 'POST':
         supplier.is_archived = True
@@ -955,6 +1159,7 @@ def delete_supplier(request, id):
 
 
 @login_required
+@module_required('stock', 'dashboard')
 def stock_dashboard_data(request):
     critiques = []
     for m in Material.objects.filter(is_archived=False):
@@ -968,6 +1173,7 @@ def stock_dashboard_data(request):
 
 
 @login_required
+@module_required('stock', 'crm', 'prepress', 'production', 'planification')
 def material_search_api(request):
     query = request.GET.get('q', '').strip()
     if len(query) < 1:
@@ -996,7 +1202,10 @@ def material_search_api(request):
 # ===========================================================================
 
 @login_required
+@module_required('import', 'stock')
 def import_stock_view(request):
+    if not can_manage_stock(request.user):
+        return _refuse_manage(request)
     crm_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
     if request.method != 'POST':
         return render(request, 'stock/import_stock.html', {'crm_users': crm_users})
@@ -1008,6 +1217,12 @@ def import_stock_view(request):
         messages.error(request, "❌ Veuillez sélectionner un fichier Excel.")
         return render(request, 'stock/import_stock.html', {'crm_users': crm_users})
 
+    try:
+        validate_upload(excel_file, IMPORT_EXTENSIONS, IMPORT_MAX_BYTES)
+    except ValueError as exc:
+        messages.error(request, f"❌ {exc}")
+        return render(request, 'stock/import_stock.html', {'crm_users': crm_users})
+
     details = []
     success_count = 0
     error_count = 0
@@ -1016,6 +1231,8 @@ def import_stock_view(request):
         wb = openpyxl.load_workbook(excel_file, data_only=True)
         ws = wb.worksheets[0]
         details.append(f"📄 Analyse : « {ws.title} » ({ws.max_row} lignes)")
+        if ws.max_row > IMPORT_MAX_ROWS:
+            raise ValueError(f"Fichier trop volumineux : {IMPORT_MAX_ROWS} lignes maximum.")
 
         if import_type == 'MOUVEMENTS':
             for row_idx in range(2, ws.max_row + 1):
@@ -1119,11 +1336,19 @@ def import_stock_view(request):
 
         messages.success(request, f"🎉 Importation réussie : {success_count} ligne(s) ajoutée(s). {error_count} erreur(s).")
         return render(request, 'stock/import_stock.html', {'success': True, 'details': details, 'crm_users': crm_users})
-    except Exception as e:
-        return render(request, 'stock/import_stock.html', {'success': False, 'message': str(e), 'crm_users': crm_users})
+    except ValueError as exc:
+        return render(request, 'stock/import_stock.html', {'success': False, 'message': str(exc), 'crm_users': crm_users})
+    except Exception:
+        logger.exception('stock_import_failed')
+        return render(request, 'stock/import_stock.html', {
+            'success': False,
+            'message': "Fichier illisible ou invalide. Détails dans les journaux du serveur.",
+            'crm_users': crm_users,
+        })
 
 
 @login_required
+@module_required('import', 'stock')
 def download_template_stock(request):
     """Génère le bon template Excel à jour pour le Stock Matières"""
     wb = openpyxl.Workbook()
@@ -1151,6 +1376,7 @@ def download_template_stock(request):
 
 
 @login_required
+@module_required('import', 'stock', 'production', 'prepress')
 def download_template_special_prod(request):
     """Génère le bon template Excel complet à jour pour la Production Spéciale"""
     wb = openpyxl.Workbook()
@@ -1179,6 +1405,7 @@ def download_template_special_prod(request):
 
 
 @login_required
+@module_required('stock')
 def export_search_results(request):
     materials = Material.objects.filter(is_archived=False)
     wb = openpyxl.Workbook()
@@ -1187,9 +1414,9 @@ def export_search_results(request):
     ws.append(['Désignation', 'Code', 'Catégorie', 'Micronage / Grammage', 'Métrage (m)', 'Stock Réel', 'Unité', 'Seuil Min', 'Prix/U', 'Valeur'])
     for m in materials:
         ws.append([
-            m.name, m.code, m.get_category_display(),
+            xl_safe(m.name), xl_safe(m.code), m.get_category_display(),
             m.thickness_or_grammage_display, m.metrage_display,
-            m.usable_quantity, m.unit, m.min_threshold, m.price_per_unit,
+            m.usable_quantity, xl_safe(m.unit), m.min_threshold, m.price_per_unit,
             m.usable_quantity * float(m.price_per_unit)
         ])
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -1199,6 +1426,7 @@ def export_search_results(request):
 
 
 @login_required
+@module_required('stock')
 def export_mouvements(request):
     mouvements = StockMovement.objects.select_related('material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur').all()
     mvt_from = request.GET.get('mvt_from')
@@ -1206,6 +1434,7 @@ def export_mouvements(request):
     mvt_type = request.GET.get('mvt_type')
     mvt_cat = request.GET.get('mvt_cat')
     mvt_loc = request.GET.get('mvt_loc')
+    mvt_from, mvt_to, mvt_loc = _clean_iso_date(mvt_from), _clean_iso_date(mvt_to), _clean_int_str(mvt_loc)
     mvt_q = request.GET.get('mvt_q')
     mvt_annules = request.GET.get('mvt_annules') == '1'
 
@@ -1232,16 +1461,16 @@ def export_mouvements(request):
         ws.append([
             mv.date.strftime('%d/%m/%Y %H:%M') if mv.date else '',
             mv.get_type_display(),
-            mv.material.name if mv.material else '',
-            mv.material.code if mv.material else '',
-            mv.lot.numero_lot if mv.lot else '',
+            xl_safe(mv.material.name) if mv.material else '',
+            xl_safe(mv.material.code) if mv.material else '',
+            xl_safe(mv.lot.numero_lot) if mv.lot else '',
             mv.quantite,
-            mv.emplacement_source.name if mv.emplacement_source else '',
-            mv.emplacement_destination.name if mv.emplacement_destination else '',
-            mv.machine.name if mv.machine else '',
-            str(mv.of) if mv.of else '',
-            mv.utilisateur.username if mv.utilisateur else '',
-            mv.motif or '',
+            xl_safe(mv.emplacement_source.name) if mv.emplacement_source else '',
+            xl_safe(mv.emplacement_destination.name) if mv.emplacement_destination else '',
+            xl_safe(mv.machine.name) if mv.machine else '',
+            xl_safe(str(mv.of)) if mv.of else '',
+            xl_safe(mv.utilisateur.username) if mv.utilisateur else '',
+            xl_safe(mv.motif or ''),
             'OUI' if mv.annule else 'NON'
         ])
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -1255,13 +1484,21 @@ def export_mouvements(request):
 # ===========================================================================
 
 @login_required
+@module_required('stock')
 def scan_label_ai(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Requête POST requise.'}, status=400)
 
+    if rate_limited(f'scan-label:{request.user.id}', 10, 60):
+        return JsonResponse({'status': 'error', 'message': 'Trop de lectures, patientez une minute.'}, status=429)
+
     image_file = request.FILES.get('image')
     if not image_file:
         return JsonResponse({'status': 'error', 'message': 'Image manquante.'}, status=400)
+    if image_file.size > LABEL_MAX_BYTES:
+        return JsonResponse({'status': 'error', 'message': 'Image trop volumineuse (6 Mo maximum).'}, status=413)
+    if (image_file.content_type or '') not in LABEL_IMAGE_TYPES:
+        return JsonResponse({'status': 'error', 'message': 'Format refusé (JPEG, PNG ou WEBP).'}, status=400)
 
     api_key = os.environ.get('GEMINI_API_KEY', '').strip()
     if not api_key:
@@ -1307,8 +1544,9 @@ Renvoie uniquement le format brut JSON, pas de balises markdown, pas de texte d'
             parsed_json = json.loads(text_clean)
 
             return JsonResponse({'status': 'success', 'data': parsed_json})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': f"Erreur IA : {str(e)}"}, status=500)
+    except Exception:
+        logger.exception('stock_scan_label_failed')
+        return JsonResponse({'status': 'error', 'message': "Erreur IA. Détails dans les journaux du serveur."}, status=500)
 
 
 # ===========================================================================
