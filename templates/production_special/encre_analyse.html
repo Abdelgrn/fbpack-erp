@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load security_tags %}
 {% block content %}
 
 <h1 class="text-3xl font-black text-white mb-2">🔬 Analyse — Déchets Impression</h1>
@@ -179,10 +180,10 @@ const opt = {
 new Chart(document.getElementById('chartDecDates'), {
     type: 'bar',
     data: {
-        labels: {{ chart_dec_dates|safe }},
+        labels: {{ chart_dec_dates|json_embed }},
         datasets: [
-            { label: 'Flexo évaporé', data: {{ chart_dec_flexo|safe }}, backgroundColor: 'rgba(243,184,58,0.8)', borderRadius: 4 },
-            { label: 'Hélio évaporé', data: {{ chart_dec_helio|safe }}, backgroundColor: 'rgba(56,189,248,0.8)', borderRadius: 4 }
+            { label: 'Flexo évaporé', data: {{ chart_dec_flexo|json_embed }}, backgroundColor: 'rgba(243,184,58,0.8)', borderRadius: 4 },
+            { label: 'Hélio évaporé', data: {{ chart_dec_helio|json_embed }}, backgroundColor: 'rgba(56,189,248,0.8)', borderRadius: 4 }
         ]
     },
     options: { ...opt, scales: {
@@ -194,10 +195,10 @@ new Chart(document.getElementById('chartDecDates'), {
 new Chart(document.getElementById('chartGrammage'), {
     type: 'line',
     data: {
-        labels: {{ chart_gram_dates|safe }},
+        labels: {{ chart_gram_dates|json_embed }},
         datasets: [{
             label: 'Grammage (g/m²)',
-            data: {{ chart_gram_vals|safe }},
+            data: {{ chart_gram_vals|json_embed }},
             borderColor: '#f3b83a', backgroundColor: 'rgba(243,184,58,0.1)',
             fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#f3b83a'
         }]
@@ -214,8 +215,8 @@ new Chart(document.getElementById('chartGrammage'), {
 new Chart(document.getElementById('chartSupports'), {
     type: 'bar',
     data: {
-        labels: {{ chart_sup_labels|safe }},
-        datasets: [{ label: 'Encre (kg)', data: {{ chart_sup_vals|safe }}, backgroundColor: 'rgba(167,139,250,0.8)', borderRadius: 5 }]
+        labels: {{ chart_sup_labels|json_embed }},
+        datasets: [{ label: 'Encre (kg)', data: {{ chart_sup_vals|json_embed }}, backgroundColor: 'rgba(167,139,250,0.8)', borderRadius: 5 }]
     },
     options: { ...opt, indexAxis: 'y',
         plugins: { ...opt.plugins, legend: { display: false } },
@@ -226,11 +227,11 @@ new Chart(document.getElementById('chartSupports'), {
     }
 });
 
-const tauxData = {{ chart_job_taux|safe }};
+const tauxData = {{ chart_job_taux|json_embed }};
 new Chart(document.getElementById('chartJobTaux'), {
     type: 'bar',
     data: {
-        labels: {{ chart_job_labels|safe }},
+        labels: {{ chart_job_labels|json_embed }},
         datasets: [{
             label: 'Taux évap. (%)',
             data: tauxData,

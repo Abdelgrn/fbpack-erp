@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load security_tags %}
 
 {% block content %}
 <div class="mb-6">
@@ -261,9 +262,9 @@ if (ctxDept) {
     new Chart(ctxDept.getContext('2d'), {
         type: 'doughnut',
         data: {
-            labels: {{ repartition_dept_labels|safe }},
+            labels: {{ repartition_dept_labels|json_embed }},
             datasets: [{
-                data: {{ repartition_dept_data|safe }},
+                data: {{ repartition_dept_data|json_embed }},
                 backgroundColor: [
                     '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
                     '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
@@ -290,10 +291,10 @@ if (ctxEvol) {
     new Chart(ctxEvol.getContext('2d'), {
         type: 'line',
         data: {
-            labels: {{ evolution_mois|safe }},
+            labels: {{ evolution_mois|json_embed }},
             datasets: [{
                 label: 'Effectif',
-                data: {{ evolution_data|safe }},
+                data: {{ evolution_data|json_embed }},
                 borderColor: '#10b981',
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 fill: true,

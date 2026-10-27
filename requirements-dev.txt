@@ -1,0 +1,31 @@
+# FB PACK ERP - poste de DEVELOPPEMENT (PC).
+# Contient la production + le serveur temps reel local (Daphne/Channels) + les outils de controle.
+-r requirements.txt
+
+# Serveur local avec WebSocket (non utilise sur Render)
+attrs==26.1.0
+autobahn==26.10.2
+Automat==25.4.16
+cbor2==6.1.5
+channels==4.3.2
+channels_redis==4.3.0
+constantly==23.10.4
+daphne==4.2.3
+hyperlink==21.0.0
+idna==3.20
+Incremental==24.11.0
+msgpack==1.2.4
+py-ubjson==0.16.1
+pyasn1==0.6.5
+pyasn1_modules==0.4.2
+pyOpenSSL==26.4.0
+redis==7.4.0
+service-identity==24.2.0
+Twisted==26.4.0
+txaio==25.12.2
+ujson==6.0.0
+zope.interface==8.2
+
+# Controles de securite (a lancer avant chaque mise en ligne)
+bandit
+pip-audit

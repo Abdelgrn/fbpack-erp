@@ -471,7 +471,7 @@ def _build_dashboard_context(request, push_to_chat=False):
     ).order_by('-date_creation')
     if of_status:
         ofs_qs = ofs_qs.filter(statut=of_status)
-    if of_client:
+    if of_client and of_client.isdecimal():
         ofs_qs = ofs_qs.filter(client_id=of_client)
     if of_query:
         ofs_qs = ofs_qs.filter(Q(numero_of__icontains=of_query) | Q(numero_lot__icontains=of_query) |
@@ -541,6 +541,9 @@ def kpi_export_excel(request):
     except ImportError:
         return HttpResponse("La librairie openpyxl est requise : pip install openpyxl", status=500)
 
+    # Import local : évite un import circulaire avec core.views au démarrage.
+    from ..views.security_utils import xl_safe
+
     ctx = _build_dashboard_context(request, push_to_chat=False)
     wb = Workbook()
 
@@ -555,7 +558,7 @@ def kpi_export_excel(request):
             cell.fill = head_fill
             cell.alignment = Alignment(horizontal='center')
         for l in lignes:
-            ws.append(l)
+            ws.append([xl_safe(v) for v in l])
         for col in ws.columns:
             largeur = max(len(str(c.value or '')) for c in col) + 3
             ws.column_dimensions[col[0].column_letter].width = min(largeur, 50)
@@ -625,6 +628,7 @@ def kpi_rapport_print(request):
 
 
 @login_required
+@module_required('kpi', 'prepress')
 def fiche_technique_print(request, product_id):
     produit = get_object_or_404(TechnicalProduct.objects.select_related('client'), id=product_id)
     couleurs = produit.couleurs_flexo.all()

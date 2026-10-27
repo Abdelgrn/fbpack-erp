@@ -504,7 +504,7 @@
                         '<span class="text-xs font-black uppercase tracking-wider text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">' +
                             '🤖 Système KPI' +
                         '</span>' +
-                        '<span class="text-xs text-gray-500 font-mono">' + data.timestamp + '</span>' +
+                        '<span class="text-xs text-gray-500 font-mono">' + escapeHtml(data.timestamp) + '</span>' +
                     '</div>' +
                     '<div class="bg-red-950/40 border border-red-500/30 text-red-100 rounded-xl px-4 py-3 text-sm shadow-md leading-relaxed">' +
                         escapeHtml(data.message) +
@@ -516,14 +516,14 @@
             
             messageDiv.innerHTML = 
                 '<div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">' +
-                    data.username.charAt(0).toUpperCase() +
+                    escapeHtml(data.username.charAt(0).toUpperCase()) +
                 '</div>' +
                 '<div class="max-w-[70%] ' + (isMe ? 'text-right' : '') + '">' +
                     '<div class="flex items-center gap-2 mb-1 ' + (isMe ? 'flex-row-reverse' : '') + '">' +
                         '<span class="text-sm font-bold ' + (isMe ? 'text-neon' : 'text-blue-400') + '">' +
                             escapeHtml(data.username) +
                         '</span>' +
-                        '<span class="text-xs text-gray-500">' + data.timestamp + '</span>' +
+                        '<span class="text-xs text-gray-500">' + escapeHtml(data.timestamp) + '</span>' +
                     '</div>' +
                     '<div class="' + (isMe ? 'bg-neon/20 text-white' : 'bg-slate-700 text-gray-200') + ' rounded-lg px-4 py-2 inline-block text-left text-sm">' +
                         escapeHtml(data.message) +

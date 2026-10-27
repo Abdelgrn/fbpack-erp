@@ -5,6 +5,40 @@ from core.models import (
     WorkSchedule, ShiftAssignment, MedicalVisit, WorkIncident, ProtectiveEquipment, Machine
 )
 
+import os
+
+from django.core.files.uploadedfile import UploadedFile
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+IMAGE_EXTENSIONS = frozenset({'png', 'jpg', 'jpeg', 'webp'})
+DOCUMENT_EXTENSIONS = frozenset({'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx', 'txt'})
+
+
+class UploadValidationMixin:
+    """Refuse les fichiers dangereux (HTML, SVG, scripts...) et ceux de plus de 10 Mo.
+
+    Chaque formulaire déclare ses champs fichier dans `upload_rules`.
+    Les champs non fichier ou sans nouvel envoi sont ignorés.
+    """
+    upload_rules = {}
+
+    def clean(self):
+        cleaned = super().clean()
+        for field_name, allowed in self.upload_rules.items():
+            uploaded = cleaned.get(field_name)
+            if not isinstance(uploaded, UploadedFile):
+                continue
+            extension = os.path.splitext(uploaded.name or '')[1].lower().lstrip('.')
+            if extension not in allowed:
+                self.add_error(
+                    field_name,
+                    'Type de fichier refusé. Formats acceptés : ' + ', '.join(sorted(allowed)) + '.',
+                )
+            elif uploaded.size > MAX_UPLOAD_BYTES:
+                self.add_error(field_name, 'Fichier trop volumineux (10 Mo maximum).')
+        return cleaned
+
+
 class DepartmentForm(forms.ModelForm):
     class Meta:
         model = Department
@@ -32,7 +66,9 @@ class PositionForm(forms.ModelForm):
         }
 
 
-class EmployeeForm(forms.ModelForm):
+class EmployeeForm(UploadValidationMixin, forms.ModelForm):
+    upload_rules = {'photo': IMAGE_EXTENSIONS}
+
     class Meta:
         model = Employee
         fields = [
@@ -76,7 +112,9 @@ class EmployeeForm(forms.ModelForm):
         }
 
 
-class EmployeeDocumentForm(forms.ModelForm):
+class EmployeeDocumentForm(UploadValidationMixin, forms.ModelForm):
+    upload_rules = {'fichier': DOCUMENT_EXTENSIONS}
+
     class Meta:
         model = EmployeeDocument
         fields = ['type_document', 'nom', 'fichier', 'date_expiration', 'notes']
@@ -101,7 +139,9 @@ class SkillForm(forms.ModelForm):
         }
 
 
-class EmployeeSkillForm(forms.ModelForm):
+class EmployeeSkillForm(UploadValidationMixin, forms.ModelForm):
+    upload_rules = {'certificat': DOCUMENT_EXTENSIONS}
+
     class Meta:
         model = EmployeeSkill
         fields = ['skill', 'level', 'date_acquisition', 'certificat', 'notes']
@@ -185,7 +225,9 @@ class LeaveTypeForm(forms.ModelForm):
         }
 
 
-class LeaveRequestForm(forms.ModelForm):
+class LeaveRequestForm(UploadValidationMixin, forms.ModelForm):
+    upload_rules = {'justificatif': DOCUMENT_EXTENSIONS}
+
     class Meta:
         model = LeaveRequest
         fields = ['type_conge', 'date_debut', 'date_fin', 'motif', 'justificatif']
@@ -275,7 +317,9 @@ class MedicalVisitForm(forms.ModelForm):
         }
 
 
-class WorkIncidentForm(forms.ModelForm):
+class WorkIncidentForm(UploadValidationMixin, forms.ModelForm):
+    upload_rules = {'rapport': DOCUMENT_EXTENSIONS, 'photos': DOCUMENT_EXTENSIONS}
+
     class Meta:
         model = WorkIncident
         fields = ['employee', 'type_incident', 'gravite', 'date_incident', 'lieu', 'machine',

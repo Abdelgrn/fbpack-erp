@@ -7,7 +7,17 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Q, Max, Count, Prefetch
 
+import logging
+
+from ..decorators import module_required
 from ..models import ChatRoom, ChatMessage, UserPresence
+from .security_utils import parse_int, rate_limited
+
+logger = logging.getLogger('security')
+
+MAX_MESSAGE_CHARS = 2000   # taille maximale d'un message
+SEND_LIMIT = 30            # messages max par fenêtre et par utilisateur
+SEND_WINDOW_SECONDS = 60
 
 
 def update_user_presence(user, current_room=None):
@@ -129,6 +139,7 @@ def ensure_alertes_usine_room():
 
 
 @login_required
+@module_required('chat')
 def chat_home(request):
     update_user_presence(request.user, None)
     ensure_default_rooms()
@@ -155,6 +166,7 @@ def chat_home(request):
 
 
 @login_required
+@module_required('chat')
 def chat_room(request, room_slug):
     room = get_object_or_404(ChatRoom, slug=room_slug, est_actif=True)
 
@@ -200,6 +212,7 @@ def chat_room(request, room_slug):
 
 
 @login_required
+@module_required('chat')
 def chat_send_message(request):
     """Envoi d'un message dans un salon ou chat privé."""
     if request.method == 'POST':
@@ -207,7 +220,11 @@ def chat_send_message(request):
         content = request.POST.get('message', '').strip()
 
         if room_slug and content:
-            room = get_object_or_404(ChatRoom, slug=room_slug)
+            if len(content) > MAX_MESSAGE_CHARS:
+                return JsonResponse({'success': False, 'error': 'Message trop long.'}, status=400)
+            if rate_limited(f'chat-send:{request.user.id}', SEND_LIMIT, SEND_WINDOW_SECONDS):
+                return JsonResponse({'success': False, 'error': 'Trop de messages, ralentissez.'}, status=429)
+            room = get_object_or_404(ChatRoom, slug=room_slug, est_actif=True)
 
             if room.type == 'DIRECT' and not room.membres.filter(id=request.user.id).exists():
                 return JsonResponse({'success': False, 'error': 'Non autorisé'}, status=403)
@@ -230,14 +247,15 @@ def chat_send_message(request):
 
 
 @login_required
+@module_required('chat')
 def chat_get_messages(request, room_slug):
     """Récupère l'historique des messages pour le widget et la page salon."""
-    room = get_object_or_404(ChatRoom, slug=room_slug)
+    room = get_object_or_404(ChatRoom, slug=room_slug, est_actif=True)
 
     if room.type == 'DIRECT' and not room.membres.filter(id=request.user.id).exists():
         return JsonResponse({'error': 'Non autorisé'}, status=403)
 
-    last_id = request.GET.get('last_id', 0)
+    last_id = parse_int(request.GET.get('last_id'), default=0, minimum=0)
     try:
         last_id = int(last_id or 0)
     except (TypeError, ValueError):
@@ -264,6 +282,7 @@ def chat_get_messages(request, room_slug):
 
 
 @login_required
+@module_required('chat')
 def chat_notifications_api(request):
     """API globale des notifications."""
     try:
@@ -338,26 +357,31 @@ def chat_notifications_api(request):
 
 
 @login_required
+@module_required('chat')
 def send_system_notification(request):
     if request.method == 'POST' and request.user.is_staff:
-        message = request.POST.get('message', '').strip()
+        message = request.POST.get('message', '').strip()[:MAX_MESSAGE_CHARS]
         room_slug = request.POST.get('room_slug', 'general')
 
         if message:
-            room = ChatRoom.objects.filter(slug=room_slug).first()
+            # Jamais dans un chat privé : seuls ses deux membres peuvent y écrire.
+            room = (ChatRoom.objects.filter(slug=room_slug, est_actif=True)
+                    .exclude(type='DIRECT').first())
             if room:
                 ChatMessage.objects.create(
                     room=room, auteur=request.user,
                     contenu=message, type_message='SYSTEM'
                 )
+                logger.info('chat_system_message user_id=%s room=%s', request.user.id, room.slug)
 
     return redirect('chat_home')
 
 
 @login_required
+@module_required('chat')
 def chat_private_init(request, user_id):
     """Initialise ou récupère un chat privé entre deux utilisateurs."""
-    autre_utilisateur = get_object_or_404(User, id=user_id)
+    autre_utilisateur = get_object_or_404(User, id=user_id, is_active=True)
     if autre_utilisateur == request.user:
         return redirect('chat_home')
 
@@ -379,6 +403,7 @@ def chat_private_init(request, user_id):
 
 
 @login_required
+@module_required('chat')
 def chat_widget_data(request):
     """API de démarrage du widget flottant (Salons + Privés)."""
     update_user_presence(request.user, None)
@@ -459,6 +484,7 @@ def chat_widget_data(request):
 
 
 @login_required
+@module_required('chat')
 def chat_private_api(request, user_id):
     """Initialise un chat privé en JSON pour le widget."""
     autre_utilisateur = get_object_or_404(User, id=user_id, is_active=True)

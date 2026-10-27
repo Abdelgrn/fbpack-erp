@@ -43,3 +43,5 @@ dist/
 *.spec
 *.bat
 *.msix
+
+_sauvegarde_avant_securite_*/

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load security_tags %}
 {% block content %}
 <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
     <div>
@@ -51,17 +52,17 @@
 new Chart(document.getElementById('chartDispo'), {
     type: 'bar',
     data: {
-        labels: {{ machines_labels|safe }},
-        datasets: [{ label: 'Disponibilité %', data: {{ machines_dispo|safe }},
-            backgroundColor: {{ machines_dispo|safe }}.map(v => v >= 90 ? '#22c55e' : v >= 75 ? '#eab308' : '#ef4444'), borderRadius: 6 }]
+        labels: {{ machines_labels|json_embed }},
+        datasets: [{ label: 'Disponibilité %', data: {{ machines_dispo|json_embed }},
+            backgroundColor: {{ machines_dispo|json_embed }}.map(v => v >= 90 ? '#22c55e' : v >= 75 ? '#eab308' : '#ef4444'), borderRadius: 6 }]
     },
     options: { indexAxis: 'y', scales: { x: { max: 100, ticks: { color: '#9ca3af' }, grid: { color: '#334155' } }, y: { ticks: { color: '#e5e7eb', font: { size: 10 } }, grid: { display: false } } }, plugins: { legend: { display: false } } }
 });
 new Chart(document.getElementById('chartPannes'), {
     type: 'bar',
     data: {
-        labels: {{ machines_labels|safe }},
-        datasets: [{ label: 'Pannes', data: {{ machines_pannes|safe }}, backgroundColor: '#ef4444', borderRadius: 6 }]
+        labels: {{ machines_labels|json_embed }},
+        datasets: [{ label: 'Pannes', data: {{ machines_pannes|json_embed }}, backgroundColor: '#ef4444', borderRadius: 6 }]
     },
     options: { indexAxis: 'y', scales: { x: { ticks: { color: '#9ca3af' }, grid: { color: '#334155' } }, y: { ticks: { color: '#e5e7eb', font: { size: 10 } }, grid: { display: false } } }, plugins: { legend: { display: false } } }
 });

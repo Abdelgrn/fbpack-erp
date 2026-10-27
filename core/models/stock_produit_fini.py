@@ -23,6 +23,9 @@ class ProduitFiniLot(models.Model):
     a_relier = models.BooleanField('À relier', default=False,
                                    help_text='Client ou produit non reconnu dans l’ERP.')
     job_clos_le = models.DateTimeField('Job clôturé le', null=True, blank=True)
+    # Temps de production du job (minutes, pauses déduites) envoyé par la pesée à la clôture.
+    temps_production_min = models.PositiveIntegerField(
+        'Temps de production (min)', null=True, blank=True)
     # Entrée en stock produit fini : décidée à la main depuis le module « Suivi par poste ».
     # Tant que ce champ est vide, le lot reste visible dans le suivi mais pas dans le stock.
     entree_stock_le = models.DateTimeField('Entré en stock le', null=True, blank=True)
