@@ -24,33 +24,9 @@
                 Le stock affiché correspond aux matières du <strong class="text-gray-200">Magasin Général</strong> : ce qui est transféré en Stock Tampon (Flexo / Hélio) est décompté.
             </p>
         </div>
-        <!-- KPI RAPIDES -->
-        <div class="flex flex-wrap gap-3">
-            <div class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-center min-w-[90px]">
-                <div class="text-2xl font-black text-white" id="statTotalMatieres">{{ total_matieres }}</div>
-                <div class="text-[10px] text-gray-400 uppercase tracking-wider">Matières</div>
-            </div>
-            <div class="bg-red-900/30 border border-red-500/40 rounded-lg px-4 py-2 text-center min-w-[90px] {% if nb_alertes %}animate-pulse{% endif %}">
-                <div class="text-2xl font-black text-red-400">{{ nb_alertes }}</div>
-                <div class="text-[10px] text-red-400 uppercase tracking-wider">Alertes</div>
-            </div>
-            <div class="bg-orange-900/30 border border-orange-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
-                <div class="text-2xl font-black text-orange-400">{{ lots_bloques }}</div>
-                <div class="text-[10px] text-orange-400 uppercase tracking-wider">Lots bloqués</div>
-            </div>
-            <div class="bg-yellow-900/30 border border-yellow-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
-                <div class="text-2xl font-black text-yellow-400">{{ lots_attente }}</div>
-                <div class="text-[10px] text-yellow-400 uppercase tracking-wider">En contrôle</div>
-            </div>
-            <div class="bg-blue-900/30 border border-blue-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
-                <div class="text-2xl font-black text-blue-400">{{ da_en_attente }}</div>
-                <div class="text-[10px] text-blue-400 uppercase tracking-wider">DA actives</div>
-            </div>
-            <div class="bg-emerald-900/30 border border-emerald-500/40 rounded-lg px-4 py-2 text-center min-w-[90px]">
-                <div class="text-2xl font-black text-emerald-400">{{ valeur_stock_total|floatformat:0 }}</div>
-                <div class="text-[10px] text-emerald-400 uppercase tracking-wider">Stock Valeur</div>
-            </div>
-        </div>
+        <a href="{% url 'stock_kpi' %}" class="inline-flex items-center gap-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-5 py-3 text-white font-black shadow transition">
+            📊 Tableau de bord KPI Stock
+        </a>
     </div>
 </div>
 
@@ -99,59 +75,6 @@
 <!-- SECTION ALERTES STOCK — VERSION GRAPHIQUE MODERNE            -->
 <!-- ============================================================ -->
 {% if alertes_stock %}
-
-<!-- 3 Cartes compteurs -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-    <div class="rounded-2xl p-5 flex items-center gap-4 bg-gradient-to-br from-red-950 to-red-600 border border-red-500/40">
-        <div class="text-5xl leading-none">🔴</div>
-        <div>
-            <div class="text-white font-black text-4xl leading-none">{{ nb_ruptures }}</div>
-            <div class="text-red-200 font-bold text-sm uppercase tracking-wider mt-1">En Rupture Totale</div>
-            <div class="text-red-300 text-xs mt-1">Stock dispo = 0 — Lancer DA immédiatement</div>
-        </div>
-    </div>
-
-    <div class="rounded-2xl p-5 flex items-center gap-4 bg-gradient-to-br from-orange-950 to-orange-600 border border-orange-500/40">
-        <div class="text-5xl leading-none">🟠</div>
-        <div>
-            <div class="text-white font-black text-4xl leading-none">{{ nb_critiques }}</div>
-            <div class="text-orange-200 font-bold text-sm uppercase tracking-wider mt-1">Niveau Critique</div>
-            <div class="text-orange-300 text-xs mt-1">Stock &lt; 50% du seuil minimum</div>
-        </div>
-    </div>
-
-    <div class="rounded-2xl p-5 flex items-center gap-4 bg-gradient-to-br from-yellow-950 to-yellow-600 border border-yellow-500/40">
-        <div class="text-5xl leading-none">🟡</div>
-        <div>
-            <div class="text-white font-black text-4xl leading-none">{{ nb_alertes_simples }}</div>
-            <div class="text-yellow-200 font-bold text-sm uppercase tracking-wider mt-1">Sous Le Seuil</div>
-            <div class="text-yellow-300 text-xs mt-1">À surveiller et planifier</div>
-        </div>
-    </div>
-</div>
-
-<!-- 2 Graphiques côte à côte -->
-<div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-5">
-    <div class="lg:col-span-3 bg-slate-800 border border-slate-700 rounded-2xl p-5">
-        <div class="mb-4">
-            <div class="text-white font-bold text-base">📊 Top 10 matières les plus critiques</div>
-            <div class="text-gray-400 text-xs mt-1">Stock actuel (barre colorée) vs Seuil d'alerte (barre grise)</div>
-        </div>
-        <div class="relative h-80">
-            <canvas id="chartTopAlertes"></canvas>
-        </div>
-    </div>
-
-    <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-5">
-        <div class="mb-4">
-            <div class="text-white font-bold text-base">🥧 Par catégorie de matière</div>
-            <div class="text-gray-400 text-xs mt-1">Nombre d'alertes groupées par type</div>
-        </div>
-        <div class="relative h-80">
-            <canvas id="chartCategories"></canvas>
-        </div>
-    </div>
-</div>
 
 <!-- Tableau visuel avec jauges et filtres -->
 <div class="bg-slate-800 border border-slate-700 rounded-2xl mb-6 overflow-hidden">

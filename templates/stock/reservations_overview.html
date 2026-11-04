@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto mt-6 px-4 text-white">
+  <div class="rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-xl">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <a href="{% url 'stock_advanced' %}" class="text-sm text-slate-400 hover:text-white">← Retour au Stock</a>
+        <h1 class="mt-3 text-2xl font-black">📦 Matières réservées aux OF</h1>
+        <p class="mt-1 text-sm text-slate-400">Vue magasinier des matières engagées pour les ordres de fabrication CRM. La réservation ne diminue pas le stock physique.</p>
+      </div>
+      <div class="flex gap-3">
+        <div class="rounded-xl border border-emerald-700 bg-emerald-950/40 px-4 py-3 text-center"><div class="text-xs uppercase text-emerald-300">Lignes réservées</div><div class="text-2xl font-black">{{ reservation_count }}</div></div>
+        <div class="rounded-xl border border-amber-700 bg-amber-950/40 px-4 py-3 text-center"><div class="text-xs uppercase text-amber-300">Besoins incomplets</div><div class="text-2xl font-black">{{ shortage_count }}</div></div>
+      </div>
+    </div>
+
+    <form method="get" class="mt-5 flex flex-wrap gap-2">
+      <input type="search" name="q" value="{{ search }}" placeholder="Rechercher matière, lot, OF ou client…" class="min-w-[260px] flex-1 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-white">
+      <button class="rounded-lg bg-cyan-600 px-5 py-2 font-bold hover:bg-cyan-500" type="submit">Rechercher</button>
+      {% if search %}<a class="rounded-lg bg-slate-700 px-4 py-2" href="{% url 'stock_reservations_overview' %}">Effacer</a>{% endif %}
+    </form>
+
+    <h2 class="mt-7 mb-3 text-lg font-bold text-emerald-300">Résumé par matière</h2>
+    <div class="overflow-x-auto rounded-xl border border-slate-700">
+      <table class="w-full text-sm"><thead class="bg-slate-800 text-left text-slate-300"><tr><th class="p-3">Matière</th><th>Stock physique conforme</th><th>Réservé actif</th><th>Libre pour autre OF</th></tr></thead><tbody>
+      {% for row in material_summary %}<tr class="border-t border-slate-800"><td class="p-3 font-bold">{{ row.material.name }}</td><td>{{ row.physical|floatformat:3 }} {{ row.material.unit }}</td><td class="font-bold text-emerald-300">{{ row.reserved|floatformat:3 }} {{ row.material.unit }}</td><td>{{ row.free|floatformat:3 }} {{ row.material.unit }}</td></tr>{% empty %}<tr><td colspan="4" class="p-5 text-slate-400">Aucune réservation active ne correspond à la recherche.</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+
+    <h2 class="mt-7 mb-3 text-lg font-bold text-cyan-300">Réservations par lot et OF</h2>
+    <div class="overflow-x-auto rounded-xl border border-slate-700">
+      <table class="w-full text-sm"><thead class="bg-slate-800 text-left text-slate-300"><tr><th class="p-3">Matière / lot</th><th>OF</th><th>Client</th><th>Besoin OF</th><th>Réservé sur le lot</th><th>Consommé</th><th>Lot restant</th><th>Fiche OF</th></tr></thead><tbody>
+      {% for row in reservations %}<tr class="border-t border-slate-800"><td class="p-3"><strong>{{ row.requirement.material.name }}</strong><br><span class="text-xs text-slate-400">Lot {{ row.lot.numero_lot }}</span></td><td class="font-bold">{{ row.requirement.of.numero_of }}</td><td>{{ row.requirement.of.client }}</td><td>{{ row.requirement.quantity_required|floatformat:3 }} {{ row.requirement.material.unit }}</td><td class="font-bold text-emerald-300">{{ row.active_quantity_ui|floatformat:3 }} {{ row.requirement.material.unit }}</td><td>{{ row.quantity_consumed|floatformat:3 }} {{ row.requirement.material.unit }}</td><td>{{ row.lot.quantite_restante|floatformat:3 }} {{ row.requirement.material.unit }}</td><td><a href="{% url 'crm_of_detail' row.requirement.of.id %}" class="text-cyan-300 underline">Ouvrir OF</a></td></tr>{% empty %}<tr><td colspan="8" class="p-5 text-slate-400">Aucune réservation active.</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+
+    <h2 class="mt-7 mb-3 text-lg font-bold text-amber-300">Besoins non couverts</h2>
+    <div class="overflow-x-auto rounded-xl border border-slate-700">
+      <table class="w-full text-sm"><thead class="bg-slate-800 text-left text-slate-300"><tr><th class="p-3">OF</th><th>Client</th><th>Matière</th><th>Besoin total</th><th>Reste à couvrir</th><th></th></tr></thead><tbody>
+      {% for req in shortages %}<tr class="border-t border-slate-800"><td class="p-3 font-bold">{{ req.of.numero_of }}</td><td>{{ req.of.client }}</td><td>{{ req.material.name }}</td><td>{{ req.quantity_required|floatformat:3 }} {{ req.material.unit }}</td><td class="font-bold text-amber-300">{{ req.missing_quantity_ui|floatformat:3 }} {{ req.material.unit }}</td><td><a href="{% url 'crm_of_detail' req.of.id %}" class="text-cyan-300 underline">Voir OF</a></td></tr>{% empty %}<tr><td colspan="6" class="p-5 text-slate-400">Tous les besoins affichés sont couverts, ou aucun manque ne correspond à la recherche.</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+  </div>
+</div>
+{% endblock %}

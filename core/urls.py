@@ -8,13 +8,20 @@ from django.core.exceptions import ImproperlyConfigured
 
 from . import views
 from .views import of_views
+from .views.crm_views import crm_of_commandes_a_convertir
 from .views import production_speciale as prod_views
 
 # MODULE KPI
 from .kpi import views as kpi_analytics
 
 # IMPORT DIRECT SÉCURISÉ DU SCANNER IA, DE L'IMPORT STOCK ET DES SUPPRESSIONS MULTIPLES
-from .views.stock import scan_label_ai, import_stock_view, bulk_delete_materials, bulk_delete_movements
+from .views.stock import (
+    scan_label_ai, import_stock_view, bulk_delete_materials, bulk_delete_movements,
+    stock_kpi_view, stock_catalog_manage, stock_daily_issue_create,
+    stock_damage_create, stock_return_create, stock_receipt_create,
+    stock_documents_list, stock_document_print, stock_movement_edit,
+    stock_movement_delete,
+)
 from .views.notifications import (notification_center, notification_api_list, notification_mark_read, notification_mark_all_read, notification_toggle_processed)
 from .views.erp_assistant import assistant_home, assistant_ask, assistant_clear
 from .views.prepress import (
@@ -26,7 +33,7 @@ from .views.prepress import (
     prepress_tooling_park,
 )
 from .views.global_search import global_search_api
-from .views.stock_reservation import of_stock_reservations
+from .views.stock_reservation import of_stock_reservations, stock_reservations_overview
 from .views.admin_custom import (
     admin_assign_module_manager,
     admin_demote_superuser,
@@ -225,6 +232,7 @@ urlpatterns = [
     # CRM — OF INTÉGRÉ
     # ==========================================
     path('crm/of/', views.crm_of_list, name='crm_of_list'),
+    path('crm/of/commandes-a-convertir/', crm_of_commandes_a_convertir, name='crm_of_commandes_a_convertir'),
     path('crm/of/create/', views.crm_of_create, name='crm_of_create'),
     path('crm/of/<int:of_id>/', views.crm_of_detail, name='crm_of_detail'),
     path('crm/of/<int:of_id>/edit/', views.crm_of_edit, name='crm_of_edit'),
@@ -232,6 +240,7 @@ urlpatterns = [
     path('crm/of/<int:of_id>/stock-reservations/', of_stock_reservations, name='of_stock_reservations'),
     path('crm/of/<int:of_id>/prelaunch/', prelaunch_verification_compat, name='of_prelaunch_verification'),
     path('crm/of/<int:of_id>/prelaunch/', prelaunch_verification_compat, name='prelaunch_verification'),
+    path('crm/of/<int:of_id>/prelaunch/', prelaunch_verification_compat, name='of_prelaunch_check'),
 
     # Le calculateur possède une page globale appelée sans argument depuis
     # templates/prepress.html, tout en conservant l'accès contextuel par OF.
@@ -344,6 +353,17 @@ urlpatterns = [
     # STOCK AVANCÉ
     # ==========================================
     path('stock/', views.stock_advanced_view, name='stock_advanced'),
+    path('stock/kpi/', stock_kpi_view, name='stock_kpi'),
+    path('stock/reservations/', stock_reservations_overview, name='stock_reservations_overview'),
+    path('stock/catalog/manage/', stock_catalog_manage, name='stock_catalog_manage'),
+    path('stock/issues/daily/', stock_daily_issue_create, name='stock_daily_issue_create'),
+    path('stock/returns/create/', stock_return_create, name='stock_return_create'),
+    path('stock/damage/create/', stock_damage_create, name='stock_damage_create'),
+    path('stock/receipts/create/', stock_receipt_create, name='stock_receipt_create'),
+    path('stock/documents/', stock_documents_list, name='stock_documents_list'),
+    path('stock/documents/<int:id>/print/', stock_document_print, name='stock_document_print'),
+    path('stock/movement/<int:id>/edit/', stock_movement_edit, name='stock_movement_edit'),
+    path('stock/movement/<int:id>/delete/', stock_movement_delete, name='stock_movement_delete'),
     path('stock/location/add/', views.location_add, name='location_add'),
     path('stock/location/<int:id>/delete/', views.location_delete, name='location_delete'),
     path('stock/lot/add/', views.lot_add, name='lot_add'),

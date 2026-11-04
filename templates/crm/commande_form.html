@@ -382,6 +382,8 @@ document.addEventListener('DOMContentLoaded', function () {
 // ==========================================
 let layerCount = 0;
 let lastCalculatedLayers = [];
+let lastCalculationSummary = null;
+let submitAfterPieceCalculation = false;
 
 /**
  * PARSEUR INTELLIGENT DE MATÉRIAU
@@ -747,6 +749,7 @@ function runERPMath() {
         layer.surface_m2 = surfaceM2;
         layer.ml_utile = mlUtile;
         layer.ml_brut = mlBrut;
+        layer.surface_brute_m2 = surfaceBrute;
 
         if (!layer.has_material) allLayersHaveMaterial = false;
 
@@ -782,6 +785,27 @@ function runERPMath() {
             </li>`;
     });
 
+    lastCalculationSummary = {
+        version: 1,
+        type_calcul: type,
+        quantity_input: qte,
+        quantity_unit: type === 'PIECES' ? 'pieces' : 'kg',
+        laize_bobine_mm: laizeBobine,
+        laize_utile_mm: laizeUtile,
+        developpement_mm: dev,
+        poses: poses,
+        surface_m2: surfaceM2,
+        total_grammage_g_m2: totalGrm2,
+        poids_fini_kg: poidsTotalFini,
+        layers: lastCalculatedLayers.map(layer => ({
+            mat_id: layer.mat_id, mat_name: layer.mat_name, mic: layer.mic,
+            den: layer.den, grm2: layer.grm2, perte: layer.perte,
+            ordre: layer.ordre, poids_final_calcul: layer.poids_final_calcul,
+            surface_m2: layer.surface_m2, surface_brute_m2: layer.surface_brute_m2,
+            ml_utile: layer.ml_utile, ml_brut: layer.ml_brut
+        }))
+    };
+
     document.getElementById('calc-results').classList.remove('hidden');
 
     const btnInject = document.getElementById('btn-inject');
@@ -798,7 +822,7 @@ function runERPMath() {
 }
 
 function injectIntoForm() {
-    if (lastCalculatedLayers.length === 0) return;
+    if (lastCalculatedLayers.length === 0) return 0;
 
     const rows = document.querySelectorAll('.ligne-row');
     let injectCount = 0;
@@ -814,12 +838,26 @@ function injectIntoForm() {
 
             if (matSelect && qteInput) {
                 matSelect.value = layer.mat_id;
-                qteInput.value = Math.round(layer.poids_final_calcul);
-
-                if (desInput && !desInput.value) {
-                    const operation = layer.ordre === 1 ? 'Impression' : 'Complexage / Façonnage';
-                    desInput.value = `C${layer.ordre} ${operation}: ${fmt(Math.round(layer.poids_final_calcul))}kg · ${fmt(Math.round(layer.surface_m2 || 0))}m² · ${fmt(Math.round(layer.ml_utile || 0))}ml (${layer.grm2.toFixed(1)}g/m²)`;
-                }
+                const optionText = matSelect.options[matSelect.selectedIndex]?.text || '';
+                const unitMatch = optionText.match(/Stock:\s*[-+]?\d[\d.,]*\s*([^\s⚠]+)/i);
+                const materialUnit = (unitMatch ? unitMatch[1] : 'kg').toLowerCase();
+                let stockRequirement;
+                if (['kg', 'kgs'].includes(materialUnit)) stockRequirement = layer.poids_final_calcul;
+                else if (['m', 'ml', 'metre', 'metres'].includes(materialUnit)) stockRequirement = layer.ml_brut;
+                else if (['m2', 'm²', 'sqm'].includes(materialUnit)) stockRequirement = layer.surface_brute_m2;
+                else { alert(`Unité de stock « ${materialUnit} » non convertible automatiquement pour ${layer.mat_name}.`); return; }
+                qteInput.value = Number(stockRequirement || 0).toFixed(3);
+                const hidden = (suffix) => row.querySelector(`[name$="-${suffix}"]`);
+                const setField = (suffix, value) => { const el = hidden(suffix); if (el) el.value = value; };
+                const operation = layer.ordre === 1 ? 'Impression' : 'Complexage / Façonnage';
+                if (desInput) desInput.value = `C${layer.ordre} ${operation}: ${Number(stockRequirement || 0).toFixed(3)} ${materialUnit} (${Number(layer.poids_final_calcul || 0).toFixed(3)}kg) · ${fmt(Math.round(layer.surface_m2 || 0))}m² · ${fmt(Math.round(layer.ml_utile || 0))}ml (${layer.grm2.toFixed(1)}g/m²)`;
+                setField('type_calcul', lastCalculationSummary ? lastCalculationSummary.type_calcul : 'PIECES');
+                setField('laize_fabrication', lastCalculationSummary ? lastCalculationSummary.laize_utile_mm : 0);
+                setField('developpement_fabrication', lastCalculationSummary ? lastCalculationSummary.developpement_mm : 0);
+                setField('poses_fabrication', lastCalculationSummary ? lastCalculationSummary.poses : 1);
+                setField('structure_json', JSON.stringify(lastCalculationSummary || {}));
+                const unitField = row.querySelector('[name$="-unite"]');
+                if (unitField) unitField.value = materialUnit;
 
                 matSelect.dispatchEvent(new Event('change'));
                 qteInput.dispatchEvent(new Event('input'));
@@ -831,6 +869,35 @@ function injectIntoForm() {
     if (injectCount > 0) {
         document.getElementById('lignes-section').scrollIntoView({ behavior: 'smooth' });
     }
+    return injectCount;
 }
+document.getElementById('commande-form')?.addEventListener('submit', function (event) {
+    if (submitAfterPieceCalculation) { submitAfterPieceCalculation = false; return; }
+    const selectedType = document.querySelector('input[name="calc_type"]:checked')?.value;
+    if (!['PIECES', 'POIDS'].includes(selectedType)) return;
+    event.preventDefault();
+    runERPMath();
+    const qte = parseFloat(document.getElementById('calc_qte')?.value || 0);
+    const utile = parseFloat(document.getElementById('calc_laize_utile')?.value || 0);
+    const bobine = parseFloat(document.getElementById('calc_laize_bobine')?.value || 0);
+    const dev = parseFloat(document.getElementById('calc_dev')?.value || 0);
+    const poses = parseFloat(document.getElementById('calc_poses')?.value || 0);
+    const rows = document.querySelectorAll('.ligne-row');
+    const valid = qte > 0 && utile > 0 && bobine >= utile && dev > 0 && poses > 0 &&
+        lastCalculatedLayers.length > 0 && lastCalculatedLayers.length <= rows.length &&
+        lastCalculatedLayers.every(layer => layer.has_material && layer.grm2 > 0 && layer.perte >= 0 && layer.perte < 100);
+    if (!valid) {
+        alert('Complétez les paramètres techniques (laizes, développement, poses, grammages et matières de chaque couche) avant d’enregistrer la commande.');
+        return;
+    }
+    const injected = injectIntoForm();
+    if (injected !== lastCalculatedLayers.length) {
+        alert('Une ou plusieurs matières ne peuvent pas être converties dans leur unité de stock. Vérifiez les unités des matières avant de créer la commande.');
+        return;
+    }
+    submitAfterPieceCalculation = true;
+    this.requestSubmit(event.submitter || undefined);
+});
+
 </script>
 {% endblock %}

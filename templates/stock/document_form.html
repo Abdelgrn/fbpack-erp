@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8 text-white">
+  <div class="flex items-start justify-between gap-4 mb-6"><div><h1 class="text-2xl font-black">{% if mode == 'daily' %}🧾 Bon de sortie journalier{% elif mode == 'receipt' %}📦 Bon de réception journalier{% elif mode == 'return' %}↩️ Bon de retour{% else %}⚠️ Bon d’avarie{% endif %}</h1><p class="text-sm text-slate-400 mt-1">Le document imprimable sera créé après validation.</p></div><div class="flex flex-wrap gap-2">{% if mode == 'receipt' %}<a href="{% url 'stock_documents_list' %}?kind=RECEPTION" class="rounded-lg bg-teal-700 px-4 py-2 text-sm">Voir les bons de réception</a>{% endif %}<a href="{% url 'stock_advanced' %}?tab=mouvements" class="rounded-lg bg-slate-700 px-4 py-2 text-sm">← Retour</a></div></div>
+  {% if messages %}{% for message in messages %}<div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-900/30 p-3 text-sm text-amber-100">{{ message }}</div>{% endfor %}{% endif %}
+  <form method="post" class="space-y-5 rounded-2xl border border-slate-700 bg-slate-800 p-6">{% csrf_token %}
+    {% if mode == 'daily' or mode == 'receipt' %}
+      <div><label class="doc-label">Date à consolider</label><input type="date" name="date" value="{{ selected_date }}" required class="doc-input"></div>
+      <div><label class="doc-label">Observations générales (facultatif)</label><textarea name="notes" rows="3" class="doc-input"></textarea></div>
+      {% if mode == 'receipt' %}
+        <div><label class="doc-label">Emplacement par défaut (pour les lignes sans emplacement)</label><select name="emplacement_reception" class="doc-input"><option value="">— Conserver l’emplacement de chaque mouvement —</option>{% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}</select></div>
+      {% endif %}
+      {% if mode == 'daily' %}
+        {% if pending_count %}<p class="text-sm text-emerald-300">{{ pending_count }} sortie(s) disponible(s) à consolider.</p>{% else %}<p class="text-sm text-amber-300">Aucune sortie à consolider pour cette date. Les entrées ne sont pas incluses dans ce bon.</p>{% endif %}
+      {% else %}
+        <div class="rounded-lg border border-teal-500/30 bg-teal-950/30 p-3 text-sm text-teal-100">Un seul bon consolidera les entrées manuelles non encore jointes à un bon de réception de cette journée. Une réception liée à un bon de commande possède déjà son propre bon.</div>
+        {% if pending_count %}<p class="text-sm text-emerald-300">{{ pending_count }} entrée(s) disponible(s) à consolider.</p>{% else %}<p class="text-sm text-amber-300">Aucune entrée manuelle à consolider pour cette date.</p>{% endif %}
+      {% endif %}
+    {% elif mode == 'return' or mode == 'damage' %}
+      <div><label class="doc-label">Univers de stock</label><select id="universeSelect" name="universe" required class="doc-input"><option value="">— Choisir l’univers —</option><option value="FILM" {% if selected_universe == 'FILM' %}selected{% endif %}>Film / Papier</option><option value="INK" {% if selected_universe == 'INK' %}selected{% endif %}>Encre</option><option value="GLUE" {% if selected_universe == 'GLUE' %}selected{% endif %}>Colle</option><option value="SOLV" {% if selected_universe == 'SOLV' %}selected{% endif %}>Solvant</option></select></div>
+      <div><label class="doc-label">Article</label><select id="materialSelect" name="material" required class="doc-input"><option value="">— Choisir un univers d’abord —</option>{% for item in materials %}<option value="{{ item.id }}" data-category="{{ item.category }}" data-unit="{{ item.unit }}" data-laize="{{ item.laize_mm|default_if_none:'' }}" data-micronage="{{ item.micronage_standard|default_if_none:'' }}" data-metrage="{{ item.metrage_standard|default_if_none:'' }}" data-poids="{{ item.poids_kg|default_if_none:'' }}" data-unites="{{ item.nombre_unites|default_if_none:'' }}">{{ item.code|default:"—" }} — {{ item.name }}</option>{% endfor %}</select></div>
+      {% if mode == 'return' %}
+        <div><label class="doc-label">Type de retour</label><select name="kind" required class="doc-input"><option value="RETOUR_INTERNE">Retour interne (atelier → magasin)</option><option value="RETOUR_FOURNISSEUR">Retour fournisseur (sortie du stock)</option></select></div>
+        <div><label class="doc-label">Lot (requis pour retour fournisseur)</label><select name="lot" class="doc-input"><option value="">— Sélectionner un lot —</option>{% for item in lots %}<option value="{{ item.id }}" data-material="{{ item.material_id }}">{{ item.material.code|default:"—" }} — {{ item.material.name }} / {{ item.numero_lot }} — restant {{ item.quantite_restante }} {{ item.material.unit }}</option>{% endfor %}</select></div>
+      {% else %}
+        <div><label class="doc-label">Lot concerné (facultatif)</label><select name="lot" class="doc-input"><option value="">— Aucun lot précisé —</option>{% for item in lots %}<option value="{{ item.id }}" data-material="{{ item.material_id }}">{{ item.material.name }} / {{ item.numero_lot }}</option>{% endfor %}</select></div>
+      {% endif %}
+      <div><label id="quantityLabel" class="doc-label">Quantité de mouvement (unité de l’article)</label><input type="number" name="quantity" min="0.001" step="0.001" required class="doc-input"></div>
+      <div id="filmDimensionsField" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden"><div><label class="doc-label">Laize (mm) *</label><input type="number" name="laize_mm" min="0" step="1" class="doc-input"></div><div><label class="doc-label">Micronage (µm) *</label><input type="number" name="micronage" min="0" step="1" class="doc-input"></div></div>
+      <div id="filmMetrageField" class="hidden"><label class="doc-label">Métrage retourné / avarié (m) *</label><input type="number" name="metrage" min="0" step="0.01" class="doc-input"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="doc-label">Poids (kg) *</label><input type="number" name="poids_kg" min="0" step="0.01" required class="doc-input"></div><div id="unitCountField"><label class="doc-label">Nombre d’unités (Film/Papier)</label><input type="number" name="nombre_unites" min="0" step="1" class="doc-input"></div></div>
+      {% if mode == 'return' %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="doc-label">Emplacement source</label><select name="src" class="doc-input"><option value="">— Aucun —</option>{% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}</select></div><div><label class="doc-label">Emplacement destination</label><select name="dst" class="doc-input"><option value="">— Aucun —</option>{% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}</select></div></div>
+        <div><label class="doc-label">Fournisseur (retour fournisseur, facultatif)</label><select name="supplier" class="doc-input"><option value="">— Fournisseur de l’article —</option>{% for supplier in suppliers %}<option value="{{ supplier.id }}">{{ supplier.name }}</option>{% endfor %}</select></div>
+        <div><label class="doc-label">Motif du retour</label><textarea name="notes" rows="3" required class="doc-input"></textarea></div>
+      {% else %}
+        <div><label class="doc-label">Emplacement constaté</label><select name="location" class="doc-input"><option value="">— Non précisé —</option>{% for loc in locations %}<option value="{{ loc.id }}">{{ loc.name }}</option>{% endfor %}</select></div>
+        <div><label class="doc-label">Description et circonstances de l’avarie</label><textarea name="notes" rows="4" required class="doc-input"></textarea></div>
+        <p class="text-xs text-amber-200">La validation crée le bon d’avarie et un mouvement PERTE qui met à jour le stock; il reste traçable dans le journal.</p>
+      {% endif %}
+      <p class="text-xs text-slate-400">Film/Papier : poids, métrage et nombre d’unités. Encre, colle et solvant : poids uniquement.</p>
+    {% endif %}
+    <button class="w-full rounded-xl bg-cyan-600 hover:bg-cyan-500 py-3 font-black">{% if mode == 'daily' %}Créer le bon de sortie{% elif mode == 'receipt' %}Créer le bon de réception{% else %}Créer le bon et ouvrir l’impression{% endif %}</button>
+  </form>
+</div>
+<style>.doc-label{display:block;color:#aab9c7;font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:6px}.doc-input{width:100%;border:1px solid #475569;background:#0f1f31;border-radius:9px;padding:10px 12px;color:#f8fafc;font-size:14px}</style>
+{% if mode == 'return' or mode == 'damage' %}
+<script>
+(function(){
+ function init(){
+  const universe=document.getElementById('universeSelect'), material=document.getElementById('materialSelect'), dimensions=document.getElementById('filmDimensionsField'), metrage=document.getElementById('filmMetrageField'), unitCount=document.getElementById('unitCountField'), lotSelect=document.querySelector('select[name="lot"]'), quantityLabel=document.getElementById('quantityLabel');
+  if(!universe||!material)return;
+  const update=()=>{
+   const category=universe.value;
+   for(const option of material.options){ if(!option.value)continue; const match=option.dataset.category===category; option.hidden=!match; option.disabled=!match; }
+   const selected=material.selectedOptions[0]; if(selected&&selected.value&&selected.dataset.category!==category)material.value='';
+   const activeMaterial=material.selectedOptions[0];
+   if(quantityLabel)quantityLabel.textContent='Quantité de mouvement ('+(activeMaterial&&activeMaterial.dataset.unit?activeMaterial.dataset.unit:'unité de l’article')+')';
+   if(lotSelect){for(const option of lotSelect.options){if(!option.value)continue;const match=!material.value||option.dataset.material===material.value;option.hidden=!match;option.disabled=!match;}if(lotSelect.selectedOptions[0]&&lotSelect.selectedOptions[0].dataset.material&&lotSelect.selectedOptions[0].dataset.material!==material.value)lotSelect.value='';}
+   const film=category==='FILM'; dimensions.classList.toggle('hidden',!film); metrage.classList.toggle('hidden',!film); metrage.querySelector('input').required=film; dimensions.querySelector('[name="laize_mm"]').required=film; dimensions.querySelector('[name="micronage"]').required=film; if(unitCount){unitCount.classList.toggle('hidden',!film);const unitsInput=unitCount.querySelector('input');unitsInput.required=film;if(!film)unitsInput.value='';}
+   const selectedForDefaults=material.selectedOptions[0]; if(selectedForDefaults&&selectedForDefaults.value){const fields={laize_mm:selectedForDefaults.dataset.laize,micronage:selectedForDefaults.dataset.micronage,metrage:selectedForDefaults.dataset.metrage,poids_kg:selectedForDefaults.dataset.poids,nombre_unites:selectedForDefaults.dataset.unites};Object.entries(fields).forEach(([name,value])=>{const input=document.querySelector('[name="'+name+'"]');if(input&&value&&(!input.value||input.dataset.autofilled==='1')){input.value=value;input.dataset.autofilled='1';} }); }
+  };
+  universe.addEventListener('change',update);material.addEventListener('change',update);update();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
+{% endif %}
+{% endblock %}

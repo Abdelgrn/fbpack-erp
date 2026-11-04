@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-6 text-white">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
+    <a href="{% url 'crm_of_detail' of.id %}" class="text-sm text-slate-400 hover:text-white">← Retour à l’OF</a>
+    <h1 class="text-2xl font-bold mt-3">Matières réservées — {{ of.numero_of }}</h1>
+    <p class="text-slate-300">{{ of.client }} · {{ of.produit }}</p>
+    <p class="mt-2 text-sm text-slate-400">La réservation est séparée du stock physique. Une consommation matière liée à l’OF doit être enregistrée comme sortie de stock; le système décompte alors sa réservation.</p>
+
+    {% for req in requirements %}
+    <section class="mt-6 rounded-xl border border-slate-700 bg-slate-950/60 p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div><h2 class="text-lg font-bold">{{ req.material.name }}</h2><p class="text-sm text-slate-400">Besoin calculé : {{ req.quantity_required|floatformat:3 }} {{ req.material.unit }}</p></div>
+        <div class="text-right"><p class="text-emerald-300">Réservé actif : {{ req.active_reserved_quantity|floatformat:3 }} {{ req.material.unit }}</p><p class="{% if req.missing_quantity > 0 %}text-amber-300{% else %}text-emerald-300{% endif %}">Reste à couvrir : {{ req.missing_quantity|floatformat:3 }} {{ req.material.unit }}</p><p class="text-slate-400 text-xs">Consommé : {{ req.consumed_quantity|floatformat:3 }} {{ req.material.unit }}</p></div>
+      </div>
+      <div class="overflow-x-auto mt-4"><table class="w-full text-sm"><thead class="text-left text-slate-400 border-b border-slate-700"><tr><th class="py-2">Lot</th><th>Quantité réservée</th><th>Consommée</th><th>Libérée</th><th>Active</th><th>État</th><th>Sortie liée à l’OF</th></tr></thead><tbody>
+      {% for reservation in req.reservations.all %}<tr class="border-b border-slate-800 align-top"><td class="py-2">{{ reservation.lot.numero_lot|default:reservation.lot_id }}</td><td>{{ reservation.quantity_reserved|floatformat:3 }}</td><td>{{ reservation.quantity_consumed|floatformat:3 }}</td><td>{{ reservation.quantity_released|floatformat:3 }}</td><td>{{ reservation.active_quantity|floatformat:3 }}</td><td>{{ reservation.get_status_display }}</td><td class="py-2">{% if reservation.active_quantity > 0 and of.statut != 'TERMINE' and of.statut != 'ANNULE' %}<form method="post" class="flex flex-wrap gap-2 items-center">{% csrf_token %}<input type="hidden" name="action" value="issue"><input type="hidden" name="reservation_id" value="{{ reservation.id }}"><input type="number" name="quantity" required min="0.001" max="{{ reservation.active_quantity }}" step="0.001" placeholder="Qté" class="w-24 bg-slate-800 border border-slate-600 rounded px-2 py-1"><select name="machine_id" required class="bg-slate-800 border border-slate-600 rounded px-2 py-1"><option value="">Machine *</option>{% for machine in machines %}<option value="{{ machine.id }}">{{ machine.name }}</option>{% endfor %}</select><input type="text" name="motif" placeholder="Motif (facultatif)" class="w-32 bg-slate-800 border border-slate-600 rounded px-2 py-1"><button class="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded" type="submit">Sortir</button></form>{% else %}—{% endif %}</td></tr>{% empty %}<tr><td colspan="7" class="py-3 text-slate-500">Aucune réservation enregistrée.</td></tr>{% endfor %}
+      </tbody></table></div>
+      {% if req.missing_quantity > 0 and of.statut != 'TERMINE' and of.statut != 'ANNULE' %}<form method="post" class="mt-4">{% csrf_token %}<input type="hidden" name="requirement_id" value="{{ req.id }}"><button class="bg-emerald-700 hover:bg-emerald-600 px-4 py-2 rounded font-bold" type="submit">Réserver le stock libre disponible</button></form>{% endif %}
+    </section>
+    {% empty %}<p class="mt-6 text-slate-400">Aucun besoin matière n’est enregistré pour cet OF.</p>{% endfor %}
+  </div>
+</div>
+{% endblock %}

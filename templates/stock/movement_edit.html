@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="mx-auto max-w-3xl px-4 py-8 text-white">
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4"><div><h1 class="text-2xl font-black">✏️ Corriger un mouvement</h1><p class="mt-1 text-sm text-slate-400">Mouvement #{{ movement.id }} — {{ movement.date|date:'d/m/Y H:i' }} · {{ movement.get_type_display }}</p></div><a href="{% url 'stock_advanced' %}?tab=mouvements" class="rounded-lg bg-slate-700 px-4 py-2 text-sm">← Retour au journal</a></div>
+  {% if messages %}{% for message in messages %}<div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-900/30 p-3 text-sm text-amber-100">{{ message }}</div>{% endfor %}{% endif %}
+  <form id="movementEditForm" method="post" class="space-y-4 rounded-2xl border border-slate-700 bg-slate-800 p-6">{% csrf_token %}
+    <div class="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-100">La correction annule l’ancienne ligne avec contre-passation puis enregistre une nouvelle ligne à la même date. Si un bon existe déjà, il garde la trace de l’ancienne ligne annulée et ajoute la correction compatible. Une entrée déjà consommée ne peut pas être annulée.</div>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <label class="edit-label">Type<select id="editMovementType" name="type" required class="edit-input">{% for code,label in type_choices %}<option value="{{ code }}" {% if values.type == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <div class="relative"><label for="materialSearch" class="edit-label">Matière</label><input id="materialSearch" type="search" autocomplete="off" placeholder="Écrire le code ou le nom de la matière…" aria-label="Rechercher une matière" aria-expanded="false" aria-controls="materialOptions" value="{{ movement.material.code|default:'' }} — {{ movement.material.name }}" class="edit-input"><input id="editMaterial" type="hidden" name="material" value="{{ movement.material_id }}"><div id="materialOptions" role="listbox" class="material-options hidden">{% for item in materials %}<button type="button" role="option" data-id="{{ item.id }}" data-search="{{ item.code|default:''|lower }} {{ item.name|lower }}" data-label="{{ item.code|default:'—' }} — {{ item.name }}" data-stock="{{ item.quantity|stringformat:'s' }}" data-unit="{{ item.unit }}" class="material-option"><span class="material-code">{{ item.code|default:'—' }}</span><span>{{ item.name }}</span></button>{% endfor %}<p id="materialNoResults" class="hidden px-3 py-3 text-xs text-slate-400">Aucune matière correspondante.</p></div><p id="materialSelectionError" class="hidden mt-1 text-xs text-red-300">Sélectionnez une matière dans les résultats.</p><p id="materialStockInfo" class="mt-1 text-xs text-cyan-200">Stock réel : {{ movement.material.quantity|floatformat:'-3' }} {{ movement.material.unit }}.</p><p class="mt-1 text-[10px] text-slate-500">Commencez à taper : les résultats sont filtrés par code et désignation.</p></div>
+      <label class="edit-label"><span id="editQuantityLabel">Quantité</span><input id="editQuantity" type="number" name="quantity" min="-999999999" step="0.001" required value="{{ values.quantity }}" class="edit-input"></label>
+      <label class="edit-label">Emplacement source<select name="src" class="edit-input"><option value="">— Aucun —</option>{% for loc in locations %}<option value="{{ loc.id }}" {% if values.src == loc.id|stringformat:'s' %}selected{% endif %}>{{ loc.name }}</option>{% endfor %}</select></label>
+      <label class="edit-label">Emplacement destination<select name="dst" class="edit-input"><option value="">— Aucun —</option>{% for loc in locations %}<option value="{{ loc.id }}" {% if values.dst == loc.id|stringformat:'s' %}selected{% endif %}>{{ loc.name }}</option>{% endfor %}</select></label>
+      <div id="editMachineField"><label class="edit-label" for="editMachineSelect">Machine (obligatoire pour une sortie de production)</label><select id="editMachineSelect" name="machine" class="edit-input"><option value="">— Choisir une machine —</option>{% for machine in machines %}<option value="{{ machine.id }}" {% if values.machine == machine.id|stringformat:'s' %}selected{% endif %}>{{ machine.name }}</option>{% endfor %}</select></div>
+      <label class="edit-label md:col-span-2">Motif<input type="text" name="motif" maxlength="200" value="{{ values.motif }}" class="edit-input"></label>
+    </div>
+    <p class="text-xs text-slate-400">La Machine est obligatoire pour toute sortie de production. Le type du mouvement sélectionné à l’origine est conservé par défaut; la correction crée une nouvelle ligne et garde l’historique.</p>
+    <button class="w-full rounded-xl bg-blue-600 py-3 font-black hover:bg-blue-500">Enregistrer la correction</button>
+  </form>
+</div>
+<style>
+.edit-label{display:block;color:#aab9c7;font-size:11px;font-weight:900;text-transform:uppercase}.edit-input{display:block;width:100%;margin-top:6px;border:1px solid #475569;background:#334155;border-radius:9px;padding:10px 12px;color:#f8fafc;font-size:14px}.material-options{position:absolute;z-index:50;top:100%;left:0;right:0;max-height:320px;overflow:auto;border:1px solid #475569;border-radius:10px;background:#0b1725;box-shadow:0 15px 35px #0008}.material-option{display:flex;width:100%;gap:10px;text-align:left;padding:9px 12px;color:#e2e8f0;font-size:13px;border-bottom:1px solid #1e293b}.material-option:hover,.material-option.active{background:#164e63}.material-code{min-width:100px;color:#67e8f9;font-family:monospace;font-weight:800}.material-option[hidden]{display:none}
+</style>
+<script>
+(function(){
+ function init(){
+  const search=document.getElementById('materialSearch'), hidden=document.getElementById('editMaterial'), menu=document.getElementById('materialOptions'), noResults=document.getElementById('materialNoResults'), err=document.getElementById('materialSelectionError'), stockInfo=document.getElementById('materialStockInfo'), typeSelect=document.getElementById('editMovementType'), form=document.getElementById('movementEditForm'), machineSelect=document.getElementById('editMachineSelect'), machineField=document.getElementById('editMachineField'), quantityInput=document.getElementById('editQuantity');
+  if(!search||!hidden||!menu)return;
+  const options=Array.from(menu.querySelectorAll('.material-option'));let active=-1;
+  function close(){menu.classList.add('hidden');search.setAttribute('aria-expanded','false');active=-1;}
+  function visible(){return options.filter(o=>!o.hidden);}
+  function markActive(items){items.forEach((o,i)=>o.classList.toggle('active',i===active));if(items[active])items[active].scrollIntoView({block:'nearest'});}
+  function filter(){
+   const q=search.value.trim().toLocaleLowerCase();let count=0;
+   options.forEach(o=>{const match=!q||o.dataset.search.includes(q);const show=match&&count<60;o.hidden=!show;if(show)count++;});
+   noResults.classList.toggle('hidden',count!==0);menu.classList.remove('hidden');search.setAttribute('aria-expanded','true');active=-1;
+  }
+  function updateMachineField(){const required=!!(typeSelect&&typeSelect.value==='SORTIE'),adjustment=!!(typeSelect&&typeSelect.value==='AJUSTEMENT');if(machineField)machineField.classList.toggle('hidden',!required);if(machineSelect){machineSelect.required=required;if(!required)machineSelect.value='';}if(quantityInput){quantityInput.min=adjustment?'-999999999':'0.001';if(!adjustment&&Number(quantityInput.value)<0)quantityInput.value='';}const quantityLabel=document.getElementById('editQuantityLabel');if(quantityLabel)quantityLabel.textContent=adjustment?'Variation (+ / −)':'Quantité';}
+  function updateStock(option){if(!stockInfo)return;if(!option){stockInfo.textContent='Sélectionnez une matière pour consulter son stock réel.';return;}const quantity=Number(option.dataset.stock||0);const formatted=quantity.toLocaleString('fr-FR',{maximumFractionDigits:3});stockInfo.textContent='Stock réel : '+formatted+' '+option.dataset.unit+'.';}
+  function choose(option){hidden.value=option.dataset.id;search.value=option.dataset.label;err.classList.add('hidden');close();updateStock(option);hidden.dispatchEvent(new Event('change',{bubbles:true}));}
+  search.addEventListener('focus',filter);search.addEventListener('input',()=>{hidden.value='';updateStock(null);filter();});
+  options.forEach(o=>{o.addEventListener('mousedown',e=>e.preventDefault());o.addEventListener('click',()=>choose(o));});
+  search.addEventListener('keydown',e=>{const items=visible();if(e.key==='ArrowDown'){e.preventDefault();if(menu.classList.contains('hidden'))filter();active=Math.min(active+1,items.length-1);markActive(items);}else if(e.key==='ArrowUp'){e.preventDefault();active=Math.max(active-1,0);markActive(items);}else if(e.key==='Enter'&&!menu.classList.contains('hidden')){if(active>=0&&items[active]){e.preventDefault();choose(items[active]);} }else if(e.key==='Escape'){close();} });
+  document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==search)close();});
+  if(typeSelect)typeSelect.addEventListener('change',updateMachineField);
+  if(form)form.addEventListener('submit',e=>{
+   if(!hidden.value){e.preventDefault();err.classList.remove('hidden');search.focus();filter();return;}
+   if(typeSelect&&typeSelect.value==='SORTIE'&&(!machineSelect||!machineSelect.value)){e.preventDefault();alert('Choisissez la Machine pour cette sortie de production.');if(machineSelect)machineSelect.focus();return;}
+   const selected=options.find(o=>o.dataset.id===hidden.value);const stock=Number(selected&&selected.dataset.stock||0);const quantity=Number(quantityInput&&quantityInput.value||0);
+   if(typeSelect&&typeSelect.value==='SORTIE'&&quantity>stock){e.preventDefault();alert('Stock réel insuffisant : '+stock+' '+(selected?selected.dataset.unit:'')+' disponible(s).');if(quantityInput)quantityInput.focus();}
+  });
+  updateMachineField();updateStock(options.find(o=>o.dataset.id===hidden.value));
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
+{% endblock %}

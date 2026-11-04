@@ -91,7 +91,8 @@ RULES = [
     ('reporting/', ('reporting',)),
 
     # --- ouvertes à tout utilisateur connecté (comme dans context_processors.py) ---
-    ('kpi/', OPEN),
+    ('kpi/fiche-technique/', ('kpi', 'prepress')),
+    ('kpi/', ('kpi',)),
     ('notifications/', OPEN),
     ('assistant/', OPEN),
     ('search/', OPEN),

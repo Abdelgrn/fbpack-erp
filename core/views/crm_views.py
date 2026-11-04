@@ -1,0 +1,965 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.db.models import Sum, Q, Count, Prefetch
+from django.contrib import messages
+from django.utils import timezone
+from django.http import JsonResponse
+from django.db import transaction
+from django.contrib.auth.models import User
+
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
+from ..models import (
+    Client, ClientContact, InteractionLog, Opportunite, Quote,
+    ProductionOrder, OrdreFabrication, EtapeProduction, Material, TechnicalProduct,
+    CommandeClient, LigneCommandeClient, DemandePrix, ProcessType, Machine,
+    ClientProductPrice, OFPrelaunchCheck,
+)
+from ..services.stock_reservation import release_of_reservations
+from ..forms import (
+    ClientForm, ClientContactForm, ClientContactFormSet, InteractionLogForm, OpportuniteForm, QuoteForm,
+    CommandeClientForm, LigneCommandeClientFormSet, DemandePrixForm,
+    OrdreFabricationForm, EtapeProductionFormSet, ClientImportForm,
+)
+
+
+@login_required
+def crm_view(request):
+    status_filter = request.GET.get('status', '')
+    segment_filter = request.GET.get('segment', '')
+    region_filter = request.GET.get('region', '')
+    search = request.GET.get('q', '')
+    clients = Client.objects.all().order_by('name')
+    if status_filter:
+        clients = clients.filter(status=status_filter)
+    if segment_filter:
+        clients = clients.filter(segment=segment_filter)
+    if region_filter:
+        clients = clients.filter(region=region_filter)
+    if search:
+        clients = clients.filter(
+            Q(name__icontains=search) |
+            Q(city__icontains=search) |
+            Q(code_client__icontains=search)
+        )
+    quotes = Quote.objects.all().order_by('-date')
+    opportunites = Opportunite.objects.select_related(
+        'client', 'commercial', 'material_principal', 'produit_demande'
+    ).all().order_by('-date_ouverture')
+    pipeline_stages = []
+    for stage_code, stage_label in Opportunite.STAGE_CHOICES:
+        count = Opportunite.objects.filter(status=stage_code).count()
+        montant = Opportunite.objects.filter(status=stage_code).aggregate(t=Sum('valeur_estimee'))['t'] or 0
+        pipeline_stages.append({
+            'code': stage_code,
+            'label': stage_label,
+            'count': count,
+            'montant': montant
+        })
+
+    commandes = CommandeClient.objects.select_related('client', 'commercial', 'of_lie').order_by('-date_commande')[:50]
+    commandes_stats = {
+        'total': CommandeClient.objects.count(),
+        'brouillon': CommandeClient.objects.filter(statut='BROUILLON').count(),
+        'confirmee': CommandeClient.objects.filter(statut='CONFIRMEE').count(),
+        'en_production': CommandeClient.objects.filter(statut='EN_PRODUCTION').count(),
+        'livree': CommandeClient.objects.filter(statut='LIVREE').count(),
+    }
+    demandes_prix = DemandePrix.objects.select_related('client', 'commercial').order_by('-date_demande')[:20]
+    demandes_stats = {
+        'total': DemandePrix.objects.count(),
+        'nouvelles': DemandePrix.objects.filter(statut='NOUVELLE').count(),
+        'en_etude': DemandePrix.objects.filter(statut='EN_ETUDE').count(),
+    }
+    prospects_count = Client.objects.filter(status='PROSPECT').count()
+    ofs_crm = OrdreFabrication.objects.select_related('client', 'produit').order_by('-date_creation')[:10]
+
+    stock_alerts = []
+    for opp in opportunites.exclude(status__in=['GAGNE', 'PERDU']).filter(material_principal__isnull=False)[:20]:
+        info = opp.stock_disponible_pour_opportunite()
+        if info.get('disponible') is False:
+            stock_alerts.append({'opportunite': opp, 'info': info})
+
+    context = {
+        'clients': clients,
+        'quotes': quotes,
+        'opportunites': opportunites,
+        'pipeline_stages': pipeline_stages,
+        'status_filter': status_filter,
+        'segment_filter': segment_filter,
+        'region_filter': region_filter,
+        'search': search,
+        'status_choices': Client.STATUS_CHOICES,
+        'segment_choices': Client.SEGMENT_CHOICES,
+        'region_choices': Client.REGION_CHOICES,
+        'commandes': commandes,
+        'commandes_stats': commandes_stats,
+        'demandes_prix': demandes_prix,
+        'demandes_stats': demandes_stats,
+        'prospects_count': prospects_count,
+        'ofs_crm': ofs_crm,
+        'stock_alerts': stock_alerts,
+    }
+    return render(request, 'crm.html', context)
+
+
+@login_required
+def client_detail(request, id):
+    client = get_object_or_404(Client, id=id)
+
+    # --- TRAITEMENT DU POST POUR L'AJOUT DE TARIF ---
+    if request.method == 'POST' and 'add_tarif' in request.POST:
+        product_id = request.POST.get('product_id')
+        prix = request.POST.get('prix')
+        unite = request.POST.get('unite', 'kg')
+        remise = request.POST.get('remise', 0)
+
+        if product_id and prix:
+            ClientProductPrice.objects.update_or_create(
+                client=client,
+                product_id=product_id,
+                defaults={
+                    'prix_unitaire': prix,
+                    'unite': unite,
+                    'remise_specifique': remise,
+                    'date_application': timezone.now()
+                }
+            )
+            messages.success(request, "Tarif enregistré avec succès pour ce produit.")
+            return redirect('client_detail', id=client.id)
+
+    # --- TRAITEMENT DU POST POUR L'AJOUT D'UN PRODUIT TECHNIQUE DEPUIS LE CRM ---
+    if request.method == 'POST' and 'add_produit_technique' in request.POST:
+        ref_internal = request.POST.get('ref_internal')
+        name = request.POST.get('name')
+        structure_type = request.POST.get('structure_type', 'MONO')
+        width_mm = request.POST.get('width_mm', 0)
+        developpement_mm = request.POST.get('developpement_mm', 0)
+        impression = request.POST.get('impression', 'Flexographie')
+        artwork_file = request.FILES.get('artwork_file')
+
+        if ref_internal and name:
+            if TechnicalProduct.objects.filter(ref_internal=ref_internal).exists():
+                messages.error(request, f"La référence interne « {ref_internal} » existe déjà.")
+            else:
+                TechnicalProduct.objects.create(
+                    client=client,
+                    ref_internal=ref_internal,
+                    name=name,
+                    structure_type=structure_type,
+                    width_mm=float(width_mm or 0),
+                    developpement_mm=float(developpement_mm or 0),
+                    impression=impression,
+                    artwork_file=artwork_file,
+                    bat_status='ATTENTE',
+                    date_creation=timezone.now().date()
+                )
+                messages.success(request, f"Produit technique « {name} » créé avec succès pour ce client ✓")
+            return redirect('client_detail', id=client.id)
+
+    contacts = ClientContact.objects.filter(client=client)
+    interactions = InteractionLog.objects.filter(client=client).order_by('-date')[:20]
+    opportunites = Opportunite.objects.filter(client=client).select_related('material_principal', 'produit_demande').order_by('-date_ouverture')
+    quotes = Quote.objects.filter(client=client).order_by('-date')
+    orders = ProductionOrder.objects.filter(client=client).order_by('-start_time')[:5]
+    ofs = OrdreFabrication.objects.filter(client=client).order_by('-date_creation')[:10]
+    commandes = CommandeClient.objects.filter(client=client).prefetch_related('lignes__material').order_by('-date_commande')
+    demandes_prix = DemandePrix.objects.filter(client=client).order_by('-date_demande')
+
+    tarifs = ClientProductPrice.objects.filter(client=client).select_related('product')
+    produits_techniques = client.produits_techniques.all().order_by('-date_creation')
+    produits_sans_tarif = produits_techniques.exclude(id__in=tarifs.values_list('product_id', flat=True))
+
+    produits_stats = client.get_produits_stats()
+    produit_phare = produits_stats.first() if produits_stats else None
+
+    opp_stock_info = []
+    for opp in opportunites.exclude(status__in=['GAGNE', 'PERDU']):
+        opp_stock_info.append({
+            'opp': opp,
+            'stock': opp.stock_disponible_pour_opportunite(),
+        })
+
+    context = {
+        'client': client,
+        'contacts': contacts,
+        'interactions': interactions,
+        'opportunites': opportunites,
+        'quotes': quotes,
+        'orders': orders,
+        'ofs': ofs,
+        'commandes': commandes,
+        'demandes_prix': demandes_prix,
+        'opp_stock_info': opp_stock_info,
+        'tarifs': tarifs,
+        'produits_techniques': produits_techniques,
+        'produits_sans_tarif': produits_sans_tarif,
+        'produits_stats': produits_stats,
+        'produit_phare': produit_phare,
+    }
+    return render(request, 'crm/client_detail.html', context)
+
+
+@login_required
+def add_client(request):
+    if request.method == 'POST':
+        form = ClientForm(request.POST)
+        formset = ClientContactFormSet(request.POST, prefix='contacts')
+        if form.is_valid() and formset.is_valid():
+            client = form.save()
+            contacts = formset.save(commit=False)
+            for contact in contacts:
+                contact.client = client
+                contact.save()
+            formset.save_m2m()
+            messages.success(request, f"Client « {client.name} » créé avec ses interlocuteurs.")
+            return redirect('client_detail', id=client.id)
+    else:
+        form = ClientForm()
+        formset = ClientContactFormSet(prefix='contacts')
+    return render(request, 'crm/client_form.html', {'form': form, 'formset': formset, 'titre': 'Nouveau Client'})
+
+
+@login_required
+def import_clients(request):
+    if not PANDAS_AVAILABLE:
+        messages.error(request, "L'import nécessite les librairies 'pandas' et 'openpyxl'.")
+        return redirect('crm_view')
+
+    if request.method == 'POST':
+        form = ClientImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            fichier = request.FILES['fichier']
+            try:
+                df = pd.read_csv(fichier) if fichier.name.endswith('.csv') else pd.read_excel(fichier)
+                df = df.fillna('')
+                crees, mis_a_jour, erreurs = 0, 0, 0
+
+                with transaction.atomic():
+                    for index, row in df.iterrows():
+                        code_client = str(row.get('ID Client', '')).strip()
+                        nom = str(row.get('Nom Client', '')).strip()
+                        if not nom:
+                            erreurs += 1
+                            continue
+                        secteur = str(row.get('Secteur', ''))[:100]
+                        adresse = str(row.get('Adresse', ''))
+                        ville = str(row.get('Ville', ''))[:100]
+                        telephone = str(row.get('Téléphone', ''))[:50]
+                        email = str(row.get('Email', ''))
+                        limite_credit = row.get('Limite crédit (DA)', 0)
+                        observations = str(row.get('Observations', ''))
+                        
+                        statut_raw = str(row.get('Statut compte', '')).strip().upper()
+                        status = 'ACTIVE' if 'ACTIF' in statut_raw and 'IN' not in statut_raw else 'LOST' if 'INACTIF' in statut_raw else 'PROSPECT'
+                        
+                        commercial_raw = str(row.get('Commercial', '')).strip()
+                        commercial = User.objects.filter(username__icontains=commercial_raw).first() if commercial_raw else None
+
+                        try: limite_credit = float(limite_credit) if limite_credit else 0.0
+                        except ValueError: limite_credit = 0.0
+
+                        defaults = {
+                            'name': nom, 'sector': secteur, 'address': adresse, 'city': ville,
+                            'phone': telephone, 'email': email, 'status': status,
+                            'limite_credit': limite_credit, 'notes': observations,
+                        }
+                        if commercial: defaults['commercial'] = commercial
+
+                        if code_client:
+                            client, created = Client.objects.update_or_create(code_client=code_client, defaults=defaults)
+                            if created: crees += 1
+                            else: mis_a_jour += 1
+                        else:
+                            Client.objects.create(**defaults)
+                            crees += 1
+
+                messages.success(request, f"Import terminé : {crees} créés, {mis_a_jour} mis à jour. ({erreurs} lignes ignorées)")
+                return redirect('crm_view')
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'import : {str(e)}")
+                return redirect('import_clients')
+    else:
+        form = ClientImportForm()
+    return render(request, 'crm/client_import.html', {'form': form, 'titre': 'Importation Clients'})
+
+
+@login_required
+def edit_client(request, id):
+    client = get_object_or_404(Client, id=id)
+    if request.method == 'POST':
+        form = ClientForm(request.POST, instance=client)
+        formset = ClientContactFormSet(request.POST, instance=client, prefix='contacts')
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            messages.success(request, "Fiche client et interlocuteurs mis à jour.")
+            return redirect('client_detail', id=client.id)
+    else:
+        form = ClientForm(instance=client)
+        formset = ClientContactFormSet(instance=client, prefix='contacts')
+    return render(request, 'crm/client_form.html', {'form': form, 'formset': formset, 'titre': f'Modifier {client.name}', 'client': client})
+
+
+@login_required
+def convertir_prospect(request, id):
+    client = get_object_or_404(Client, id=id)
+    if client.status == 'PROSPECT':
+        client.convertir_en_client()
+        messages.success(request, f"« {client.name} » converti en client actif ✓")
+    else:
+        messages.info(request, f"« {client.name} » n'est pas un prospect.")
+    return redirect('client_detail', id=client.id)
+
+
+@login_required
+def add_contact(request, client_id):
+    client = get_object_or_404(Client, id=client_id)
+    if request.method == 'POST':
+        form = ClientContactForm(request.POST)
+        if form.is_valid():
+            contact = form.save(commit=False)
+            contact.client = client
+            contact.save()
+            messages.success(request, f"Contact « {contact.name} » ajouté.")
+            return redirect('client_detail', id=client_id)
+    else:
+        form = ClientContactForm()
+    return render(request, 'crm/contact_form.html', {'form': form, 'client': client, 'titre': 'Nouveau Contact'})
+
+
+@login_required
+def edit_contact(request, id):
+    contact = get_object_or_404(ClientContact, id=id)
+    if request.method == 'POST':
+        form = ClientContactForm(request.POST, instance=contact)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Contact mis à jour.")
+            return redirect('client_detail', id=contact.client.id)
+    else:
+        form = ClientContactForm(instance=contact)
+    return render(request, 'crm/contact_form.html', {'form': form, 'client': contact.client, 'titre': f'Modifier {contact.name}'})
+
+
+@login_required
+def delete_contact(request, id):
+    contact = get_object_or_404(ClientContact, id=id)
+    client_id = contact.client.id
+    if request.method == 'POST':
+        contact.delete()
+        messages.success(request, "Contact supprimé.")
+    return redirect('client_detail', id=client_id)
+
+
+@login_required
+def add_interaction(request, client_id):
+    client = get_object_or_404(Client, id=client_id)
+    if request.method == 'POST':
+        form = InteractionLogForm(request.POST, client=client)
+        if form.is_valid():
+            interaction = form.save(commit=False)
+            interaction.client = client
+            interaction.save()
+            messages.success(request, "Interaction enregistrée.")
+            return redirect('client_detail', id=client_id)
+    else:
+        form = InteractionLogForm(client=client)
+    return render(request, 'crm/interaction_form.html', {'form': form, 'client': client, 'titre': 'Nouvelle Interaction'})
+
+
+@login_required
+def opportunites_view(request):
+    opportunites = Opportunite.objects.select_related('client', 'commercial', 'material_principal', 'produit_demande').all().order_by('-date_ouverture')
+    pipeline = {}
+    for stage_code, stage_label in Opportunite.STAGE_CHOICES:
+        items = Opportunite.objects.filter(status=stage_code).select_related('client', 'material_principal')
+        pipeline[stage_code] = {'label': stage_label, 'items': items, 'total': items.aggregate(t=Sum('valeur_estimee'))['t'] or 0}
+    return render(request, 'crm/opportunites.html', {'opportunites': opportunites, 'pipeline': pipeline})
+
+
+@login_required
+def add_opportunite(request):
+    if request.method == 'POST':
+        form = OpportuniteForm(request.POST)
+        if form.is_valid():
+            opp = form.save()
+            stock_info = opp.stock_disponible_pour_opportunite()
+            if stock_info.get('disponible') is False:
+                messages.warning(request, f"Opportunité « {opp.titre} » créée. ⚠️ {stock_info['message']}")
+            else:
+                messages.success(request, f"Opportunité « {opp.titre} » créée.")
+            return redirect('crm_view')
+    else:
+        initial = {}
+        client_id = request.GET.get('client_id')
+        if client_id: initial['client'] = client_id
+        form = OpportuniteForm(initial=initial)
+    return render(request, 'crm/opportunite_form.html', {'form': form, 'titre': 'Nouvelle Opportunité'})
+
+
+@login_required
+def edit_opportunite(request, id):
+    opp = get_object_or_404(Opportunite, id=id)
+    if request.method == 'POST':
+        form = OpportuniteForm(request.POST, instance=opp)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Opportunité mise à jour.")
+            return redirect('crm_view')
+    else:
+        form = OpportuniteForm(instance=opp)
+    stock_info = opp.stock_disponible_pour_opportunite()
+    return render(request, 'crm/opportunite_form.html', {'form': form, 'opp': opp, 'titre': f'Modifier : {opp.titre}', 'stock_info': stock_info})
+
+
+@login_required
+def delete_opportunite(request, id):
+    opp = get_object_or_404(Opportunite, id=id)
+    if request.method == 'POST':
+        opp.delete()
+        messages.success(request, "Opportunité supprimée.")
+    return redirect('crm_view')
+
+
+@login_required
+def quotes_view(request):
+    quotes = Quote.objects.all().order_by('-date')
+    return render(request, 'crm/quotes_list.html', {'quotes': quotes})
+
+
+@login_required
+def add_quote(request):
+    if request.method == 'POST':
+        form = QuoteForm(request.POST, request.FILES)
+        if form.is_valid():
+            quote = form.save()
+            messages.success(request, f"Devis {quote.reference} créé.")
+            return redirect('crm_view')
+    else:
+        initial = {}
+        client_id = request.GET.get('client_id')
+        if client_id: initial['client'] = client_id
+        form = QuoteForm(initial=initial)
+    return render(request, 'crm/quote_form.html', {'form': form, 'titre': 'Nouveau Devis'})
+
+
+@login_required
+def edit_quote(request, id):
+    quote = get_object_or_404(Quote, id=id)
+    if request.method == 'POST':
+        form = QuoteForm(request.POST, request.FILES, instance=quote)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Devis mis à jour.")
+            return redirect('crm_view')
+    else:
+        form = QuoteForm(instance=quote)
+    return render(request, 'crm/quote_form.html', {'form': form, 'titre': f'Modifier Devis {quote.reference}'})
+
+
+@login_required
+def convert_quote_to_order(request, id):
+    quote = get_object_or_404(Quote, id=id)
+    if quote.status in ['ACCEPTED', 'SIGNED'] and not quote.commande_creee:
+        quote.commande_creee = True
+        quote.save()
+
+        cmd = CommandeClient.objects.create(
+            client=quote.client,
+            devis=quote,
+            commercial=quote.commercial or request.user,
+            cree_par=request.user,
+            statut='CONFIRMEE',
+            date_commande=timezone.now().date(),
+            montant_ht=quote.total_amount or 0,
+            montant_total=quote.total_amount or 0,
+            notes=f"Générée depuis devis {quote.reference}",
+            conditions_paiement=getattr(quote.client, 'conditions_paiement', '') or '',
+            delai_livraison_jours=getattr(quote.client, 'delai_livraison_jours', 15) or 15,
+            remise_globale=getattr(quote.client, 'remise_defaut', 0) or 0,
+        )
+        LigneCommandeClient.objects.create(
+            commande=cmd,
+            designation=f"Prestation devis {quote.reference}",
+            quantite=1,
+            unite='forfait',
+            prix_unitaire=quote.total_amount or 0,
+        )
+        messages.success(request, f"Devis {quote.reference} converti → Commande {cmd.reference}")
+        return redirect('commande_detail', id=cmd.id)
+
+    messages.info(request, "Ce devis ne peut pas être converti (déjà fait ou non accepté).")
+    return redirect('crm_view')
+
+
+@login_required
+def commandes_list(request):
+    statut = request.GET.get('statut', '')
+    search = request.GET.get('q', '')
+    client_id = request.GET.get('client', '')
+    commandes = CommandeClient.objects.select_related('client', 'commercial', 'of_lie', 'devis').prefetch_related('lignes__material').order_by('-date_commande')
+
+    if statut: commandes = commandes.filter(statut=statut)
+    if client_id: commandes = commandes.filter(client_id=client_id)
+    if search: commandes = commandes.filter(Q(reference__icontains=search) | Q(client__name__icontains=search) | Q(notes__icontains=search))
+
+    stats = {
+        'total': CommandeClient.objects.count(),
+        'brouillon': CommandeClient.objects.filter(statut='BROUILLON').count(),
+        'confirmee': CommandeClient.objects.filter(statut='CONFIRMEE').count(),
+        'en_production': CommandeClient.objects.filter(statut='EN_PRODUCTION').count(),
+        'prete': CommandeClient.objects.filter(statut='PRETE').count(),
+        'livree': CommandeClient.objects.filter(statut='LIVREE').count(),
+    }
+    return render(request, 'crm/commandes_list.html', {
+        'commandes': commandes[:100], 'stats': stats, 'statut_choices': CommandeClient.STATUT_CHOICES,
+        'selected_statut': statut, 'search': search, 'clients': Client.objects.filter(status__in=['ACTIVE', 'VIP']).order_by('name'),
+        'selected_client': client_id,
+    })
+
+
+@login_required
+def commande_detail(request, id):
+    commande = get_object_or_404(CommandeClient.objects.select_related('client', 'commercial', 'of_lie', 'devis', 'opportunite', 'cree_par'), id=id)
+    lignes = commande.lignes.select_related('produit', 'material').all()
+    stock_check = commande.verifier_stock_global()
+    ofs_client = OrdreFabrication.objects.filter(client=commande.client).order_by('-date_creation')[:5]
+    return render(request, 'crm/commande_detail.html', {'commande': commande, 'lignes': lignes, 'stock_check': stock_check, 'ofs_client': ofs_client})
+
+
+@login_required
+def add_commande(request):
+    if request.method == 'POST':
+        form = CommandeClientForm(request.POST)
+        formset = LigneCommandeClientFormSet(request.POST, prefix='lignes')
+        if form.is_valid() and formset.is_valid():
+            commande = form.save(commit=False)
+            commande.cree_par = request.user
+            if not commande.commercial: commande.commercial = request.user
+            if commande.client:
+                if not commande.conditions_paiement: commande.conditions_paiement = commande.client.conditions_paiement or ''
+                if not commande.delai_livraison_jours: commande.delai_livraison_jours = commande.client.delai_livraison_jours or 15
+                if not commande.remise_globale: commande.remise_globale = commande.client.remise_defaut or 0
+                if not commande.adresse_livraison: commande.adresse_livraison = commande.client.address or ''
+            commande.save()
+
+            lignes = formset.save(commit=False)
+            for ligne in lignes:
+                ligne.commande = commande
+                if not ligne.designation and ligne.produit: ligne.designation = str(ligne.produit)
+                ligne.save()
+            for obj in formset.deleted_objects: obj.delete()
+
+            commande.recalculer_montants()
+            stock_check = commande.verifier_stock_global()
+            if stock_check['nb_ko'] > 0:
+                messages.warning(request, f"Commande {commande.reference} créée. ⚠️ {stock_check['nb_ko']} ligne(s) en stock insuffisant.")
+            else:
+                messages.success(request, f"Commande {commande.reference} créée ✓")
+            return redirect('commande_detail', id=commande.id)
+        else:
+            messages.error(request, "Erreur dans le formulaire. Vérifiez les champs.")
+    else:
+        initial = {}
+        client_id = request.GET.get('client_id')
+        if client_id:
+            initial['client'] = client_id
+            try:
+                client = Client.objects.get(id=client_id)
+                initial['conditions_paiement'] = client.conditions_paiement or ''
+                initial['delai_livraison_jours'] = client.delai_livraison_jours or 15
+                initial['remise_globale'] = client.remise_defaut or 0
+                initial['adresse_livraison'] = client.address or ''
+            except Client.DoesNotExist: pass
+        devis_id = request.GET.get('devis_id')
+        if devis_id: initial['devis'] = devis_id
+        opp_id = request.GET.get('opportunite_id')
+        if opp_id: initial['opportunite'] = opp_id
+        form = CommandeClientForm(initial=initial)
+        formset = LigneCommandeClientFormSet(prefix='lignes', queryset=LigneCommandeClient.objects.none())
+
+    return render(request, 'crm/commande_form.html', {'form': form, 'formset': formset, 'titre': 'Nouvelle Commande Client'})
+
+
+@login_required
+def edit_commande(request, id):
+    commande = get_object_or_404(CommandeClient, id=id)
+    if request.method == 'POST':
+        form = CommandeClientForm(request.POST, instance=commande)
+        formset = LigneCommandeClientFormSet(request.POST, instance=commande, prefix='lignes')
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            commande.recalculer_montants()
+            messages.success(request, f"Commande {commande.reference} mise à jour.")
+            return redirect('commande_detail', id=commande.id)
+        else:
+            messages.error(request, "Erreur dans le formulaire.")
+    else:
+        form = CommandeClientForm(instance=commande)
+        formset = LigneCommandeClientFormSet(instance=commande, prefix='lignes')
+
+    stock_check = commande.verifier_stock_global()
+    return render(request, 'crm/commande_form.html', {'form': form, 'formset': formset, 'commande': commande, 'titre': f'Modifier {commande.reference}', 'stock_check': stock_check})
+
+
+@login_required
+def commande_changer_statut(request, id, nouveau_statut):
+    commande = get_object_or_404(CommandeClient, id=id)
+    if nouveau_statut in dict(CommandeClient.STATUT_CHOICES):
+        ancien = commande.statut
+        commande.statut = nouveau_statut
+        if nouveau_statut == 'LIVREE' and not commande.date_livraison_reelle:
+            commande.date_livraison_reelle = timezone.now().date()
+        commande.save()
+        messages.success(request, f"{commande.reference} : {ancien} → {nouveau_statut}")
+    else:
+        messages.error(request, "Statut invalide.")
+    return redirect('commande_detail', id=id)
+
+
+@login_required
+def commande_check_stock(request, id):
+    commande = get_object_or_404(CommandeClient, id=id)
+    data = commande.verifier_stock_global()
+    data['reference'] = commande.reference
+    return JsonResponse(data)
+
+
+@login_required
+def commande_creer_of(request, id):
+    from django.core.exceptions import PermissionDenied, ValidationError
+    from ..services.of_materials import calculate_order, create_requirements_and_reserve
+    from ..services.stock_reservation import material_available_quantity
+
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.add_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de créer un ordre de fabrication.")
+    commande = get_object_or_404(
+        CommandeClient.objects.select_related('client', 'of_lie').prefetch_related('lignes__produit', 'lignes__material'),
+        id=id,
+    )
+    if commande.of_lie_id:
+        messages.info(request, f"Un OF existe déjà : {commande.of_lie.numero_of}")
+        return redirect('crm_of_detail', of_id=commande.of_lie_id)
+    if commande.statut not in ('CONFIRMEE', 'EN_PRODUCTION', 'BROUILLON'):
+        messages.error(request, "La commande doit être confirmée pour créer un OF.")
+        return redirect('commande_detail', id=id)
+
+    products = {line.produit_id for line in commande.lignes.all() if line.produit_id}
+    if not products:
+        messages.error(request, "Sélectionnez le produit technique fini sur la commande avant de créer l'OF.")
+        return redirect('edit_commande', id=id)
+    if len(products) > 1:
+        messages.error(request, "Une commande contenant plusieurs produits finis doit être séparée en OF distincts.")
+        return redirect('edit_commande', id=id)
+    produit = TechnicalProduct.objects.filter(pk=next(iter(products))).first()
+    if not produit:
+        messages.error(request, "Le produit technique associé à la commande est introuvable.")
+        return redirect('edit_commande', id=id)
+
+    try:
+        calculated = calculate_order(commande)
+    except ValidationError as exc:
+        messages.error(request, "Données techniques à compléter avant création de l'OF : " + '; '.join(exc.messages))
+        return redirect('edit_commande', id=id)
+
+    stock_rows = []
+    for material_id, needed in calculated['requirements'].items():
+        material = Material.objects.get(pk=material_id)
+        available = material_available_quantity(material)
+        stock_rows.append({'material': material, 'required': needed, 'available': available,
+                           'shortage': max(0.0, needed - available)})
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                commande_locked = CommandeClient.objects.select_for_update().get(pk=commande.pk)
+                if commande_locked.of_lie_id:
+                    messages.info(request, f"Un OF existe déjà : {commande_locked.of_lie.numero_of}")
+                    return redirect('crm_of_detail', of_id=commande_locked.of_lie_id)
+                # Recalcul après verrouillage : aucune quantité issue du navigateur n'est acceptée.
+                calculated = calculate_order(commande_locked)
+                of = OrdreFabrication.objects.create(
+                    client=commande_locked.client, produit=produit,
+                    opportunite=commande_locked.opportunite,
+                    quantite_prevue=calculated['quantity_kg'],
+                    date_lancement=timezone.now().date(),
+                    date_prevue_fin=commande_locked.date_livraison_prevue,
+                    priorite=commande_locked.priorite if commande_locked.priorite in dict(OrdreFabrication.PRIORITE_CHOICES) else 'NORMALE',
+                    statut='BROUILLON', cree_par=request.user,
+                    notes=f"OF généré depuis commande {commande_locked.reference}\n{calculated['shortage_note']}\n{commande_locked.notes or ''}",
+                    observation=f"CMD:{commande_locked.reference}",
+                )
+                requirements = create_requirements_and_reserve(of, calculated, request.user)
+                commande_locked.of_lie = of
+                if commande_locked.statut == 'CONFIRMEE':
+                    commande_locked.statut = 'EN_PRODUCTION'
+                commande_locked.save(update_fields=['of_lie', 'statut'])
+                shortages = [(req.material.name, req.missing_quantity, req.material.unit) for req in requirements if req.missing_quantity > 1e-6]
+            if shortages:
+                detail = ', '.join(f'{name}: manque {qty:.3f} {unit}' for name, qty, unit in shortages)
+                messages.warning(request, f"OF {of.numero_of} créé, réservation partielle effectuée. Stock manquant : {detail}")
+            else:
+                messages.success(request, f"OF {of.numero_of} créé, besoins matières enregistrés et stock disponible réservé.")
+            return redirect('crm_of_edit', of_id=of.id)
+        except ValidationError as exc:
+            messages.error(request, "Création refusée : " + '; '.join(exc.messages))
+            return redirect('edit_commande', id=id)
+
+    return render(request, 'crm/commande_creer_of_sync.html', {
+        'commande': commande, 'produit': produit,
+        'quantite': calculated['quantity_kg'], 'stock_rows': stock_rows,
+        'calculated': calculated,
+    })
+
+
+@login_required
+def demandes_prix_list(request):
+    statut = request.GET.get('statut', '')
+    search = request.GET.get('q', '')
+    demandes = DemandePrix.objects.select_related('client', 'commercial', 'produit', 'devis').order_by('-date_demande')
+
+    if statut: demandes = demandes.filter(statut=statut)
+    if search: demandes = demandes.filter(Q(reference__icontains=search) | Q(objet__icontains=search) | Q(client__name__icontains=search))
+
+    stats = {
+        'total': DemandePrix.objects.count(),
+        'nouvelles': DemandePrix.objects.filter(statut='NOUVELLE').count(),
+        'en_etude': DemandePrix.objects.filter(statut='EN_ETUDE').count(),
+        'devis_envoye': DemandePrix.objects.filter(statut='DEVIS_ENVOYE').count(),
+    }
+    return render(request, 'crm/demandes_prix_list.html', {'demandes': demandes[:100], 'stats': stats, 'statut_choices': DemandePrix.STATUT_CHOICES, 'selected_statut': statut, 'search': search})
+
+
+@login_required
+def add_demande_prix(request):
+    if request.method == 'POST':
+        form = DemandePrixForm(request.POST)
+        if form.is_valid():
+            dp = form.save(commit=False)
+            dp.cree_par = request.user
+            if not dp.commercial: dp.commercial = request.user
+            dp.save()
+            messages.success(request, f"Demande {dp.reference} créée.")
+            return redirect('demandes_prix_list')
+    else:
+        initial = {}
+        client_id = request.GET.get('client_id')
+        if client_id: initial['client'] = client_id
+        form = DemandePrixForm(initial=initial)
+    return render(request, 'crm/demande_prix_form.html', {'form': form, 'titre': 'Nouvelle Demande de Prix'})
+
+
+@login_required
+def edit_demande_prix(request, id):
+    dp = get_object_or_404(DemandePrix, id=id)
+    if request.method == 'POST':
+        form = DemandePrixForm(request.POST, instance=dp)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Demande {dp.reference} mise à jour.")
+            return redirect('demandes_prix_list')
+    else:
+        form = DemandePrixForm(instance=dp)
+    return render(request, 'crm/demande_prix_form.html', {'form': form, 'dp': dp, 'titre': f'Modifier {dp.reference}'})
+
+
+@login_required
+def demande_prix_vers_devis(request, id):
+    dp = get_object_or_404(DemandePrix, id=id)
+    dp.statut = 'DEVIS_ENVOYE'
+    dp.save(update_fields=['statut'])
+    messages.info(request, f"Créez le devis pour la demande {dp.reference}")
+    return redirect(f"/crm/devis/add/?client_id={dp.client_id}")
+
+
+@login_required
+def api_check_material_stock(request):
+    material_id = request.GET.get('material_id')
+    quantite = float(request.GET.get('quantite', 0) or 0)
+    if not material_id: return JsonResponse({'error': 'material_id requis'}, status=400)
+    try: material = Material.objects.get(id=material_id)
+    except Material.DoesNotExist: return JsonResponse({'error': 'Matière introuvable'}, status=404)
+
+    from ..services.stock_reservation import material_available_quantity
+    stock = material_available_quantity(material)
+    ok = stock >= quantite
+    return JsonResponse({
+        'material_id': material.id, 'material_name': material.name, 'stock': stock,
+        'unit': material.unit, 'besoin': quantite, 'manque': max(0, quantite - stock),
+        'disponible': ok, 'is_low': material.is_low_stock(), 'min_threshold': material.min_threshold,
+        'message': f'✓ Stock OK — {stock:.1f} {material.unit} disponible' if ok else f'⚠️ Insuffisant — {stock:.1f} dispo / {quantite:.1f} besoin (manque {quantite - stock:.1f})',
+        'badge': 'ok' if ok else 'ko',
+    })
+
+
+@login_required
+def crm_of_list(request):
+    statut = request.GET.get('statut', '')
+    search = request.GET.get('q', '')
+    client_id = request.GET.get('client', '')
+
+    ofs = OrdreFabrication.objects.select_related('client', 'produit', 'cree_par').prefetch_related('etapes', 'commandes_client').order_by('-date_creation')
+    if statut: ofs = ofs.filter(statut=statut)
+    if client_id: ofs = ofs.filter(client_id=client_id)
+    if search: ofs = ofs.filter(Q(numero_of__icontains=search) | Q(numero_lot__icontains=search) | Q(client__name__icontains=search) | Q(produit__name__icontains=search))
+
+    ofs_avec_commande = ofs.filter(commandes_client__isnull=False).distinct()
+    stats = {
+        'total': ofs.count(), 'en_cours': ofs.filter(statut='EN_COURS').count(),
+        'termine': ofs.filter(statut='TERMINE').count(), 'lies_commandes': ofs_avec_commande.count(),
+    }
+    commandes_a_convertir = CommandeClient.objects.filter(
+        statut__in=['CONFIRMEE', 'EN_PRODUCTION'], of_lie__isnull=True
+    ).count()
+    return render(request, 'crm/crm_of_list.html', {
+        'ofs': ofs[:100], 'stats': stats, 'statut_choices': OrdreFabrication.STATUT_CHOICES,
+        'selected_statut': statut, 'search': search, 'clients': Client.objects.filter(status__in=['ACTIVE', 'VIP', 'PROSPECT']).order_by('name'),
+        'selected_client': client_id, 'from_crm': True,
+        'commandes_a_convertir': commandes_a_convertir,
+        'can_create_of': request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.add_ordrefabrication'),
+    })
+
+
+@login_required
+def crm_of_commandes_a_convertir(request):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.add_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de créer un OF.")
+    search = (request.GET.get('q') or '').strip()
+    commandes = CommandeClient.objects.filter(
+        statut__in=['CONFIRMEE', 'EN_PRODUCTION'], of_lie__isnull=True
+    ).select_related('client', 'commercial').prefetch_related('lignes__produit', 'lignes__material').order_by('date_livraison_prevue', '-date_commande')
+    if search:
+        commandes = commandes.filter(
+            Q(reference__icontains=search) | Q(client__name__icontains=search) |
+            Q(lignes__produit__name__icontains=search)
+        ).distinct()
+    return render(request, 'crm/commandes_a_convertir_of.html', {
+        'commandes': commandes[:200], 'search': search,
+        'total_a_convertir': commandes.count(),
+        'statuts': CommandeClient.STATUT_CHOICES,
+    })
+
+
+@login_required
+def crm_of_create(request):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.add_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de créer un OF.")
+    if request.method == 'POST':
+        form = OrdreFabricationForm(request.POST, request.FILES)
+        formset = EtapeProductionFormSet(request.POST, prefix='etapes')
+        if form.is_valid():
+            of = form.save(commit=False)
+            of.cree_par = request.user
+            requested_launch = of.statut == 'LANCE'
+            if requested_launch:
+                of.statut = 'BROUILLON'
+            of.save()
+            if formset.is_valid():
+                etapes = formset.save(commit=False)
+                for etape in etapes:
+                    etape.of = of
+                    etape.save()
+                for obj in formset.deleted_objects: obj.delete()
+            if requested_launch:
+                messages.info(request, f"OF {of.numero_of} créé. Vérification obligatoire avant lancement.")
+                return redirect('of_prelaunch_check', of_id=of.id)
+            messages.success(request, f"OF {of.numero_of} créé dans le CRM ✓")
+            return redirect('crm_of_detail', of_id=of.id)
+        else:
+            messages.error(request, "Erreur dans le formulaire OF.")
+    else:
+        initial = {}
+        client_id = request.GET.get('client_id')
+        if client_id: initial['client'] = client_id
+        cmd_id = request.GET.get('commande_id')
+        if cmd_id:
+            try:
+                cmd = CommandeClient.objects.get(id=cmd_id)
+                initial['client'] = cmd.client_id
+                initial['opportunite'] = cmd.opportunite_id
+                initial['quantite_prevue'] = sum(l.quantite or 0 for l in cmd.lignes.all())
+                initial['date_prevue_fin'] = cmd.date_livraison_prevue
+            except CommandeClient.DoesNotExist: pass
+        form = OrdreFabricationForm(initial=initial)
+        formset = EtapeProductionFormSet(prefix='etapes', queryset=EtapeProduction.objects.none())
+
+    return render(request, 'crm/crm_of_form.html', {
+        'form': form, 'formset': formset, 'process_types': ProcessType.objects.filter(est_actif=True),
+        'machines': Machine.objects.filter(est_active=True).order_by('name') if hasattr(Machine, 'est_active') else Machine.objects.all().order_by('name'),
+        'titre': 'Nouvel OF (CRM)', 'from_crm': True,
+    })
+
+
+@login_required
+def crm_of_detail(request, of_id):
+    from django.apps import apps
+    of = get_object_or_404(OrdreFabrication.objects.select_related('client', 'produit', 'cree_par', 'opportunite'), id=of_id)
+    etapes = of.etapes.select_related('process_type', 'machine', 'operateur', 'atelier').order_by('numero_etape')
+    commandes_liees = CommandeClient.objects.filter(of_lie=of).select_related('client')
+    Requirement = apps.get_model('core', 'OFMaterialRequirement')
+    material_requirements = Requirement.objects.filter(of=of).select_related('material').prefetch_related('reservations').order_by('material__name')
+    return render(request, 'crm/crm_of_detail.html', {'of': of, 'etapes': etapes, 'commandes_liees': commandes_liees, 'material_requirements': material_requirements, 'latest_prelaunch_check': OFPrelaunchCheck.objects.filter(of=of).first(), 'from_crm': True})
+
+
+@login_required
+def crm_of_edit(request, of_id):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.change_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de modifier cet OF.")
+    of = get_object_or_404(OrdreFabrication, id=of_id)
+    original_status = of.statut
+    if request.method == 'POST':
+        form = OrdreFabricationForm(request.POST, request.FILES, instance=of)
+        formset = EtapeProductionFormSet(request.POST, instance=of, prefix='etapes')
+        if form.is_valid() and formset.is_valid():
+            requested_launch = form.instance.statut == 'LANCE' and original_status != 'LANCE'
+            if requested_launch:
+                form.instance.statut = 'BROUILLON'
+            form.save()
+            formset.save()
+            if form.instance.statut in ('ANNULE', 'TERMINE') and original_status != form.instance.statut:
+                release_of_reservations(form.instance, request.user, reason=f'OF {form.instance.statut.lower()} depuis le formulaire CRM')
+            if requested_launch:
+                messages.info(request, f"OF {of.numero_of} mis à jour. Vérification obligatoire avant lancement.")
+                return redirect('of_prelaunch_check', of_id=of.id)
+            messages.success(request, f"OF {of.numero_of} mis à jour ✓")
+            return redirect('crm_of_detail', of_id=of.id)
+        else:
+            messages.error(request, "Erreur dans le formulaire.")
+    else:
+        form = OrdreFabricationForm(instance=of)
+        formset = EtapeProductionFormSet(instance=of, prefix='etapes')
+    return render(request, 'crm/crm_of_form.html', {
+        'form': form, 'formset': formset, 'of': of, 'process_types': ProcessType.objects.filter(est_actif=True),
+        'machines': Machine.objects.all().order_by('name'), 'titre': f'Modifier OF {of.numero_of} (CRM)', 'from_crm': True,
+    })
+
+
+@login_required
+def crm_of_changer_statut(request, of_id, nouveau_statut):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.change_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de modifier le statut de cet OF.")
+    of = get_object_or_404(OrdreFabrication, id=of_id)
+    if nouveau_statut == 'LANCE':
+        return redirect('of_prelaunch_check', of_id=of.id)
+    if nouveau_statut in dict(OrdreFabrication.STATUT_CHOICES):
+        ancien = of.statut
+        of.statut = nouveau_statut
+        if nouveau_statut == 'LANCE' and not of.date_lancement: of.date_lancement = timezone.now().date()
+        elif nouveau_statut == 'TERMINE': of.date_fin_reelle = timezone.now().date()
+        of.save()
+        if nouveau_statut in ('ANNULE', 'TERMINE'):
+            release_of_reservations(of, request.user, reason=f'OF {nouveau_statut.lower()} depuis le CRM')
+        messages.success(request, f"OF {of.numero_of} : {ancien} → {nouveau_statut}")
+    else:
+        messages.error(request, "Statut invalide.")
+    return redirect('crm_of_detail', of_id=of_id)

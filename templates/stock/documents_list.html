@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8 text-white">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <div><h1 class="text-2xl font-black">📑 Traçabilité des bons de stock</h1><p class="text-sm text-slate-400">Tous les bons générés, avec recherche par référence, fournisseur, bon de commande ou matière.</p></div>
+    <a href="{% url 'stock_advanced' %}?tab=mouvements" class="rounded-lg bg-slate-700 px-4 py-2 text-sm">← Retour au journal</a>
+  </div>
+  <form method="get" class="mb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 items-end rounded-xl border border-slate-700 bg-slate-800 p-4">
+    <label class="text-xs font-bold uppercase text-slate-300">Catégorie / type de bon
+      <select name="kind" class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white"><option value="">Tous les bons</option>{% for code,label in kind_choices %}<option value="{{ code }}" {% if kind_filter == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label class="text-xs font-bold uppercase text-slate-300">Du
+      <input type="date" name="date_from" value="{{ date_from }}" class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white">
+    </label>
+    <label class="text-xs font-bold uppercase text-slate-300">Au
+      <input type="date" name="date_to" value="{{ date_to }}" class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white">
+    </label>
+    <label class="text-xs font-bold uppercase text-slate-300">Recherche
+      <input type="search" name="q" value="{{ query }}" placeholder="Référence, fournisseur, matière…" class="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white">
+    </label>
+    <div class="flex gap-2"><button class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-bold">Filtrer</button><a href="{% url 'stock_documents_list' %}" class="rounded-lg bg-slate-700 px-4 py-2 text-sm">Effacer</a></div>
+  </form>
+  <div class="mb-3 text-sm text-slate-400">{{ page_obj.paginator.count }} bon(s) correspondant(s)</div>
+  <div class="overflow-x-auto rounded-xl border border-slate-700"><table class="w-full border-collapse text-left text-sm"><thead class="bg-slate-800 text-xs uppercase text-slate-300"><tr><th class="p-3">Référence</th><th class="p-3">Catégorie / type</th><th class="p-3">Date</th><th class="p-3">Fournisseur / BC</th><th class="p-3">Lignes</th><th class="p-3">Créé par</th><th class="p-3">Action</th></tr></thead><tbody>
+  {% for doc in documents %}<tr class="border-t border-slate-700 hover:bg-slate-800/70"><td class="p-3 font-mono font-bold text-cyan-300">{{ doc.reference|default:'—' }}</td><td class="p-3">{{ doc.get_kind_display }}</td><td class="p-3">{{ doc.document_date|date:'d/m/Y' }}</td><td class="p-3">{% if doc.supplier %}{{ doc.supplier.name }}{% else %}—{% endif %}{% if doc.bon_commande %}<span class="block text-xs text-slate-400">BC : {{ doc.bon_commande.reference }}</span>{% endif %}</td><td class="p-3">{{ doc.lines.count }}</td><td class="p-3">{{ doc.created_by.username|default:'—' }}</td><td class="p-3"><a class="rounded bg-cyan-700 px-3 py-1.5 text-xs font-bold" href="{% url 'stock_document_print' doc.id %}">Ouvrir / imprimer</a></td></tr>
+  {% empty %}<tr><td colspan="7" class="p-8 text-center text-slate-400">Aucun bon enregistré avec ces filtres.</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if page_obj.has_other_pages %}<div class="mt-4 flex items-center justify-between text-sm"><span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span><div class="flex gap-2">{% if page_obj.has_previous %}<a class="rounded bg-slate-700 px-3 py-2" href="?kind={{ kind_filter|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}&q={{ query|urlencode }}&page={{ page_obj.previous_page_number }}">← Précédent</a>{% endif %}{% if page_obj.has_next %}<a class="rounded bg-slate-700 px-3 py-2" href="?kind={{ kind_filter|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}&q={{ query|urlencode }}&page={{ page_obj.next_page_number }}">Suivant →</a>{% endif %}</div></div>{% endif %}
+</div>
+{% endblock %}

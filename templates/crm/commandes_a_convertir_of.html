@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-7xl mx-auto mt-6 px-4 text-white">
+  <div class="rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-xl">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <a href="{% url 'crm_of_list' %}" class="text-sm text-slate-400 hover:text-white">← Retour aux OF commerciaux</a>
+        <h1 class="mt-3 text-2xl font-black">🛒 Commandes à convertir en OF</h1>
+        <p class="mt-1 text-sm text-slate-400">Sélectionnez une commande confirmée sans OF. Les informations CRM seront reprises; les paramètres techniques seront vérifiés avant la création.</p>
+      </div>
+      <div class="rounded-xl border border-amber-700 bg-amber-950/40 px-5 py-3 text-center">
+        <div class="text-xs uppercase text-amber-300">À convertir</div>
+        <div class="text-2xl font-black">{{ total_a_convertir }}</div>
+      </div>
+    </div>
+
+    <form method="get" class="mt-5 flex flex-wrap gap-2">
+      <input type="search" name="q" value="{{ search }}" placeholder="Référence, client ou produit…" class="min-w-[260px] flex-1 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-white">
+      <button class="rounded-lg bg-cyan-600 px-5 py-2 font-bold hover:bg-cyan-500" type="submit">Rechercher</button>
+      {% if search %}<a class="rounded-lg bg-slate-700 px-4 py-2" href="{% url 'crm_of_commandes_a_convertir' %}">Effacer</a>{% endif %}
+    </form>
+
+    <div class="mt-5 overflow-x-auto rounded-xl border border-slate-700">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-800 text-left text-slate-300"><tr><th class="p-3">Commande</th><th>Client</th><th>Produit / lignes</th><th>État</th><th>Date commande</th><th>Livraison prévue</th><th>Action</th></tr></thead>
+        <tbody>
+        {% for cmd in commandes %}
+          <tr class="border-t border-slate-800 align-top hover:bg-slate-800/50">
+            <td class="p-3 font-mono font-bold text-white">{{ cmd.reference }}</td>
+            <td>{{ cmd.client.name }}</td>
+            <td class="max-w-sm">{% for ligne in cmd.lignes.all %}<div>{{ ligne.produit.name|default:ligne.designation }}{% if ligne.quantite %} — {{ ligne.quantite|floatformat:2 }} {{ ligne.unite }}{% endif %}</div>{% empty %}<span class="text-amber-300">Aucune ligne</span>{% endfor %}</td>
+            <td><span class="rounded bg-slate-700 px-2 py-1">{{ cmd.get_statut_display }}</span></td>
+            <td>{{ cmd.date_commande|date:'d/m/Y' }}</td>
+            <td>{% if cmd.date_livraison_prevue %}{{ cmd.date_livraison_prevue|date:'d/m/Y' }}{% else %}<span class="text-slate-500">—</span>{% endif %}</td>
+            <td class="p-3"><div class="flex flex-wrap gap-2"><a href="{% url 'commande_detail' cmd.id %}" class="rounded bg-slate-700 px-3 py-2 hover:bg-slate-600">Voir</a><a href="{% url 'commande_creer_of' cmd.id %}" class="rounded bg-emerald-700 px-3 py-2 font-bold hover:bg-emerald-600">Créer OF →</a></div></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="p-8 text-center text-slate-400">Aucune commande confirmée en attente de création d’OF.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-4 rounded-lg border border-cyan-800 bg-cyan-950/30 p-3 text-sm text-cyan-100">
+      Les commandes déjà liées à un OF sont retirées de cette liste. Si des informations techniques manquent, la création est bloquée et la commande est renvoyée à compléter.
+    </div>
+  </div>
+</div>
+{% endblock %}

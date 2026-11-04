@@ -1,5 +1,38 @@
 {% extends 'base.html' %}
 {% block content %}
+<style>
+    /* Limite le CSS global .django-form-container input sans toucher aux autres champs. */
+    #form-ordonnancer #erp-calculator-panel input[name="calc_type"][type="radio"] {
+        appearance: auto !important;
+        width: 1rem !important;
+        min-width: 1rem !important;
+        max-width: 1rem !important;
+        height: 1rem !important;
+        min-height: 1rem !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        flex: 0 0 1rem !important;
+        border-radius: 50% !important;
+        accent-color: #6366f1;
+        box-shadow: none !important;
+    }
+
+    #form-ordonnancer .calc-type-choice {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 480px) {
+        #form-ordonnancer .calc-type-choice {
+            flex: 1 1 100%;
+            min-width: 0;
+            white-space: normal;
+        }
+    }
+</style>
 <div class="max-w-6xl mx-auto mt-6">
     <div class="mb-4">
         <a href="{% url 'of_list' %}" class="text-gray-500 hover:text-white text-sm transition flex items-center gap-2">
@@ -116,12 +149,14 @@
 
                 <div id="erp-calculator-panel" class="hidden pt-4 border-t border-indigo-500/30">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <div class="md:col-span-4 flex gap-6 bg-slate-900/60 p-3 rounded-lg border border-slate-700">
-                            <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
-                                <input type="radio" name="calc_type" value="POIDS" checked onchange="updateCalcType()"> OF au Poids (Kg)
+                        <div class="md:col-span-4 calc-type-options flex flex-wrap items-center gap-4 bg-slate-900/50 p-3 rounded border border-slate-700" role="radiogroup" aria-label="Type de calcul de l'OF">
+                            <label class="calc-type-choice flex items-center gap-2 text-sm text-white cursor-pointer shrink-0">
+                                <input type="radio" name="calc_type" value="POIDS" checked class="text-indigo-500 focus:ring-indigo-500" onchange="updateCalcType()">
+                                <span>OF au Poids (Kg)</span>
                             </label>
-                            <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
-                                <input type="radio" name="calc_type" value="PIECES" onchange="updateCalcType()"> OF à la Pièce
+                            <label class="calc-type-choice flex items-center gap-2 text-sm text-white cursor-pointer shrink-0">
+                                <input type="radio" name="calc_type" value="PIECES" class="text-indigo-500 focus:ring-indigo-500" onchange="updateCalcType()">
+                                <span>OF à la Pièce</span>
                             </label>
                         </div>
 

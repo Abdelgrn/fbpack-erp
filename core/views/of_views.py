@@ -479,8 +479,16 @@ def of_detail_view(request, of_id):
 
 @login_required
 def of_delete_view(request, of_id):
+    from django.apps import apps
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.has_perm('core.delete_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de supprimer un OF.")
     of = get_object_or_404(OrdreFabrication, id=of_id)
+    Requirement = apps.get_model('core', 'OFMaterialRequirement')
     if request.method == 'POST':
+        if Requirement.objects.filter(of=of).exists() or of.mouvements_stock.exists():
+            messages.error(request, "Cet OF possède des besoins, des réservations ou des mouvements traçables. Annulez-le plutôt que de supprimer son historique.")
+            return redirect('of_detail', of_id=of.id)
         numero = of.numero_of
         of.delete()
         messages.success(request, f"OF {numero} supprimé.")
@@ -490,6 +498,9 @@ def of_delete_view(request, of_id):
 
 @login_required
 def of_changer_statut(request, of_id, nouveau_statut):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.change_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de modifier le statut de cet OF.")
     of = get_object_or_404(OrdreFabrication, id=of_id)
     ancien_statut = of.statut
 
@@ -501,8 +512,8 @@ def of_changer_statut(request, of_id, nouveau_statut):
             of.date_fin_reelle = timezone.now().date()
         of.save()
 
-        if nouveau_statut == 'ANNULE':
-            release_of_reservations(of, request.user, reason='OF annulé depuis la planification')
+        if nouveau_statut in ('ANNULE', 'TERMINE'):
+            release_of_reservations(of, request.user, reason=f'OF {nouveau_statut.lower()} depuis la planification')
 
         if nouveau_statut == 'LANCE':
             auto_planifier_etapes(of)

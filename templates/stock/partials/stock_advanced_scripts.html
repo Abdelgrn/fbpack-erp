@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
     attachAjaxDeleteHandlers();
     restoreSortPreference();
     initMouvementStockValidation();
+    initLotReceptionFields();
     initMovementFilters();
     initMaterialFilterInputs();
     updateBulkBarAdv();
@@ -213,10 +214,24 @@ function syncFormFromUrl() {
     var q = document.getElementById('searchInput');
     var cat = document.getElementById('categoryFilter');
     var sup = document.getElementById('supplierFilter');
+    var depot = document.querySelector('[name="depot"]');
+    var family = document.querySelector('[name="family"]');
+    var subfamily = document.querySelector('[name="subfamily"]');
+    var micronage = document.querySelector('[name="micronage"]');
+    var grammage = document.querySelector('[name="grammage"]');
+    var laize = document.querySelector('[name="laize"]');
+    var origin = document.querySelector('[name="origin"]');
     var low = document.getElementById('lowStockFilter');
     if (q) q.value = p.get('q') || '';
     if (cat) cat.value = p.get('category') || '';
     if (sup) sup.value = p.get('supplier') || '';
+    if (depot) depot.value = p.get('depot') || '';
+    if (family) family.value = p.get('family') || '';
+    if (subfamily) subfamily.value = p.get('subfamily') || '';
+    if (micronage) micronage.value = p.get('micronage') || '';
+    if (grammage) grammage.value = p.get('grammage') || '';
+    if (laize) laize.value = p.get('laize') || '';
+    if (origin) origin.value = p.get('origin') || '';
     if (low) low.checked = (p.get('low_stock') === 'on');
     toggleClearSearchBtn();
 }
@@ -226,15 +241,29 @@ function syncFormFromUrl() {
 // ------------------------------------------------------------
 function submitMaterialFilters() {
     var params = new URLSearchParams(window.location.search);
-    ['q', 'category', 'supplier', 'low_stock', 'page_mat'].forEach(function(k) { params.delete(k); });
+    ['q', 'category', 'supplier', 'depot', 'family', 'subfamily', 'micronage', 'grammage', 'laize', 'origin', 'low_stock', 'page_mat'].forEach(function(k) { params.delete(k); });
     var q = document.getElementById('searchInput');
     var cat = document.getElementById('categoryFilter');
     var sup = document.getElementById('supplierFilter');
+    var depot = document.querySelector('[name="depot"]');
+    var family = document.querySelector('[name="family"]');
+    var subfamily = document.querySelector('[name="subfamily"]');
+    var micronage = document.querySelector('[name="micronage"]');
+    var grammage = document.querySelector('[name="grammage"]');
+    var laize = document.querySelector('[name="laize"]');
+    var origin = document.querySelector('[name="origin"]');
     var low = document.getElementById('lowStockFilter');
     params.set('tab', 'matieres');
     if (q && q.value.trim()) params.set('q', q.value.trim());
     if (cat && cat.value) params.set('category', cat.value);
     if (sup && sup.value) params.set('supplier', sup.value);
+    if (depot && depot.value) params.set('depot', depot.value);
+    if (family && family.value) params.set('family', family.value);
+    if (subfamily && subfamily.value) params.set('subfamily', subfamily.value);
+    if (micronage && micronage.value) params.set('micronage', micronage.value);
+    if (grammage && grammage.value) params.set('grammage', grammage.value);
+    if (laize && laize.value) params.set('laize', laize.value);
+    if (origin && origin.value) params.set('origin', origin.value);
     if (low && low.checked) params.set('low_stock', 'on');
     return ajaxLoad(window.location.pathname + '?' + params.toString(), MAT_ZONES);
 }
@@ -283,10 +312,24 @@ function resetMaterialFilters() {
     var q = document.getElementById('searchInput');
     var cat = document.getElementById('categoryFilter');
     var sup = document.getElementById('supplierFilter');
+    var depot = document.querySelector('[name="depot"]');
+    var family = document.querySelector('[name="family"]');
+    var subfamily = document.querySelector('[name="subfamily"]');
+    var micronage = document.querySelector('[name="micronage"]');
+    var grammage = document.querySelector('[name="grammage"]');
+    var laize = document.querySelector('[name="laize"]');
+    var origin = document.querySelector('[name="origin"]');
     var low = document.getElementById('lowStockFilter');
     if (q) q.value = '';
     if (cat) cat.value = '';
     if (sup) sup.value = '';
+    if (depot) depot.value = '';
+    if (family) family.value = '';
+    if (subfamily) subfamily.value = '';
+    if (micronage) micronage.value = '';
+    if (grammage) grammage.value = '';
+    if (laize) laize.value = '';
+    if (origin) origin.value = '';
     if (low) low.checked = false;
     toggleClearSearchBtn();
     submitMaterialFilters();
@@ -298,7 +341,7 @@ function resetMaterialFilters() {
 document.addEventListener('change', function(e) {
     var t = e.target;
     if (!t) return;
-    if (t.id === 'categoryFilter' || t.id === 'supplierFilter' || t.id === 'lowStockFilter') {
+    if (t.id === 'categoryFilter' || t.id === 'supplierFilter' || t.id === 'lowStockFilter' || ['depot', 'family', 'subfamily', 'micronage', 'grammage', 'laize', 'origin'].includes(t.name)) {
         submitMaterialFilters();
     } else if (t.id === 'sortSelect') {
         sortMaterials();
@@ -537,37 +580,170 @@ function ajouterLigneContact() {
 function initMouvementStockValidation() {
     const form = document.getElementById('mouvementForm');
     if (!form) return;
+    const typeSelect = document.getElementById('mouvementTypeSelect');
+    const machineSelect = document.getElementById('mouvementMachineSelect');
+    const machineWrapper = document.getElementById('mouvementMachineField');
+    const linesContainer = document.getElementById('mouvementLinesContainer');
+    const addLineButton = document.getElementById('addMovementLineButton');
+    const categorySelect = document.getElementById('mouvementCategorySelect');
+    if (!linesContainer) return;
+
+    function lineRows() { return Array.from(linesContainer.querySelectorAll('.mouvement-line')); }
+    function refreshRemoveButtons() {
+        const rows = lineRows();
+        rows.forEach(function(row) {
+            const button = row.querySelector('.mouvement-remove-line');
+            if (button) button.classList.toggle('invisible', rows.length < 2);
+        });
+    }
+    function updateCategoryAndCharacteristics() {
+        const category = categorySelect ? categorySelect.value : '';
+        lineRows().forEach(function(row) {
+            const select = row.querySelector('.mouvement-material-select');
+            const detail = row.querySelector('.mouvement-characteristics');
+            if (!select) return;
+            Array.from(select.options).forEach(function(option) {
+                if (!option.value) return;
+                const match = !!category && option.dataset.category === category;
+                option.hidden = !match; option.disabled = !match;
+                if (!match && select.value === option.value) select.value = '';
+            });
+            const item = select.selectedOptions[0];
+            const selected = !!(item && item.value && category);
+            const isFilm = category === 'FILM';
+            if (detail) detail.classList.toggle('hidden', !selected);
+            row.querySelectorAll('.mouvement-film-field').forEach(function(field) {
+                field.classList.toggle('hidden', !selected || !isFilm);
+                const input = field.querySelector('input');
+                if (input) input.required = selected && isFilm;
+            });
+            const weightField = row.querySelector('.mouvement-weight-field');
+            if (weightField) {
+                weightField.classList.toggle('hidden', !selected);
+                const input = weightField.querySelector('input');
+                if (input) input.required = selected;
+            }
+            if (!selected) {
+                row.querySelectorAll('.mouvement-spec-input').forEach(function(input) { input.value = ''; });
+                return;
+            }
+            const defaults = {laizes: item.dataset.laize, micronages: item.dataset.micronage, metrages: item.dataset.metrage, poids_kg: item.dataset.poids};
+            Object.entries(defaults).forEach(function(entry) {
+                const input = row.querySelector('[name="' + entry[0] + '"]');
+                if (input) input.value = isFilm || entry[0] === 'poids_kg' ? (entry[1] || '') : '';
+            });
+        });
+    }
+    function updateMachineField() {
+        const isProductionExit = typeSelect && typeSelect.value === 'SORTIE';
+        const isAdjustment = typeSelect && typeSelect.value === 'AJUSTEMENT';
+        if (machineWrapper) machineWrapper.classList.toggle('hidden', !isProductionExit);
+        if (machineSelect) {
+            machineSelect.required = !!isProductionExit;
+            if (!isProductionExit) machineSelect.value = '';
+        }
+        lineRows().forEach(function(row) {
+            const input = row.querySelector('.mouvement-quantity-input');
+            const label = row.querySelector('.mouvement-quantity-label');
+            if (input) { input.min = isAdjustment ? '-999999999' : '0.001'; input.placeholder = isAdjustment ? '+/- variation' : '0'; if (!isAdjustment && Number(input.value) < 0) input.value = ''; }
+            if (label) label.textContent = isAdjustment ? 'Variation (+ / −) *' : 'Quantité *';
+        });
+        const hint = document.getElementById('mouvementQuantityHint');
+        if (hint && isAdjustment) hint.textContent = 'Ajustement : saisissez un écart positif pour ajouter au stock ou négatif pour le réduire. Le stock ne peut pas devenir négatif.';
+        else if (hint) hint.textContent = 'Ajoutez une ligne par matière; toutes les lignes seront enregistrées dans la même validation, avec la même Machine et les mêmes emplacements.';
+    }
+    if (addLineButton) addLineButton.addEventListener('click', function() {
+        const first = lineRows()[0];
+        const clone = first.cloneNode(true);
+        const select = clone.querySelector('.mouvement-material-select');
+        const quantity = clone.querySelector('.mouvement-quantity-input');
+        if (select) select.value = '';
+        if (quantity) { quantity.value = ''; quantity.classList.remove('border-red-500'); }
+        linesContainer.appendChild(clone);
+        updateCategoryAndCharacteristics();
+        updateMachineField();
+        refreshRemoveButtons();
+        if (select) select.focus();
+    });
+    linesContainer.addEventListener('click', function(event) {
+        const button = event.target.closest('.mouvement-remove-line');
+        if (!button || lineRows().length < 2) return;
+        button.closest('.mouvement-line').remove();
+        refreshRemoveButtons();
+    });
+    if (typeSelect) typeSelect.addEventListener('change', updateMachineField);
+    if (categorySelect) categorySelect.addEventListener('change', updateCategoryAndCharacteristics);
+    linesContainer.addEventListener('change', function(event) {
+        if (event.target.classList.contains('mouvement-material-select')) updateCategoryAndCharacteristics();
+    });
+    refreshRemoveButtons();
+    updateMachineField();
+    updateCategoryAndCharacteristics();
+
     form.addEventListener('submit', function(e) {
-        const typeSelect = document.getElementById('mouvementTypeSelect');
-        const materialSelect = document.getElementById('mouvementMaterialSelect');
-        const quantityInput = document.getElementById('mouvementQuantityInput');
-        if (typeSelect && materialSelect && quantityInput) {
-            const movementType = typeSelect.value;
-            const selectedOption = materialSelect.options[materialSelect.selectedIndex];
-            const availableStock = parseFloat(selectedOption.getAttribute('data-stock')) || 0;
-            const enteredQty = parseFloat(quantityInput.value) || 0;
-            const unit = selectedOption.getAttribute('data-unit') || 'kg';
-            const materialName = selectedOption.text.split('(')[0].trim();
-            if (movementType === 'SORTIE' || movementType === 'PERTE') {
-                if (availableStock <= 0) {
+        const rows = lineRows();
+        const movementType = typeSelect ? typeSelect.value : '';
+        const selectedCategory = categorySelect ? categorySelect.value : '';
+        if (!selectedCategory) { e.preventDefault(); alert('Choisissez l’univers des matières à enregistrer.'); if (categorySelect) categorySelect.focus(); return false; }
+        if (movementType === 'SORTIE' && (!machineSelect || !machineSelect.value)) {
+            e.preventDefault();
+            alert('Choisissez la Machine pour cette sortie de production.');
+            if (machineSelect) machineSelect.focus();
+            return false;
+        }
+        const totals = new Map();
+        for (const row of rows) {
+            const select = row.querySelector('.mouvement-material-select');
+            const quantityInput = row.querySelector('.mouvement-quantity-input');
+            const selected = select && select.options[select.selectedIndex];
+            const quantity = parseFloat(quantityInput && quantityInput.value) || 0;
+            const invalidQuantity = movementType === 'AJUSTEMENT' ? quantity === 0 : quantity <= 0;
+            if (!select || !select.value || invalidQuantity) {
+                e.preventDefault();
+                alert(movementType === 'AJUSTEMENT' ? 'Chaque ajustement doit contenir une matière et une variation différente de zéro.' : 'Chaque ligne doit contenir une matière et une quantité supérieure à zéro.');
+                if (select && !select.value) select.focus(); else if (quantityInput) quantityInput.focus();
+                return false;
+            }
+            if (movementType === 'SORTIE') {
+                const previous = totals.get(select.value) || {quantity: 0, stock: parseFloat(selected.dataset.stock) || 0, unit: selected.dataset.unit || 'kg', name: selected.text.split('(')[0].trim()};
+                previous.quantity += quantity;
+                totals.set(select.value, previous);
+            }
+        }
+        if (movementType === 'SORTIE') {
+            for (const item of totals.values()) {
+                if (item.quantity > item.stock) {
                     e.preventDefault();
-                    alert("❌ OPÉRATION IMPOSSIBLE : Le stock de \"" + materialName + "\" est actuellement de 0 " + unit + ".");
-                    quantityInput.classList.add('border-red-500');
-                    return false;
-                }
-                if (enteredQty > availableStock) {
-                    e.preventDefault();
-                    alert("❌ OPÉRATION IMPOSSIBLE : La quantité demandée (" + enteredQty + " " + unit + ") dépasse le stock disponible (" + availableStock + " " + unit + ").");
-                    quantityInput.classList.add('border-red-500');
+                    alert('Stock réel insuffisant pour « ' + item.name + ' » : ' + item.stock + ' ' + item.unit + ' disponible(s), ' + item.quantity + ' ' + item.unit + ' demandé(s) au total.');
+                    const row = rows.find(function(line) { return line.querySelector('.mouvement-material-select').value && line.querySelector('.mouvement-material-select').options[line.querySelector('.mouvement-material-select').selectedIndex].text.split('(')[0].trim() === item.name; });
+                    if (row) row.querySelector('.mouvement-quantity-input').classList.add('border-red-500');
                     return false;
                 }
             }
         }
     });
-    const quantityInput = document.getElementById('mouvementQuantityInput');
-    if (quantityInput) {
-        quantityInput.addEventListener('input', function() { this.classList.remove('border-red-500'); });
+    linesContainer.addEventListener('input', function(event) {
+        if (event.target.classList.contains('mouvement-quantity-input')) event.target.classList.remove('border-red-500');
+    });
+}
+
+function initLotReceptionFields() {
+    const categorySelect = document.getElementById('lotCategorySelect');
+    const materialSelect = document.getElementById('lotMaterialSelect');
+    function syncFields() {
+        const isFilmPaper = categorySelect && categorySelect.value === 'FILM';
+        ['lotLaizeField', 'lotMicronageField', 'lotGrammageField', 'lotMetrageField'].forEach(function(id) {
+            const field = document.getElementById(id);
+            if (field) field.classList.toggle('hidden', !isFilmPaper);
+        });
     }
+    if (categorySelect) categorySelect.addEventListener('change', syncFields);
+    if (materialSelect) materialSelect.addEventListener('change', function() {
+        const option = materialSelect.options[materialSelect.selectedIndex];
+        if (option && option.dataset.category && categorySelect) categorySelect.value = option.dataset.category;
+        syncFields();
+    });
+    syncFields();
 }
 
 // ============================================================
@@ -678,6 +854,10 @@ function attachAjaxDeleteHandlers() {
         form.removeEventListener('submit', handleMaterialDelete);
         form.addEventListener('submit', handleMaterialDelete);
     });
+    document.querySelectorAll('.delete-movement-form').forEach(function(form) {
+        form.removeEventListener('submit', handleMovementDelete);
+        form.addEventListener('submit', handleMovementDelete);
+    });
 }
 
 function handleMaterialDelete(e) {
@@ -696,12 +876,48 @@ function handleMaterialDelete(e) {
             setTimeout(function() {
                 var totalStat = document.getElementById('statTotalMatieres');
                 if (totalStat && parseInt(totalStat.textContent, 10) > 0) totalStat.textContent = parseInt(totalStat.textContent, 10) - 1;
-                // Recharge la page courante du tableau pour re-remplir proprement la pagination
                 ajaxLoad(window.location.href, MAT_ZONES, { push: false });
             }, 300);
         } else { alert('❌ Erreur lors de la suppression.'); }
     })
-    .catch(function() { form.submit(); });
+    .catch(function() { alert('❌ Connexion impossible : la matière n’a pas été supprimée.'); });
+}
+
+function handleMovementDelete(e) {
+    e.preventDefault();
+    const form = this;
+    const name = form.dataset.confirmName || 'ce mouvement';
+    if (!confirm('Annuler ' + name + ' avec contre-passation ? L’historique restera conservé.')) return false;
+    const row = form.closest('.movement-row');
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.dataset.oldText = button.textContent; button.textContent = '…'; }
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}
+    }).then(function(response) {
+        return response.json().then(function(data) {
+            if (!response.ok || !data.success) throw new Error(data.message || 'Suppression impossible.');
+            if (row) {
+                row.style.transition = 'opacity .25s ease, transform .25s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(12px)';
+                setTimeout(function() {
+                    row.remove();
+                    if (typeof updateBulkBarMvt === 'function') updateBulkBarMvt();
+                    const tbody = document.getElementById('movementsTbody');
+                    if (tbody && !tbody.querySelector('.movement-row')) {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = '<td colspan="11" class="p-8 text-center text-gray-500 italic">Aucun mouvement sur cette page.</td>';
+                        tbody.appendChild(tr);
+                    }
+                }, 260);
+            }
+        });
+    }).catch(function(error) {
+        alert('❌ ' + (error.message || 'Impossible de supprimer ce mouvement.'));
+        if (button) { button.disabled = false; button.textContent = button.dataset.oldText || '🗑 Supprimer'; }
+    });
 }
 
 // ============================================================
@@ -1028,8 +1244,16 @@ function fillLotForm(data) {
     if (data.poids_net) document.getElementById('lotQuantiteInput').value = data.poids_net;
     const laizeInput = document.getElementById('lotLaizeInput');
     if (laizeInput && data.laize_width) laizeInput.value = data.laize_width;
-    const lengthInput = document.getElementById('lotLongueurInput');
-    if (lengthInput && data.longueur_length) lengthInput.value = data.longueur_length;
+    const micronageInput = document.getElementById('lotMicronageInput');
+    if (micronageInput && data.micronage) micronageInput.value = data.micronage;
+    const grammageInput = document.getElementById('lotGrammageInput');
+    if (grammageInput && data.grammage) grammageInput.value = data.grammage;
+    const lengthInput = document.getElementById('lotMetrageInput');
+    if (lengthInput && (data.metrage || data.longueur_length)) lengthInput.value = data.metrage || data.longueur_length;
+    const unitsInput = document.getElementById('lotNombreUnitesInput');
+    if (unitsInput && data.nombre_unites) unitsInput.value = data.nombre_unites;
+    const originInput = document.getElementById('lotOrigineSelect');
+    if (originInput && data.origine) originInput.value = data.origine;
     const matSelect = document.getElementById('lotMaterialSelect');
     if (matSelect && data.material_name) {
         const searchName = data.material_name.toLowerCase().replace(/\./g, ' ').trim();
@@ -1043,6 +1267,10 @@ function fillLotForm(data) {
         }
         if (bestMatch >= 0) matSelect.selectedIndex = bestMatch;
     }
+    if (matSelect && matSelect.options[matSelect.selectedIndex].dataset.category && catSelect) {
+        catSelect.value = matSelect.options[matSelect.selectedIndex].dataset.category;
+    }
+    if (catSelect) catSelect.dispatchEvent(new Event('change'));
     if (data.fournisseur) {
         const suppSelect = document.getElementById('lotSupplierSelect');
         const searchSupp = data.fournisseur.toLowerCase();
@@ -1063,13 +1291,18 @@ function fillLotForm(data) {
 function fillMouvementForm(data) {
     document.getElementById('modalMouvement').classList.remove('hidden');
     showTab('mouvements');
-    if (data.poids_net) document.getElementById('mouvementQuantityInput').value = data.poids_net;
-    if (data.material_name) {
-        const matSelect = document.getElementById('mouvementMaterialSelect');
+    const row = document.querySelector('#mouvementLinesContainer .mouvement-line');
+    const quantityInput = row && row.querySelector('.mouvement-quantity-input');
+    const matSelect = row && row.querySelector('.mouvement-material-select');
+    if (data.poids_net && quantityInput) quantityInput.value = data.poids_net;
+    if (data.material_name && matSelect) {
         const searchName = data.material_name.toLowerCase();
         for (let i = 0; i < matSelect.options.length; i++) {
             if (matSelect.options[i].text.toLowerCase().includes(searchName)) {
-                matSelect.selectedIndex = i; break;
+                const option = matSelect.options[i];
+                const category = document.getElementById('mouvementCategorySelect');
+                if (category && option.dataset.category) { category.value = option.dataset.category; category.dispatchEvent(new Event('change', {bubbles: true})); }
+                matSelect.selectedIndex = i; matSelect.dispatchEvent(new Event('change', {bubbles: true})); break;
             }
         }
     }

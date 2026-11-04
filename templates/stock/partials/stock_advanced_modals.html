@@ -118,7 +118,7 @@
                     <label class="block text-xs text-gray-400 mb-1">Lier à une matière existante (optionnel)</label>
                     <select name="material" id="lotMaterialSelect" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                         <option value="">— Aucune (créer plus tard) —</option>
-                        {% for m in all_materials|default:materials %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
+                        {% for m in all_materials|default:materials %}<option value="{{ m.id }}" data-category="{{ m.category }}">{{ m.name }}</option>{% endfor %}
                     </select>
                 </div>
                 <div>
@@ -144,16 +144,34 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-400 mb-1">Quantité / Poids net (kg) *</label>
-                    <input type="number" name="quantite_initiale" id="lotQuantiteInput" required min="0" step="0.01" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                    <label class="block text-xs text-gray-400 mb-1">Poids net / quantité reçue (kg) *</label>
+                    <input type="number" name="quantite_initiale" id="lotQuantiteInput" required min="0.01" step="0.01" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-                <div>
-                    <label class="block text-xs text-gray-400 mb-1">Laize / Width (mm)</label>
+                <div id="lotNombreUnitesField">
+                    <label class="block text-xs text-gray-400 mb-1">Nombre d’unités *</label>
+                    <input type="number" name="nombre_unites" id="lotNombreUnitesInput" required min="1" step="1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div id="lotOrigineField">
+                    <label class="block text-xs text-gray-400 mb-1">Origine *</label>
+                    <select name="origine" id="lotOrigineSelect" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">— Choisir —</option><option value="IMPORTATION">Importation</option><option value="LOCAL">Local</option>
+                    </select>
+                </div>
+                <div id="lotLaizeField">
+                    <label class="block text-xs text-gray-400 mb-1">Laize (mm)</label>
                     <input type="number" name="laize" id="lotLaizeInput" min="0" step="1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
-                <div>
-                    <label class="block text-xs text-gray-400 mb-1">Longueur / Length (m)</label>
-                    <input type="number" name="longueur" id="lotLongueurInput" min="0" step="1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <div id="lotMicronageField">
+                    <label class="block text-xs text-gray-400 mb-1">Micronage (µm)</label>
+                    <input type="number" name="micronage" id="lotMicronageInput" min="0" step="1" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div id="lotGrammageField">
+                    <label class="block text-xs text-gray-400 mb-1">Grammage (g/m²)</label>
+                    <input type="number" name="grammage" id="lotGrammageInput" min="0" step="0.01" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div id="lotMetrageField">
+                    <label class="block text-xs text-gray-400 mb-1">Métrage (m)</label>
+                    <input type="number" name="metrage" id="lotMetrageInput" min="0" step="0.01" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Prix unitaire (DA/kg)</label>
@@ -183,7 +201,7 @@
 
 <!-- Modal : Nouveau Mouvement -->
 <div id="modalMouvement" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-lg">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b border-slate-700 flex items-center justify-between">
             <h3 class="text-xl font-bold text-white">🔄 Nouveau Mouvement de Stock</h3>
             <button onclick="document.getElementById('modalMouvement').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl">×</button>
@@ -200,26 +218,59 @@
                 <div class="col-span-2">
                     <label class="block text-xs text-gray-400 mb-1">Type de mouvement *</label>
                     <select name="type" id="mouvementTypeSelect" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
-                        <option value="ENTREE">⬆ Entrée (Achat / Réception)</option>
                         <option value="SORTIE">⬇ Sortie (Production)</option>
-                        <option value="TRANSFERT">↔ Transfert interne</option>
+                        <option value="RETOUR_INTERNE">↩ Retour</option>
+                        <option value="AVARIE">⚠ Avarie</option>
                         <option value="AJUSTEMENT">⚙ Ajustement inventaire</option>
-                        <option value="PERTE">✗ Perte / Déchet</option>
                     </select>
                 </div>
-                <div>
-                    <label class="block text-xs text-gray-400 mb-1">Matière *</label>
-                    <select name="material" id="mouvementMaterialSelect" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
-                        <option value="" data-stock="0" data-unit="kg">— Choisir une matière —</option>
-                        {% for m in all_materials|default:materials %}
-                        <option value="{{ m.id }}" data-stock="{{ m.quantity }}" data-unit="{{ m.unit }}">{{ m.name }} (Stock actuel: {{ m.quantity }} {{ m.unit }})</option>
-                        {% endfor %}
+                <div class="col-span-2">
+                    <label class="block text-xs text-gray-400 mb-1">Univers / Famille *</label>
+                    <select name="category" id="mouvementCategorySelect" required class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">— Choisir un univers —</option>
+                        {% for code,label in categories %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
                     </select>
                 </div>
-                <div>
-                    <label class="block text-xs text-gray-400 mb-1">Quantité (kg) *</label>
-                    <input type="number" name="quantite" id="mouvementQuantityInput" required min="0.001" step="0.001" placeholder="0"
-                        class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                <div class="col-span-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs text-gray-400">Matières et quantités à enregistrer *</label>
+                        <button type="button" id="addMovementLineButton" class="text-xs text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 px-3 py-1.5 rounded-lg">＋ Ajouter une matière</button>
+                    </div>
+                    <div id="mouvementLinesContainer" class="space-y-2">
+                        <div class="mouvement-line grid gap-3 items-end bg-slate-900/40 border border-slate-700 rounded-xl p-3" style="grid-template-columns:minmax(0, 1fr) minmax(8rem, 0.42fr) 2.5rem;">
+                            <div style="min-width:0;">
+                                <label class="block text-[11px] text-gray-400 mb-1">Matière *</label>
+                                <select name="materials" class="mouvement-material-select w-full min-w-0 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" required>
+                                    <option value="" data-stock="0" data-unit="kg">— Choisir une matière —</option>
+                                    {% for m in all_materials|default:materials %}
+                                    <option value="{{ m.id }}" data-stock="{{ m.quantity|stringformat:'s' }}" data-unit="{{ m.unit }}" data-category="{{ m.category }}" data-laize="{{ m.laize_mm|default_if_none:'' }}" data-micronage="{{ m.micronage_standard|default_if_none:'' }}" data-metrage="{{ m.metrage_standard|default_if_none:'' }}" data-poids="{{ m.poids_kg|default_if_none:'' }}" data-unites="{{ m.nombre_unites|default_if_none:'' }}">{{ m.name }} (Stock réel: {{ m.quantity }} {{ m.unit }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div style="min-width:0;">
+                                <label class="mouvement-quantity-label block text-[11px] text-gray-400 mb-1">Quantité *</label>
+                                <input type="number" name="quantites" class="mouvement-quantity-input w-full min-w-0 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" required min="-999999999" step="0.001" placeholder="0">
+                            </div>
+                            <div>
+                                <button type="button" class="mouvement-remove-line w-full text-red-400 hover:text-red-300 py-2 rounded-lg" title="Supprimer cette matière" aria-label="Supprimer cette matière">×</button>
+                            </div>
+                            <div class="mouvement-characteristics col-span-full hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 rounded-lg bg-slate-950/40 p-3">
+                                <div class="mouvement-film-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Laize (mm) *</label><input type="number" name="laizes" min="1" step="1" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
+                                <div class="mouvement-film-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Micronage (µm) *</label><input type="number" name="micronages" min="1" step="1" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
+                                <div class="mouvement-film-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Métrage (m) *</label><input type="number" name="metrages" min="0.001" step="0.01" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
+                                <div class="mouvement-weight-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Poids (kg) *</label><input type="number" name="poids_kg" min="0.001" step="0.01" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="mouvementQuantityHint" class="mt-2 text-[10px] text-slate-500">Ajoutez une ligne par matière; toutes les lignes seront enregistrées dans la même validation, avec la même Machine et les mêmes emplacements.</p>
+                </div>
+                <div id="mouvementMachineField" class="col-span-2 hidden">
+                    <label class="block text-xs text-gray-400 mb-1">Machine (obligatoire pour une sortie de production) *</label>
+                    <select name="machine" id="mouvementMachineSelect" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none">
+                        <option value="">— Choisir une machine —</option>
+                        {% for machine in machines %}<option value="{{ machine.id }}">{{ machine.name }}</option>{% endfor %}
+                    </select>
+                    <p class="mt-1 text-[10px] text-slate-500">L’OF n’est pas demandé dans ce formulaire.</p>
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Source (emplacement)</label>

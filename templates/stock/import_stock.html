@@ -95,39 +95,10 @@
             </div>
 
             <div id="stockTable" class="hidden bg-slate-900/50 p-4 rounded text-sm border border-slate-700 overflow-x-auto">
-                <p class="text-cyan-400 font-bold mb-2">📝 Format attendu (Stock Matières) :</p>
-                <table class="text-xs text-gray-300 border-collapse w-full">
-                    <thead>
-                        <tr class="border-b border-slate-600 bg-slate-800 text-cyan-400">
-                            <th class="p-2 text-left">Designation</th>
-                            <th class="p-2 text-left">Code</th>
-                            <th class="p-2 text-left">Fournisseur</th>
-                            <th class="p-2 text-left">Categorie</th>
-                            <th class="p-2 text-left text-yellow-300">Micronage / Grammage</th>
-                            <th class="p-2 text-left text-yellow-300">Metrage (m)</th>
-                            <th class="p-2 text-left">Stock_Initial</th>
-                            <th class="p-2 text-left">Stock_Reel</th>
-                            <th class="p-2 text-left">Unite</th>
-                            <th class="p-2 text-left">Seuil_Min</th>
-                            <th class="p-2 text-left">Prix_Unitaire</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr class="border-b border-slate-700">
-                            <td class="p-2">BOPP TRANSPARENT 20UM</td>
-                            <td class="p-2">BOPP20</td>
-                            <td class="p-2">SunChemical</td>
-                            <td class="p-2">Film/Papier</td>
-                            <td class="p-2 text-yellow-300 font-bold">20</td>
-                            <td class="p-2 text-yellow-300 font-bold">6000</td>
-                            <td class="p-2">500</td>
-                            <td class="p-2">500</td>
-                            <td class="p-2">kg</td>
-                            <td class="p-2">100</td>
-                            <td class="p-2">1200</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <p class="text-cyan-400 font-bold mb-2">📝 Format combiné — Excel + données ERP :</p>
+                <p class="text-xs text-gray-300 mb-3"><strong class="text-cyan-300">Colonnes obligatoires :</strong> N°.Produit, Désignation, Unité, Dépôt, Famille. Sous Famille est facultative; toutes les colonnes complémentaires sont facultatives. Le titre « LISTE DES ARTICLES » en ligne 1 est accepté.</p>
+                <table class="text-xs text-gray-300 border-collapse min-w-max"><thead><tr class="border-b border-slate-600 bg-slate-800 text-cyan-400"><th class="p-2 text-left text-cyan-300">N°.Produit *</th><th class="p-2 text-left text-cyan-300">Désignation *</th><th class="p-2 text-left text-cyan-300">Unité *</th><th class="p-2 text-left text-cyan-300">Dépôt *</th><th class="p-2 text-left text-cyan-300">Famille *</th><th class="p-2 text-left text-cyan-300">Sous Famille</th><th class="p-2 text-left text-violet-300">Micronage / Grammage</th><th class="p-2 text-left text-violet-300">Laize (mm)</th><th class="p-2 text-left text-violet-300">Origine</th><th class="p-2 text-left text-violet-300">Métrage (m)</th><th class="p-2 text-left text-violet-300">Poids (kg)</th><th class="p-2 text-left text-violet-300">Nombre d’unités</th><th class="p-2 text-left text-violet-300">Fournisseur</th><th class="p-2 text-left text-violet-300">Catégorie</th><th class="p-2 text-left text-violet-300">Stock_Initial</th><th class="p-2 text-left text-violet-300">Stock_Reel</th><th class="p-2 text-left text-violet-300">Seuil_Min</th><th class="p-2 text-left text-violet-300">Prix_Unitaire</th></tr></thead><tbody><tr class="border-b border-slate-700"><td class="p-2">E1920</td><td class="p-2">ADHESIF 3M SOFT 685MM 23MM</td><td class="p-2">U</td><td class="p-2">ACHAT</td><td class="p-2">FOURNITURES</td><td class="p-2">ADHÉSIFS</td><td class="p-2">—</td><td class="p-2">685</td><td class="p-2">LOCAL</td><td class="p-2">—</td><td class="p-2">—</td><td class="p-2">—</td><td class="p-2">—</td><td class="p-2">—</td><td class="p-2">—</td><td class="p-2">—</td><td class="p-2">—</td><td class="p-2">—</td></tr></tbody></table>
+                <p class="mt-3 text-xs text-gray-400">Pour un numéro déjà présent, les données descriptives et techniques sont mises à jour; stock, seuil et prix existants sont préservés. Pour un nouvel article, les champs complémentaires remplis sont importés; champs stock/prix omis = 0.</p>
             </div>
 
             <div id="toolsTable" class="hidden bg-slate-900/50 p-4 rounded text-sm border border-slate-700 overflow-x-auto">
@@ -195,7 +166,7 @@
 <script>
     const colMap = {
         'MOUVEMENTS': 'Date, Machine, Produit, Quantite (KG), Code Prod, Notes',
-        'STOCK': 'Designation, Code, Fournisseur, Categorie (Film/Encre/Colle/Solvant), Micronage / Grammage, Metrage (m), Stock_Initial, Stock_Reel, Unite, Seuil_Min, Prix_Unitaire',
+        'STOCK': 'Obligatoires : N°.Produit, Désignation, Unité, Dépôt, Famille. Facultatives : Sous Famille, Micronage / Grammage, Laize (mm), Origine, Métrage (m), Poids (kg), Nombre d’unités, Fournisseur, Catégorie, Stock_Initial, Stock_Reel, Seuil_Min, Prix_Unitaire',
         'CRM': 'ID Client, Nom Client, Secteur, Adresse, Ville, Région, Téléphone, Email, Commercial, Statut compte, Limite crédit (DA), Observations',
         'TOOLS': 'DATE, CLIENT, DESIGNATIONS, CODE CYLINDRE / CODE Clyché, DEVELOPP, NMBR / CLR, FOURNISSEUR / GRAVEUR, METRAGE (ML), NOMBRE/TOURS, OBSERVATIONS',
         'PLANNING': 'OF_Numero, Client, Produit, Machine, Date_Debut (JJ/MM/AAAA), Qte_Prevue',

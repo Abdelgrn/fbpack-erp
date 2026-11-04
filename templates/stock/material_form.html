@@ -20,6 +20,7 @@
         Renseignez les informations de la matière première. Les champs marqués <span class="text-red-400">*</span> sont obligatoires.
       </p>
     </div>
+    <a href="{% url 'stock_catalog_manage' %}" class="ml-auto text-xs text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 px-3 py-2 rounded-lg">⚙️ Gérer les listes</a>
   </div>
 
   <!-- Messages -->
@@ -88,58 +89,46 @@
           <!-- ======================================================== -->
           <!-- NOUVEAU BLOC : DONNÉES TECHNIQUES (Films & Papiers)      -->
           <!-- ======================================================== -->
-          <div class="md:col-span-2 bg-slate-900/50 p-4 rounded-xl border border-cyan-500/30 hidden" id="tech-fields-container">
-              <h3 class="text-sm font-bold text-cyan-400 mb-3 flex items-center gap-2">
-                  <span>📐</span> Données Techniques (Films & Papiers)
-              </h3>
-              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                      <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Densité ISO</label>
-                      {{ form.densite_iso }}
-                  </div>
-                  <div>
-                      <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Microns (µm)</label>
-                      {{ form.micronage_standard }}
-                  </div>
-                  <div>
-                      <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Grammage (g/m²)</label>
-                      {{ form.grammage }}
-                  </div>
-                  <div>
-                      <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Métrage (m)</label>
-                      {{ form.metrage_standard }}
-                  </div>
+          <div class="md:col-span-2 bg-slate-900/50 p-4 rounded-xl border border-cyan-500/30" id="tech-fields-container">
+              <h3 class="text-sm font-bold text-cyan-400 mb-1 flex items-center gap-2"><span>📐</span> Caractéristiques de l’article</h3>
+              <p class="text-[10px] text-gray-500 mb-3">Laize, micronage, grammage et métrage concernent uniquement le Film/Papier. Origine, poids et nombre d’unités sont disponibles pour tous les univers.</p>
+              <div id="film-only-fields" class="grid grid-cols-1 md:grid-cols-4 gap-4 hidden">
+                  <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Densité ISO</label>{{ form.densite_iso }}</div>
+                  <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Micronage (µm)</label>{{ form.micronage_standard }}</div>
+                  <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Grammage (g/m²)</label>{{ form.grammage }}</div>
+                  <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Métrage (m)</label>{{ form.metrage_standard }}</div>
+                  <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Laize (mm)</label>{{ form.laize_mm }}</div>
               </div>
-              <p class="text-[10px] text-gray-500 mt-2">
-                Ces données sont utilisées pour automatiser l'analyse de production (poids, surface, % pertes) dans l'Ordonnancement et le CRM.
-              </p>
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
+                  <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Origine (Importation / Local){% if is_new_material %} *{% endif %}</label>{{ form.origine }}{% if form.origine.errors %}<p class="text-red-400 text-xs mt-1">{{ form.origine.errors.0 }}</p>{% endif %}</div>
+                  <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Poids (kg){% if is_new_material %} *{% endif %}</label>{{ form.poids_kg }}{% if form.poids_kg.errors %}<p class="text-red-400 text-xs mt-1">{{ form.poids_kg.errors.0 }}</p>{% endif %}</div>
+                  <div><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Nombre d’unités{% if is_new_material %} *{% endif %}</label>{{ form.nombre_unites }}{% if form.nombre_unites.errors %}<p class="text-red-400 text-xs mt-1">{{ form.nombre_unites.errors.0 }}</p>{% endif %}</div>
+              </div>
           </div>
           <!-- ======================================================== -->
 
-          <!-- Stock Initial -->
+          <!-- Stock initial à la création; stocks protégés en édition -->
+          {% if is_new_material %}
           <div>
-            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-              📦 Stock Initial (au départ)
-            </label>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">📥 Quantité reçue à l’achat / réception *</label>
             {{ form.initial_quantity }}
-            {% if form.initial_quantity.errors %}
-              <p class="text-red-400 text-xs mt-1">{{ form.initial_quantity.errors.0 }}</p>
-            {% endif %}
-            <p class="text-gray-500 text-xs mt-1">
-              🔒 Quantité de référence au moment de la création. Ne change plus après.
-            </p>
+            {% if form.initial_quantity.errors %}<p class="text-red-400 text-xs mt-1">{{ form.initial_quantity.errors.0 }}</p>{% endif %}
+            <p class="text-gray-500 text-xs mt-1">Cette quantité crée automatiquement une entrée en base et dans l’historique.</p>
           </div>
-
-          <!-- Stock réel -->
+          {% else %}
+          <div class="rounded-lg border border-slate-600 bg-slate-900/50 p-4">
+            <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">Stock initial</div>
+            <div class="text-white mt-1">{{ material.initial_quantity }} {{ material.unit }}</div>
+            <div class="text-xs text-gray-500 mt-2">Stock actuel protégé : {{ material.quantity }} {{ material.unit }}. Pour le modifier, enregistrez un mouvement.</div>
+          </div>
+          {% endif %}
+          {% if is_new_material %}
           <div>
-            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Stock Réel (quantité actuelle)
-            </label>
-            {{ form.quantity }}
-            <p class="text-gray-500 text-xs mt-1">
-              ⚙️ Ce champ est ensuite mis à jour <strong>automatiquement</strong> par les mouvements d'entrée / sortie.
-            </p>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Emplacement de réception *</label>
+            {{ form.emplacement_reception }}
+            {% if form.emplacement_reception.errors %}<p class="text-red-400 text-xs mt-1">{{ form.emplacement_reception.errors.0 }}</p>{% endif %}
           </div>
+          {% endif %}
 
           <!-- Unité -->
           <div>
@@ -147,7 +136,23 @@
               Unité de mesure
             </label>
             {{ form.unit }}
-            <p class="text-gray-500 text-xs mt-1">Ex : kg, L, m, rouleau…</p>
+            <p class="text-gray-500 text-xs mt-1">Choisissez une unité dans la liste configurable.</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Dépôt</label>
+            {{ form.depot }}
+            {{ form.depot.errors }}
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Famille</label>
+            {{ form.famille }}
+            {{ form.famille.errors }}
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sous-famille</label>
+            {{ form.sous_famille }}
+            {{ form.sous_famille.errors }}
           </div>
 
           <!-- Seuil alerte -->
@@ -229,25 +234,23 @@
 
 </div>
 
-<!-- SCRIPT POUR AFFICHER/MASQUER LES CHAMPS TECHNIQUES -->
+<!-- Champs spécifiques aux bobines : ne masque jamais le poids et les unités. -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+(function () {
+    function initMaterialCharacteristics() {
         const categorySelect = document.getElementById('{{ form.category.id_for_label }}');
-        const techContainer = document.getElementById('tech-fields-container');
-
-        function toggleTechFields() {
-            if (categorySelect && categorySelect.value === 'FILM') {
-                techContainer.classList.remove('hidden');
-            } else {
-                techContainer.classList.add('hidden');
-            }
-        }
-
-        if (categorySelect) {
-            categorySelect.addEventListener('change', toggleTechFields);
-            toggleTechFields(); // Vérification initiale au chargement
-        }
-    });
+        const filmFields = document.getElementById('film-only-fields');
+        if (!categorySelect || !filmFields) return;
+        const update = () => filmFields.classList.toggle('hidden', categorySelect.value !== 'FILM');
+        categorySelect.addEventListener('change', update);
+        update();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMaterialCharacteristics);
+    } else {
+        initMaterialCharacteristics();
+    }
+})();
 </script>
 
 {% endblock %}

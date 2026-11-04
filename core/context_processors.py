@@ -37,16 +37,13 @@ def user_permissions(request):
         perms = request.user.module_permissions
         modules = list(perms.get_allowed_modules())
 
-        if 'kpi' not in modules:
-            modules.append('kpi')
-
         return {
             'user_modules': modules,
             'is_super_admin': False,
         }
 
     except UserModulePermission.DoesNotExist:
-        return {'user_modules': ['dashboard', 'kpi'], 'is_super_admin': False}
+        return {'user_modules': ['dashboard'], 'is_super_admin': False}
 
 
 def _is_message_kpi_chat_noise(message):

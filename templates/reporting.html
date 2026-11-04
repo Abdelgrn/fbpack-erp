@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'base.html' %}{% load security_tags %}
 {% block content %}
 <h2 class="text-2xl font-bold text-white mb-6">Reporting & Analyses</h2>
 
@@ -47,10 +47,10 @@
     new Chart(document.getElementById('clientChart'), {
         type: 'bar',
         data: {
-            labels: {{ top_clients_labels|safe }},
+            labels: {{ top_clients_labels|json_embed }},
             datasets: [{
                 label: 'Kg Produits',
-                data: {{ top_clients_data|safe }},
+                data: {{ top_clients_data|json_embed }},
                 backgroundColor: '#06b6d4',
                 borderRadius: 4
             }]
@@ -62,9 +62,9 @@
     new Chart(document.getElementById('matChart'), {
         type: 'doughnut',
         data: {
-            labels: {{ top_consumptions_labels|safe }},
+            labels: {{ top_consumptions_labels|json_embed }},
             datasets: [{
-                data: {{ top_consumptions_data|safe }},
+                data: {{ top_consumptions_data|json_embed }},
                 backgroundColor: ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6'],
                 borderWidth: 0
             }]

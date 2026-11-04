@@ -1,6 +1,7 @@
 import datetime
 import math
 from django.db import models
+from django.apps import apps
 from django.utils import timezone
 from django.contrib.auth.models import User
 from datetime import timedelta
@@ -134,7 +135,7 @@ class ProductionEntry(models.Model):
 
     def save(self, *args, **kwargs):
         if self.lot and not self.of_lie:
-            OrdreFabrication = models.apps.get_model('core', 'OrdreFabrication')
+            OrdreFabrication = apps.get_model('core', 'OrdreFabrication')
             of = OrdreFabrication.chercher_par_lot(self.lot)
             if of:
                 self.of_lie = of

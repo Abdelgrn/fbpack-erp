@@ -1,0 +1,98 @@
+{% extends 'base.html' %}{% load security_tags %}
+{% block content %}
+<div class="max-w-[1700px] mx-auto px-4 py-6 text-white">
+  <header class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+      <p class="text-cyan-300 text-xs font-black uppercase tracking-[.18em]">Pilotage transversal</p>
+      <h1 class="text-3xl font-black mt-1">📊 KPI — Stocks & Achats</h1>
+      <p class="text-slate-400 text-sm mt-1">Vue consolidée des matières, mouvements, emplacements, fournisseurs, lots et achats.</p>
+    </div>
+    <a href="{% url 'stock_advanced' %}" class="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 font-bold hover:bg-slate-700">← Retour au module Stock</a>
+  </header>
+
+  <nav class="flex flex-wrap gap-2 mb-5" aria-label="Sous-modules Stock">
+    <a href="{% url 'stock_advanced' %}?tab=matieres" class="kpi-link">📦 Articles</a>
+    <a href="{% url 'stock_advanced' %}?tab=mouvements" class="kpi-link">🔄 Journal des mouvements</a>
+    <a href="{% url 'stock_advanced' %}?tab=lots" class="kpi-link">🏷️ Lots & traçabilité</a>
+    <a href="{% url 'stock_advanced' %}?tab=emplacements" class="kpi-link">🏭 Emplacements</a>
+    <a href="{% url 'stock_advanced' %}?tab=fournisseurs" class="kpi-link">🏢 Fournisseurs</a>
+    <a href="{% url 'stock_advanced' %}?tab=achats" class="kpi-link">🛒 DA & commandes</a>
+    <a href="{% url 'stock_produit_fini' %}" class="kpi-link">📦 Produit fini</a>
+    {% if user.is_superuser or user.module_permissions.can_access_suivi_postes %}<a href="{% url 'suivi_postes' %}" class="kpi-link">🏭 Suivi par poste</a>{% endif %}
+  </nav>
+
+  <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 rounded-2xl border border-slate-700 bg-slate-800 p-4 mb-5">
+    <div><label class="kpi-label">Du</label><input type="date" name="from" value="{{ date_from }}" class="kpi-input"></div>
+    <div><label class="kpi-label">Au</label><input type="date" name="to" value="{{ date_to }}" class="kpi-input"></div>
+    <div><label class="kpi-label">Dépôt</label><select name="depot" class="kpi-input"><option value="">Tous</option>{% for item in depot_options %}<option value="{{ item.id }}" {% if depot_filter == item.id|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></div>
+    <div><label class="kpi-label">Famille</label><select name="family" class="kpi-input"><option value="">Toutes</option>{% for item in family_options %}<option value="{{ item.id }}" {% if family_filter == item.id|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></div>
+    <div><label class="kpi-label">Sous-famille</label><select name="subfamily" class="kpi-input"><option value="">Toutes</option>{% for item in subfamily_options %}<option value="{{ item.id }}" {% if subfamily_filter == item.id|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></div>
+    <div><label class="kpi-label">Micronage</label><select name="micronage" class="kpi-input"><option value="">Tous</option>{% for value in micronage_options %}<option value="{{ value }}" {% if micronage_filter == value|stringformat:"s" %}selected{% endif %}>{{ value }} µm</option>{% endfor %}</select></div>
+    <div><label class="kpi-label">Grammage</label><select name="grammage" class="kpi-input"><option value="">Tous</option>{% for value in grammage_options %}<option value="{{ value }}" {% if grammage_filter == value %}selected{% endif %}>{{ value }} g/m²</option>{% endfor %}</select></div>
+    <div><label class="kpi-label">Laize</label><select name="laize" class="kpi-input"><option value="">Toutes</option>{% for value in laize_options %}<option value="{{ value }}" {% if laize_filter == value|stringformat:"s" %}selected{% endif %}>{{ value }} mm</option>{% endfor %}</select></div>
+    <div><label class="kpi-label">Origine</label><select name="origin" class="kpi-input"><option value="">Toutes</option>{% for code,label in origine_options %}<option value="{{ code }}" {% if origin_filter == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="flex items-end gap-2"><button class="flex-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 px-4 py-2.5 font-black">Appliquer</button><a href="{% url 'stock_kpi' %}" class="rounded-lg bg-slate-700 px-3 py-2.5" title="Réinitialiser">↺</a></div>
+  </form>
+
+  <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+    <article class="kpi-card"><span class="kpi-caption">Articles actifs</span><strong>{{ materials_count }}</strong><a href="{% url 'stock_advanced' %}?tab=matieres">Voir les articles →</a></article>
+    <article class="kpi-card border-emerald-500/30"><span class="kpi-caption">Valeur du stock</span><strong class="text-emerald-300">{{ stock_value|floatformat:0 }} DA</strong><small>Stock utilisable × prix unitaire</small></article>
+    <article class="kpi-card border-red-500/30"><span class="kpi-caption">Alertes de stock</span><strong class="text-red-300">{{ alert_count }}</strong><small>{{ rupture_count }} rupture(s) · {{ critique_count }} critique(s) · {{ alerte_count }} sous seuil</small></article>
+    <article class="kpi-card border-cyan-500/30"><span class="kpi-caption">Mouvements (période)</span><strong class="text-cyan-300">{{ movement_count }}</strong><small>{{ entry_total }} entrée(s) · {{ exit_total }} sortie(s)</small></article>
+    <article class="kpi-card border-amber-500/30"><span class="kpi-caption">Achats à suivre</span><strong class="text-amber-300">{{ open_orders }}</strong><small>{{ demand_pending }} demande(s) en attente</small></article>
+    <article class="kpi-card border-violet-500/30"><span class="kpi-caption">Commandes (période)</span><strong class="text-violet-300">{{ purchase_amount|floatformat:0 }} DA</strong><small>{{ demand_count }} demande(s) créée(s)</small></article>
+  </section>
+
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
+    <article class="kpi-panel"><h2>📈 Activité du journal — nombre de mouvements par jour</h2><p>Les quantités ne sont pas additionnées ici car les matières peuvent avoir des unités différentes.</p><div class="h-72 mt-4"><canvas id="movementTrend"></canvas></div></article>
+    <article class="kpi-panel"><h2>💰 Valeur estimée par famille</h2><p>Stock utilisable × prix unitaire des articles filtrés.</p><div class="h-72 mt-4"><canvas id="familyValue"></canvas></div></article>
+  </section>
+
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
+    <article class="kpi-panel overflow-x-auto"><div class="flex items-center justify-between gap-2 mb-3"><div><h2>🏭 Emplacements de stockage</h2><p>Lots et mouvements reliés aux emplacements physiques.</p></div><a class="kpi-action" href="{% url 'stock_advanced' %}?tab=emplacements">Ouvrir →</a></div>
+      <table class="kpi-table"><thead><tr><th>Emplacement</th><th>Type</th><th>Lots</th><th>Quantité restante</th><th>Mouvements</th></tr></thead><tbody>
+      {% for row in location_rows %}<tr><td>{{ row.name }}</td><td>{{ row.type }}</td><td>{{ row.lots }}</td><td>{{ row.quantity|floatformat:2 }}</td><td>{{ row.movements }}</td></tr>{% empty %}<tr><td colspan="5">Aucun emplacement actif.</td></tr>{% endfor %}
+      </tbody></table>
+    </article>
+    <article class="kpi-panel overflow-x-auto"><div class="flex items-center justify-between gap-2 mb-3"><div><h2>🏢 Fournisseurs principaux</h2><p>Articles associés et valeur estimée du stock.</p></div><a class="kpi-action" href="{% url 'stock_advanced' %}?tab=fournisseurs">Ouvrir →</a></div>
+      <table class="kpi-table"><thead><tr><th>Fournisseur</th><th>Articles</th><th>Valeur stock</th></tr></thead><tbody>
+      {% for row in supplier_rows %}<tr><td>{{ row.name }}</td><td>{{ row.materials }}</td><td>{{ row.value|floatformat:0 }} DA</td></tr>{% empty %}<tr><td colspan="3">Aucun fournisseur associé aux articles filtrés.</td></tr>{% endfor %}
+      </tbody></table>
+    </article>
+  </section>
+
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
+    <article class="kpi-panel overflow-x-auto"><div class="flex items-center justify-between gap-2 mb-3"><div><h2>🔄 Journal des mouvements</h2><p>Répartition des quantités par unité, sans additionner kg, pièces, litres, etc.</p></div><a class="kpi-action" href="{% url 'stock_advanced' %}?tab=mouvements&mvt_from={{ date_from }}&mvt_to={{ date_to }}">Journal complet →</a></div>
+      <table class="kpi-table"><thead><tr><th>Unité</th><th>Entrées</th><th>Sorties / pertes</th><th>Événements</th></tr></thead><tbody>
+      {% for row in movement_by_unit %}<tr><td>{{ row.unit }}</td><td>{{ row.entry|floatformat:2 }}</td><td>{{ row.exit|floatformat:2 }}</td><td>{{ row.events }}</td></tr>{% empty %}<tr><td colspan="4">Aucun mouvement sur cette période.</td></tr>{% endfor %}
+      </tbody></table>
+      <h3 class="mt-5 mb-2 text-sm font-bold text-slate-200">Derniers mouvements</h3>
+      <table class="kpi-table"><thead><tr><th>Date</th><th>Type</th><th>Article</th><th>Qté</th><th>Emplacement</th></tr></thead><tbody>
+      {% for m in recent_movements %}<tr><td>{{ m.date|date:"d/m/Y H:i" }}</td><td>{{ m.get_type_display }}</td><td>{{ m.material.name }}</td><td>{{ m.quantite|floatformat:2 }} {{ m.material.unit }}</td><td>{{ m.emplacement_destination|default:m.emplacement_source|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5">Aucun mouvement récent sur la période.</td></tr>{% endfor %}
+      </tbody></table>
+    </article>
+    <article class="kpi-panel"><div class="flex items-center justify-between gap-2 mb-3"><div><h2>🧪 Lots & achats</h2><p>Situation des lots qualité, demandes d'achat et commandes fournisseurs.</p></div><a class="kpi-action" href="{% url 'stock_advanced' %}?tab=achats">Ouvrir les achats →</a></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="kpi-mini"><span>Lots conformes</span><strong>{{ lots_by_status.CONFORME|default:0 }}</strong></div>
+        <div class="kpi-mini"><span>En attente contrôle</span><strong>{{ lots_by_status.EN_ATTENTE|default:0 }}</strong></div>
+        <div class="kpi-mini"><span>Lots bloqués</span><strong>{{ lots_by_status.BLOQUE|default:0 }}</strong></div>
+        <div class="kpi-mini"><span>Demandes en attente</span><strong>{{ demand_pending }}</strong></div>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2"><a class="kpi-action" href="{% url 'stock_advanced' %}?tab=lots">Traçabilité des lots →</a><a class="kpi-action" href="{% url 'stock_advanced' %}?tab=achats">DA et bons de commande →</a></div>
+      <h3 class="mt-5 mb-2 text-sm font-bold text-slate-200">Articles les plus urgents</h3>
+      <ul class="space-y-2">{% for row in top_alerts %}<li class="flex justify-between gap-3 rounded-lg bg-slate-900/60 px-3 py-2 text-sm"><span class="truncate">{{ row.material.name }}</span><span class="font-bold {% if row.level == 'RUPTURE' %}text-red-300{% elif row.level == 'CRITIQUE' %}text-orange-300{% else %}text-amber-300{% endif %}">{{ row.level }} · {{ row.quantity|floatformat:2 }} {{ row.material.unit }}</span></li>{% empty %}<li class="text-sm text-emerald-300">Aucune alerte dans la sélection.</li>{% endfor %}</ul>
+    </article>
+  </section>
+</div>
+<style>
+.kpi-link{border:1px solid #35516b;background:#172b40;border-radius:999px;padding:8px 12px;color:#cde6f6;font-size:12px;font-weight:800}.kpi-link:hover,.kpi-action:hover{background:#164e63;color:#fff}.kpi-label{display:block;color:#94a3b8;font-size:10px;text-transform:uppercase;font-weight:900;margin-bottom:5px}.kpi-input{width:100%;border:1px solid #475569;background:#0f1f31;border-radius:8px;padding:9px;color:#f8fafc;font-size:12px}.kpi-card,.kpi-panel{background:#1b2d40;border:1px solid #344c63;border-radius:16px;padding:16px}.kpi-card{display:flex;flex-direction:column;gap:7px}.kpi-card strong{font-size:24px;font-weight:950;line-height:1.1}.kpi-card small,.kpi-card a{font-size:10px;color:#aab9c7}.kpi-caption{font-size:10px;color:#91a6b7;text-transform:uppercase;font-weight:900;letter-spacing:.08em}.kpi-panel h2{font-weight:900;font-size:16px;color:#f1f5f9}.kpi-panel p{font-size:11px;color:#94a3b8;margin-top:4px}.kpi-table{width:100%;border-collapse:collapse;font-size:12px}.kpi-table th,.kpi-table td{padding:9px 10px;border-bottom:1px solid #334155;text-align:left}.kpi-table th{font-size:10px;text-transform:uppercase;color:#91a6b7}.kpi-action{display:inline-flex;border:1px solid #3b6177;border-radius:8px;padding:7px 10px;color:#67e8f9;font-size:11px;font-weight:900;white-space:nowrap}.kpi-mini{background:#0f1f31;border:1px solid #34465a;border-radius:10px;padding:12px}.kpi-mini span{display:block;color:#93a4b4;font-size:10px}.kpi-mini strong{display:block;font-size:22px;margin-top:4px}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  if (!window.Chart) return;
+  const labels={{ trend_labels|json_embed }};
+  new Chart(document.getElementById('movementTrend'), {type:'line',data:{labels:labels,datasets:[{label:'Entrées (événements)',data:{{ entry_series|json_embed }},borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,.12)',tension:.3,fill:true},{label:'Sorties / pertes (événements)',data:{{ exit_series|json_embed }},borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,.10)',tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#cbd5e1'}}},scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,.10)'}},y:{beginAtZero:true,ticks:{color:'#94a3b8',precision:0},grid:{color:'rgba(148,163,184,.10)'}}}}});
+  new Chart(document.getElementById('familyValue'), {type:'doughnut',data:{labels:{{ family_labels|json_embed }},datasets:[{data:{{ family_values|json_embed }},backgroundColor:['#22d3ee','#f97316','#a78bfa','#facc15','#34d399','#fb7185','#60a5fa','#2dd4bf','#c084fc','#f87171'],borderColor:'#1b2d40',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#cbd5e1',boxWidth:12}}}}});
+});
+</script>
+{% endblock %}

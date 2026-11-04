@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="fr" class="dark">
+<html lang="fr" class="dark" data-appearance="cockpit">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -26,8 +26,8 @@
     <!-- LIBRAIRIES                                                       -->
     <!-- ================================================================ -->
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{% static 'css/tailwind.min.css' %}">
+    <script src="{% static 'vendor/chart.umd.min.js' %}"></script>
 
     <!-- ================================================================ -->
     <!-- THEME IMMÉDIAT                                                    -->
@@ -47,26 +47,25 @@
     </script>
 
     <!-- ================================================================ -->
-    <!-- TAILWIND                                                         -->
+    <!-- APPARENCE VISUELLE (INDÉPENDANTE DU MODE CLAIR / SOMBRE)          -->
     <!-- ================================================================ -->
+    <script>
+        (function () {
+            var appearance = 'cockpit';
+
+            try {
+                appearance = localStorage.getItem('fbpack-appearance') === 'modern'
+                    ? 'modern'
+                    : 'cockpit';
+            } catch (error) {
+                appearance = 'cockpit';
+            }
+
+            document.documentElement.setAttribute('data-appearance', appearance);
+        })();
+    </script>
 
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-
-            theme: {
-                extend: {
-                    colors: {
-                        neon: '#f3b83a',
-                        darkbg: '#22375c',
-                        panel: '#1e293b',
-                        lightbg: '#f8fafc',
-                        lightcard: '#ffffff'
-                    }
-                }
-            }
-        };
-
         /*
          * Fallback automatique des images.
          */
@@ -1031,6 +1030,1396 @@
                 0 4px 12px rgba(15, 23, 42, 0.06) !important;
         }
 
+
+        /* ============================================================ */
+        /* SÉLECTEUR D'APPARENCE (indépendant du clair / sombre)          */
+        /* ============================================================ */
+
+        .fb-appearance-control {
+            -webkit-tap-highlight-color: transparent;
+            appearance: none;
+            width: 100%;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 7px 10px;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.68);
+            color: #e2e8f0;
+            font-family: inherit;
+            text-align: left;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .fb-appearance-control:not(.fb-appearance-control--compact) {
+            margin-bottom: 12px;
+        }
+
+        .fb-appearance-control:hover {
+            border-color: rgba(45, 212, 191, 0.58);
+            background: rgba(30, 41, 59, 0.92);
+        }
+
+        .fb-appearance-control:focus-visible {
+            outline: 3px solid rgba(45, 212, 191, 0.55);
+            outline-offset: 2px;
+        }
+
+        .fb-appearance-control__copy {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .fb-appearance-control__icon {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9px;
+            background: rgba(243, 184, 58, 0.14);
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .fb-appearance-control__text {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .fb-appearance-control__label {
+            color: #94a3b8;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            line-height: 1.1;
+            text-transform: uppercase;
+        }
+
+        .fb-appearance-control__value {
+            color: #f8fafc;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .fb-appearance-control__switch {
+            position: relative;
+            width: 38px;
+            height: 22px;
+            flex: 0 0 38px;
+            display: inline-block;
+            border: 1px solid rgba(148, 163, 184, 0.36);
+            border-radius: 999px;
+            background: #475569;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .fb-appearance-control__thumb {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #f8fafc;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+            transition: transform 0.2s ease;
+        }
+
+        .fb-appearance-control[aria-pressed="true"] .fb-appearance-control__switch {
+            border-color: #2dd4bf;
+            background: #0f9f90;
+        }
+
+        .fb-appearance-control[aria-pressed="true"] .fb-appearance-control__thumb {
+            transform: translateX(16px);
+        }
+
+        .fb-appearance-control--compact {
+            width: auto;
+            min-width: 48px;
+            min-height: 34px;
+            justify-content: center;
+            gap: 5px;
+            padding: 5px 6px;
+            border-radius: 10px;
+        }
+
+        .fb-appearance-control--compact .fb-appearance-control__icon {
+            width: 18px;
+            height: 20px;
+            flex-basis: 18px;
+            background: transparent;
+            font-size: 14px;
+        }
+
+        .fb-appearance-control--compact .fb-appearance-control__switch {
+            width: 28px;
+            height: 16px;
+            flex-basis: 28px;
+        }
+
+        .fb-appearance-control--compact .fb-appearance-control__thumb {
+            top: 2px;
+            left: 2px;
+            width: 10px;
+            height: 10px;
+        }
+
+        .fb-appearance-control--compact[aria-pressed="true"] .fb-appearance-control__thumb {
+            transform: translateX(12px);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .fb-appearance-control,
+            .fb-appearance-control__switch,
+            .fb-appearance-control__thumb {
+                transition: none !important;
+            }
+        }
+
+        /* ============================================================ */
+        /* APPARENCE 2 : ATELIER MODERNE                                 */
+        /* Le thème clair/sombre reste totalement indépendant.           */
+        /* ============================================================ */
+
+        html[data-appearance="modern"] {
+            --fb-modern-accent: #2dd4bf;
+            --fb-modern-border-dark: rgba(148, 163, 184, 0.16);
+            --fb-modern-border-light: #dbe4ee;
+        }
+
+        html.dark[data-appearance="modern"] body {
+            background-color: #0b1220 !important;
+            background-image:
+                radial-gradient(circle at 82% 3%, rgba(20, 184, 166, 0.08), transparent 27rem),
+                linear-gradient(145deg, #0b1220 0%, #111c2e 100%) !important;
+            color: #e2e8f0 !important;
+        }
+
+        html:not(.dark)[data-appearance="modern"] body {
+            background-color: #f2f5fa !important;
+            background-image:
+                radial-gradient(circle at 88% 0%, rgba(45, 212, 191, 0.10), transparent 26rem),
+                linear-gradient(145deg, #f7f9fc 0%, #eef3f8 100%) !important;
+            color: #334155 !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar {
+            background: linear-gradient(180deg, #101a2a 0%, #13243a 55%, #102034 100%) !important;
+            border-right-color: rgba(148, 163, 184, 0.16) !important;
+            box-shadow: 12px 0 32px rgba(2, 8, 23, 0.20) !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:first-child {
+            background: rgba(15, 23, 42, 0.48) !important;
+            border-bottom-color: rgba(148, 163, 184, 0.14) !important;
+            box-shadow: none !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:last-child {
+            background: rgba(9, 16, 29, 0.64) !important;
+            border-top-color: rgba(148, 163, 184, 0.16) !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-drh {
+            width: calc(100% - 16px);
+            margin: 3px 8px;
+            border-right: 0 !important;
+            border-radius: 10px;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link:hover,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-drh:hover {
+            color: #f8fafc !important;
+            background: rgba(148, 163, 184, 0.10) !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link.active,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-drh.active {
+            padding-left: 21px;
+            color: #99f6e4 !important;
+            background: rgba(45, 212, 191, 0.13) !important;
+            border-left: 3px solid var(--fb-modern-accent) !important;
+            border-right: 0 !important;
+            box-shadow: inset 0 0 0 1px rgba(45, 212, 191, 0.08);
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link.active:hover,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-drh.active:hover {
+            color: #ccfbf1 !important;
+            background: rgba(45, 212, 191, 0.18) !important;
+        }
+
+        html.dark[data-appearance="modern"] #main-sidebar ~ div {
+            background-color: #0b1220 !important;
+            color: #e2e8f0;
+        }
+
+        html:not(.dark)[data-appearance="modern"] #main-sidebar ~ div {
+            background-color: #f2f5fa !important;
+            color: #334155;
+        }
+
+        html.dark[data-appearance="modern"] #fb-main-content {
+            background-color: #101a2a !important;
+            background-image:
+                radial-gradient(circle at 88% 0%, rgba(20, 184, 166, 0.065), transparent 30rem),
+                linear-gradient(150deg, #101a2a 0%, #111c2e 100%) !important;
+            color: #e2e8f0 !important;
+        }
+
+        html:not(.dark)[data-appearance="modern"] #fb-main-content {
+            background-color: #f2f5fa !important;
+            background-image:
+                radial-gradient(circle at 88% 0%, rgba(45, 212, 191, 0.075), transparent 30rem),
+                linear-gradient(150deg, #f7f9fc 0%, #eef3f8 100%) !important;
+            color: #334155 !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar ~ div > header {
+            background: rgba(15, 23, 42, 0.92) !important;
+            border-bottom-color: rgba(148, 163, 184, 0.17) !important;
+            box-shadow: 0 8px 24px rgba(2, 8, 23, 0.16) !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar ~ div nav[style*="safe-area-inset-bottom"] {
+            background: rgba(15, 23, 42, 0.96) !important;
+            border-top-color: rgba(148, 163, 184, 0.18) !important;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        html.dark[data-appearance="modern"] #fb-main-content .glass,
+        html.dark[data-appearance="modern"] #fb-main-content .glass-card,
+        html.dark[data-appearance="modern"] #fb-main-content .production-card,
+        html.dark[data-appearance="modern"] #fb-main-content .production-panel,
+        html.dark[data-appearance="modern"] #fb-main-content .planning-card,
+        html.dark[data-appearance="modern"] #fb-main-content .planning-panel {
+            background-color: #17243a !important;
+            background-image: none !important;
+            border-color: var(--fb-modern-border-dark) !important;
+            border-radius: 16px !important;
+            color: #e2e8f0 !important;
+            box-shadow: 0 10px 28px rgba(2, 8, 23, 0.24) !important;
+        }
+
+        html:not(.dark)[data-appearance="modern"] #fb-main-content .glass,
+        html:not(.dark)[data-appearance="modern"] #fb-main-content .glass-card,
+        html:not(.dark)[data-appearance="modern"] #fb-main-content .production-card,
+        html:not(.dark)[data-appearance="modern"] #fb-main-content .production-panel,
+        html:not(.dark)[data-appearance="modern"] #fb-main-content .planning-card,
+        html:not(.dark)[data-appearance="modern"] #fb-main-content .planning-panel {
+            background: #ffffff !important;
+            background-image: none !important;
+            border-color: var(--fb-modern-border-light) !important;
+            border-radius: 16px !important;
+            color: #334155 !important;
+            box-shadow: 0 8px 24px rgba(30, 41, 59, 0.075) !important;
+        }
+
+        html[data-appearance="modern"] #fb-main-content div[class~="rounded-xl"][class*="bg-"],
+        html[data-appearance="modern"] #fb-main-content div[class~="rounded-2xl"][class*="bg-"] {
+            border-radius: 15px !important;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.10);
+        }
+
+        html.dark[data-appearance="modern"] #fb-main-content div[class~="rounded-xl"][class*="bg-slate-"],
+        html.dark[data-appearance="modern"] #fb-main-content div[class~="rounded-2xl"][class*="bg-slate-"] {
+            background-color: #17243a !important;
+            border-color: var(--fb-modern-border-dark) !important;
+        }
+
+        html[data-appearance="modern"] #fb-main-content table {
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        html.dark[data-appearance="modern"] #fb-main-content table {
+            border: 1px solid var(--fb-modern-border-dark);
+            background-color: rgba(23, 36, 58, 0.72);
+        }
+
+        html:not(.dark)[data-appearance="modern"] #fb-main-content table {
+            border: 1px solid var(--fb-modern-border-light);
+            background-color: #ffffff;
+        }
+
+        html[data-appearance="modern"] #fb-main-content thead th,
+        html[data-appearance="modern"] #fb-main-content th {
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.045em;
+        }
+
+        html.dark[data-appearance="modern"] #fb-main-content thead th,
+        html.dark[data-appearance="modern"] #fb-main-content th {
+            border-color: var(--fb-modern-border-dark) !important;
+        }
+
+        html:not(.dark)[data-appearance="modern"] #fb-main-content thead th,
+        html:not(.dark)[data-appearance="modern"] #fb-main-content th {
+            border-color: var(--fb-modern-border-light) !important;
+        }
+
+        html[data-appearance="modern"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
+        html[data-appearance="modern"] #fb-main-content select,
+        html[data-appearance="modern"] #fb-main-content textarea {
+            min-height: 40px;
+            border-radius: 10px;
+        }
+
+        html.dark[data-appearance="modern"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
+        html.dark[data-appearance="modern"] #fb-main-content select,
+        html.dark[data-appearance="modern"] #fb-main-content textarea {
+            border-color: rgba(148, 163, 184, 0.28) !important;
+        }
+
+        html:not(.dark)[data-appearance="modern"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
+        html:not(.dark)[data-appearance="modern"] #fb-main-content select,
+        html:not(.dark)[data-appearance="modern"] #fb-main-content textarea {
+            border-color: #d5dfeb !important;
+            border-radius: 10px;
+        }
+
+        html[data-appearance="modern"] #fb-main-content ::-webkit-scrollbar {
+            width: 9px;
+            height: 9px;
+        }
+
+        html.dark[data-appearance="modern"] #fb-main-content ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.45);
+        }
+
+        html.dark[data-appearance="modern"] #fb-main-content ::-webkit-scrollbar-thumb {
+            border: 2px solid #101a2a;
+            border-radius: 999px;
+            background: #475569;
+        }
+
+        html:not(.dark)[data-appearance="modern"] #fb-main-content ::-webkit-scrollbar-track {
+            background: #e8eef5;
+        }
+
+        html:not(.dark)[data-appearance="modern"] #fb-main-content ::-webkit-scrollbar-thumb {
+            border: 2px solid #f2f5fa;
+            border-radius: 999px;
+            background: #b6c3d2;
+        }
+
+
+        /* ============================================================ */
+        /* SWITCH APPARENCE DESKTOP COMPACT                              */
+        /* Le statut reste visible, sans occuper une ligne du menu.      */
+        /* ============================================================ */
+
+        .fb-appearance-control--inline {
+            width: auto;
+            min-width: 0;
+            min-height: 34px;
+            flex: 0 0 auto;
+            justify-content: center;
+            gap: 4px;
+            margin: 0;
+            padding: 4px 6px;
+            border-radius: 10px;
+        }
+
+        .fb-appearance-control--inline .fb-appearance-control__icon {
+            width: 16px;
+            height: 18px;
+            flex: 0 0 16px;
+            background: transparent;
+            font-size: 12px;
+        }
+
+        .fb-appearance-control--inline .fb-appearance-control__value {
+            color: #e2e8f0;
+            font-size: 9px;
+            font-weight: 800;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .fb-appearance-control--inline .fb-appearance-control__switch {
+            width: 26px;
+            height: 16px;
+            flex-basis: 26px;
+        }
+
+        .fb-appearance-control--inline .fb-appearance-control__thumb {
+            top: 2px;
+            left: 2px;
+            width: 10px;
+            height: 10px;
+        }
+
+        .fb-appearance-control--inline[aria-pressed="true"] .fb-appearance-control__thumb {
+            transform: translateX(10px);
+        }
+
+        .fb-appearance-control.fb-appearance-control--inline {
+            margin: 0;
+        }
+
+        /* Les trois contrôles du compte tiennent sur une seule ligne. */
+        #main-sidebar > div:last-child > div:first-child {
+            gap: 6px !important;
+            margin-bottom: 8px !important;
+        }
+
+        #main-sidebar > div:last-child > div:first-child > div:first-child {
+            width: 32px !important;
+            height: 32px !important;
+            flex: 0 0 32px !important;
+        }
+
+        #main-sidebar #theme-toggle {
+            width: 34px !important;
+            height: 34px !important;
+            flex: 0 0 34px !important;
+            padding: 4px !important;
+        }
+
+        /* ============================================================ */
+        /* MENU LATÉRAL PLUS DENSE ET LISIBLE EN MODE MODERNE           */
+        /* ============================================================ */
+
+        html[data-appearance="modern"] #main-sidebar > div:first-child {
+            height: 56px !important;
+            flex-basis: 56px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:nth-of-type(2) {
+            padding-top: 8px !important;
+            padding-bottom: 8px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:nth-of-type(2) button {
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav {
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav > * + * {
+            margin-top: 1px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav > div[class*="mt-6"] {
+            margin-top: 5px !important;
+            margin-bottom: 1px !important;
+            padding-left: 16px !important;
+            font-size: 9px !important;
+            line-height: 11px !important;
+            letter-spacing: 0.08em;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-drh,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-maint {
+            width: calc(100% - 12px) !important;
+            min-height: 28px;
+            margin: 1px 6px !important;
+            padding-top: 4px !important;
+            padding-bottom: 4px !important;
+            border-right: 0 !important;
+            border-radius: 9px;
+            font-size: 12.5px !important;
+            line-height: 1.2 !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link > span:first-child,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-drh > span:first-child,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-maint > span:first-child {
+            margin-right: 8px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link.active,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-drh.active,
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-maint.active {
+            padding-left: 13px !important;
+            color: #99f6e4 !important;
+            background: rgba(45, 212, 191, 0.13) !important;
+            border-left: 3px solid var(--fb-modern-accent) !important;
+            border-right: 0 !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav a.nav-link-maint:hover {
+            color: #f8fafc !important;
+            background: rgba(148, 163, 184, 0.10) !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav > button {
+            width: calc(100% - 16px) !important;
+            min-height: 27px;
+            margin: 1px 8px !important;
+            padding-top: 4px !important;
+            padding-bottom: 4px !important;
+            border-radius: 8px;
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        html[data-appearance="modern"] #main-sidebar nav::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.42);
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:last-child {
+            padding: 8px 10px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:last-child > div:first-child {
+            gap: 6px !important;
+            margin-bottom: 7px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:last-child > div:first-child > div:first-child {
+            width: 32px !important;
+            height: 32px !important;
+            flex: 0 0 32px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar #theme-toggle {
+            width: 34px !important;
+            height: 34px !important;
+            flex: 0 0 34px !important;
+            padding: 4px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:last-child > .grid {
+            gap: 6px !important;
+        }
+
+        html[data-appearance="modern"] #main-sidebar > div:last-child > .grid a,
+        html[data-appearance="modern"] #main-sidebar > div:last-child > .grid form button {
+            min-height: 28px;
+            padding-top: 4px !important;
+            padding-bottom: 4px !important;
+            font-size: 11px !important;
+        }
+
+        @media (max-height: 820px) {
+            html[data-appearance="modern"] #main-sidebar > div:first-child {
+                height: 50px !important;
+                flex-basis: 50px !important;
+            }
+
+            html[data-appearance="modern"] #main-sidebar > div:nth-of-type(2) {
+                padding-top: 6px !important;
+                padding-bottom: 6px !important;
+            }
+
+            html[data-appearance="modern"] #main-sidebar nav {
+                padding-top: 4px !important;
+                padding-bottom: 4px !important;
+            }
+
+            html[data-appearance="modern"] #main-sidebar nav a.nav-link,
+            html[data-appearance="modern"] #main-sidebar nav a.nav-link-drh,
+            html[data-appearance="modern"] #main-sidebar nav a.nav-link-maint {
+                min-height: 25px;
+                padding-top: 3px !important;
+                padding-bottom: 3px !important;
+                font-size: 12px !important;
+            }
+
+            html[data-appearance="modern"] #main-sidebar nav > div[class*="mt-6"] {
+                margin-top: 4px !important;
+                margin-bottom: 0 !important;
+                line-height: 10px !important;
+            }
+
+            html[data-appearance="modern"] #main-sidebar > div:last-child {
+                padding: 6px 9px !important;
+            }
+
+            html[data-appearance="modern"] #main-sidebar > div:last-child > div:first-child {
+                margin-bottom: 5px !important;
+            }
+
+            html[data-appearance="modern"] #main-sidebar > div:last-child > .grid a,
+            html[data-appearance="modern"] #main-sidebar > div:last-child > .grid form button {
+                min-height: 26px;
+                padding-top: 3px !important;
+                padding-bottom: 3px !important;
+            }
+        }
+
+
+        /* ============================================================ */
+        /* COMPACTAGE PARTAGÉ : CLASSIQUE + MODERNE, CLAIR + SOMBRE     */
+        /* La couleur de chaque apparence reste inchangée.               */
+        /* ============================================================ */
+
+        #main-sidebar > div:first-child {
+            height: 56px !important;
+            flex-basis: 56px !important;
+        }
+
+        #main-sidebar > div:nth-of-type(2) {
+            padding-top: 8px !important;
+            padding-bottom: 8px !important;
+        }
+
+        #main-sidebar > div:nth-of-type(2) button {
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+        }
+
+        #main-sidebar nav {
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        #main-sidebar nav > * + * {
+            margin-top: 1px !important;
+        }
+
+        #main-sidebar nav > div[class*="mt-6"] {
+            margin-top: 5px !important;
+            margin-bottom: 1px !important;
+            padding-left: 16px !important;
+            font-size: 10px !important;
+            line-height: 11px !important;
+        }
+
+        #main-sidebar nav a.nav-link,
+        #main-sidebar nav a.nav-link-drh,
+        #main-sidebar nav a.nav-link-maint {
+            width: calc(100% - 12px) !important;
+            min-height: 28px;
+            margin: 1px 6px !important;
+            padding-top: 4px !important;
+            padding-bottom: 4px !important;
+            font-size: 13px !important;
+            line-height: 1.2 !important;
+        }
+
+        #main-sidebar nav a.nav-link > span:first-child,
+        #main-sidebar nav a.nav-link-drh > span:first-child,
+        #main-sidebar nav a.nav-link-maint > span:first-child {
+            margin-right: 8px !important;
+        }
+
+        #main-sidebar nav > button {
+            width: calc(100% - 16px) !important;
+            min-height: 27px;
+            margin: 1px 8px !important;
+            padding-top: 4px !important;
+            padding-bottom: 4px !important;
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+        }
+
+        #main-sidebar nav::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #main-sidebar nav::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.42);
+        }
+
+        #main-sidebar > div:last-child {
+            padding: 8px 10px !important;
+        }
+
+        #main-sidebar > div:last-child > .grid {
+            gap: 6px !important;
+        }
+
+        #main-sidebar > div:last-child > .grid a,
+        #main-sidebar > div:last-child > .grid form button {
+            min-height: 28px;
+            padding-top: 4px !important;
+            padding-bottom: 4px !important;
+            font-size: 11px !important;
+        }
+
+        @media (max-height: 820px) {
+            #main-sidebar > div:first-child {
+                height: 50px !important;
+                flex-basis: 50px !important;
+            }
+
+            #main-sidebar > div:nth-of-type(2) {
+                padding-top: 6px !important;
+                padding-bottom: 6px !important;
+            }
+
+            #main-sidebar nav {
+                padding-top: 4px !important;
+                padding-bottom: 4px !important;
+            }
+
+            #main-sidebar nav a.nav-link,
+            #main-sidebar nav a.nav-link-drh,
+            #main-sidebar nav a.nav-link-maint {
+                min-height: 25px;
+                padding-top: 3px !important;
+                padding-bottom: 3px !important;
+                font-size: 12px !important;
+            }
+
+            #main-sidebar nav > div[class*="mt-6"] {
+                margin-top: 4px !important;
+                margin-bottom: 0 !important;
+                line-height: 10px !important;
+            }
+
+            #main-sidebar > div:last-child {
+                padding: 6px 9px !important;
+            }
+
+            #main-sidebar > div:last-child > div:first-child {
+                margin-bottom: 5px !important;
+            }
+
+            #main-sidebar > div:last-child > .grid a,
+            #main-sidebar > div:last-child > .grid form button {
+                min-height: 26px;
+                padding-top: 3px !important;
+                padding-bottom: 3px !important;
+            }
+        }
+
+
+        /* ============================================================ */
+        /* NOUVELLE DISPOSITION : COCKPIT FB PACK                        */
+        /* Barre supérieure + raccourcis + tiroir de modules.            */
+        /* Style inspiré des tableaux de bord en tuiles, sans logo tiers. */
+        /* ============================================================ */
+
+        html[data-appearance="cockpit"] body {
+            font-family: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        html[data-appearance="cockpit"] #fb-cockpit-topbar {
+            display: flex !important;
+            flex: 0 0 50px;
+            min-height: 50px;
+            align-items: center;
+            gap: 14px;
+            padding: 0 18px;
+            position: relative;
+            z-index: 120;
+            border-bottom: 1px solid #c8e2ef;
+            background: linear-gradient(90deg, #dff4ff 0%, #f7fcff 55%, #e4f5fd 100%);
+            color: #18364d;
+            box-shadow: 0 2px 8px rgba(21, 68, 96, 0.08);
+        }
+
+        html[data-appearance="cockpit"] #fb-cockpit-shortcuts {
+            display: flex !important;
+            flex: 0 0 40px;
+            min-height: 40px;
+            align-items: center;
+            gap: 7px;
+            padding: 0 18px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            border-bottom: 1px solid rgba(146, 187, 209, 0.52);
+            background: rgba(237, 248, 253, 0.94);
+            scrollbar-width: thin;
+        }
+
+        html.dark[data-appearance="cockpit"] #fb-cockpit-topbar {
+            border-bottom-color: #243c53;
+            background: linear-gradient(90deg, #132840 0%, #1a354e 55%, #153047 100%);
+            color: #e7f2f8;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.24);
+        }
+
+        html.dark[data-appearance="cockpit"] #fb-cockpit-shortcuts {
+            border-bottom-color: #263e55;
+            background: rgba(18, 39, 59, 0.96);
+        }
+
+        html[data-appearance="cockpit"] #main-sidebar ~ div {
+            background: #eaf6fc !important;
+            color: #1e3448;
+        }
+
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content {
+            background-color: #eaf6fc !important;
+            background-image:
+                radial-gradient(circle at 88% 2%, rgba(56, 189, 248, 0.16), transparent 28rem),
+                linear-gradient(145deg, #e9f7ff 0%, #dff0fa 100%) !important;
+            color: #1e3448 !important;
+        }
+
+        html.dark[data-appearance="cockpit"] #main-sidebar ~ div {
+            background: #0e1c2b !important;
+            color: #e2e8f0;
+        }
+
+        html.dark[data-appearance="cockpit"] #fb-main-content {
+            background-color: #0e1c2b !important;
+            background-image:
+                radial-gradient(circle at 88% 2%, rgba(56, 189, 248, 0.09), transparent 28rem),
+                linear-gradient(145deg, #0e1c2b 0%, #13263a 100%) !important;
+            color: #e2e8f0 !important;
+        }
+
+        html[data-appearance="cockpit"] #main-sidebar {
+            position: absolute !important;
+            inset: 50px auto 0 0 !important;
+            width: min(286px, 86vw) !important;
+            height: auto !important;
+            z-index: 100 !important;
+            border-right: 1px solid rgba(148, 163, 184, 0.24) !important;
+            box-shadow: 16px 0 36px rgba(10, 32, 50, 0.24) !important;
+        }
+
+        html[data-appearance="cockpit"] #main-sidebar[class~="-translate-x-full"] {
+            transform: translateX(-105%) !important;
+        }
+
+        html[data-appearance="cockpit"] #main-sidebar:not([class~="-translate-x-full"]) {
+            transform: translateX(0) !important;
+        }
+
+        html[data-appearance="cockpit"] #mobile-overlay {
+            position: absolute !important;
+            inset: 50px 0 0 0 !important;
+            z-index: 90 !important;
+            background: rgba(12, 27, 41, 0.52) !important;
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+        }
+
+        html[data-appearance="cockpit"] #mobile-overlay:not(.hidden) {
+            display: block !important;
+        }
+
+        html[data-appearance="cockpit"] #main-sidebar ~ div > header[class*="md:hidden"] {
+            display: none !important;
+        }
+
+        html[data-appearance="cockpit"] #fb-main-content > div:last-child {
+            width: 100%;
+            max-width: 1580px;
+            margin: 0 auto;
+            padding: 20px 22px !important;
+        }
+
+        .fb-cockpit-brand {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            flex: 0 0 auto;
+        }
+
+        .fb-cockpit-menu-button {
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(70, 124, 153, 0.22);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.54);
+            color: inherit;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.18s ease, transform 0.18s ease;
+        }
+
+        .fb-cockpit-menu-button:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-1px);
+        }
+
+        .fb-cockpit-brand img {
+            width: auto;
+            max-width: 34px;
+            height: 31px;
+            object-fit: contain;
+        }
+
+        .fb-cockpit-brand-name {
+            color: inherit;
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 0.055em;
+            white-space: nowrap;
+        }
+
+        .fb-cockpit-brand-tag {
+            padding: 3px 6px;
+            border-radius: 5px;
+            background: rgba(14, 165, 233, 0.14);
+            color: #087ca9;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-brand-tag {
+            color: #7dd3fc;
+            background: rgba(56, 189, 248, 0.14);
+        }
+
+        .fb-cockpit-search {
+            min-width: 130px;
+            width: min(360px, 34vw);
+            height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 0 10px;
+            border: 1px solid rgba(94, 145, 170, 0.24);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.56);
+            color: #587084;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .fb-cockpit-search:hover {
+            border-color: #65b9df;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .fb-cockpit-search-icon {
+            color: #1686b4;
+            font-size: 15px;
+        }
+
+        .fb-cockpit-search-label {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 11px;
+        }
+
+        .fb-cockpit-search kbd {
+            padding: 2px 5px;
+            border: 1px solid rgba(100, 116, 139, 0.22);
+            border-radius: 4px;
+            color: #60788a;
+            font-family: inherit;
+            font-size: 8px;
+            white-space: nowrap;
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-search {
+            border-color: #35526c;
+            background: rgba(7, 20, 34, 0.45);
+            color: #b9cfdd;
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-search:hover {
+            background: rgba(34, 60, 82, 0.86);
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-search kbd {
+            border-color: #486177;
+            color: #a9c0ce;
+        }
+
+        .fb-cockpit-spacer {
+            flex: 1 1 auto;
+        }
+
+        .fb-cockpit-notification {
+            position: relative;
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            color: inherit;
+            font-size: 18px;
+            text-decoration: none;
+        }
+
+        .fb-cockpit-notification:hover {
+            border-color: rgba(79, 147, 181, 0.24);
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .fb-cockpit-notification-count {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            min-width: 16px;
+            height: 16px;
+            padding: 0 4px;
+            border: 2px solid #eaf7fd;
+            border-radius: 999px;
+            background: #dc3545;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 900;
+            line-height: 12px;
+            text-align: center;
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-notification-count {
+            border-color: #173149;
+        }
+
+        .fb-cockpit-user {
+            min-width: 0;
+            max-width: 190px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 8px 3px 3px;
+            border: 1px solid rgba(94, 145, 170, 0.18);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.40);
+        }
+
+        .fb-cockpit-user-avatar {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f3b83a, #f28c28);
+            color: #182332;
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .fb-cockpit-user-name {
+            overflow: hidden;
+            color: inherit;
+            font-size: 10px;
+            font-weight: 800;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-user {
+            border-color: #35526c;
+            background: rgba(7, 20, 34, 0.42);
+        }
+
+        .fb-cockpit-shortcuts-label {
+            margin-right: 5px;
+            color: #6c879a;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-shortcuts-label {
+            color: #91a9b8;
+        }
+
+        .fb-cockpit-shortcut,
+        .fb-cockpit-all-modules {
+            min-height: 28px;
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border: 1px solid rgba(101, 148, 172, 0.18);
+            border-radius: 7px;
+            background: rgba(255, 255, 255, 0.50);
+            color: #39566b;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 800;
+            text-decoration: none;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: color 0.16s ease, background-color 0.16s ease, border-color 0.16s ease;
+        }
+
+        .fb-cockpit-shortcut:hover,
+        .fb-cockpit-all-modules:hover {
+            border-color: #8cc8e2;
+            background: #fff;
+            color: #087ca9;
+        }
+
+        .fb-cockpit-shortcut.is-active {
+            border-color: rgba(14, 165, 233, 0.34);
+            background: #d5f0fc;
+            color: #087ca9;
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-shortcut,
+        html.dark[data-appearance="cockpit"] .fb-cockpit-all-modules {
+            border-color: #35526c;
+            background: rgba(7, 20, 34, 0.42);
+            color: #c6d8e3;
+        }
+
+        html.dark[data-appearance="cockpit"] .fb-cockpit-shortcut:hover,
+        html.dark[data-appearance="cockpit"] .fb-cockpit-all-modules:hover,
+        html.dark[data-appearance="cockpit"] .fb-cockpit-shortcut.is-active {
+            border-color: #328bb5;
+            background: rgba(14, 116, 144, 0.34);
+            color: #a5f3fc;
+        }
+
+        .fb-cockpit-all-modules {
+            margin-left: auto;
+            border-color: rgba(14, 165, 233, 0.28);
+            color: #087ca9;
+        }
+
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .glass,
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .glass-card,
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .production-card,
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .production-panel,
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .planning-card,
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .planning-panel {
+            background: #ffffff !important;
+            background-image: none !important;
+            border-color: #cfe0eb !important;
+            border-radius: 9px !important;
+            color: #263f54 !important;
+            box-shadow: 0 2px 8px rgba(30, 75, 102, 0.10) !important;
+        }
+
+        html.dark[data-appearance="cockpit"] #fb-main-content .glass,
+        html.dark[data-appearance="cockpit"] #fb-main-content .glass-card,
+        html.dark[data-appearance="cockpit"] #fb-main-content .production-card,
+        html.dark[data-appearance="cockpit"] #fb-main-content .production-panel,
+        html.dark[data-appearance="cockpit"] #fb-main-content .planning-card,
+        html.dark[data-appearance="cockpit"] #fb-main-content .planning-panel {
+            background: #1a2c3e !important;
+            background-image: none !important;
+            border-color: #304a61 !important;
+            border-radius: 9px !important;
+            color: #e2e8f0 !important;
+            box-shadow: 0 7px 18px rgba(0, 0, 0, 0.20) !important;
+        }
+
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content div[class~="rounded-xl"][class*="bg-slate-"],
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content div[class~="rounded-2xl"][class*="bg-slate-"] {
+            background-color: #ffffff !important;
+            border-color: #cfe0eb !important;
+            color: #263f54 !important;
+            box-shadow: 0 2px 8px rgba(30, 75, 102, 0.10);
+        }
+
+        html.dark[data-appearance="cockpit"] #fb-main-content div[class~="rounded-xl"][class*="bg-slate-"],
+        html.dark[data-appearance="cockpit"] #fb-main-content div[class~="rounded-2xl"][class*="bg-slate-"] {
+            background-color: #1a2c3e !important;
+            border-color: #304a61 !important;
+            color: #e2e8f0 !important;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+        }
+
+        html[data-appearance="cockpit"] #fb-main-content table {
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content thead th,
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content th {
+            background-color: #dff1fb !important;
+            border-color: #c8dfeb !important;
+            color: #24465d !important;
+        }
+
+        html.dark[data-appearance="cockpit"] #fb-main-content thead th,
+        html.dark[data-appearance="cockpit"] #fb-main-content th {
+            background-color: #20384e !important;
+            border-color: #304a61 !important;
+            color: #d7eaf5 !important;
+        }
+
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content select,
+        html:not(.dark)[data-appearance="cockpit"] #fb-main-content textarea {
+            border-color: #c6dce8 !important;
+            border-radius: 7px !important;
+            background-color: #ffffff !important;
+            color: #20384c !important;
+        }
+
+        html.dark[data-appearance="cockpit"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
+        html.dark[data-appearance="cockpit"] #fb-main-content select,
+        html.dark[data-appearance="cockpit"] #fb-main-content textarea {
+            border-color: #3a556d !important;
+            border-radius: 7px !important;
+            background-color: #14273a !important;
+            color: #e2e8f0 !important;
+        }
+
+        @media (max-width: 700px) {
+            html[data-appearance="cockpit"] #fb-cockpit-topbar {
+                gap: 8px;
+                padding: 0 9px;
+            }
+
+            html[data-appearance="cockpit"] #fb-cockpit-shortcuts {
+                gap: 5px;
+                padding: 0 9px;
+            }
+
+            html[data-appearance="cockpit"] .fb-cockpit-brand-name {
+                display: none;
+            }
+
+            html[data-appearance="cockpit"] .fb-cockpit-brand-tag {
+                display: none;
+            }
+
+            html[data-appearance="cockpit"] .fb-cockpit-search {
+                width: 38px;
+                min-width: 38px;
+                justify-content: center;
+                gap: 0;
+                padding: 0;
+            }
+
+            html[data-appearance="cockpit"] .fb-cockpit-search-label,
+            html[data-appearance="cockpit"] .fb-cockpit-search kbd,
+            html[data-appearance="cockpit"] .fb-cockpit-user-name {
+                display: none;
+            }
+
+            html[data-appearance="cockpit"] .fb-cockpit-user {
+                padding: 2px;
+                border-color: transparent;
+                background: transparent;
+            }
+
+            html[data-appearance="cockpit"] #fb-main-content > div:last-child {
+                padding: 14px 12px !important;
+            }
+        }
+
+
+        html[data-appearance="cockpit"] #main-sidebar {
+            background: linear-gradient(180deg, #10263a 0%, #142d43 100%) !important;
+            border-right-color: rgba(148, 190, 211, 0.20) !important;
+        }
+
+        html[data-appearance="cockpit"] #main-sidebar > div:first-child {
+            background: rgba(11, 28, 43, 0.44) !important;
+            border-bottom-color: rgba(148, 190, 211, 0.16) !important;
+        }
+
+        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link.active,
+        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link-drh.active,
+        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link-maint.active {
+            padding-left: 13px !important;
+            border-right: 0 !important;
+            border-left: 3px solid #36b8e7 !important;
+            border-radius: 9px;
+            background: rgba(56, 189, 248, 0.14) !important;
+            color: #8cdef9 !important;
+        }
+
+        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link:hover,
+        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link-drh:hover,
+        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link-maint:hover {
+            background: rgba(125, 211, 252, 0.10) !important;
+            color: #e0f2fe !important;
+        }
+
+        html:not(.dark)[data-appearance="cockpit"] #main-sidebar ~ div nav[style*="safe-area-inset-bottom"] {
+            border-top-color: #c8e2ef !important;
+            background: rgba(239, 249, 254, 0.97) !important;
+            color: #35546a;
+            box-shadow: 0 -3px 12px rgba(20, 70, 100, 0.10) !important;
+        }
+
+        html.dark[data-appearance="cockpit"] #main-sidebar ~ div nav[style*="safe-area-inset-bottom"] {
+            border-top-color: #29445c !important;
+            background: rgba(16, 36, 54, 0.97) !important;
+            box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.22) !important;
+        }
+
+
+        /* Raccourcis cockpit : grandes icônes au-dessus des libellés, sans barre de défilement */
+        html[data-appearance="cockpit"] #fb-cockpit-shortcuts {
+            flex: 0 0 auto !important;
+            min-height: 0 !important;
+            height: auto !important;
+            flex-wrap: wrap !important;
+            justify-content: flex-start;
+            gap: 7px;
+            overflow: visible !important;
+            padding: 7px 18px;
+            scrollbar-width: none !important;
+        }
+        html[data-appearance="cockpit"] #fb-cockpit-shortcuts::-webkit-scrollbar { display: none; }
+        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-shortcut,
+        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-all-modules {
+            box-sizing: border-box;
+            width: 88px;
+            min-width: 88px;
+            min-height: 58px;
+            padding: 6px 5px;
+            flex: 0 0 88px;
+            flex-direction: column;
+            gap: 3px;
+            text-align: center;
+            white-space: normal;
+            line-height: 1.15;
+            font-size: 10px;
+        }
+        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-shortcut > span,
+        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-all-modules > span {
+            font-size: 17px;
+            line-height: 1;
+        }
+        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-shortcuts-label {
+            align-self: center;
+            margin: 0 8px 0 0;
+        }
+        @media (max-width: 700px) {
+            html[data-appearance="cockpit"] #fb-cockpit-shortcuts { padding: 6px 8px; gap: 5px; }
+            html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-shortcut,
+            html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-all-modules {
+                width: 72px; min-width: 72px; flex-basis: 72px; min-height: 54px;
+                font-size: 9px;
+            }
+        }
+
     </style>
 </head>
 
@@ -1225,7 +2614,7 @@
                     Reporting
                 </a>
                 {% endif %}
-                {% if 'kpi' in user_modules or True %}
+                {% if 'kpi' in user_modules %}
                 <a
                     href="{% url 'kpi_dashboard' %}"
                     class="nav-link flex items-center px-6 py-2 transition text-sm text-gray-300 group {% if 'kpi' in request.path %}active{% endif %}"
@@ -1515,7 +2904,24 @@
 
                     </button>
 
+                    <button
+                        id="appearance-toggle"
+                        type="button"
+                        class="fb-appearance-control fb-appearance-control--inline"
+                        aria-label="Basculer vers l'apparence moderne"
+                        aria-pressed="false"
+                        title="Changer l'apparence de l'ERP"
+                    >
+                        <span class="fb-appearance-control__icon" aria-hidden="true">🎨</span>
+                        <span class="fb-appearance-control__value" data-appearance-status>Cockpit</span>
+                        <span class="fb-appearance-control__switch" aria-hidden="true">
+                            <span class="fb-appearance-control__thumb"></span>
+                        </span>
+                    </button>
+
                 </div>
+
+
 
 
                 <!-- Le bouton d’installation PWA a été retiré volontairement du panneau latéral. -->
@@ -1571,6 +2977,162 @@
         >
 
 
+
+            <!-- Barre supérieure de la nouvelle apparence Cockpit -->
+            <header
+                id="fb-cockpit-topbar"
+                class="hidden"
+                role="banner"
+                aria-label="Barre principale FB PACK"
+            >
+                <div class="fb-cockpit-brand">
+                    <button
+                        type="button"
+                        class="fb-cockpit-menu-button"
+                        onclick="toggleSidebar()"
+                        aria-controls="main-sidebar"
+                        aria-label="Ouvrir le menu des modules"
+                        title="Tous les modules"
+                    >
+                        <span aria-hidden="true">☰</span>
+                    </button>
+                    <img
+                        src="{% static 'logo1.png' %}"
+                        data-fallback="{% static 'logo.png' %}"
+                        alt="FB PACK"
+                    >
+                    <span class="fb-cockpit-brand-name">FB PACK</span>
+                    <span class="fb-cockpit-brand-tag">ERP</span>
+                </div>
+
+                <button
+                    type="button"
+                    class="fb-cockpit-search"
+                    onclick="var trigger = document.querySelector('[data-global-search-open]'); if (trigger) trigger.click();"
+                    aria-label="Ouvrir la recherche globale"
+                    title="Recherche globale — Ctrl K"
+                >
+                    <span class="fb-cockpit-search-icon" aria-hidden="true">🔍</span>
+                    <span class="fb-cockpit-search-label">Recherche globale...</span>
+                    <kbd>Ctrl K</kbd>
+                </button>
+
+                <span class="fb-cockpit-spacer"></span>
+
+                <a
+                    href="{% url 'notification_center' %}"
+                    class="fb-cockpit-notification"
+                    aria-label="Ouvrir les notifications"
+                    title="Notifications"
+                >
+                    <span aria-hidden="true">🔔</span>
+                    {% if notification_unread_count %}
+                    <span class="fb-cockpit-notification-count">{{ notification_unread_count }}</span>
+                    {% endif %}
+                </a>
+
+                <div class="fb-cockpit-user" title="{{ user.username|default:'Utilisateur' }}">
+                    <span class="fb-cockpit-user-avatar" aria-hidden="true">{{ user.username|slice:":1"|upper }}</span>
+                    <span class="fb-cockpit-user-name">{{ user.username|default:"Utilisateur" }}</span>
+                </div>
+            </header>
+
+            <nav id="fb-cockpit-shortcuts" class="hidden" aria-label="Accès rapide aux modules">
+                <span class="fb-cockpit-shortcuts-label">Modules</span>
+
+                {% if 'dashboard' in user_modules %}
+                <a href="{% url 'dashboard' %}" class="fb-cockpit-shortcut {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}">
+                    <span aria-hidden="true">🏠</span> Accueil
+                </a>
+                {% endif %}
+
+                {% if 'planning' in user_modules %}
+                <a href="{% url 'planning' %}" class="fb-cockpit-shortcut {% if request.resolver_match.url_name == 'planning' %}is-active{% endif %}">
+                    <span aria-hidden="true">📅</span> Planning Gantt
+                </a>
+                {% endif %}
+
+                {% if 'reporting' in user_modules %}
+                <a href="{% url 'reporting' %}" class="fb-cockpit-shortcut {% if request.resolver_match.url_name == 'reporting' %}is-active{% endif %}">
+                    <span aria-hidden="true">📈</span> Reporting
+                </a>
+                {% endif %}
+
+                {% if 'kpi' in user_modules %}
+                <a href="{% url 'kpi_dashboard' %}" class="fb-cockpit-shortcut {% if 'kpi' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">📊</span> KPI & Data Analyse
+                </a>
+                {% endif %}
+
+                {% if 'crm' in user_modules %}
+                <a href="{% url 'crm_view' %}" class="fb-cockpit-shortcut {% if '/crm/' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">🤝</span> CRM
+                </a>
+                {% endif %}
+
+                {% if 'prepress' in user_modules %}
+                <a href="{% url 'prepress_view' %}" class="fb-cockpit-shortcut {% if 'prepress' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">🎨</span> Prépresse
+                </a>
+                {% endif %}
+
+                {% if 'production' in user_modules %}
+                <a href="{% url 'prod_dashboard' %}" class="fb-cockpit-shortcut {% if '/prod/' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">⚙️</span> Atelier
+                </a>
+                {% endif %}
+
+                {% if 'stock' in user_modules %}
+                <a href="{% url 'stock_advanced' %}" class="fb-cockpit-shortcut {% if '/stock/' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">📦</span> Stocks
+                </a>
+                {% endif %}
+
+                {% if 'planification' in user_modules %}
+                <a href="{% url 'planning_atelier' %}" class="fb-cockpit-shortcut {% if 'planning-atelier' in request.path or '/of/' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">📅</span> Planning
+                </a>
+                {% endif %}
+
+                {% if 'maintenance' in user_modules %}
+                <a href="{% url 'maintenance_dashboard' %}" class="fb-cockpit-shortcut {% if 'maintenance' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">🔧</span> Maintenance
+                </a>
+                {% endif %}
+
+                {% if user.is_superuser or user.module_permissions.can_access_suivi_postes %}
+                <a href="{% url 'suivi_postes' %}" class="fb-cockpit-shortcut {% if 'suivi-postes' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">🏭</span> Suivi par poste
+                </a>
+                {% endif %}
+
+                {% if 'drh' in user_modules %}
+                <a href="{% url 'drh_dashboard' %}" class="fb-cockpit-shortcut {% if '/drh/' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">👥</span> DRH
+                </a>
+                {% endif %}
+
+                {% if 'chat' in user_modules %}
+                <a href="{% url 'chat_home' %}" class="fb-cockpit-shortcut {% if 'chat' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">💬</span> Chat d'équipe
+                </a>
+                {% endif %}
+
+                {% if 'chat' in user_modules %}
+                <a href="{% url 'assistant_home' %}" class="fb-cockpit-shortcut {% if '/assistant/' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">🤖</span> Assistant IA
+                </a>
+                {% endif %}
+
+                {% if 'import' in user_modules %}
+                <a href="{% url 'import_stock' %}" class="fb-cockpit-shortcut {% if 'import' in request.path %}is-active{% endif %}">
+                    <span aria-hidden="true">📥</span> Importer Excel
+                </a>
+                {% endif %}
+
+
+            </nav>
+
             <!-- ======================================================== -->
             <!-- HEADER MOBILE                                              -->
             <!-- TOUJOURS DARK                                               -->
@@ -1617,6 +3179,21 @@
 
 
                 <div class="flex items-center gap-2">
+
+
+                    <button
+                        id="appearance-toggle-mobile"
+                        type="button"
+                        class="fb-appearance-control fb-appearance-control--compact"
+                        aria-label="Basculer vers l'apparence moderne"
+                        aria-pressed="false"
+                        title="Changer l'apparence de l'ERP"
+                    >
+                        <span class="fb-appearance-control__icon" aria-hidden="true">🎨</span>
+                        <span class="fb-appearance-control__switch" aria-hidden="true">
+                            <span class="fb-appearance-control__thumb"></span>
+                        </span>
+                    </button>
 
                     <button
                         id="theme-toggle-mobile"
@@ -3200,6 +4777,83 @@
 
     })();
 
+    </script>
+
+
+
+    <!-- ================================================================ -->
+    <!-- SÉLECTEUR D'APPARENCE ERP                                       -->
+    <!-- ================================================================ -->
+    <script>
+    (function () {
+        var storageKey = 'fbpack-appearance';
+        var root = document.documentElement;
+        var controls = [
+            document.getElementById('appearance-toggle'),
+            document.getElementById('appearance-toggle-mobile')
+        ].filter(Boolean);
+
+        function normalizeAppearance(value) {
+            return value === 'modern' ? 'modern' : 'cockpit';
+        }
+
+        function getAppearance() {
+            return normalizeAppearance(root.getAttribute('data-appearance'));
+        }
+
+        function applyAppearance(value, persist) {
+            var appearance = normalizeAppearance(value);
+            var isModern = appearance === 'modern';
+            var currentLabel = isModern ? 'Moderne' : 'Cockpit';
+            var nextLabel = isModern ? 'Cockpit' : 'Moderne';
+
+            root.setAttribute('data-appearance', appearance);
+
+            if (persist) {
+                try {
+                    localStorage.setItem(storageKey, appearance);
+                } catch (error) {
+                    /* L'apparence reste active pour cette page si le stockage est bloqué. */
+                }
+            }
+
+            document.querySelectorAll('[data-appearance-status]').forEach(function (label) {
+                label.textContent = currentLabel;
+            });
+
+            controls.forEach(function (button) {
+                button.setAttribute('aria-pressed', isModern ? 'true' : 'false');
+                button.setAttribute('aria-label', 'Passer à l’apparence ' + nextLabel.toLowerCase());
+                button.title = 'Apparence actuelle : ' + currentLabel + '. Cliquer pour passer à ' + nextLabel + '.';
+            });
+
+            document.dispatchEvent(new CustomEvent('fbpack:appearancechange', {
+                detail: { appearance: appearance }
+            }));
+        }
+
+        controls.forEach(function (button) {
+            button.addEventListener('click', function () {
+                applyAppearance(getAppearance() === 'modern' ? 'cockpit' : 'modern', true);
+            });
+        });
+
+        applyAppearance(getAppearance(), false);
+
+        window.FBPackAppearance = {
+            get: getAppearance,
+            set: function (value) { applyAppearance(value, true); },
+            toggle: function () {
+                applyAppearance(getAppearance() === 'modern' ? 'cockpit' : 'modern', true);
+            }
+        };
+
+        window.addEventListener('storage', function (event) {
+            if (event.key === storageKey) {
+                applyAppearance(event.newValue, false);
+            }
+        });
+    })();
     </script>
 
 

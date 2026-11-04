@@ -633,51 +633,89 @@ def commande_check_stock(request, id):
 
 @login_required
 def commande_creer_of(request, id):
-    commande = get_object_or_404(CommandeClient.objects.select_related('client').prefetch_related('lignes__produit'), id=id)
+    from django.core.exceptions import PermissionDenied, ValidationError
+    from ..services.of_materials import calculate_order, create_requirements_and_reserve
+    from ..services.stock_reservation import material_available_quantity
 
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.add_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de créer un ordre de fabrication.")
+    commande = get_object_or_404(
+        CommandeClient.objects.select_related('client', 'of_lie').prefetch_related('lignes__produit', 'lignes__material'),
+        id=id,
+    )
     if commande.of_lie_id:
         messages.info(request, f"Un OF existe déjà : {commande.of_lie.numero_of}")
         return redirect('crm_of_detail', of_id=commande.of_lie_id)
-
     if commande.statut not in ('CONFIRMEE', 'EN_PRODUCTION', 'BROUILLON'):
         messages.error(request, "La commande doit être confirmée pour créer un OF.")
         return redirect('commande_detail', id=id)
 
-    produit = None
-    quantite = 0
-    for ligne in commande.lignes.all():
-        if ligne.produit and not produit: produit = ligne.produit
-        quantite += ligne.quantite or 0
-
+    products = {line.produit_id for line in commande.lignes.all() if line.produit_id}
+    if not products:
+        messages.error(request, "Sélectionnez le produit technique fini sur la commande avant de créer l'OF.")
+        return redirect('edit_commande', id=id)
+    if len(products) > 1:
+        messages.error(request, "Une commande contenant plusieurs produits finis doit être séparée en OF distincts.")
+        return redirect('edit_commande', id=id)
+    produit = TechnicalProduct.objects.filter(pk=next(iter(products))).first()
     if not produit:
-        produit = TechnicalProduct.objects.first()
-        if not produit:
-            messages.error(request, "Impossible de créer l'OF : aucun produit technique lié.")
-            return redirect('commande_detail', id=id)
+        messages.error(request, "Le produit technique associé à la commande est introuvable.")
+        return redirect('edit_commande', id=id)
+
+    try:
+        calculated = calculate_order(commande)
+    except ValidationError as exc:
+        messages.error(request, "Données techniques à compléter avant création de l'OF : " + '; '.join(exc.messages))
+        return redirect('edit_commande', id=id)
+
+    stock_rows = []
+    for material_id, needed in calculated['requirements'].items():
+        material = Material.objects.get(pk=material_id)
+        available = material_available_quantity(material)
+        stock_rows.append({'material': material, 'required': needed, 'available': available,
+                           'shortage': max(0.0, needed - available)})
 
     if request.method == 'POST':
-        of = OrdreFabrication.objects.create(
-            client=commande.client,
-            produit=produit,
-            opportunite=commande.opportunite,
-            quantite_prevue=quantite or 0,
-            date_lancement=timezone.now().date(),
-            date_prevue_fin=commande.date_livraison_prevue,
-            priorite=commande.priorite if commande.priorite in dict(OrdreFabrication.PRIORITE_CHOICES) else 'NORMALE',
-            statut='BROUILLON',
-            cree_par=request.user,
-            notes=f"OF généré depuis commande {commande.reference}\n{commande.notes or ''}",
-            observation=f"CMD:{commande.reference}",
-        )
-        commande.of_lie = of
-        if commande.statut == 'CONFIRMEE': commande.statut = 'EN_PRODUCTION'
-        commande.save(update_fields=['of_lie', 'statut'])
+        try:
+            with transaction.atomic():
+                commande_locked = CommandeClient.objects.select_for_update().get(pk=commande.pk)
+                if commande_locked.of_lie_id:
+                    messages.info(request, f"Un OF existe déjà : {commande_locked.of_lie.numero_of}")
+                    return redirect('crm_of_detail', of_id=commande_locked.of_lie_id)
+                # Recalcul après verrouillage : aucune quantité issue du navigateur n'est acceptée.
+                calculated = calculate_order(commande_locked)
+                of = OrdreFabrication.objects.create(
+                    client=commande_locked.client, produit=produit,
+                    opportunite=commande_locked.opportunite,
+                    quantite_prevue=calculated['quantity_kg'],
+                    date_lancement=timezone.now().date(),
+                    date_prevue_fin=commande_locked.date_livraison_prevue,
+                    priorite=commande_locked.priorite if commande_locked.priorite in dict(OrdreFabrication.PRIORITE_CHOICES) else 'NORMALE',
+                    statut='BROUILLON', cree_par=request.user,
+                    notes=f"OF généré depuis commande {commande_locked.reference}\n{calculated['shortage_note']}\n{commande_locked.notes or ''}",
+                    observation=f"CMD:{commande_locked.reference}",
+                )
+                requirements = create_requirements_and_reserve(of, calculated, request.user)
+                commande_locked.of_lie = of
+                if commande_locked.statut == 'CONFIRMEE':
+                    commande_locked.statut = 'EN_PRODUCTION'
+                commande_locked.save(update_fields=['of_lie', 'statut'])
+                shortages = [(req.material.name, req.missing_quantity, req.material.unit) for req in requirements if req.missing_quantity > 1e-6]
+            if shortages:
+                detail = ', '.join(f'{name}: manque {qty:.3f} {unit}' for name, qty, unit in shortages)
+                messages.warning(request, f"OF {of.numero_of} créé, réservation partielle effectuée. Stock manquant : {detail}")
+            else:
+                messages.success(request, f"OF {of.numero_of} créé, besoins matières enregistrés et stock disponible réservé.")
+            return redirect('crm_of_edit', of_id=of.id)
+        except ValidationError as exc:
+            messages.error(request, "Création refusée : " + '; '.join(exc.messages))
+            return redirect('edit_commande', id=id)
 
-        messages.success(request, f"OF {of.numero_of} créé depuis {commande.reference} ✓")
-        return redirect('crm_of_edit', of_id=of.id)
-
-    stock_check = commande.verifier_stock_global()
-    return render(request, 'crm/commande_creer_of.html', {'commande': commande, 'produit': produit, 'quantite': quantite, 'stock_check': stock_check})
+    return render(request, 'crm/commande_creer_of_sync.html', {
+        'commande': commande, 'produit': produit,
+        'quantite': calculated['quantity_kg'], 'stock_rows': stock_rows,
+        'calculated': calculated,
+    })
 
 
 @login_required
@@ -748,7 +786,8 @@ def api_check_material_stock(request):
     try: material = Material.objects.get(id=material_id)
     except Material.DoesNotExist: return JsonResponse({'error': 'Matière introuvable'}, status=404)
 
-    stock = float(material.quantity or 0)
+    from ..services.stock_reservation import material_available_quantity
+    stock = material_available_quantity(material)
     ok = stock >= quantite
     return JsonResponse({
         'material_id': material.id, 'material_name': material.name, 'stock': stock,
@@ -775,15 +814,44 @@ def crm_of_list(request):
         'total': ofs.count(), 'en_cours': ofs.filter(statut='EN_COURS').count(),
         'termine': ofs.filter(statut='TERMINE').count(), 'lies_commandes': ofs_avec_commande.count(),
     }
+    commandes_a_convertir = CommandeClient.objects.filter(
+        statut__in=['CONFIRMEE', 'EN_PRODUCTION'], of_lie__isnull=True
+    ).count()
     return render(request, 'crm/crm_of_list.html', {
         'ofs': ofs[:100], 'stats': stats, 'statut_choices': OrdreFabrication.STATUT_CHOICES,
         'selected_statut': statut, 'search': search, 'clients': Client.objects.filter(status__in=['ACTIVE', 'VIP', 'PROSPECT']).order_by('name'),
         'selected_client': client_id, 'from_crm': True,
+        'commandes_a_convertir': commandes_a_convertir,
+        'can_create_of': request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.add_ordrefabrication'),
+    })
+
+
+@login_required
+def crm_of_commandes_a_convertir(request):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.add_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de créer un OF.")
+    search = (request.GET.get('q') or '').strip()
+    commandes = CommandeClient.objects.filter(
+        statut__in=['CONFIRMEE', 'EN_PRODUCTION'], of_lie__isnull=True
+    ).select_related('client', 'commercial').prefetch_related('lignes__produit', 'lignes__material').order_by('date_livraison_prevue', '-date_commande')
+    if search:
+        commandes = commandes.filter(
+            Q(reference__icontains=search) | Q(client__name__icontains=search) |
+            Q(lignes__produit__name__icontains=search)
+        ).distinct()
+    return render(request, 'crm/commandes_a_convertir_of.html', {
+        'commandes': commandes[:200], 'search': search,
+        'total_a_convertir': commandes.count(),
+        'statuts': CommandeClient.STATUT_CHOICES,
     })
 
 
 @login_required
 def crm_of_create(request):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.add_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de créer un OF.")
     if request.method == 'POST':
         form = OrdreFabricationForm(request.POST, request.FILES)
         formset = EtapeProductionFormSet(request.POST, prefix='etapes')
@@ -832,14 +900,20 @@ def crm_of_create(request):
 
 @login_required
 def crm_of_detail(request, of_id):
+    from django.apps import apps
     of = get_object_or_404(OrdreFabrication.objects.select_related('client', 'produit', 'cree_par', 'opportunite'), id=of_id)
     etapes = of.etapes.select_related('process_type', 'machine', 'operateur', 'atelier').order_by('numero_etape')
     commandes_liees = CommandeClient.objects.filter(of_lie=of).select_related('client')
-    return render(request, 'crm/crm_of_detail.html', {'of': of, 'etapes': etapes, 'commandes_liees': commandes_liees, 'latest_prelaunch_check': OFPrelaunchCheck.objects.filter(of=of).first(), 'from_crm': True})
+    Requirement = apps.get_model('core', 'OFMaterialRequirement')
+    material_requirements = Requirement.objects.filter(of=of).select_related('material').prefetch_related('reservations').order_by('material__name')
+    return render(request, 'crm/crm_of_detail.html', {'of': of, 'etapes': etapes, 'commandes_liees': commandes_liees, 'material_requirements': material_requirements, 'latest_prelaunch_check': OFPrelaunchCheck.objects.filter(of=of).first(), 'from_crm': True})
 
 
 @login_required
 def crm_of_edit(request, of_id):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.change_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de modifier cet OF.")
     of = get_object_or_404(OrdreFabrication, id=of_id)
     original_status = of.statut
     if request.method == 'POST':
@@ -851,8 +925,8 @@ def crm_of_edit(request, of_id):
                 form.instance.statut = 'BROUILLON'
             form.save()
             formset.save()
-            if form.instance.statut == 'ANNULE' and original_status != 'ANNULE':
-                release_of_reservations(form.instance, request.user, reason='OF annulé depuis le formulaire CRM')
+            if form.instance.statut in ('ANNULE', 'TERMINE') and original_status != form.instance.statut:
+                release_of_reservations(form.instance, request.user, reason=f'OF {form.instance.statut.lower()} depuis le formulaire CRM')
             if requested_launch:
                 messages.info(request, f"OF {of.numero_of} mis à jour. Vérification obligatoire avant lancement.")
                 return redirect('of_prelaunch_check', of_id=of.id)
@@ -871,6 +945,9 @@ def crm_of_edit(request, of_id):
 
 @login_required
 def crm_of_changer_statut(request, of_id, nouveau_statut):
+    from django.core.exceptions import PermissionDenied
+    if not (request.user.is_superuser or request.user.is_staff or request.user.has_perm('core.change_ordrefabrication')):
+        raise PermissionDenied("Vous n'avez pas le droit de modifier le statut de cet OF.")
     of = get_object_or_404(OrdreFabrication, id=of_id)
     if nouveau_statut == 'LANCE':
         return redirect('of_prelaunch_check', of_id=of.id)
@@ -880,9 +957,10 @@ def crm_of_changer_statut(request, of_id, nouveau_statut):
         if nouveau_statut == 'LANCE' and not of.date_lancement: of.date_lancement = timezone.now().date()
         elif nouveau_statut == 'TERMINE': of.date_fin_reelle = timezone.now().date()
         of.save()
-        if nouveau_statut == 'ANNULE':
-            release_of_reservations(of, request.user, reason='OF annulé depuis le CRM')
+        if nouveau_statut in ('ANNULE', 'TERMINE'):
+            release_of_reservations(of, request.user, reason=f'OF {nouveau_statut.lower()} depuis le CRM')
         messages.success(request, f"OF {of.numero_of} : {ancien} → {nouveau_statut}")
     else:
         messages.error(request, "Statut invalide.")
     return redirect('crm_of_detail', of_id=of_id)
+

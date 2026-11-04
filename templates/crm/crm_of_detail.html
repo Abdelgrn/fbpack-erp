@@ -71,6 +71,20 @@
     </div>
     {% endif %}
 
+    {% if material_requirements %}
+    <section class="mb-6 rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+        <div class="flex items-center justify-between gap-3 mb-3">
+            <h3 class="text-emerald-300 font-bold">📦 Besoins matières et réservation</h3>
+            <a href="{% url 'of_stock_reservations' of.id %}" class="text-sm text-emerald-300 hover:text-white underline">Détails / mouvements matière →</a>
+        </div>
+        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-slate-400 border-b border-slate-700"><th class="py-2">Matière</th><th>Besoin OF</th><th>Réservé actif</th><th>Consommé</th><th>Reste non couvert</th></tr></thead><tbody>
+        {% for req in material_requirements %}
+            <tr class="border-b border-slate-800"><td class="py-2">{{ req.material.name }}</td><td>{{ req.quantity_required|floatformat:3 }} {{ req.material.unit }}</td><td>{{ req.active_reserved_quantity|floatformat:3 }} {{ req.material.unit }}</td><td>{{ req.consumed_quantity|floatformat:3 }} {{ req.material.unit }}</td><td class="{% if req.missing_quantity > 0 %}text-amber-300 font-bold{% else %}text-emerald-300{% endif %}">{{ req.missing_quantity|floatformat:3 }} {{ req.material.unit }}</td></tr>
+        {% endfor %}
+        </tbody></table></div>
+    </section>
+    {% endif %}
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="space-y-6">
             <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">

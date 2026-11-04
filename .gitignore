@@ -45,3 +45,13 @@ dist/
 *.msix
 
 _sauvegarde_avant_securite_*/
+
+db.sqlite3*
+*.sql
+backups/
+RENDER_LIVE_BACKUP.json
+FULL_BACKUP*.json
+serveur.log
+.venv-prod/
+tools/
+*.bak
