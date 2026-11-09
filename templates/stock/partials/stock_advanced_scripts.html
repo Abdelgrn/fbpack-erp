@@ -31,9 +31,11 @@ document.addEventListener('DOMContentLoaded', function() {
     var tabParam = urlParams.get('tab');
     var savedTab = null;
     try { savedTab = localStorage.getItem('activeStockTab'); } catch(e){}
-    if (tabParam) { showTab(tabParam); }
-    else if (savedTab) { showTab(savedTab); }
-    else { showTab('matieres'); }
+    var initialTab = tabParam || savedTab || 'matieres';
+    if (!document.getElementById('tab-' + initialTab)) initialTab = 'matieres';
+    // Le premier onglet devient l’état courant; les clics suivants ajoutent des états
+    // permettant au bouton Retour du navigateur de revenir aux onglets précédents.
+    showTab(initialTab, {historyMode: 'replace'});
     initAlertsListState();
 
     // Application dynamique et sécurisée des largeurs de jauge
@@ -51,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Vue graphique des matières : calcul des jauges + restauration du choix utilisateur
     initMaterialGraphCards();
     restoreMaterialViewPreference();
+    initMaterialsHorizontalScrollbar();
 });
 
 function applyProgressBars() {
@@ -108,6 +111,7 @@ function afterZoneRender(zoneId) {
         updateBulkBarAdv();
         initMaterialGraphCards();
         restoreMaterialViewPreference();
+        initMaterialsHorizontalScrollbar();
     } else if (zoneId === 'movementsAjaxZone') {
         applyMovementFilters();
         updateBulkBarMvt();
@@ -148,7 +152,11 @@ function ajaxLoad(url, zoneIds, opts) {
             }
         });
         if (opts.push !== false) {
-            try { history.pushState({ stockAjax: true }, '', url); } catch (e) {}
+            try {
+                var pushedUrl = new URL(url, window.location.href);
+                var activeTab = pushedUrl.searchParams.get('tab') || document.querySelector('.tab-content:not(.hidden)')?.id.replace('tab-', '') || 'matieres';
+                history.pushState({ stockAjax: true, stockTab: activeTab }, '', pushedUrl.toString());
+            } catch (e) {}
         }
         return true;
     })
@@ -202,11 +210,15 @@ document.addEventListener('click', function(e) {
 });
 
 // Bouton Retour / Avancer du navigateur
-window.addEventListener('popstate', function() {
+window.addEventListener('popstate', function(event) {
     syncFormFromUrl();
-    var t = new URLSearchParams(window.location.search).get('tab');
-    if (t) showTab(t);
-    ajaxLoad(window.location.href, ALL_ZONES, { push: false });
+    var t = new URLSearchParams(window.location.search).get('tab') || (event.state && event.state.stockTab) || 'matieres';
+    showTab(t, {historyMode: 'none'});
+    // Un simple Retour entre onglets ne recharge pas les données ni la page entière.
+    // Les états créés par les filtres AJAX, eux, restaurent leurs résultats précédents.
+    if (event.state && event.state.stockAjax) {
+        ajaxLoad(window.location.href, ALL_ZONES, { push: false });
+    }
 });
 
 function syncFormFromUrl() {
@@ -360,6 +372,32 @@ document.addEventListener('change', function(e) {
     }
 });
 
+// Barre horizontale jumelée au tableau : elle reste accessible au-dessus de l’en-tête.
+function initMaterialsHorizontalScrollbar() {
+    var top = document.getElementById('materialsTopScroll');
+    var viewport = document.getElementById('materialsTableViewport');
+    var table = document.getElementById('materialsTable');
+    if (!top || !viewport || !table) return;
+
+    function measureAndSync() {
+        // Mesure après mise en page: les onglets AJAX peuvent avoir été masqués.
+        var maxScroll = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+        top.max = String(Math.max(1, Math.ceil(maxScroll)));
+        top.disabled = maxScroll <= 1;
+        top.value = String(Math.min(Math.max(0, viewport.scrollLeft), maxScroll));
+    }
+
+    top.oninput = function() {
+        viewport.scrollLeft = Number(top.value) || 0;
+    };
+    viewport.onscroll = function() {
+        if (document.activeElement !== top) top.value = String(Math.round(viewport.scrollLeft));
+    };
+    if (window.requestAnimationFrame) requestAnimationFrame(measureAndSync);
+    else setTimeout(measureAndSync, 0);
+}
+window.addEventListener('resize', initMaterialsHorizontalScrollbar);
+
 // ============================================================
 // VUE LISTE / VUE GRAPHIQUE DES MATIÈRES
 // ============================================================
@@ -411,6 +449,7 @@ function setMaterialView(view, savePreference) {
     }
 
     if (graphActive) initMaterialGraphCards();
+    else initMaterialsHorizontalScrollbar();
     if (savePreference !== false) {
         try { localStorage.setItem('stock_material_view', view); } catch (e) {}
     }
@@ -600,28 +639,48 @@ function initMouvementStockValidation() {
         const category = categorySelect ? categorySelect.value : '';
         lineRows().forEach(function(row) {
             const select = row.querySelector('.mouvement-material-select');
+            const searchInput = row.querySelector('.mouvement-material-search');
+            const noResults = row.querySelector('.mouvement-material-no-results');
             const detail = row.querySelector('.mouvement-characteristics');
             if (!select) return;
+            const term = (searchInput ? searchInput.value : '').trim().toLocaleLowerCase('fr');
+            let matchCount = 0;
             Array.from(select.options).forEach(function(option) {
                 if (!option.value) return;
-                const match = !!category && option.dataset.category === category;
+                const categoryMatch = !!category && option.dataset.category === category;
+                const searchable = (option.dataset.search || option.textContent || '').toLocaleLowerCase('fr').replace(/\|/g, ' ');
+                const terms = term.split(/\s+/).filter(Boolean);
+                const textMatch = !terms.length || terms.every(function(word) { return searchable.includes(word); });
+                const match = categoryMatch && textMatch;
                 option.hidden = !match; option.disabled = !match;
+                if (match) matchCount++;
                 if (!match && select.value === option.value) select.value = '';
             });
+            if (searchInput) {
+                select.size = term ? Math.max(1, Math.min(6, matchCount)) : 1;
+                select.classList.toggle('mouvement-select-results', !!term && matchCount > 1);
+            }
+            if (noResults) noResults.classList.toggle('hidden', !term || matchCount > 0);
             const item = select.selectedOptions[0];
             const selected = !!(item && item.value && category);
             const isFilm = category === 'FILM';
-            if (detail) detail.classList.toggle('hidden', !selected);
+            const isAdjustment = typeSelect && typeSelect.value === 'AJUSTEMENT';
+            const showSpecs = !!category;
+            if (detail) detail.classList.toggle('hidden', !showSpecs);
             row.querySelectorAll('.mouvement-film-field').forEach(function(field) {
-                field.classList.toggle('hidden', !selected || !isFilm);
+                field.classList.toggle('hidden', !isFilm);
                 const input = field.querySelector('input');
                 if (input) input.required = selected && isFilm;
             });
+            const adjustmentUnitsField = row.querySelector('.mouvement-adjustment-units-field');
+            if (adjustmentUnitsField) adjustmentUnitsField.classList.toggle('hidden', !isAdjustment);
+            const adjustmentUnitsInput = row.querySelector('[name="nombre_unites"]');
+            if (adjustmentUnitsInput) adjustmentUnitsInput.required = false;
             const weightField = row.querySelector('.mouvement-weight-field');
             if (weightField) {
-                weightField.classList.toggle('hidden', !selected);
+                weightField.classList.toggle('hidden', !category || isAdjustment);
                 const input = weightField.querySelector('input');
-                if (input) input.required = selected;
+                if (input) input.required = selected && !isAdjustment;
             }
             if (!selected) {
                 row.querySelectorAll('.mouvement-spec-input').forEach(function(input) { input.value = ''; });
@@ -630,8 +689,11 @@ function initMouvementStockValidation() {
             const defaults = {laizes: item.dataset.laize, micronages: item.dataset.micronage, metrages: item.dataset.metrage, poids_kg: item.dataset.poids};
             Object.entries(defaults).forEach(function(entry) {
                 const input = row.querySelector('[name="' + entry[0] + '"]');
-                if (input) input.value = isFilm || entry[0] === 'poids_kg' ? (entry[1] || '') : '';
+                if (!input) return;
+                if (isAdjustment && entry[0] === 'poids_kg') { input.value = ''; return; }
+                input.value = isFilm || entry[0] === 'poids_kg' ? (entry[1] || '') : '';
             });
+            if (!isAdjustment && adjustmentUnitsInput) adjustmentUnitsInput.value = '';
         });
     }
     function updateMachineField() {
@@ -645,19 +707,26 @@ function initMouvementStockValidation() {
         lineRows().forEach(function(row) {
             const input = row.querySelector('.mouvement-quantity-input');
             const label = row.querySelector('.mouvement-quantity-label');
-            if (input) { input.min = isAdjustment ? '-999999999' : '0.001'; input.placeholder = isAdjustment ? '+/- variation' : '0'; if (!isAdjustment && Number(input.value) < 0) input.value = ''; }
-            if (label) label.textContent = isAdjustment ? 'Variation (+ / −) *' : 'Quantité *';
+            if (input) {
+                input.min = isAdjustment ? '-999999999' : '1';
+                input.step = isAdjustment ? '0.001' : '1';
+                input.placeholder = isAdjustment ? '+/- kg' : '1';
+                if (!isAdjustment && Number(input.value) < 0) input.value = '';
+            }
+            if (label) label.textContent = isAdjustment ? 'Variation (kg, + / −) *' : 'Nombre d’articles *';
         });
         const hint = document.getElementById('mouvementQuantityHint');
-        if (hint && isAdjustment) hint.textContent = 'Ajustement : saisissez un écart positif pour ajouter au stock ou négatif pour le réduire. Le stock ne peut pas devenir négatif.';
-        else if (hint) hint.textContent = 'Ajoutez une ligne par matière; toutes les lignes seront enregistrées dans la même validation, avec la même Machine et les mêmes emplacements.';
+        if (hint && isAdjustment) hint.textContent = 'Ajustement : la variation signée en kg modifie seule le stock. Le nombre d’unités est facultatif; pour Film/Papier, laize, micronage et métrage sont conservés à titre technique.';
+        else if (hint) hint.textContent = 'Quantité = nombre d’articles; le poids saisi est le poids par article et le stock est débité du nombre × poids total.';
     }
     if (addLineButton) addLineButton.addEventListener('click', function() {
         const first = lineRows()[0];
         const clone = first.cloneNode(true);
         const select = clone.querySelector('.mouvement-material-select');
+        const searchInput = clone.querySelector('.mouvement-material-search');
         const quantity = clone.querySelector('.mouvement-quantity-input');
-        if (select) select.value = '';
+        if (select) { select.value = ''; select.size = 1; }
+        if (searchInput) searchInput.value = '';
         if (quantity) { quantity.value = ''; quantity.classList.remove('border-red-500'); }
         linesContainer.appendChild(clone);
         updateCategoryAndCharacteristics();
@@ -671,10 +740,16 @@ function initMouvementStockValidation() {
         button.closest('.mouvement-line').remove();
         refreshRemoveButtons();
     });
-    if (typeSelect) typeSelect.addEventListener('change', updateMachineField);
+    if (typeSelect) typeSelect.addEventListener('change', function() {
+        updateMachineField();
+        updateCategoryAndCharacteristics();
+    });
     if (categorySelect) categorySelect.addEventListener('change', updateCategoryAndCharacteristics);
     linesContainer.addEventListener('change', function(event) {
         if (event.target.classList.contains('mouvement-material-select')) updateCategoryAndCharacteristics();
+    });
+    linesContainer.addEventListener('input', function(event) {
+        if (event.target.classList.contains('mouvement-material-search')) updateCategoryAndCharacteristics();
     });
     refreshRemoveButtons();
     updateMachineField();
@@ -697,16 +772,22 @@ function initMouvementStockValidation() {
             const quantityInput = row.querySelector('.mouvement-quantity-input');
             const selected = select && select.options[select.selectedIndex];
             const quantity = parseFloat(quantityInput && quantityInput.value) || 0;
-            const invalidQuantity = movementType === 'AJUSTEMENT' ? quantity === 0 : quantity <= 0;
+            const countValid = movementType === 'AJUSTEMENT' || (Number.isInteger(quantity) && quantity > 0);
+            const weightInput = row.querySelector('[name="poids_kg"]');
+            const weightEach = parseFloat(weightInput && weightInput.value) || 0;
+            const unitCountInput = row.querySelector('[name="nombre_unites"]');
+            const unitCountValue = unitCountInput && unitCountInput.value ? Number(unitCountInput.value) : null;
+            const invalidUnitCount = movementType === 'AJUSTEMENT' && unitCountValue !== null && (!Number.isInteger(unitCountValue) || unitCountValue <= 0);
+            const invalidQuantity = movementType === 'AJUSTEMENT' ? (quantity === 0 || invalidUnitCount) : (!countValid || weightEach <= 0);
             if (!select || !select.value || invalidQuantity) {
                 e.preventDefault();
-                alert(movementType === 'AJUSTEMENT' ? 'Chaque ajustement doit contenir une matière et une variation différente de zéro.' : 'Chaque ligne doit contenir une matière et une quantité supérieure à zéro.');
+                alert(movementType === 'AJUSTEMENT' ? 'Chaque ajustement doit contenir une matière et une variation en kg différente de zéro; le nombre d’unités, s’il est saisi, doit être un entier positif.' : 'Chaque ligne doit contenir une matière, un nombre entier d’articles et un poids par article positif.');
                 if (select && !select.value) select.focus(); else if (quantityInput) quantityInput.focus();
                 return false;
             }
             if (movementType === 'SORTIE') {
                 const previous = totals.get(select.value) || {quantity: 0, stock: parseFloat(selected.dataset.stock) || 0, unit: selected.dataset.unit || 'kg', name: selected.text.split('(')[0].trim()};
-                previous.quantity += quantity;
+                previous.quantity += quantity * weightEach;
                 totals.set(select.value, previous);
             }
         }
@@ -778,7 +859,8 @@ function voirAlertesEnPriorite() {
     }
 }
 
-function showTab(tabName) {
+function showTab(tabName, options) {
+    options = options || {};
     document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.add('hidden'); el.classList.remove('block'); });
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.classList.remove('border-yellow-500', 'text-yellow-500');
@@ -792,6 +874,16 @@ function showTab(tabName) {
         btn.classList.add('border-yellow-500', 'text-yellow-500');
     }
     try { localStorage.setItem('activeStockTab', tabName); } catch(e){}
+    if (options.historyMode === 'none') return;
+    try {
+        var nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set('tab', tabName);
+        if (options.historyMode === 'replace') {
+            history.replaceState({ stockTab: tabName }, '', nextUrl.toString());
+        } else if (nextUrl.searchParams.get('tab') !== new URL(window.location.href).searchParams.get('tab')) {
+            history.pushState({ stockTab: tabName }, '', nextUrl.toString());
+        }
+    } catch(e) {}
 }
 
 function showSubTab(name) {

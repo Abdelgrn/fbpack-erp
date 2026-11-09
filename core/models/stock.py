@@ -304,7 +304,8 @@ class StockMovement(models.Model):
     laize_mm = models.PositiveIntegerField('Laize mouvement (mm)', null=True, blank=True)
     micronage = models.PositiveIntegerField('Micronage mouvement (µm)', null=True, blank=True)
     metrage = models.FloatField('Métrage mouvement (m)', null=True, blank=True)
-    poids_kg = models.FloatField('Poids mouvement (kg)', null=True, blank=True)
+    poids_kg = models.FloatField('Poids par article (kg)', null=True, blank=True)
+    nombre_unites = models.PositiveIntegerField('Nombre d’articles', null=True, blank=True)
     notes = models.TextField("Notes", blank=True)
     annule = models.BooleanField("Annulé", default=False)
     motif_annulation = models.CharField("Motif d'annulation", max_length=200, blank=True)
@@ -316,6 +317,8 @@ class StockMovement(models.Model):
         ordering = ['-date']
 
     def __str__(self):
+        if self.nombre_unites is not None and self.poids_kg is not None:
+            return f"{self.type} - {self.nombre_unites} article(s), {self.quantite} kg ({self.material.name})"
         return f"{self.type} - {self.quantite} kg ({self.material.name})"
 
     @property
@@ -355,19 +358,27 @@ class StockPrintDocument(models.Model):
         verbose_name_plural = 'Bons de stock imprimables'
         ordering = ['-document_date', '-id']
 
+    @property
+    def display_reference(self):
+        """Affiche FB pour les bons de sortie, y compris les anciens BS enregistrés."""
+        reference = self.reference or f"Bon #{self.pk}"
+        if self.kind == 'SORTIE_JOURNALIERE' and reference.startswith('BS-'):
+            return f"FB-{reference[3:]}"
+        return reference
+
     def save(self, *args, **kwargs):
         creating = self.pk is None
         super().save(*args, **kwargs)
         if creating and not self.reference:
             prefixes = {
-                'SORTIE_JOURNALIERE': 'BS', 'RECEPTION': 'BR',
+                'SORTIE_JOURNALIERE': 'FB', 'RECEPTION': 'BR',
                 'RETOUR_INTERNE': 'BRT', 'RETOUR_FOURNISSEUR': 'BRS', 'AVARIE': 'BA',
             }
             self.reference = f"{prefixes.get(self.kind, 'BST')}-{self.document_date:%Y}-{self.pk:06d}"
             super().save(update_fields=['reference'])
 
     def __str__(self):
-        return self.reference or f"Bon #{self.pk}"
+        return self.display_reference
 
 
 class StockPrintDocumentLine(models.Model):
@@ -416,7 +427,10 @@ class StockPrintDocumentLine(models.Model):
             if self.poids_kg is None and str(material.unit or '').strip().upper() in {'KG', 'KGS'}:
                 self.poids_kg = self.quantity
         if self.nombre_unites is None:
-            self.nombre_unites = lot.nombre_unites if lot and lot.nombre_unites is not None else material.nombre_unites
+            if movement and movement.nombre_unites is not None:
+                self.nombre_unites = movement.nombre_unites
+            else:
+                self.nombre_unites = lot.nombre_unites if lot and lot.nombre_unites is not None else material.nombre_unites
         if not self.unit_snapshot:
             self.unit_snapshot = material.unit
         super().save(*args, **kwargs)

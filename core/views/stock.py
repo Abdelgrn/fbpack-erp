@@ -7,7 +7,7 @@ import unicodedata
 import base64
 import urllib.request
 import urllib.error
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
@@ -35,6 +35,7 @@ from core.models.stock import StockCatalogOption, StockPrintDocument, StockPrint
 from core.services.stock_reservation import (
     lot_available_quantity_for_of, material_available_quantity,
     lot_reserved_quantity, consume_of_reservations, restore_of_reservation_consumption,
+    release_reservations_for_manual_issue, restore_manual_issue_reservations,
 )
 from .helpers import highlight_search
 
@@ -190,7 +191,7 @@ def clear_all_stock(request):
 class StockService:
     @staticmethod
     @transaction.atomic
-    def enregistrer_mouvement(type_mvt, material, quantite, lot=None, src=None, dst=None, of=None, machine=None, user=None, motif="", laize_mm=None, micronage=None, metrage=None, poids_kg=None):
+    def enregistrer_mouvement(type_mvt, material, quantite, lot=None, src=None, dst=None, of=None, machine=None, user=None, motif="", laize_mm=None, micronage=None, metrage=None, poids_kg=None, nombre_unites=None):
         try:
             quantity_value = float(quantite)
             quantite_valide = math.isfinite(quantity_value) and (
@@ -215,6 +216,8 @@ class StockService:
             lot.refresh_from_db(fields=['quantite_restante'])
 
         adjustment_lot_breakdown = []
+        manual_sortie_lot_breakdown = []
+        manual_unlinked_sortie = type_mvt == 'SORTIE' and of is None
         if type_mvt == 'AJUSTEMENT':
             if float(material.quantity or 0) + quantity_value < -0.0005:
                 raise ValueError(
@@ -265,29 +268,59 @@ class StockService:
                     f"{float(lot.quantite_restante or 0):.3f} {material.unit} restant(s), "
                     f"{float(quantite):.3f} {material.unit} demandé(s)."
                 )
-            if type_mvt != 'SORTIE' or lot:
+            has_lotted_stock = StockLot.objects.filter(material=material, quantite_restante__gt=0).exists()
+            if type_mvt != 'SORTIE' or lot or (manual_unlinked_sortie and has_lotted_stock):
                 if material.usable_quantity < quantite:
-                    raise ValueError(f"La matière n'a pas assez de stock utilisable (Disponible: {material.usable_quantity} kg).")
-            # Une sortie ne peut consommer que le stock libre et la réservation de l'OF sélectionné.
-            # PERTE/RETOUR sont non liés à l'OF et ne peuvent pas prendre le stock promis à d'autres OF.
+                    raise ValueError(f"La matière n'a pas assez de stock utilisable et conforme (Disponible: {material.usable_quantity:.3f} {material.unit}).")
+            # Les mouvements sans OF ne doivent pas consommer le stock réservé à d'autres OF.
             if type_mvt in {'SORTIE', 'PERTE', 'RETOUR'}:
                 of_id = getattr(of, 'pk', None) if type_mvt == 'SORTIE' else None
-                available = lot_available_quantity_for_of(lot, of_id) if lot else material_available_quantity(material, of_id)
-                if float(quantite) > available + 1e-6:
+                if lot:
+                    available = lot_available_quantity_for_of(lot, of_id)
+                else:
+                    available = material_available_quantity(material, of_id)
+                    # Compatibilité des stocks historiques sans lots : aucune réservation par lot n'y est possible.
+                    if not StockLot.objects.filter(material=material, quantite_restante__gt=0).exists():
+                        available = float(material.usable_quantity or 0)
+                if not manual_unlinked_sortie and float(quantite) > available + 1e-6:
                     raise ValueError(
-                        f"Stock libre insuffisant pour « {material.name} » : {available:.3f} {material.unit} disponible(s) après protection des réservations. "
-                        "Sélectionnez l'OF lié si cette sortie consomme sa réservation, ou libérez les réservations avant le mouvement."
+                        f"Stock libre insuffisant pour « {material.name} » : {available:.3f} {material.unit} "
+                        "disponible(s) après protection des réservations OF."
                     )
+
+        if manual_unlinked_sortie and lot is None:
+            remaining = float(quantite)
+            candidates = list(material.get_fefo_lots().select_for_update())
+            for candidate in candidates:
+                take = min(max(0.0, float(candidate.quantite_restante or 0)), remaining)
+                if take > 1e-9:
+                    candidate.quantite_restante = round(float(candidate.quantite_restante or 0) - take, 3)
+                    candidate.save(update_fields=['quantite_restante'])
+                    manual_sortie_lot_breakdown.append([candidate.pk, round(take, 3)])
+                    remaining = round(remaining - take, 3)
+                if remaining <= 1e-6:
+                    break
 
         mvt = StockMovement.objects.create(
             type=type_mvt, material=material, lot=lot, quantite=quantite,
             emplacement_source=src, emplacement_destination=dst,
             of=of, machine=machine, utilisateur=user, motif=motif,
-            laize_mm=laize_mm, micronage=micronage, metrage=metrage, poids_kg=poids_kg,
+            laize_mm=laize_mm, micronage=micronage, metrage=metrage,
+            poids_kg=poids_kg, nombre_unites=nombre_unites,
         )
         if adjustment_lot_breakdown:
             mvt.notes = 'AJUSTEMENT_LOTS:' + json.dumps(adjustment_lot_breakdown)
             mvt.save(update_fields=['notes'])
+        if manual_sortie_lot_breakdown:
+            mvt.notes = 'SORTIE_MANUELLE_LOTS:' + json.dumps(manual_sortie_lot_breakdown)
+            mvt.save(update_fields=['notes'])
+        if manual_unlinked_sortie:
+            if lot is not None:
+                release_reservations_for_manual_issue(lot, quantite, mvt.pk, user)
+            else:
+                for lot_id, amount in manual_sortie_lot_breakdown:
+                    affected_lot = StockLot.objects.select_for_update().get(pk=lot_id)
+                    release_reservations_for_manual_issue(affected_lot, amount, mvt.pk, user)
 
         if type_mvt in {'ENTREE', 'RETOUR_INTERNE'}:
             material.quantity = round(material.quantity + quantite, 3)
@@ -338,6 +371,16 @@ class StockService:
             mat.quantity = round(mat.quantity + qte, 3)
             if lot:
                 lot.quantite_restante = round(lot.quantite_restante + qte, 3)
+            elif mouvement.type == 'SORTIE' and mouvement.notes.startswith('SORTIE_MANUELLE_LOTS:'):
+                try:
+                    breakdown = json.loads(mouvement.notes.split(':', 1)[1])
+                    for lot_id, amount in breakdown:
+                        restored_lot = StockLot.objects.select_for_update().filter(pk=lot_id, material=mat).first()
+                        if restored_lot:
+                            restored_lot.quantite_restante = round(restored_lot.quantite_restante + float(amount), 3)
+                            restored_lot.save(update_fields=['quantite_restante'])
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    logger.exception('manual_sortie_lot_breakdown_restore_failed movement_id=%s', mouvement.pk)
         elif mouvement.type == 'AJUSTEMENT':
             mat.quantity = round(mat.quantity - qte, 3)
             if lot and qte > 0:
@@ -356,6 +399,8 @@ class StockService:
         mat.save()
         if lot:
             lot.save()
+        if mouvement.type == 'SORTIE' and mouvement.of_id is None:
+            restore_manual_issue_reservations(mouvement.pk, user)
         if mouvement.type == 'SORTIE' and mouvement.of_id:
             restore_of_reservation_consumption(mouvement.of, mat, qte, user, lot=lot)
 
@@ -451,11 +496,14 @@ def stock_advanced_view(request):
         materials_list = Material.objects.select_related('supplier', 'depot', 'famille', 'sous_famille').filter(is_archived=archives).annotate(usable_quantity_cached=Coalesce(Sum('lots__quantite_restante', filter=Q(lots__statut='CONFORME')), 0.0))
 
         if search_query:
-            materials_list = materials_list.filter(
-                Q(name__icontains=search_query) |
-                Q(code__icontains=search_query) |
-                Q(supplier__name__icontains=search_query)
-            )
+            # Tous les mots doivent être présents, mais peuvent se trouver n’importe où
+            # dans le code, la désignation ou le fournisseur (ex. « BOPP 1070 »).
+            for search_term in search_query.split():
+                materials_list = materials_list.filter(
+                    Q(name__icontains=search_term) |
+                    Q(code__icontains=search_term) |
+                    Q(supplier__name__icontains=search_term)
+                )
         if category_filter:
             materials_list = materials_list.filter(category=category_filter)
         if supplier_filter:
@@ -475,19 +523,33 @@ def stock_advanced_view(request):
         if origin_filter:
             materials_list = materials_list.filter(origine=origin_filter)
         if low_stock_only:
-            materials_list = [m for m in materials_list if float(m.quantity or 0) <= float(m.min_threshold or 0)]
+            materials_list = materials_list.filter(quantity__lte=F('min_threshold'))
 
-        if not isinstance(materials_list, list):
-            if sort_by == 'name':
-                materials_list = materials_list.order_by('name')
-            elif sort_by == 'stock_asc':
-                materials_list = materials_list.order_by('quantity')
-            elif sort_by == 'stock_desc':
-                materials_list = materials_list.order_by('-quantity')
-            elif sort_by == 'price_desc':
-                materials_list = materials_list.order_by('-price_per_unit')
-            else:
-                materials_list = sorted(materials_list, key=lambda x: (float(x.quantity or 0) > float(x.min_threshold or 0), float(x.quantity or 0)))
+        if sort_by in {'name', 'name_asc'}:
+            materials_list = materials_list.order_by('name', 'id')
+        elif sort_by == 'name_desc':
+            materials_list = materials_list.order_by('-name', 'id')
+        elif sort_by == 'stock_asc':
+            materials_list = materials_list.order_by('quantity', 'name')
+        elif sort_by == 'stock_desc':
+            materials_list = materials_list.order_by('-quantity', 'name')
+        elif sort_by == 'price_asc':
+            materials_list = materials_list.order_by('price_per_unit', 'name')
+        elif sort_by == 'price_desc':
+            materials_list = materials_list.order_by('-price_per_unit', 'name')
+        elif sort_by == 'date_asc':
+            materials_list = materials_list.order_by('created_at', 'id')
+        elif sort_by == 'date_desc':
+            materials_list = materials_list.order_by('-created_at', '-id')
+        else:
+            # Le tri « alertes en premier » reste en SQL au lieu de charger toute la liste en Python.
+            materials_list = materials_list.order_by(
+                models.Case(
+                    models.When(quantity__lte=F('min_threshold'), then=models.Value(0)),
+                    default=models.Value(1), output_field=models.IntegerField(),
+                ),
+                'quantity', 'name',
+            )
 
         paginator_mat = Paginator(materials_list, 20)
         page_mat_num = request.GET.get('page_mat', 1)
@@ -559,11 +621,10 @@ def stock_advanced_view(request):
         cat_critique = [cat_stats['FILM']['critique'], cat_stats['INK']['critique'], cat_stats['GLUE']['critique'], cat_stats['SOLV']['critique']]
         cat_alerte = [cat_stats['FILM']['alerte'], cat_stats['INK']['alerte'], cat_stats['GLUE']['alerte'], cat_stats['SOLV']['alerte']]
 
-        lots_peremption = []
-        lots_proches = StockLot.objects.filter(quantite_restante__gt=0, date_expiration__isnull=False).order_by('date_expiration')
-        for lot in lots_proches:
-            if lot.jours_avant_expiration <= 30:
-                lots_peremption.append(lot)
+        lots_peremption = StockLot.objects.filter(
+            quantite_restante__gt=0, date_expiration__isnull=False,
+            date_expiration__lte=timezone.localdate() + timedelta(days=30),
+        ).select_related('material').order_by('date_expiration')
 
         # Les réceptions initiales/achats restent enregistrées en base et dans l'historique,
         # mais ne figurent pas dans le journal courant affiché.
@@ -671,7 +732,6 @@ def stock_advanced_view(request):
             'lots_bloques': StockLot.objects.filter(statut='BLOQUE').count(),
             'lots_attente': StockLot.objects.filter(statut='EN_ATTENTE').count(),
             'mouvements': mouvements_page, 'locations': locations, 'machines': Machine.objects.all().order_by('name'), 'suppliers_list': suppliers_list,
-            'ofs_reservables': StockMovement._meta.get_field('of').remote_field.model.objects.exclude(statut__in=['TERMINE', 'ANNULE']).order_by('-date_creation')[:200],
             'suppliers': suppliers_list, 'demandes': demandes, 'da_en_attente': da_en_attente,
             'da_statut': da_statut, 'bons_commande': bons_commande,
             'valeur_stock_total': valeur_stock_total, 'categories': Material.CAT_CHOICES,
@@ -693,7 +753,7 @@ def stock_advanced_view(request):
 def add_material(request):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
-        return redirect('stock_advanced')
+        return redirect(reverse('stock_advanced') + '?tab=matieres')
 
     if request.method == 'POST':
         form = MaterialCreateForm(request.POST)
@@ -714,7 +774,7 @@ def add_material(request):
                     motif='Réception initiale lors de la création de la matière première.'
                 )
             messages.success(request, f'✅ Matière ajoutée et réception initiale enregistrée au journal ({opening_quantity:g} {mat.unit}).')
-            return redirect('stock_advanced')
+            return redirect(reverse('stock_advanced') + '?tab=matieres')
     else:
         form = MaterialCreateForm()
     return render(request, 'stock/material_form.html', {
@@ -728,7 +788,7 @@ def add_material(request):
 def edit_material(request, id):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
-        return redirect('stock_advanced')
+        return redirect(reverse('stock_advanced') + '?tab=matieres')
 
     material = get_object_or_404(Material, id=id)
     if request.method == 'POST':
@@ -736,7 +796,7 @@ def edit_material(request, id):
         if form.is_valid():
             form.save()
             messages.success(request, f'✅ Matière "{material.name}" modifiée !')
-            return redirect('stock_advanced')
+            return redirect(reverse('stock_advanced') + '?tab=matieres')
     else:
         form = MaterialEditForm(instance=material)
     return render(request, 'stock/material_form.html', {
@@ -749,14 +809,14 @@ def edit_material(request, id):
 def delete_material(request, id):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
-        return redirect('stock_advanced')
+        return redirect(reverse('stock_advanced') + '?tab=matieres')
 
     material = get_object_or_404(Material, id=id)
     if request.method == 'POST':
         material.is_archived = True
         material.save()
         messages.success(request, f'📁 Matière « {material.name} » archivée avec succès.')
-    return redirect('stock_advanced')
+    return redirect(reverse('stock_advanced') + '?tab=matieres')
 
 
 @login_required
@@ -764,14 +824,14 @@ def delete_material(request, id):
 def material_restore(request, id):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
-        return redirect('stock_advanced')
+        return redirect(reverse('stock_advanced') + '?tab=matieres')
 
     material = get_object_or_404(Material, id=id)
     if request.method == 'POST':
         material.is_archived = False
         material.save()
         messages.success(request, f'♻️ Matière « {material.name} » restaurée parmi les matières actives.')
-    return redirect('stock_advanced')
+    return redirect(reverse('stock_advanced') + '?tab=matieres')
 
 
 # ===========================================================================
@@ -1017,7 +1077,7 @@ def lot_detail(request, id):
 def mouvement_add(request):
     if not can_manage_stock(request.user):
         messages.error(request, "Accès refusé.")
-        return redirect('stock_advanced')
+        return redirect(reverse('stock_advanced') + '?tab=mouvements')
 
     if request.method == 'POST':
         try:
@@ -1031,7 +1091,8 @@ def mouvement_add(request):
             material_ids = request.POST.getlist('materials')
             quantities = request.POST.getlist('quantites')
             # Compatibilité avec les formulaires simples déjà en circulation.
-            if not material_ids and request.POST.get('material'):
+            legacy_single = not material_ids and bool(request.POST.get('material'))
+            if legacy_single:
                 material_ids = [request.POST.get('material')]
                 quantities = [request.POST.get('quantite', '')]
             if len(material_ids) != len(quantities):
@@ -1049,15 +1110,17 @@ def mouvement_add(request):
                 quantity = (
                     _signed_nonzero_float(raw_quantity, f'Variation ligne {index}')
                     if form_type == 'AJUSTEMENT'
-                    else _positive_float(raw_quantity, f'Quantité ligne {index}')
+                    else _positive_float(raw_quantity, f'Nombre d’articles ligne {index}')
                 )
-                lines.append((material, quantity))
+                if form_type != 'AJUSTEMENT' and not legacy_single and not quantity.is_integer():
+                    raise ValueError(f'Le nombre d’articles de la ligne {index} doit être un entier.')
+                lines.append((material, quantity, legacy_single, index - 1))
             if not lines:
                 raise ValueError('Ajoutez au moins une matière et une quantité.')
             selected_category = request.POST.get('category', '')
             if selected_category not in {code for code, _label in Material.CAT_CHOICES}:
                 raise ValueError('Choisissez un univers valide.')
-            mismatched = [material.name for material, _quantity in lines if material.category != selected_category]
+            mismatched = [material.name for material, _quantity, _legacy, _form_index in lines if material.category != selected_category]
             if mismatched:
                 raise ValueError('Toutes les matières doivent appartenir à l’univers choisi.')
 
@@ -1065,26 +1128,59 @@ def mouvement_add(request):
             micronages = request.POST.getlist('micronages')
             metragess = request.POST.getlist('metrages')
             weights = request.POST.getlist('poids_kg')
+            unit_counts = request.POST.getlist('nombre_unites')
             lines_with_specs = []
-            for index, (material, quantity) in enumerate(lines):
-                try:
-                    weight = _positive_float(weights[index], f'Poids ligne {index + 1}')
-                except IndexError:
-                    raise ValueError(f'Saisissez le poids de la ligne {index + 1}.')
-                laize = micronage = metrage = None
-                if selected_category == 'FILM':
+            for material, quantity, is_legacy, form_index in lines:
+                index = form_index
+                display_index = form_index + 1
+                laize = micronage = metrage = weight = None
+                number_of_items = None
+                if form_type == 'AJUSTEMENT':
+                    # La variation signée est la seule quantité qui modifie le stock; les champs ci-dessous sont descriptifs.
+                    stock_quantity = quantity
+                    raw_units = unit_counts[index].strip() if index < len(unit_counts) else ''
+                    if raw_units:
+                        units_value = _positive_float(raw_units, f'Nombre d’unités ligne {display_index}')
+                        if not units_value.is_integer():
+                            raise ValueError(f'Le nombre d’unités de la ligne {display_index} doit être un entier.')
+                        number_of_items = int(units_value)
+                    if selected_category == 'FILM':
+                        try:
+                            laize_value = _positive_float(laizes[index], f'Laize ligne {display_index}')
+                            micronage_value = _positive_float(micronages[index], f'Micronage ligne {display_index}')
+                            metrage = _positive_float(metragess[index], f'Métrage par article ligne {display_index}')
+                        except IndexError:
+                            raise ValueError(f'Renseignez la laize, le micronage et le métrage de la ligne {display_index}.')
+                        if not laize_value.is_integer() or not micronage_value.is_integer():
+                            raise ValueError('La laize et le micronage doivent être des nombres entiers.')
+                        laize, micronage = int(laize_value), int(micronage_value)
+                else:
                     try:
-                        laize_value = _positive_float(laizes[index], f'Laize ligne {index + 1}')
-                        micronage_value = _positive_float(micronages[index], f'Micronage ligne {index + 1}')
-                        metrage = _positive_float(metragess[index], f'Métrage ligne {index + 1}')
+                        weight = _positive_float(weights[index], f'Poids par article ligne {index + 1}')
                     except IndexError:
-                        raise ValueError(f'Renseignez la laize, le micronage et le métrage de la ligne {index + 1}.')
-                    if not laize_value.is_integer() or not micronage_value.is_integer():
-                        raise ValueError('La laize et le micronage doivent être des nombres entiers.')
-                    laize, micronage = int(laize_value), int(micronage_value)
-                lines_with_specs.append((material, quantity, {
+                        raise ValueError(f'Saisissez le poids par article de la ligne {display_index}.')
+                    if selected_category == 'FILM':
+                        try:
+                            laize_value = _positive_float(laizes[index], f'Laize ligne {display_index}')
+                            micronage_value = _positive_float(micronages[index], f'Micronage ligne {display_index}')
+                            metrage = _positive_float(metragess[index], f'Métrage ligne {display_index}')
+                        except IndexError:
+                            raise ValueError(f'Renseignez la laize, le micronage et le métrage de la ligne {display_index}.')
+                        if not laize_value.is_integer() or not micronage_value.is_integer():
+                            raise ValueError('La laize et le micronage doivent être des nombres entiers.')
+                        laize, micronage = int(laize_value), int(micronage_value)
+                    if is_legacy:
+                        # Compatibilité des anciens formulaires simples qui transmettaient déjà des kg.
+                        stock_quantity = quantity
+                    else:
+                        number_of_items = int(quantity)
+                        stock_quantity = round(number_of_items * weight, 3)
+                        if stock_quantity <= 0:
+                            raise ValueError(f'Le poids total de la ligne {index + 1} doit être supérieur à zéro.')
+                lines_with_specs.append((material, stock_quantity, {
                     'laize_mm': laize, 'micronage': micronage,
                     'metrage': metrage, 'poids_kg': weight,
+                    'nombre_unites': number_of_items,
                 }))
             lines = lines_with_specs
 
@@ -1119,8 +1215,8 @@ def mouvement_add(request):
                     )
                 for material, quantity, characteristics in lines:
                     lot = None
-                    if type_mvt == 'SORTIE':
-                        lot = next((candidate for candidate in material.get_fefo_lots() if lot_available_quantity_for_of(candidate, of_obj.pk if of_obj else None) + 1e-6 >= float(quantity)), None)
+                    if type_mvt == 'SORTIE' and of_obj is not None:
+                        lot = next((candidate for candidate in material.get_fefo_lots() if lot_available_quantity_for_of(candidate, of_obj.pk) + 1e-6 >= float(quantity)), None)
                     elif type_mvt == 'PERTE':
                         lot = next((candidate for candidate in material.get_fefo_lots() if lot_available_quantity_for_of(candidate, None) + 1e-6 >= float(quantity)), None)
                         if not lot and material.get_fefo_lots().exists():
@@ -1162,7 +1258,7 @@ def mouvement_add(request):
             transaction.set_rollback(True)
             logger.exception('stock_movement_failed')
             messages.error(request, "❌ Erreur inattendue. Détails dans les journaux du serveur.")
-    return redirect('stock_advanced')
+    return redirect(reverse('stock_advanced') + '?tab=mouvements')
 
 
 @login_required
@@ -1424,11 +1520,24 @@ def stock_movement_edit(request, id):
             if movement_type not in valid_types:
                 raise ValueError('Les entrées de stock se corrigent via le flux de réception dédié.')
             material = get_object_or_404(Material, pk=request.POST.get('material'), is_archived=False)
-            quantity = (
-                _signed_nonzero_float(request.POST.get('quantity'), 'Variation')
-                if movement_type == 'AJUSTEMENT'
-                else _positive_float(request.POST.get('quantity'), 'Quantité')
-            )
+            unit_mode = request.POST.get('unit_mode', 'kg')
+            number_of_items = None
+            weight_per_item = None
+            if movement_type == 'AJUSTEMENT':
+                quantity = _signed_nonzero_float(request.POST.get('quantity'), 'Variation (kg)')
+                # Le formulaire de correction conserve les unités descriptives existantes pour un ajustement.
+                number_of_items = movement.nombre_unites
+            elif unit_mode == 'articles':
+                raw_count = _positive_float(request.POST.get('quantity'), 'Nombre d’articles')
+                if not raw_count.is_integer():
+                    raise ValueError('Le nombre d’articles doit être un entier.')
+                number_of_items = int(raw_count)
+                weight_per_item = _positive_float(request.POST.get('poids_kg'), 'Poids par article (kg)')
+                quantity = round(number_of_items * weight_per_item, 3)
+            else:
+                quantity = _positive_float(request.POST.get('quantity'), 'Quantité (kg)')
+                raw_weight = request.POST.get('poids_kg')
+                weight_per_item = _positive_float(raw_weight, 'Poids (kg)') if raw_weight else movement.poids_kg
             lot = StockLot.objects.filter(pk=request.POST.get('lot'), material=material).first() if request.POST.get('lot') else None
             if request.POST.get('lot') and not lot:
                 raise ValueError('Le lot ne correspond pas à l’article sélectionné.')
@@ -1454,8 +1563,8 @@ def stock_movement_edit(request, id):
             StockService.annuler_mouvement(movement, 'Mouvement remplacé par une correction depuis le journal.', request.user)
             # La sortie prend automatiquement un lot FEFO s'il peut couvrir la quantité,
             # sans bloquer la correction si aucun lot n'existe; les pertes restent FEFO.
-            if not lot and movement_type == 'SORTIE':
-                lot = next((candidate for candidate in material.get_fefo_lots() if lot_available_quantity_for_of(candidate, of_obj.pk if of_obj else None) + 1e-6 >= float(quantity)), None)
+            if not lot and movement_type == 'SORTIE' and of_obj is not None:
+                lot = next((candidate for candidate in material.get_fefo_lots() if lot_available_quantity_for_of(candidate, of_obj.pk) + 1e-6 >= float(quantity)), None)
             if not lot and movement_type == 'PERTE':
                 lot = material.get_fefo_lots().first()
                 if not lot:
@@ -1477,7 +1586,8 @@ def stock_movement_edit(request, id):
                 src=src, dst=dst, of=of_obj, machine=machine_obj,
                 user=request.user, motif=motif or f'Correction du mouvement #{old_id}',
                 laize_mm=movement.laize_mm, micronage=movement.micronage,
-                metrage=movement.metrage, poids_kg=movement.poids_kg,
+                metrage=movement.metrage, poids_kg=weight_per_item,
+                nombre_unites=number_of_items,
             )
             corrected.date = old_date
             corrected.save(update_fields=['date'])
@@ -1494,6 +1604,7 @@ def stock_movement_edit(request, id):
                     document=doc, material=material, movement=corrected, lot=lot,
                     emplacement=src if movement_type in {'SORTIE', 'PERTE', 'RETOUR'} else dst,
                     quantity=quantity, unit_snapshot=material.unit,
+                    poids_kg=weight_per_item, nombre_unites=number_of_items,
                     notes=f'Correction du mouvement annulé #{old_id}' + (f' — {motif}' if motif else ''),
                 )
             if old_type != movement_type:
@@ -1513,7 +1624,9 @@ def stock_movement_edit(request, id):
 
     values = request.POST if request.method == 'POST' else {
         'type': movement.type, 'material': str(movement.material_id),
-        'quantity': str(movement.quantite), 'src': str(movement.emplacement_source_id or ''),
+        'quantity': str(movement.nombre_unites if movement.nombre_unites is not None else movement.quantite),
+        'unit_mode': 'articles' if movement.nombre_unites is not None else 'kg',
+        'poids_kg': str(movement.poids_kg or ''), 'src': str(movement.emplacement_source_id or ''),
         'dst': str(movement.emplacement_destination_id or ''), 'motif': movement.motif,
         'machine': str(movement.machine_id or ''),
     }
@@ -1600,7 +1713,7 @@ def stock_daily_issue_create(request):
             ).exclude(print_documents__kind='SORTIE_JOURNALIERE')
              .select_related('material', 'lot', 'emplacement_source').distinct().order_by('date', 'id'))
             if not movements and existing_doc:
-                messages.info(request, f"Le bon de sortie de cette journée existe déjà : {existing_doc.reference}.")
+                messages.info(request, f"Le bon de sortie de cette journée existe déjà : {existing_doc.display_reference}.")
                 return redirect('stock_document_print', id=existing_doc.id)
             if not movements:
                 messages.warning(request, 'Aucun mouvement de type Sortie à consolider à cette date. Les entrées et retours ne sont pas des sorties.')
@@ -1620,7 +1733,7 @@ def stock_daily_issue_create(request):
                     quantity=movement.quantite, unit_snapshot=movement.material.unit,
                     notes=movement.motif or '',
                 )
-        messages.success(request, f"Bon de sortie {doc.reference} consolidé : {doc.movements.count()} mouvement(s) au total.")
+        messages.success(request, f"Bon de sortie {doc.display_reference} consolidé : {doc.movements.count()} mouvement(s) au total.")
         return redirect('stock_document_print', id=doc.id)
     selected_day = parse_date(selected_date)
     pending_count = StockMovement.objects.filter(type='SORTIE', annule=False, date__date=selected_day).exclude(print_documents__kind='SORTIE_JOURNALIERE').distinct().count()
@@ -1798,7 +1911,7 @@ def stock_damage_create(request):
                 raise ValueError('La description de l’avarie est obligatoire.')
             with transaction.atomic():
                 if not lot:
-                    lot = material.get_fefo_lots().filter(quantite_restante__gte=quantity).first()
+                    lot = next((candidate for candidate in material.get_fefo_lots() if lot_available_quantity_for_of(candidate, None) + 1e-6 >= float(quantity)), None)
                 doc = StockPrintDocument.objects.create(kind='AVARIE', document_date=timezone.localdate(), created_by=request.user, notes=reason)
                 movement = StockService.enregistrer_mouvement(
                     type_mvt='PERTE', material=material, quantite=quantity, lot=lot,
@@ -1828,7 +1941,10 @@ def stock_document_print(request, id):
         .prefetch_related('lines__material', 'lines__lot', 'lines__emplacement', 'lines__movement', 'movements'),
         pk=id,
     )
-    lines = list(document.lines.select_related('material', 'material__depot', 'lot', 'emplacement', 'movement').order_by('id'))
+    lines = list(document.lines.select_related(
+        'material', 'material__depot', 'lot', 'emplacement', 'movement',
+        'movement__machine', 'movement__emplacement_destination',
+    ).order_by('id'))
     if document.kind == 'RECEPTION':
         unique_lines = []
         seen_movements = set()
@@ -2101,146 +2217,6 @@ def _catalog_option_from_import(kind, raw_value):
 # --- STATION D'IMPORTATION EXCEL ET FORMATS ---
 # ===========================================================================
 
-def _import_special_production_sheet(ws, request):
-    """Importe les lignes ProductionEntry du modèle Production Spéciale."""
-    from django.apps import apps
-    from datetime import datetime as _datetime, date as _date, time as _time, timedelta as _timedelta
-
-    Entry = apps.get_model('core', 'ProductionEntry')
-    ClientModel = apps.get_model('core', 'Client')
-    MachineModel = apps.get_model('core', 'Machine')
-    aliases = {
-        'date': {'date'}, 'product': {'produit', 'product'},
-        'support': {'support'}, 'quantity': {'qtelancee', 'quantitelancee'},
-        'lot': {'lot'}, 'width': {'laize'}, 'client': {'client'},
-        'team': {'equipe', 'equipeabc'}, 'machine': {'machine'},
-        'start': {'hdebut', 'heuredebut'}, 'end': {'hfin', 'heurefin'},
-        'ml': {'prodml'}, 'waste_start': {'decdemarrage', 'dechetsdemarrage'},
-        'waste_edge': {'declisiere', 'dechetslisiere'},
-        'waste_join': {'dectionction', 'decjonction', 'dechetsjonction'},
-        'waste_transport': {'dectransport', 'dechetstransport'},
-        'kg': {'prodkg'}, 'rewind': {'rebobinagekg'},
-    }
-    header_row = None
-    cols = {}
-    for r in range(1, min(ws.max_row, 15) + 1):
-        found = {}
-        for c in range(1, ws.max_column + 1):
-            key = _stock_header_key(ws.cell(r, c).value)
-            for field, names in aliases.items():
-                if key in names:
-                    found[field] = c
-                    break
-        if {'product', 'support', 'quantity', 'machine'}.issubset(found):
-            header_row, cols = r, found
-            break
-    if header_row is None:
-        raise ValueError('En-têtes Production Spéciale non reconnus. Téléchargez le template fourni.')
-
-    def cell(row, field, fallback=None):
-        col = cols.get(field)
-        return ws.cell(row, col).value if col else fallback
-
-    def number(value, label):
-        if value in (None, ''): return 0.0
-        try: value = float(str(value).replace(',', '.'))
-        except (TypeError, ValueError): raise ValueError(f'{label} doit être numérique.')
-        if not math.isfinite(value) or value < 0: raise ValueError(f'{label} doit être positif ou nul.')
-        return value
-
-    def parse_day(value):
-        if value in (None, ''): return timezone.localdate()
-        if isinstance(value, _datetime): return value.date()
-        if isinstance(value, _date): return value
-        text = str(value).strip()
-        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y'):
-            try: return _datetime.strptime(text, fmt).date()
-            except ValueError: pass
-        raise ValueError(f'Date invalide : {text}')
-
-    def parse_clock(value, label):
-        if value in (None, ''): return None
-        if isinstance(value, _datetime): return value.time()
-        if isinstance(value, _time): return value
-        if isinstance(value, _timedelta):
-            seconds = int(value.total_seconds())
-            if seconds < 0 or seconds >= 86400: raise ValueError(f'{label} invalide : l’heure doit être comprise entre 00:00 et 23:59.')
-            hours, remainder = divmod(seconds, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            return _time(hours, minutes, seconds)
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            seconds = round(float(value) * 86400)
-            if 0 <= seconds < 86400:
-                hours, remainder = divmod(seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                return _time(hours, minutes, seconds)
-        if hasattr(value, 'hour') and hasattr(value, 'minute'):
-            return _time(value.hour, value.minute, getattr(value, 'second', 0))
-        text = str(value).strip().lower().replace('h', ':').replace('.', ':')
-        for fmt in ('%H:%M', '%H:%M:%S'):
-            try: return _datetime.strptime(text, fmt).time()
-            except ValueError: pass
-        raise ValueError(f'{label} invalide : utilisez HH:MM (ou une heure Excel valide).')
-
-    successes, errors, details = 0, 0, [f'✅ En-têtes Production Spéciale reconnus (ligne {header_row}).']
-    with transaction.atomic():
-        for row_idx in range(header_row + 1, ws.max_row + 1):
-            values = [ws.cell(row_idx, c).value for c in range(1, ws.max_column + 1)]
-            if all(v in (None, '') for v in values): continue
-            try:
-                product = str(cell(row_idx, 'product') or '').strip()
-                support = str(cell(row_idx, 'support') or '').strip()
-                if not product or not support:
-                    raise ValueError('Produit et Support sont obligatoires.')
-                team = str(cell(row_idx, 'team', 'A') or 'A').strip().upper()
-                if team not in {'A', 'B', 'C'}: raise ValueError('Équipe invalide : choisissez A, B ou C.')
-                client_raw = cell(row_idx, 'client')
-                client_name = str(client_raw or '').strip()
-                client = None
-                if client_name:
-                    # Les classeurs peuvent contenir le nom du client ou son ID numérique.
-                    if isinstance(client_raw, (int, float)) and float(client_raw).is_integer():
-                        client = ClientModel.objects.filter(pk=int(client_raw)).first()
-                    else:
-                        client = ClientModel.objects.filter(name__iexact=client_name).first()
-                    if not client: raise ValueError(f'Client introuvable : {client_name}')
-                machine_raw = cell(row_idx, 'machine')
-                machine_name = str(machine_raw or '').strip()
-                machine = None
-                if machine_name:
-                    # Les exports Excel utilisent parfois la clé étrangère Machine (ex. 1, 2),
-                    # tandis que le template peut contenir le nom lisible de la machine.
-                    if isinstance(machine_raw, (int, float)) and float(machine_raw).is_integer():
-                        machine = MachineModel.objects.filter(pk=int(machine_raw)).first()
-                    else:
-                        machine = MachineModel.objects.filter(name__iexact=machine_name).first()
-                    if not machine: raise ValueError(f'Machine introuvable : {machine_name}')
-                entry = Entry(
-                    date=parse_day(cell(row_idx, 'date')),
-                    produit=product, support=support,
-                    quantite_lancee=number(cell(row_idx, 'quantity'), 'Qte_Lancee'),
-                    lot=str(cell(row_idx, 'lot') or '').strip(),
-                    laize=number(cell(row_idx, 'width'), 'Laize'),
-                    client=client, equipe=team, machine=machine,
-                    heure_debut=parse_clock(cell(row_idx, 'start'), 'H_Debut'),
-                    heure_fin=parse_clock(cell(row_idx, 'end'), 'H_Fin'),
-                    prod_ml=number(cell(row_idx, 'ml'), 'Prod_ML'),
-                    dechets_demarrage=number(cell(row_idx, 'waste_start'), 'Dec_Demarrage'),
-                    dechets_lisiere=number(cell(row_idx, 'waste_edge'), 'Dec_Lisiere'),
-                    dechets_jonction=number(cell(row_idx, 'waste_join'), 'Dec_Jonction'),
-                    dechets_transport=number(cell(row_idx, 'waste_transport'), 'Dec_Transport'),
-                    prod_kg=number(cell(row_idx, 'kg'), 'Prod_KG'),
-                    rebobinage_kg=number(cell(row_idx, 'rewind'), 'Rebobinage_KG'),
-                )
-                entry.save()
-                successes += 1
-                details.append(f'Ligne {row_idx} : ✅ Production enregistrée ({product}, {team}).')
-            except Exception as exc:
-                errors += 1
-                details.append(f'Ligne {row_idx} : ❌ {exc}')
-    return successes, errors, details
-
-
 @login_required
 @module_required('import', 'stock')
 def import_stock_view(request):
@@ -2510,18 +2486,8 @@ def import_stock_view(request):
                         error_count += 1
                         details.append(f"Ligne {row_idx} : ❌ {str(e)}")
 
-        elif import_type == 'SPECIAL_PROD':
-            success_count, error_count, details = _import_special_production_sheet(ws, request)
-        else:
-            raise ValueError(f"Type d'import non pris en charge : {import_type}. Aucune donnée n'a été importée.")
-
-        if success_count == 0 and error_count == 0:
-            messages.warning(request, "Aucune ligne de données à importer. Vérifiez le contenu du classeur.")
-        elif error_count:
-            messages.warning(request, f"Import terminé : {success_count} ligne(s) importée(s), {error_count} erreur(s). Consultez le rapport.")
-        else:
-            messages.success(request, f"🎉 Importation réussie : {success_count} ligne(s) ajoutée(s). 0 erreur.")
-        return render(request, 'stock/import_stock.html', {'success': error_count == 0, 'details': details, 'crm_users': crm_users})
+        messages.success(request, f"🎉 Importation réussie : {success_count} ligne(s) ajoutée(s). {error_count} erreur(s).")
+        return render(request, 'stock/import_stock.html', {'success': True, 'details': details, 'crm_users': crm_users})
     except ValueError as exc:
         return render(request, 'stock/import_stock.html', {'success': False, 'message': str(exc), 'crm_users': crm_users})
     except Exception:

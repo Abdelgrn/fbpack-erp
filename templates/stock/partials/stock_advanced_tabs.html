@@ -20,12 +20,10 @@
     <button onclick="showTab('fournisseurs')" id="tabBtn-fournisseurs" class="tab-btn px-5 py-3 text-sm font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
         🏢 Fournisseurs
     </button>
-    {% if peut_gerer %}
     <a href="{% url 'stock_reservations_overview' %}" id="tabLink-reservations-of"
-        class="px-5 py-3 text-sm font-bold border-b-2 border-transparent text-emerald-300 hover:text-emerald-200 transition whitespace-nowrap">
+        class="px-5 py-3 text-sm font-bold border-b-2 border-transparent text-emerald-400 hover:text-emerald-300 transition whitespace-nowrap">
         🔒 Matières réservées OF
     </a>
-    {% endif %}
     <a href="{% url 'stock_produit_fini' %}" id="tabLink-produit-fini"
         class="px-5 py-3 text-sm font-bold border-b-2 border-transparent text-emerald-400 hover:text-emerald-300 transition whitespace-nowrap">
         📦 Produit fini
@@ -71,10 +69,48 @@
         </div>
     </div>
     
+<style>
+#materialsListView { width: 100%; max-width: 100%; }
+#materialsTopScroll {
+  -webkit-appearance: none; appearance: none; display: block;
+  width: 100%; height: 24px; margin: 0 0 5px; padding: 0;
+  background: transparent; cursor: ew-resize; touch-action: pan-x;
+}
+#materialsTopScroll::-webkit-slider-runnable-track {
+  height: 12px; border: 1px solid #475569; border-radius: 9999px;
+  background: #1e293b;
+}
+#materialsTopScroll::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 48px; height: 18px; margin-top: -4px;
+  border: 2px solid #a5f3fc; border-radius: 9999px;
+  background: #0891b2; box-shadow: 0 0 8px #06b6d466;
+}
+#materialsTopScroll::-moz-range-track {
+  height: 12px; border: 1px solid #475569; border-radius: 9999px;
+  background: #1e293b;
+}
+#materialsTopScroll::-moz-range-thumb {
+  width: 44px; height: 14px; border: 2px solid #a5f3fc;
+  border-radius: 9999px; background: #0891b2; box-shadow: 0 0 8px #06b6d466;
+}
+#materialsTopScroll:disabled { cursor: default; opacity: .55; }
+#materialsTableViewport { width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: auto; scrollbar-color: #06b6d4 #1e293b; }
+
+@media (min-width: 1280px) {
+  #stockFilterGrid {
+    grid-template-columns: minmax(220px, 2fr) repeat(5, minmax(115px, 1fr)) minmax(140px, 1fr) minmax(150px, 1.2fr) !important;
+    align-items: end;
+    gap: 12px;
+  }
+  #stockFilterGrid > div { grid-column: auto !important; min-width: 0; }
+  #stockFilterGrid select, #stockFilterGrid input[type="text"] { min-width: 0; }
+}
+</style>
+
     <!-- FORMULAIRE DE RECHERCHE (reste en place : le focus n'est jamais perdu pendant la frappe) -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-5">
         <form method="get" action="{% url 'stock_advanced' %}" id="searchForm">
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div id="stockFilterGrid" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                 
                 <div class="md:col-span-4">
                     <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider h-4">
@@ -129,6 +165,28 @@
                 </div>
                 
                 <div class="md:col-span-2">
+                    <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider h-4">Dépôt</label>
+                    <select name="depot" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white text-sm">
+                        <option value="">Tous les dépôts</option>
+                        {% for item in depot_options %}<option value="{{ item.id }}" {% if depot_filter == item.id|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider h-4">Famille</label>
+                    <select name="family" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white text-sm">
+                        <option value="">Toutes les familles</option>
+                        {% for item in family_options %}<option value="{{ item.id }}" {% if family_filter == item.id|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider h-4">Sous-famille</label>
+                    <select name="subfamily" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-3 text-white text-sm">
+                        <option value="">Toutes les sous-familles</option>
+                        {% for item in subfamily_options %}<option value="{{ item.id }}" {% if subfamily_filter == item.id|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+                    </select>
+                </div>
+
+                <div class="md:col-span-2">
                     <label class="block text-xs text-gray-400 mb-2 font-bold uppercase tracking-wider h-4">
                         Filtres
                     </label>
@@ -157,6 +215,25 @@
                     </div>
                 </div>
             </div>
+            {% if not category_filter or category_filter == 'FILM' %}
+            <details class="mt-3 rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <summary class="cursor-pointer text-xs font-bold text-cyan-300">Filtres techniques — micronage, grammage, laize et origine</summary>
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
+                    <label class="text-[10px] font-bold uppercase text-gray-400">Micronage (µm)
+                        <select name="micronage" class="mt-1 w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"><option value="">Tous</option>{% for value in micronage_options %}<option value="{{ value }}" {% if micronage_filter == value|stringformat:"s" %}selected{% endif %}>{{ value }} µm</option>{% endfor %}</select>
+                    </label>
+                    <label class="text-[10px] font-bold uppercase text-gray-400">Grammage (g/m²)
+                        <select name="grammage" class="mt-1 w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"><option value="">Tous</option>{% for value in grammage_options %}<option value="{{ value }}" {% if grammage_filter == value %}selected{% endif %}>{{ value }} g/m²</option>{% endfor %}</select>
+                    </label>
+                    <label class="text-[10px] font-bold uppercase text-gray-400">Laize (mm)
+                        <select name="laize" class="mt-1 w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"><option value="">Toutes</option>{% for value in laize_options %}<option value="{{ value }}" {% if laize_filter == value|stringformat:"s" %}selected{% endif %}>{{ value }} mm</option>{% endfor %}</select>
+                    </label>
+                    <label class="text-[10px] font-bold uppercase text-gray-400">Origine
+                        <select name="origin" class="mt-1 w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"><option value="">Toutes</option>{% for code,label in origine_options %}<option value="{{ code }}" {% if origin_filter == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                    </label>
+                </div>
+            </details>
+            {% endif %}
             
             <input type="hidden" name="tab" value="matieres">
         </form>
@@ -232,6 +309,9 @@
                     class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow transition text-sm flex items-center gap-2">
                     📊 Export Excel
                 </a>
+                {% if peut_gerer %}
+                <a href="{% url 'stock_catalog_manage' %}" class="border border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/30 font-bold py-2.5 px-4 rounded-lg text-sm">⚙️ Listes Excel</a>
+                {% endif %}
                 <a href="{% url 'add_material' %}" 
                     class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 px-4 rounded-lg shadow transition text-sm">
                     + Nouvelle Matière
@@ -240,20 +320,32 @@
         </div>
         
         <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+            <!-- Indication et défilement horizontal explicite pour conserver toutes les colonnes sans les écraser. -->
+            <p class="px-4 py-2 text-xs text-cyan-300 bg-slate-900/70 border-b border-slate-700" role="note">↔ Utilisez la barre horizontale juste au-dessus des titres pour voir toute la ligne et les actions — inutile de descendre en bas du tableau.</p>
             <!-- VUE LISTE ORIGINALE : conservée intégralement -->
-            <div class="overflow-x-auto" id="materialsListView">
-                <table class="w-full text-left border-collapse" id="materialsTable">
+            <div id="materialsListView">
+                <input id="materialsTopScroll" class="materials-top-scroll" type="range" min="0" max="1" value="0" step="1" aria-label="Défilement horizontal du tableau Matières" aria-controls="materialsTableViewport" title="Faire défiler le tableau horizontalement">
+                <div class="overflow-x-auto" id="materialsTableViewport" tabindex="0" aria-label="Tableau des matières — défilement horizontal possible">
+                <table class="w-full text-left border-collapse" id="materialsTable" style="min-width:{% if not category_filter or category_filter == 'FILM' %}2200px{% else %}1600px{% endif %};">
                     <thead>
                         <tr class="bg-slate-900/80 text-gray-300 text-[11px] uppercase tracking-wider">
                             <th class="p-4 border-b border-slate-700 w-12 text-center">
                                 <input type="checkbox" id="selectAllMaterialsAdv" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer" title="Tout sélectionner">
                             </th>
+                            <th class="p-4 border-b border-slate-700">N°.Produit</th>
                             <th class="p-4 border-b border-slate-700">Désignation</th>
                             <th class="p-4 border-b border-slate-700">Catégorie</th>
-                            {% if category_filter == 'FILM' %}
+                            <th class="p-4 border-b border-slate-700">Dépôt</th>
+                            <th class="p-4 border-b border-slate-700">Famille</th>
+                            <th class="p-4 border-b border-slate-700">Sous-famille</th>
+                            {% if not category_filter or category_filter == 'FILM' %}
                             <th class="p-4 border-b border-slate-700 text-cyan-400 font-extrabold">Micronage / Grammage</th>
+                            <th class="p-4 border-b border-slate-700">Laize (mm)</th>
+                            <th class="p-4 border-b border-slate-700">Origine</th>
                             <th class="p-4 border-b border-slate-700 text-yellow-400 font-extrabold">Métrage (m)</th>
                             {% endif %}
+                            <th class="p-4 border-b border-slate-700">Poids (kg)</th>
+                            <th class="p-4 border-b border-slate-700">Nombre d’unités</th>
                             <th class="p-4 border-b border-slate-700">Stock Initial <span class="text-[9px] text-gray-500 normal-case block font-normal">(au départ)</span></th>
                             <th class="p-4 border-b border-slate-700">Stock Réel <span class="text-[9px] text-gray-500 normal-case block font-normal">(aujourd'hui)</span></th>
                             <th class="p-4 border-b border-slate-700">Seuil Alerte</th>
@@ -266,12 +358,12 @@
                     </thead>
                     <tbody class="text-gray-200 text-sm" id="materialsTbody">
                         {% for m in materials %}
-                        <tr class="hover:bg-slate-700/50 transition-all duration-300 border-b border-slate-700/50 material-row {% if m.is_low_stock %}bg-red-500/5 border-l-4 border-l-red-500{% endif %}"
+                        <tr class="hover:bg-slate-700/50 transition-all duration-300 border-b border-slate-700/50 material-row {% if m.quantity <= m.min_threshold %}bg-red-500/5 border-l-4 border-l-red-500{% endif %}"
                             data-name="{{ m.name|lower }}"
                             data-category="{{ m.category }}"
                             data-supplier-id="{{ m.supplier.id|default:'' }}"
                             data-supplier="{{ m.supplier.name|default:''|lower }}"
-                            data-low-stock="{% if m.is_low_stock %}true{% else %}false{% endif %}"
+                            data-low-stock="{% if m.quantity <= m.min_threshold %}true{% else %}false{% endif %}"
                             data-initial-stock="{{ m.initial_quantity|default:0 }}"
                             data-stock="{{ m.quantity|default:0 }}"
                             data-price="{{ m.price_per_unit|default:0 }}"
@@ -280,10 +372,10 @@
                             <td class="p-4 text-center align-middle">
                                 <input type="checkbox" name="selected_materials" value="{{ m.id }}" class="material-checkbox-adv w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500 cursor-pointer">
                             </td>
+                            <td class="p-4 font-mono text-xs text-gray-300 whitespace-nowrap">{{ m.code|default:"—" }}</td>
                             <td class="p-4 font-bold text-cyan-400">
                                 {{ m.name }}
-                                {% if m.code %}<div class="text-[10px] text-gray-500 font-mono">{{ m.code }}</div>{% endif %}
-                                {% if m.is_low_stock %}
+                                {% if m.quantity <= m.min_threshold %}
                                 <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-ping ml-1" title="Alerte : Seuil critique atteint !"></span>
                                 {% endif %}
                             </td>
@@ -306,32 +398,25 @@
         <span class="text-xs font-bold px-2 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">{{ m.get_category_display }}</span>
     {% endif %}
                             </td>
+                            <td class="p-4">{{ m.depot.name|default:"—" }}</td>
+                            <td class="p-4">{{ m.famille.name|default:"—" }}</td>
+                            <td class="p-4">{{ m.sous_famille.name|default:"—" }}</td>
                             
-                            {% if category_filter == 'FILM' %}
-                            <td class="p-4 font-mono font-bold text-cyan-300">
-                                {% if m.micronage_standard %}
-                                    <span class="bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-1 rounded text-xs">{{ m.micronage_standard }} µm</span>
-                                {% elif m.grammage %}
-                                    <span class="bg-yellow-950 text-yellow-300 border border-yellow-800 px-2 py-1 rounded text-xs">{{ m.grammage|floatformat:"-1" }} g/m²</span>
-                                {% else %}
-                                    <span class="text-gray-600 text-xs">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="p-4 font-mono font-bold text-yellow-300">
-                                {% if m.metrage_standard %}
-                                    <span class="bg-slate-900 border border-yellow-500/30 px-2 py-1 rounded text-xs">{{ m.metrage_standard|floatformat:"-1" }} m</span>
-                                {% else %}
-                                    <span class="text-gray-600 text-xs">—</span>
-                                {% endif %}
-                            </td>
+                            {% if not category_filter or category_filter == 'FILM' %}
+                            <td class="p-4 font-mono font-bold text-cyan-300">{{ m.thickness_or_grammage_display }}</td>
+                            <td class="p-4">{{ m.laize_mm|default:"—" }}</td>
+                            <td class="p-4">{{ m.get_origine_display|default:"—" }}</td>
+                            <td class="p-4 font-mono text-yellow-300">{{ m.metrage_display }}</td>
                             {% endif %}
+                            <td class="p-4">{% if m.poids_kg != None %}{{ m.poids_kg|floatformat:"-2" }}{% else %}—{% endif %}</td>
+                            <td class="p-4">{{ m.nombre_unites|default:"—" }}</td>
 
                             <td class="p-4 text-slate-300 font-semibold font-mono">
                                 {{ m.initial_quantity|floatformat:"-2" }} {{ m.unit }}
                             </td>
-                            <td class="p-4 font-bold font-mono {% if m.is_low_stock %}text-red-400{% else %}text-emerald-400{% endif %}">
+                            <td class="p-4 font-bold font-mono {% if m.quantity <= m.min_threshold %}text-red-400{% else %}text-emerald-400{% endif %}">
                                 {{ m.quantity }} {{ m.unit }}
-                                {% if m.is_low_stock %}
+                                {% if m.quantity <= m.min_threshold %}
                                 <span class="ml-1 text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 font-black">ALERTE</span>
                                 {% endif %}
                             </td>
@@ -394,6 +479,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             <!-- ============================================================ -->
@@ -424,7 +510,7 @@
                         data-threshold="{{ m.min_threshold|default:0 }}"
                         data-price="{{ m.price_per_unit|default:0 }}"
                         data-created-at="{{ m.created_at|date:'U'|default:m.id }}"
-                        data-low-stock="{% if m.is_low_stock %}true{% else %}false{% endif %}"
+                        data-low-stock="{% if m.quantity <= m.min_threshold %}true{% else %}false{% endif %}"
                         data-original-order="{{ forloop.counter }}">
                         <div class="material-graph-accent absolute inset-x-0 top-0 h-1 bg-slate-600"></div>
 
@@ -639,6 +725,10 @@
                 class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
                 + Saisir Mouvement
             </button>
+            <a href="{% url 'stock_daily_issue_create' %}" class="rounded bg-amber-600 hover:bg-amber-500 px-3 py-2 text-white text-xs font-bold">🧾 Bon de sortie</a>
+            <a href="{% url 'stock_receipt_create' %}" class="rounded bg-teal-700 hover:bg-teal-600 px-3 py-2 text-white text-xs font-bold">📦 Bon de réception</a>
+            <a href="{% url 'stock_return_create' %}" class="rounded bg-indigo-600 hover:bg-indigo-500 px-3 py-2 text-white text-xs font-bold">↩️ Bon de retour</a>
+            <a href="{% url 'stock_damage_create' %}" class="rounded bg-red-700 hover:bg-red-600 px-3 py-2 text-white text-xs font-bold">⚠️ Bon d’avarie</a>
         </div>
     </div>
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4">
@@ -685,6 +775,10 @@
         </div>
     </div>
 
+    <div class="mb-3 flex justify-end">
+        <a href="{% url 'stock_documents_list' %}" class="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-900/30 px-4 py-2 text-sm font-bold text-cyan-200 hover:bg-cyan-800/50">📑 Traçabilité — tous les bons générés</a>
+    </div>
+
     <!-- ZONE AJAX #3 : TABLEAU DES MOUVEMENTS + PAGINATION -->
     <div id="movementsAjaxZone" class="ajax-zone">
         <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
@@ -704,6 +798,7 @@
                             <th class="p-3 border-b border-slate-700">Machine / OF</th>
                             <th class="p-3 border-b border-slate-700">Utilisateur</th>
                             <th class="p-3 border-b border-slate-700">Motif</th>
+                            {% if peut_gerer %}<th class="p-3 border-b border-slate-700">Actions</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody class="text-gray-200 text-sm" id="movementsTbody">
@@ -719,17 +814,25 @@
                             </td>
                             <td class="p-3 text-gray-400 whitespace-nowrap">{{ mv.date|date:"d/m/Y H:i" }}</td>
                             <td class="p-3">
-                                {% if mv.type == 'ENTREE' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">⬆ Entrée</span>
+                                {% if mv.type == 'RETOUR_INTERNE' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">↩ Retour interne</span>{% elif mv.type == 'ENTREE' %}<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30">⬆ Entrée</span>
                                 {% elif mv.type == 'SORTIE' %}<span class="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">⬇ Sortie</span>
                                 {% elif mv.type == 'TRANSFERT' %}<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">↔ Transfert</span>
                                 {% elif mv.type == 'AJUSTEMENT' %}<span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">⚙ Ajust.</span>
-                                {% elif mv.type == 'PERTE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">✗ Perte</span>
+                                {% elif mv.type == 'PERTE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">⚠ Avarie / Perte</span>
                                 {% else %}<span class="text-[10px] bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ mv.get_type_display }}</span>{% endif %}
                             </td>
                             <td class="p-3 font-bold text-cyan-400">{{ mv.material.name }}</td>
                             <td class="p-3 text-xs text-gray-400">{{ mv.lot.numero_lot|default:"—" }}</td>
-                            <td class="p-3 font-bold font-mono {% if mv.type == 'ENTREE' %}text-emerald-400{% else %}text-red-400{% endif %}">
-                                {% if mv.type == 'ENTREE' %}+{% else %}-{% endif %}{{ mv.quantite }} kg
+                            <td class="p-3 font-bold font-mono {% if mv.type == 'ENTREE' or mv.type == 'RETOUR_INTERNE' %}text-emerald-400{% elif mv.type == 'AJUSTEMENT' %}text-purple-300{% else %}text-red-400{% endif %}">
+                                {% if mv.nombre_unites != None and mv.type == 'AJUSTEMENT' %}
+                                    {{ mv.nombre_unites }} unité(s) concernée(s)<br>
+                                    <span class="text-[10px] font-normal">Variation : {% if mv.quantite > 0 %}+{% endif %}{{ mv.quantite|floatformat:'-3' }} {{ mv.material.unit }}</span>
+                                {% elif mv.nombre_unites != None %}
+                                    {% if mv.type == 'ENTREE' or mv.type == 'RETOUR_INTERNE' %}+{% else %}−{% endif %}{{ mv.nombre_unites }} article(s)<br>
+                                    <span class="text-[10px] font-normal">Stock : {% if mv.type == 'ENTREE' or mv.type == 'RETOUR_INTERNE' %}+{% else %}−{% endif %}{{ mv.quantite|floatformat:'-3' }} {{ mv.material.unit }}</span>
+                                {% else %}
+                                    {% if mv.type == 'AJUSTEMENT' %}{{ mv.quantite|floatformat:'-3' }}{% elif mv.type == 'ENTREE' or mv.type == 'RETOUR_INTERNE' %}+{{ mv.quantite|floatformat:'-3' }}{% else %}−{{ mv.quantite|floatformat:'-3' }}{% endif %} {{ mv.material.unit }}
+                                {% endif %}
                             </td>
                             <td class="p-3 text-xs text-gray-400">
                                 {% if mv.emplacement_source %}{{ mv.emplacement_source.name }}{% else %}—{% endif %}
@@ -742,10 +845,16 @@
                                 {% if not mv.machine and not mv.of %}—{% endif %}
                             </td>
                             <td class="p-3 text-xs text-gray-400">{{ mv.utilisateur.username|default:"—" }}</td>
-                            <td class="p-3 text-xs text-gray-500 max-w-[200px] truncate">{{ mv.motif|default:"—" }}</td>
+                            <td class="p-3 text-xs text-gray-500 max-w-[200px] truncate">{{ mv.motif|default:"—" }}{% if mv.annule %}<span class="ml-2 rounded bg-red-900/50 px-1.5 py-0.5 text-red-300">ANNULÉ</span>{% endif %}</td>
+                            {% if peut_gerer %}<td class="p-2"><div class="flex items-center gap-1">
+                                {% if not mv.annule %}
+                                <a href="{% url 'stock_movement_edit' mv.id %}" class="rounded bg-blue-700 hover:bg-blue-600 px-2 py-1 text-[10px] font-bold text-white" title="Modifier / corriger">✏️ Modifier</a>
+                                <form method="post" action="{% url 'stock_movement_delete' mv.id %}" class="delete-movement-form" data-confirm-name="mouvement #{{ mv.id }}">{% csrf_token %}<button type="submit" class="rounded bg-red-800 hover:bg-red-700 px-2 py-1 text-[10px] font-bold text-white" title="Annuler le mouvement sans recharger la page">🗑 Supprimer</button></form>
+                                {% else %}<span class="text-[10px] text-slate-500">—</span>{% endif %}
+                            </div></td>{% endif %}
                         </tr>
                         {% empty %}
-                        <tr><td colspan="10" class="p-8 text-center text-gray-500 italic">Aucun mouvement enregistré.</td></tr>
+                        <tr><td colspan="{% if peut_gerer %}11{% else %}10{% endif %}" class="p-8 text-center text-gray-500 italic">Aucun mouvement enregistré.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

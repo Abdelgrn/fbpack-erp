@@ -13,7 +13,6 @@
       {% if mode == 'daily' %}
         {% if pending_count %}<p class="text-sm text-emerald-300">{{ pending_count }} sortie(s) disponible(s) à consolider.</p>{% else %}<p class="text-sm text-amber-300">Aucune sortie à consolider pour cette date. Les entrées ne sont pas incluses dans ce bon.</p>{% endif %}
       {% else %}
-        <div class="rounded-lg border border-teal-500/30 bg-teal-950/30 p-3 text-sm text-teal-100">Un seul bon consolidera les entrées manuelles non encore jointes à un bon de réception de cette journée. Une réception liée à un bon de commande possède déjà son propre bon.</div>
         {% if pending_count %}<p class="text-sm text-emerald-300">{{ pending_count }} entrée(s) disponible(s) à consolider.</p>{% else %}<p class="text-sm text-amber-300">Aucune entrée manuelle à consolider pour cette date.</p>{% endif %}
       {% endif %}
     {% elif mode == 'return' or mode == 'damage' %}

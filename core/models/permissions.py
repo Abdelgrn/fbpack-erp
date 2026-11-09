@@ -6,6 +6,7 @@ class UserModulePermission(models.Model):
     """Permissions par module pour chaque utilisateur"""
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='module_permissions')
+    poste = models.CharField("Poste / Fonction", max_length=100, blank=True, default='')
 
     can_access_dashboard = models.BooleanField("Dashboard", default=True)
     can_access_planning = models.BooleanField("Planning Gantt", default=False)

@@ -237,28 +237,32 @@
                         <button type="button" id="addMovementLineButton" class="text-xs text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 px-3 py-1.5 rounded-lg">＋ Ajouter une matière</button>
                     </div>
                     <div id="mouvementLinesContainer" class="space-y-2">
-                        <div class="mouvement-line grid gap-3 items-end bg-slate-900/40 border border-slate-700 rounded-xl p-3" style="grid-template-columns:minmax(0, 1fr) minmax(8rem, 0.42fr) 2.5rem;">
-                            <div style="min-width:0;">
+                        <div class="mouvement-line grid gap-3 items-end bg-slate-900/40 border border-slate-700 rounded-xl p-3" style="grid-template-columns:minmax(0, 1fr) 2.5rem;">
+                            <div style="min-width:0; grid-column:1 / -1;">
+                                <label class="block text-[11px] text-gray-400 mb-1">Rechercher une matière (code ou n’importe quel mot du nom)</label>
+                                <input type="search" class="mouvement-material-search w-full mb-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" placeholder="Ex. BOPP, biaxial, gulfpack, BOPP 1070" autocomplete="off" aria-label="Rechercher une matière par code ou n’importe quel mot du nom">
                                 <label class="block text-[11px] text-gray-400 mb-1">Matière *</label>
                                 <select name="materials" class="mouvement-material-select w-full min-w-0 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" required>
-                                    <option value="" data-stock="0" data-unit="kg">— Choisir une matière —</option>
+                                    <option value="" data-stock="0" data-unit="kg" data-search="">— Choisir une matière —</option>
                                     {% for m in all_materials|default:materials %}
-                                    <option value="{{ m.id }}" data-stock="{{ m.quantity|stringformat:'s' }}" data-unit="{{ m.unit }}" data-category="{{ m.category }}" data-laize="{{ m.laize_mm|default_if_none:'' }}" data-micronage="{{ m.micronage_standard|default_if_none:'' }}" data-metrage="{{ m.metrage_standard|default_if_none:'' }}" data-poids="{{ m.poids_kg|default_if_none:'' }}" data-unites="{{ m.nombre_unites|default_if_none:'' }}">{{ m.name }} (Stock réel: {{ m.quantity }} {{ m.unit }})</option>
+                                    <option value="{{ m.id }}" data-search="{{ m.code|default:''|lower }}|{{ m.name|lower }}" data-stock="{{ m.quantity|stringformat:'s' }}" data-unit="{{ m.unit }}" data-category="{{ m.category }}" data-laize="{{ m.laize_mm|default_if_none:'' }}" data-micronage="{{ m.micronage_standard|default_if_none:'' }}" data-metrage="{{ m.metrage_standard|default_if_none:'' }}" data-poids="{{ m.poids_kg|default_if_none:'' }}" data-unites="{{ m.nombre_unites|default_if_none:'' }}">{{ m.code|default:'' }}{% if m.code %} — {% endif %}{{ m.name }} (Stock réel: {{ m.quantity }} {{ m.unit }})</option>
                                     {% endfor %}
                                 </select>
+                                <p class="mouvement-material-no-results hidden mt-1 text-[10px] text-amber-300">Aucune matière ne correspond à cette recherche dans l’univers choisi.</p>
                             </div>
                             <div style="min-width:0;">
-                                <label class="mouvement-quantity-label block text-[11px] text-gray-400 mb-1">Quantité *</label>
-                                <input type="number" name="quantites" class="mouvement-quantity-input w-full min-w-0 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" required min="-999999999" step="0.001" placeholder="0">
+                                <label class="mouvement-quantity-label block text-[11px] text-gray-400 mb-1">Nombre d’articles *</label>
+                                <input type="number" name="quantites" class="mouvement-quantity-input w-full min-w-0 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" required min="1" step="1" placeholder="1">
                             </div>
                             <div>
                                 <button type="button" class="mouvement-remove-line w-full text-red-400 hover:text-red-300 py-2 rounded-lg" title="Supprimer cette matière" aria-label="Supprimer cette matière">×</button>
                             </div>
                             <div class="mouvement-characteristics col-span-full hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 rounded-lg bg-slate-950/40 p-3">
+                                <div class="mouvement-adjustment-units-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Nombre d’unités concernées (facultatif)</label><input type="number" name="nombre_unites" min="1" step="1" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
                                 <div class="mouvement-film-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Laize (mm) *</label><input type="number" name="laizes" min="1" step="1" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
                                 <div class="mouvement-film-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Micronage (µm) *</label><input type="number" name="micronages" min="1" step="1" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
-                                <div class="mouvement-film-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Métrage (m) *</label><input type="number" name="metrages" min="0.001" step="0.01" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
-                                <div class="mouvement-weight-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Poids (kg) *</label><input type="number" name="poids_kg" min="0.001" step="0.01" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
+                                <div class="mouvement-film-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Métrage par article (m) *</label><input type="number" name="metrages" min="0.001" step="0.001" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
+                                <div class="mouvement-weight-field hidden"><label class="block text-[10px] text-gray-400 mb-1">Poids (kg) *</label><input type="number" name="poids_kg" min="0.001" step="0.001" class="mouvement-spec-input w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs"></div>
                             </div>
                         </div>
                     </div>

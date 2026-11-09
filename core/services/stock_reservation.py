@@ -201,3 +201,63 @@ def restore_of_reservation_consumption(of, material, quantity, user, lot=None):
         if remaining <= 1e-9:
             break
     return restored
+
+
+@transaction.atomic
+def release_reservations_for_manual_issue(lot, quantity, movement_id, user):
+    """Libère, avec journal d'audit, les réservations affectées par une sortie manuelle sans OF."""
+    OFMaterialRequirement, StockReservation, StockReservationEvent = _reservation_models()
+    remaining = max(0.0, float(quantity))
+    marker = f'[MVT#{movement_id}]'
+    released_total = 0.0
+    rows = StockReservation.objects.select_for_update().filter(
+        lot=lot, status='ACTIVE'
+    ).select_related('requirement').order_by('id')
+    for reservation in rows:
+        active = reservation.active_quantity
+        take = min(active, remaining)
+        if take <= 1e-9:
+            continue
+        reservation.quantity_released += take
+        if active - take <= 1e-9:
+            reservation.status = 'RELEASED'
+        reservation.save(update_fields=['quantity_released', 'status', 'updated_at'])
+        StockReservationEvent.objects.create(
+            reservation=reservation, action='RELEASE', quantity=take, user=user,
+            reason=f'{marker} Sortie manuelle sans OF; réservation libérée pour stock réellement consommé',
+        )
+        released_total += take
+        remaining -= take
+        if remaining <= 1e-9:
+            break
+    return released_total
+
+
+@transaction.atomic
+def restore_manual_issue_reservations(movement_id, user):
+    """Réactive uniquement les quantités libérées par la contre-passation de cette sortie."""
+    OFMaterialRequirement, StockReservation, StockReservationEvent = _reservation_models()
+    marker = f'[MVT#{movement_id}]'
+    events = list(StockReservationEvent.objects.select_for_update().filter(
+        action='RELEASE', reason__contains=marker
+    ).select_related('reservation').order_by('id'))
+    restored = 0.0
+    for event in events:
+        reservation = StockReservation.objects.select_for_update().get(pk=event.reservation_id)
+        amount = min(float(event.quantity), float(reservation.quantity_released or 0))
+        if amount <= 1e-9:
+            continue
+        reservation.quantity_released = max(0.0, float(reservation.quantity_released) - amount)
+        if reservation.quantity_consumed + reservation.quantity_released < reservation.quantity_reserved - 1e-9:
+            reservation.status = 'ACTIVE'
+        elif reservation.quantity_consumed >= reservation.quantity_reserved - 1e-9:
+            reservation.status = 'CONSUMED'
+        else:
+            reservation.status = 'RELEASED'
+        reservation.save(update_fields=['quantity_released', 'status', 'updated_at'])
+        StockReservationEvent.objects.create(
+            reservation=reservation, action='RESERVE', quantity=amount, user=user,
+            reason=f'Annulation de la sortie manuelle #{movement_id}; réservation restaurée',
+        )
+        restored += amount
+    return restored

@@ -1182,10 +1182,14 @@ def planification_ordonnancer(request, of_id):
     iso_year, iso_week, _ = today.isocalendar()
     current_week_str = f"{iso_year}-W{iso_week:02d}"
 
+    # Le template du calculateur a besoin du catalogue des matières FILM actives.
+    # Ne pas dépendre de `form`: cette vue transmet un formset, pas le formulaire OF.
+    films_json = OrdreFabricationForm().get_films_json()
     return render(request, 'of/planification_ordonnancer.html', {
         'of': of,
         'formset': formset,
         'current_week_str': current_week_str,
+        'films_json': films_json,
     })
 
 

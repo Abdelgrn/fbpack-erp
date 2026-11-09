@@ -98,6 +98,7 @@
                     <tr>
                         <th class="px-4 py-3 text-left">Utilisateur</th>
                         <th class="px-4 py-3 text-left">Email</th>
+                        <th class="px-4 py-3 text-left">Poste</th>
                         <th class="px-4 py-3 text-center">Statut</th>
                         <th class="px-4 py-3 text-center">Modules Autorisés</th>
                         <th class="px-4 py-3 text-center">Actions</th>
@@ -109,6 +110,7 @@
                         data-user-id="{{ item.user.id }}"
                         data-username="{{ item.user.username }}"
                         data-email="{{ item.user.email|default:'' }}"
+                        data-poste="{{ item.poste|escape }}"
                         data-is-staff="{{ item.user.is_staff|yesno:'1,0' }}"
                         data-is-active="{{ item.user.is_active|yesno:'1,0' }}"
                         data-modules="{{ item.modules_actifs|join:',' }}">
@@ -128,6 +130,7 @@
                             </div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-300">{{ item.user.email|default:"-" }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-300">{{ item.poste|default:"—" }}</td>
                         <td class="px-4 py-3 text-center">
                             {% if item.user.is_active %}
                                 <span class="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded">✅ Actif</span>
@@ -245,6 +248,10 @@
                 <h3 class="text-sm font-bold text-neon uppercase mb-3">Informations de Connexion</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
+                        <label class="block text-sm text-gray-300 mb-2">Poste / Fonction</label>
+                        <input type="text" name="poste" maxlength="100">
+                    </div>
+                    <div>
                         <label class="block text-sm text-gray-300 mb-2">Nom d'utilisateur *</label>
                         <input type="text" name="username" required autocomplete="off">
                     </div>
@@ -320,6 +327,10 @@
             <div class="mb-6">
                 <h3 class="text-sm font-bold text-neon uppercase mb-3">Informations</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-2">Poste / Fonction</label>
+                        <input type="text" name="poste" id="edit-poste" maxlength="100">
+                    </div>
                     <div>
                         <label class="block text-sm text-gray-300 mb-2">Nom d'utilisateur</label>
                         <input type="text" name="username" id="edit-username" autocomplete="off">
@@ -469,6 +480,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var userId = row.getAttribute('data-user-id');
             var username = row.getAttribute('data-username');
             var email = row.getAttribute('data-email');
+            var poste = row.getAttribute('data-poste') || '';
             var isStaff = row.getAttribute('data-is-staff') === '1';
             var isActive = row.getAttribute('data-is-active') === '1';
             var modulesStr = row.getAttribute('data-modules') || '';
@@ -476,6 +488,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             document.getElementById('edit-username').value = username;
             document.getElementById('edit-email').value = email;
+            document.getElementById('edit-poste').value = poste;
             document.getElementById('edit-is-staff').checked = isStaff;
             document.getElementById('edit-is-active').checked = isActive;
 

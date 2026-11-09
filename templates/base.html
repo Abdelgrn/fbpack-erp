@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="fr" class="dark" data-appearance="cockpit">
+<html lang="fr" class="dark" data-appearance="odoo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -51,14 +51,20 @@
     <!-- ================================================================ -->
     <script>
         (function () {
-            var appearance = 'cockpit';
+            var appearance = 'odoo';
 
             try {
-                appearance = localStorage.getItem('fbpack-appearance') === 'modern'
-                    ? 'modern'
-                    : 'cockpit';
+                var storedAppearance = localStorage.getItem('fbpack-appearance');
+                if (!localStorage.getItem('fbpack-appearance-v2')) {
+                    /* Migration unique : on affiche le nouveau mode Odoo par défaut. */
+                    appearance = 'odoo';
+                    localStorage.setItem('fbpack-appearance', 'odoo');
+                    localStorage.setItem('fbpack-appearance-v2', '1');
+                } else {
+                    appearance = storedAppearance === 'modern' ? 'modern' : 'odoo';
+                }
             } catch (error) {
-                appearance = 'cockpit';
+                appearance = 'odoo';
             }
 
             document.documentElement.setAttribute('data-appearance', appearance);
@@ -1817,11 +1823,11 @@
         /* Style inspiré des tableaux de bord en tuiles, sans logo tiers. */
         /* ============================================================ */
 
-        html[data-appearance="cockpit"] body {
+        html[data-appearance="odoo"] body {
             font-family: "Segoe UI", Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
-        html[data-appearance="cockpit"] #fb-cockpit-topbar {
+        html[data-appearance="odoo"] #fb-cockpit-topbar {
             display: flex !important;
             flex: 0 0 50px;
             min-height: 50px;
@@ -1836,7 +1842,7 @@
             box-shadow: 0 2px 8px rgba(21, 68, 96, 0.08);
         }
 
-        html[data-appearance="cockpit"] #fb-cockpit-shortcuts {
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts {
             display: flex !important;
             flex: 0 0 40px;
             min-height: 40px;
@@ -1850,24 +1856,24 @@
             scrollbar-width: thin;
         }
 
-        html.dark[data-appearance="cockpit"] #fb-cockpit-topbar {
+        html.dark[data-appearance="odoo"] #fb-cockpit-topbar {
             border-bottom-color: #243c53;
             background: linear-gradient(90deg, #132840 0%, #1a354e 55%, #153047 100%);
             color: #e7f2f8;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.24);
         }
 
-        html.dark[data-appearance="cockpit"] #fb-cockpit-shortcuts {
+        html.dark[data-appearance="odoo"] #fb-cockpit-shortcuts {
             border-bottom-color: #263e55;
             background: rgba(18, 39, 59, 0.96);
         }
 
-        html[data-appearance="cockpit"] #main-sidebar ~ div {
+        html[data-appearance="odoo"] #main-sidebar ~ div {
             background: #eaf6fc !important;
             color: #1e3448;
         }
 
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content {
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content {
             background-color: #eaf6fc !important;
             background-image:
                 radial-gradient(circle at 88% 2%, rgba(56, 189, 248, 0.16), transparent 28rem),
@@ -1875,12 +1881,12 @@
             color: #1e3448 !important;
         }
 
-        html.dark[data-appearance="cockpit"] #main-sidebar ~ div {
+        html.dark[data-appearance="odoo"] #main-sidebar ~ div {
             background: #0e1c2b !important;
             color: #e2e8f0;
         }
 
-        html.dark[data-appearance="cockpit"] #fb-main-content {
+        html.dark[data-appearance="odoo"] #fb-main-content {
             background-color: #0e1c2b !important;
             background-image:
                 radial-gradient(circle at 88% 2%, rgba(56, 189, 248, 0.09), transparent 28rem),
@@ -1888,7 +1894,7 @@
             color: #e2e8f0 !important;
         }
 
-        html[data-appearance="cockpit"] #main-sidebar {
+        html[data-appearance="odoo"] #main-sidebar {
             position: absolute !important;
             inset: 50px auto 0 0 !important;
             width: min(286px, 86vw) !important;
@@ -1898,15 +1904,15 @@
             box-shadow: 16px 0 36px rgba(10, 32, 50, 0.24) !important;
         }
 
-        html[data-appearance="cockpit"] #main-sidebar[class~="-translate-x-full"] {
+        html[data-appearance="odoo"] #main-sidebar[class~="-translate-x-full"] {
             transform: translateX(-105%) !important;
         }
 
-        html[data-appearance="cockpit"] #main-sidebar:not([class~="-translate-x-full"]) {
+        html[data-appearance="odoo"] #main-sidebar:not([class~="-translate-x-full"]) {
             transform: translateX(0) !important;
         }
 
-        html[data-appearance="cockpit"] #mobile-overlay {
+        html[data-appearance="odoo"] #mobile-overlay {
             position: absolute !important;
             inset: 50px 0 0 0 !important;
             z-index: 90 !important;
@@ -1915,15 +1921,15 @@
             -webkit-backdrop-filter: blur(2px);
         }
 
-        html[data-appearance="cockpit"] #mobile-overlay:not(.hidden) {
+        html[data-appearance="odoo"] #mobile-overlay:not(.hidden) {
             display: block !important;
         }
 
-        html[data-appearance="cockpit"] #main-sidebar ~ div > header[class*="md:hidden"] {
+        html[data-appearance="odoo"] #main-sidebar ~ div > header[class*="md:hidden"] {
             display: none !important;
         }
 
-        html[data-appearance="cockpit"] #fb-main-content > div:last-child {
+        html[data-appearance="odoo"] #fb-main-content > div:last-child {
             width: 100%;
             max-width: 1580px;
             margin: 0 auto;
@@ -1984,7 +1990,7 @@
             letter-spacing: 0.08em;
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-brand-tag {
+        html.dark[data-appearance="odoo"] .fb-cockpit-brand-tag {
             color: #7dd3fc;
             background: rgba(56, 189, 248, 0.14);
         }
@@ -2034,17 +2040,17 @@
             white-space: nowrap;
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-search {
+        html.dark[data-appearance="odoo"] .fb-cockpit-search {
             border-color: #35526c;
             background: rgba(7, 20, 34, 0.45);
             color: #b9cfdd;
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-search:hover {
+        html.dark[data-appearance="odoo"] .fb-cockpit-search:hover {
             background: rgba(34, 60, 82, 0.86);
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-search kbd {
+        html.dark[data-appearance="odoo"] .fb-cockpit-search kbd {
             border-color: #486177;
             color: #a9c0ce;
         }
@@ -2090,7 +2096,7 @@
             text-align: center;
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-notification-count {
+        html.dark[data-appearance="odoo"] .fb-cockpit-notification-count {
             border-color: #173149;
         }
 
@@ -2129,7 +2135,7 @@
             white-space: nowrap;
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-user {
+        html.dark[data-appearance="odoo"] .fb-cockpit-user {
             border-color: #35526c;
             background: rgba(7, 20, 34, 0.42);
         }
@@ -2144,7 +2150,7 @@
             white-space: nowrap;
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-shortcuts-label {
+        html.dark[data-appearance="odoo"] .fb-cockpit-shortcuts-label {
             color: #91a9b8;
         }
 
@@ -2183,16 +2189,16 @@
             color: #087ca9;
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-shortcut,
-        html.dark[data-appearance="cockpit"] .fb-cockpit-all-modules {
+        html.dark[data-appearance="odoo"] .fb-cockpit-shortcut,
+        html.dark[data-appearance="odoo"] .fb-cockpit-all-modules {
             border-color: #35526c;
             background: rgba(7, 20, 34, 0.42);
             color: #c6d8e3;
         }
 
-        html.dark[data-appearance="cockpit"] .fb-cockpit-shortcut:hover,
-        html.dark[data-appearance="cockpit"] .fb-cockpit-all-modules:hover,
-        html.dark[data-appearance="cockpit"] .fb-cockpit-shortcut.is-active {
+        html.dark[data-appearance="odoo"] .fb-cockpit-shortcut:hover,
+        html.dark[data-appearance="odoo"] .fb-cockpit-all-modules:hover,
+        html.dark[data-appearance="odoo"] .fb-cockpit-shortcut.is-active {
             border-color: #328bb5;
             background: rgba(14, 116, 144, 0.34);
             color: #a5f3fc;
@@ -2204,12 +2210,12 @@
             color: #087ca9;
         }
 
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .glass,
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .glass-card,
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .production-card,
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .production-panel,
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .planning-card,
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content .planning-panel {
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content .glass,
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content .glass-card,
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content .production-card,
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content .production-panel,
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content .planning-card,
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content .planning-panel {
             background: #ffffff !important;
             background-image: none !important;
             border-color: #cfe0eb !important;
@@ -2218,12 +2224,12 @@
             box-shadow: 0 2px 8px rgba(30, 75, 102, 0.10) !important;
         }
 
-        html.dark[data-appearance="cockpit"] #fb-main-content .glass,
-        html.dark[data-appearance="cockpit"] #fb-main-content .glass-card,
-        html.dark[data-appearance="cockpit"] #fb-main-content .production-card,
-        html.dark[data-appearance="cockpit"] #fb-main-content .production-panel,
-        html.dark[data-appearance="cockpit"] #fb-main-content .planning-card,
-        html.dark[data-appearance="cockpit"] #fb-main-content .planning-panel {
+        html.dark[data-appearance="odoo"] #fb-main-content .glass,
+        html.dark[data-appearance="odoo"] #fb-main-content .glass-card,
+        html.dark[data-appearance="odoo"] #fb-main-content .production-card,
+        html.dark[data-appearance="odoo"] #fb-main-content .production-panel,
+        html.dark[data-appearance="odoo"] #fb-main-content .planning-card,
+        html.dark[data-appearance="odoo"] #fb-main-content .planning-panel {
             background: #1a2c3e !important;
             background-image: none !important;
             border-color: #304a61 !important;
@@ -2232,55 +2238,55 @@
             box-shadow: 0 7px 18px rgba(0, 0, 0, 0.20) !important;
         }
 
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content div[class~="rounded-xl"][class*="bg-slate-"],
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content div[class~="rounded-2xl"][class*="bg-slate-"] {
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content div[class~="rounded-xl"][class*="bg-slate-"],
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content div[class~="rounded-2xl"][class*="bg-slate-"] {
             background-color: #ffffff !important;
             border-color: #cfe0eb !important;
             color: #263f54 !important;
             box-shadow: 0 2px 8px rgba(30, 75, 102, 0.10);
         }
 
-        html.dark[data-appearance="cockpit"] #fb-main-content div[class~="rounded-xl"][class*="bg-slate-"],
-        html.dark[data-appearance="cockpit"] #fb-main-content div[class~="rounded-2xl"][class*="bg-slate-"] {
+        html.dark[data-appearance="odoo"] #fb-main-content div[class~="rounded-xl"][class*="bg-slate-"],
+        html.dark[data-appearance="odoo"] #fb-main-content div[class~="rounded-2xl"][class*="bg-slate-"] {
             background-color: #1a2c3e !important;
             border-color: #304a61 !important;
             color: #e2e8f0 !important;
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
         }
 
-        html[data-appearance="cockpit"] #fb-main-content table {
+        html[data-appearance="odoo"] #fb-main-content table {
             border-collapse: separate !important;
             border-spacing: 0 !important;
             overflow: hidden;
             border-radius: 8px;
         }
 
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content thead th,
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content th {
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content thead th,
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content th {
             background-color: #dff1fb !important;
             border-color: #c8dfeb !important;
             color: #24465d !important;
         }
 
-        html.dark[data-appearance="cockpit"] #fb-main-content thead th,
-        html.dark[data-appearance="cockpit"] #fb-main-content th {
+        html.dark[data-appearance="odoo"] #fb-main-content thead th,
+        html.dark[data-appearance="odoo"] #fb-main-content th {
             background-color: #20384e !important;
             border-color: #304a61 !important;
             color: #d7eaf5 !important;
         }
 
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content select,
-        html:not(.dark)[data-appearance="cockpit"] #fb-main-content textarea {
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content select,
+        html:not(.dark)[data-appearance="odoo"] #fb-main-content textarea {
             border-color: #c6dce8 !important;
             border-radius: 7px !important;
             background-color: #ffffff !important;
             color: #20384c !important;
         }
 
-        html.dark[data-appearance="cockpit"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
-        html.dark[data-appearance="cockpit"] #fb-main-content select,
-        html.dark[data-appearance="cockpit"] #fb-main-content textarea {
+        html.dark[data-appearance="odoo"] #fb-main-content input:not([type="checkbox"]):not([type="radio"]),
+        html.dark[data-appearance="odoo"] #fb-main-content select,
+        html.dark[data-appearance="odoo"] #fb-main-content textarea {
             border-color: #3a556d !important;
             border-radius: 7px !important;
             background-color: #14273a !important;
@@ -2288,25 +2294,25 @@
         }
 
         @media (max-width: 700px) {
-            html[data-appearance="cockpit"] #fb-cockpit-topbar {
+            html[data-appearance="odoo"] #fb-cockpit-topbar {
                 gap: 8px;
                 padding: 0 9px;
             }
 
-            html[data-appearance="cockpit"] #fb-cockpit-shortcuts {
+            html[data-appearance="odoo"] #fb-cockpit-shortcuts {
                 gap: 5px;
                 padding: 0 9px;
             }
 
-            html[data-appearance="cockpit"] .fb-cockpit-brand-name {
+            html[data-appearance="odoo"] .fb-cockpit-brand-name {
                 display: none;
             }
 
-            html[data-appearance="cockpit"] .fb-cockpit-brand-tag {
+            html[data-appearance="odoo"] .fb-cockpit-brand-tag {
                 display: none;
             }
 
-            html[data-appearance="cockpit"] .fb-cockpit-search {
+            html[data-appearance="odoo"] .fb-cockpit-search {
                 width: 38px;
                 min-width: 38px;
                 justify-content: center;
@@ -2314,37 +2320,37 @@
                 padding: 0;
             }
 
-            html[data-appearance="cockpit"] .fb-cockpit-search-label,
-            html[data-appearance="cockpit"] .fb-cockpit-search kbd,
-            html[data-appearance="cockpit"] .fb-cockpit-user-name {
+            html[data-appearance="odoo"] .fb-cockpit-search-label,
+            html[data-appearance="odoo"] .fb-cockpit-search kbd,
+            html[data-appearance="odoo"] .fb-cockpit-user-name {
                 display: none;
             }
 
-            html[data-appearance="cockpit"] .fb-cockpit-user {
+            html[data-appearance="odoo"] .fb-cockpit-user {
                 padding: 2px;
                 border-color: transparent;
                 background: transparent;
             }
 
-            html[data-appearance="cockpit"] #fb-main-content > div:last-child {
+            html[data-appearance="odoo"] #fb-main-content > div:last-child {
                 padding: 14px 12px !important;
             }
         }
 
 
-        html[data-appearance="cockpit"] #main-sidebar {
+        html[data-appearance="odoo"] #main-sidebar {
             background: linear-gradient(180deg, #10263a 0%, #142d43 100%) !important;
             border-right-color: rgba(148, 190, 211, 0.20) !important;
         }
 
-        html[data-appearance="cockpit"] #main-sidebar > div:first-child {
+        html[data-appearance="odoo"] #main-sidebar > div:first-child {
             background: rgba(11, 28, 43, 0.44) !important;
             border-bottom-color: rgba(148, 190, 211, 0.16) !important;
         }
 
-        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link.active,
-        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link-drh.active,
-        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link-maint.active {
+        html[data-appearance="odoo"] #main-sidebar nav a.nav-link.active,
+        html[data-appearance="odoo"] #main-sidebar nav a.nav-link-drh.active,
+        html[data-appearance="odoo"] #main-sidebar nav a.nav-link-maint.active {
             padding-left: 13px !important;
             border-right: 0 !important;
             border-left: 3px solid #36b8e7 !important;
@@ -2353,21 +2359,21 @@
             color: #8cdef9 !important;
         }
 
-        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link:hover,
-        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link-drh:hover,
-        html[data-appearance="cockpit"] #main-sidebar nav a.nav-link-maint:hover {
+        html[data-appearance="odoo"] #main-sidebar nav a.nav-link:hover,
+        html[data-appearance="odoo"] #main-sidebar nav a.nav-link-drh:hover,
+        html[data-appearance="odoo"] #main-sidebar nav a.nav-link-maint:hover {
             background: rgba(125, 211, 252, 0.10) !important;
             color: #e0f2fe !important;
         }
 
-        html:not(.dark)[data-appearance="cockpit"] #main-sidebar ~ div nav[style*="safe-area-inset-bottom"] {
+        html:not(.dark)[data-appearance="odoo"] #main-sidebar ~ div nav[style*="safe-area-inset-bottom"] {
             border-top-color: #c8e2ef !important;
             background: rgba(239, 249, 254, 0.97) !important;
             color: #35546a;
             box-shadow: 0 -3px 12px rgba(20, 70, 100, 0.10) !important;
         }
 
-        html.dark[data-appearance="cockpit"] #main-sidebar ~ div nav[style*="safe-area-inset-bottom"] {
+        html.dark[data-appearance="odoo"] #main-sidebar ~ div nav[style*="safe-area-inset-bottom"] {
             border-top-color: #29445c !important;
             background: rgba(16, 36, 54, 0.97) !important;
             box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.22) !important;
@@ -2375,7 +2381,7 @@
 
 
         /* Raccourcis cockpit : grandes icônes au-dessus des libellés, sans barre de défilement */
-        html[data-appearance="cockpit"] #fb-cockpit-shortcuts {
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts {
             flex: 0 0 auto !important;
             min-height: 0 !important;
             height: auto !important;
@@ -2386,9 +2392,9 @@
             padding: 7px 18px;
             scrollbar-width: none !important;
         }
-        html[data-appearance="cockpit"] #fb-cockpit-shortcuts::-webkit-scrollbar { display: none; }
-        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-shortcut,
-        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-all-modules {
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts::-webkit-scrollbar { display: none; }
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts .fb-cockpit-shortcut,
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts .fb-cockpit-all-modules {
             box-sizing: border-box;
             width: 88px;
             min-width: 88px;
@@ -2402,24 +2408,73 @@
             line-height: 1.15;
             font-size: 10px;
         }
-        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-shortcut > span,
-        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-all-modules > span {
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts .fb-cockpit-shortcut > span,
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts .fb-cockpit-all-modules > span {
             font-size: 17px;
             line-height: 1;
         }
-        html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-shortcuts-label {
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts .fb-cockpit-shortcuts-label {
             align-self: center;
             margin: 0 8px 0 0;
         }
         @media (max-width: 700px) {
-            html[data-appearance="cockpit"] #fb-cockpit-shortcuts { padding: 6px 8px; gap: 5px; }
-            html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-shortcut,
-            html[data-appearance="cockpit"] #fb-cockpit-shortcuts .fb-cockpit-all-modules {
+            html[data-appearance="odoo"] #fb-cockpit-shortcuts { padding: 6px 8px; gap: 5px; }
+            html[data-appearance="odoo"] #fb-cockpit-shortcuts .fb-cockpit-shortcut,
+            html[data-appearance="odoo"] #fb-cockpit-shortcuts .fb-cockpit-all-modules {
                 width: 72px; min-width: 72px; flex-basis: 72px; min-height: 54px;
                 font-size: 9px;
             }
         }
 
+
+        /* ============================================================ */
+        /* APPARENCE ODOO (remplace Cockpit) — couleurs FB PACK d'origine */
+        /* ============================================================ */
+        html[data-appearance="odoo"] #main-sidebar { display: none !important; }
+        html[data-appearance="odoo"] #mobile-overlay { display: none !important; }
+        html[data-appearance="odoo"] #fb-cockpit-shortcuts { display: none !important; }
+        .fb-odoo-apps-word { font-size: 12px; font-weight: 800; letter-spacing: .04em; opacity: .85; }
+        .fb-odoo-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+        .fb-odoo-icon-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(70,124,153,.22); border-radius: 8px; background: rgba(255,255,255,.54); color: inherit; cursor: pointer; }
+        html.dark .fb-odoo-icon-btn { background: rgba(255,255,255,.06); border-color: #243c53; }
+        .fb-odoo-text-btn { display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border: 1px solid rgba(70,124,153,.22); border-radius: 8px; background: rgba(255,255,255,.54); color: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        html.dark .fb-odoo-text-btn { background: rgba(255,255,255,.06); border-color: #243c53; }
+        .fb-odoo-text-btn.is-danger { color: #f87171; border-color: rgba(248,113,113,.35); }
+        html[data-appearance="odoo"] #fb-cockpit-topbar { gap: 10px; }
+        html[data-appearance="odoo"] .fb-odoo-actions { gap: 6px; }
+        html[data-appearance="odoo"] .fb-odoo-actions .fb-appearance-control__value { display: none; }
+        html[data-appearance="odoo"] .fb-odoo-text-btn { padding: 0 9px; }
+        html[data-appearance="odoo"] .fb-odoo-text-btn span.lbl { display: none; }
+        @media (max-width: 900px) { .fb-odoo-apps-word { display: none; } }
+
+        .fb-odoo-launcher { display: none; position: fixed; left: 0; right: 0; top: 110px; bottom: 0; z-index: 95; overflow-y: auto; padding: 26px 20px 48px; }
+        html.dark .fb-odoo-launcher { background-image: radial-gradient(circle at 88% 2%, rgba(56,189,248,.09), transparent 28rem), linear-gradient(145deg, #0e1c2b 0%, #13263a 100%); background-color: #0e1c2b; color: #e2e8f0; }
+        html:not(.dark) .fb-odoo-launcher { background-image: radial-gradient(circle at 88% 2%, rgba(56,189,248,.16), transparent 28rem), linear-gradient(145deg, #e9f7ff 0%, #dff0fa 100%); background-color: #eaf6fc; color: #1e3448; }
+        /* Le lanceur Odoo reste caché au premier paint; JS l’ouvre seulement sur la vraie page d’accueil. */
+        .fb-odoo-launcher.is-open { display: block; }
+        html[data-appearance="odoo"] .fb-odoo-launcher.is-closed { display: none !important; }
+        .fb-odoo-launcher-inner { max-width: 1060px; margin: 0 auto; }
+        .fb-odoo-launcher-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+        .fb-odoo-launcher-head h2 { margin: 0; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 12px; }
+        .fb-odoo-launcher-head h2 img { height: 40px; width: auto; object-fit: contain; }
+        .fb-odoo-launcher-head p { margin: 4px 0 0; font-size: 13px; opacity: .72; }
+        .fb-odoo-search { display: flex; align-items: center; gap: 9px; min-width: min(400px, 100%); height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; }
+        html:not(.dark) .fb-odoo-search { background: #ffffff; border-color: #e2e8f0; color: #1e293b; }
+        .fb-odoo-search input { flex: 1; border: 0; outline: 0; background: transparent; color: inherit; font-size: 14px; }
+        .fb-odoo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(106px, 1fr)); gap: 8px 6px; margin-top: 16px; }
+        @media (min-width: 900px) { .fb-odoo-grid { grid-template-columns: repeat(6, 1fr); } }
+        .fb-odoo-app { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 4px 10px; border-radius: 12px; border: 1px solid transparent; text-align: center; color: inherit; }
+        .fb-odoo-app:hover { background: rgba(255,255,255,.55); border-color: rgba(8,124,169,.20); transform: translateY(-1px); }
+        html.dark .fb-odoo-app:hover { background: rgba(255,255,255,.05); }
+        .fb-odoo-app-icon { position: relative; width: 72px; height: 72px; border-radius: 14px; background: #ffffff; box-shadow: 0 2px 5px rgba(15,23,42,.16), 0 8px 18px rgba(15,23,42,.08); display: grid; place-items: center; }
+        html.dark .fb-odoo-app-icon { background: #1e293b; border: 1px solid #334155; }
+        .fb-odoo-app-icon svg { width: 42px; height: 42px; }
+        .fb-odoo-app-label { font-size: 12.5px; line-height: 1.25; }
+        .fb-odoo-app.is-active .fb-odoo-app-icon { box-shadow: 0 0 0 2px #f3b83a, 0 8px 18px rgba(15,23,42,.14); }
+        .fb-odoo-app.is-active .fb-odoo-app-label { font-weight: 800; }
+        .fb-odoo-badge { position: absolute; top: -7px; right: -7px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 99px; background: #dc2626; color: #fff; font-size: 10px; font-weight: 800; line-height: 19px; text-align: center; }
+        .fb-odoo-empty { display: none; text-align: center; opacity: .65; padding: 34px 10px; font-size: 14px; }
+        .fb-odoo-foot { margin-top: 26px; text-align: center; font-size: 12px; opacity: .6; }
     </style>
 </head>
 
@@ -2913,7 +2968,7 @@
                         title="Changer l'apparence de l'ERP"
                     >
                         <span class="fb-appearance-control__icon" aria-hidden="true">🎨</span>
-                        <span class="fb-appearance-control__value" data-appearance-status>Cockpit</span>
+                        <span class="fb-appearance-control__value" data-appearance-status>Sidenav</span>
                         <span class="fb-appearance-control__switch" aria-hidden="true">
                             <span class="fb-appearance-control__thumb"></span>
                         </span>
@@ -2989,13 +3044,14 @@
                     <button
                         type="button"
                         class="fb-cockpit-menu-button"
-                        onclick="toggleSidebar()"
-                        aria-controls="main-sidebar"
-                        aria-label="Ouvrir le menu des modules"
+                        onclick="toggleOdooLauncher()"
+                        aria-controls="fb-odoo-launcher"
+                        aria-label="Ouvrir les applications"
                         title="Tous les modules"
                     >
-                        <span aria-hidden="true">☰</span>
+                        <span aria-hidden="true" style="font-size:19px;line-height:1">⠿</span>
                     </button>
+                    <span class="fb-odoo-apps-word">Applications</span>
                     <img
                         src="{% static 'logo1.png' %}"
                         data-fallback="{% static 'logo.png' %}"
@@ -3030,6 +3086,22 @@
                     <span class="fb-cockpit-notification-count">{{ notification_unread_count }}</span>
                     {% endif %}
                 </a>
+
+                <div class="fb-odoo-actions">
+                    <button id="theme-toggle-odoo" type="button" class="fb-odoo-icon-btn" title="Basculer le mode Sombre/Clair" aria-label="Basculer le thème">
+                        <span class="theme-toggle-dark-icon hidden text-base">🌙</span>
+                        <span class="theme-toggle-light-icon hidden text-base">☀️</span>
+                    </button>
+                    <button id="appearance-toggle-odoo" type="button" class="fb-appearance-control fb-appearance-control--compact" aria-label="Basculer vers l'apparence sidenav" aria-pressed="false" title="Changer l'apparence de l'ERP">
+                        <span class="fb-appearance-control__icon" aria-hidden="true">🎨</span>
+                        <span class="fb-appearance-control__value" data-appearance-status>Odoo</span>
+                        <span class="fb-appearance-control__switch" aria-hidden="true"><span class="fb-appearance-control__thumb"></span></span>
+                    </button>
+                    {% if 'admin' in user_modules or is_super_admin %}
+                    <a href="{% url 'admin_view' %}" class="fb-odoo-text-btn" title="Administration">⚙️ <span class="lbl">Admin</span></a>
+                    {% endif %}
+                    <form action="{% url 'logout' %}" method="post" style="display:inline-flex">{% csrf_token %}<button type="submit" class="fb-odoo-text-btn is-danger" title="Se déconnecter">🚪 <span class="lbl">Sortir</span></button></form>
+                </div>
 
                 <div class="fb-cockpit-user" title="{{ user.username|default:'Utilisateur' }}">
                     <span class="fb-cockpit-user-avatar" aria-hidden="true">{{ user.username|slice:":1"|upper }}</span>
@@ -3132,6 +3204,41 @@
 
 
             </nav>
+
+
+            <!-- LANCEUR D'APPLICATIONS — MODE ODOO (couleurs FB PACK) -->
+            <section id="fb-odoo-launcher" class="fb-odoo-launcher" aria-label="Applications FB PACK">
+                <div class="fb-odoo-launcher-inner">
+                    <div class="fb-odoo-launcher-head">
+                        <div>
+                            <h2><img src="{% static 'logo1.png' %}" data-fallback="{% static 'logo.png' %}" alt="FB PACK"> Applications</h2>
+                            <p>Bonjour, {{ user.username|default:"Utilisateur" }} — choisissez un module (selon vos permissions).</p>
+                        </div>
+                        
+                    </div>
+                    <div class="fb-odoo-grid">
+                {% if 'dashboard' in user_modules %}<a href="{% url 'dashboard' %}" class="fb-odoo-app {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}" data-search="dashboard accueil vue ensemble"><span class="fb-odoo-app-icon" style="color:#B45309"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="fb-odoo-app-label">Accueil</span></a>{% endif %}
+                {% if 'planning' in user_modules %}<a href="{% url 'planning' %}" class="fb-odoo-app {% if request.resolver_match.url_name == 'planning' %}is-active{% endif %}" data-search="planning gantt taches calendrier"><span class="fb-odoo-app-icon" style="color:#087CA9"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h11M3 10h16M3 15h8M3 20h13"/><circle cx="18" cy="5" r="2"/><circle cx="15" cy="15" r="2"/><circle cx="20" cy="20" r="2"/></svg></span><span class="fb-odoo-app-label">Planning Gantt</span></a>{% endif %}
+                {% if 'reporting' in user_modules %}<a href="{% url 'reporting' %}" class="fb-odoo-app {% if request.resolver_match.url_name == 'reporting' %}is-active{% endif %}" data-search="reporting rapports statistiques"><span class="fb-odoo-app-icon" style="color:#35526C"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8<path d="M2 20h20"/>"/></svg></span><span class="fb-odoo-app-label">Reporting</span></a>{% endif %}
+                {% if 'kpi' in user_modules %}<a href="{% url 'kpi_dashboard' %}" class="fb-odoo-app {% if 'kpi' in request.path %}is-active{% endif %}" data-search="kpi data analyse indicateurs"><span class="fb-odoo-app-icon" style="color:#0891B2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4-4"/><path d="M2 14h20"/></svg></span><span class="fb-odoo-app-label">KPI & Data Analyse</span></a>{% endif %}
+                {% if 'crm' in user_modules %}<a href="{% url 'crm_view' %}" class="fb-odoo-app {% if 'crm' in request.path %}is-active{% endif %}" data-search="crm clients devis commercial"><span class="fb-odoo-app-icon" style="color:#EA580C"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><path d="M16 5.5a3.5 3.5 0 0 1 0 5.8M18.5 15.4c1.6.7 2.6 2.1 3 4.1"/></svg></span><span class="fb-odoo-app-label">CRM & Devis</span></a>{% endif %}
+                {% if 'prepress' in user_modules %}<a href="{% url 'prepress_view' %}" class="fb-odoo-app {% if 'prepress' in request.path %}is-active{% endif %}" data-search="prepresse design pao outils"><span class="fb-odoo-app-icon" style="color:#0F766E"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19l7-7a4.6 4.6 0 0 0-6.5-6.5L5 13v6h7z"/><path d="M9.5 10.5l4 4M14 4l6 6"/></svg></span><span class="fb-odoo-app-label">Prépresse & Outils</span></a>{% endif %}
+                {% if 'planification' in user_modules %}<a href="{% url 'planning_atelier' %}" class="fb-odoo-app {% if 'planification' in request.path or 'planning-atelier' in request.path %}is-active{% endif %}" data-search="planification atelier ordres fabrication"><span class="fb-odoo-app-icon" style="color:#059669"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="2.5"/><path d="M12 13.8V15l.9.7"/></svg></span><span class="fb-odoo-app-label">Planification</span></a>{% endif %}
+                {% if 'production' in user_modules %}<a href="{% url 'prod_dashboard' %}" class="fb-odoo-app {% if '/prod/' in request.path and '/encre/' not in request.path %}is-active{% endif %}" data-search="production special atelier fabrication"><span class="fb-odoo-app-icon" style="color:#475569"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V10l6 4v-4l6 4V6h6v15H3z"/><path d="M7 17h.01M12 17h.01M17 17h.01"/></svg></span><span class="fb-odoo-app-label">Production Spécial</span></a>{% endif %}
+                {% if user.is_superuser or user.module_permissions.can_access_suivi_postes %}<a href="{% url 'suivi_postes' %}" class="fb-odoo-app {% if 'suivi-postes' in request.path %}is-active{% endif %}" data-search="suivi poste machine production"><span class="fb-odoo-app-icon" style="color:#2563EB"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 13l2.5-3 2 2L15 8"/></svg></span><span class="fb-odoo-app-label">Suivi par poste</span></a>{% endif %}
+                {% if 'stock' in user_modules %}<a href="{% url 'stock_advanced' %}" class="fb-odoo-app {% if '/stock/' in request.path %}is-active{% endif %}" data-search="stock inventaire achats magasin"><span class="fb-odoo-app-icon" style="color:#D97706"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.7L21 7.5v9L12 21.3 3 16.5v-9L12 2.7z"/><path d="M3 7.5l9 4.8 9-4.8M12 12.3V21"/></svg></span><span class="fb-odoo-app-label">Stocks & Achats</span></a>{% endif %}
+                {% if 'maintenance' in user_modules %}<a href="{% url 'maintenance_dashboard' %}" class="fb-odoo-app {% if '/maintenance/' in request.path %}is-active{% endif %}" data-search="maintenance interventions machines"><span class="fb-odoo-app-icon" style="color:#F97316"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4.5 4.5 0 0 0-6 6L3 18l3 3 5.7-5.7a4.5 4.5 0 0 0 6-6L14 13l-3-3 3.7-3.7z"/></svg>{% if alertes_maintenance_count > 0 %}<span class="fb-odoo-badge">{{ alertes_maintenance_count }}</span>{% endif %}</span><span class="fb-odoo-app-label">Maintenance</span></a>{% endif %}
+                {% if 'drh' in user_modules %}<a href="{% url 'drh_dashboard' %}" class="fb-odoo-app {% if '/drh/' in request.path %}is-active{% endif %}" data-search="drh rh employes ressources humaines"><span class="fb-odoo-app-icon" style="color:#10B981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M18.8 15.3c1.4.8 2.3 2.1 2.7 3.9"/></svg></span><span class="fb-odoo-app-label">DRH</span></a>{% endif %}
+                <a href="{% url 'notification_center' %}" class="fb-odoo-app {% if '/notifications/' in request.path %}is-active{% endif %}" data-search="notifications alertes centre"><span class="fb-odoo-app-icon" style="color:#DC2626"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></svg>{% if notification_unread_count %}<span class="fb-odoo-badge">{{ notification_unread_count }}</span>{% endif %}</span><span class="fb-odoo-app-label">Notifications</span></a>
+                {% if 'chat' in user_modules %}<a href="{% url 'chat_home' %}" class="fb-odoo-app {% if 'chat' in request.path %}is-active{% endif %}" data-search="chat messages equipe discussion"><span class="fb-odoo-app-icon" style="color:#06B6D4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.5 0-3-.4-4.2-1.1L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/></svg></span><span class="fb-odoo-app-label">Chat d'Équipe</span></a>{% endif %}
+                {% if 'chat' in user_modules %}<a href="{% url 'assistant_home' %}" class="fb-odoo-app {% if '/assistant/' in request.path %}is-active{% endif %}" data-search="assistant ia aide interne"><span class="fb-odoo-app-icon" style="color:#14B8A6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/></svg></span><span class="fb-odoo-app-label">Assistant IA</span></a>{% endif %}
+                {% if 'import' in user_modules %}<a href="{% url 'import_stock' %}" class="fb-odoo-app {% if 'import' in request.path %}is-active{% endif %}" data-search="import excel stock fichier"><span class="fb-odoo-app-icon" style="color:#16A34A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11M7.5 10.5L12 15l4.5-4.5"/><path d="M4 17v3h16v-3M4 21h16" transform="translate(0,-1)"/></svg></span><span class="fb-odoo-app-label">Importer Excel</span></a>{% endif %}
+                {% if 'admin' in user_modules or is_super_admin %}<a href="{% url 'admin_view' %}" class="fb-odoo-app " data-search="admin parametres administration"><span class="fb-odoo-app-icon" style="color:#64748B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.4-7 9-4-1.6-7-4.5-7-9V6l7-3z"/><circle cx="12" cy="11" r="2.2"/><path d="M12 13.2V16"/></svg></span><span class="fb-odoo-app-label">Administration</span></a>{% endif %}
+                    </div>
+                    <p id="fb-odoo-apps-empty" class="fb-odoo-empty">Aucune application ne correspond à votre recherche.</p>
+                    <p class="fb-odoo-foot">Bouton Applications en haut à gauche ou touche Échap pour fermer · Switch 🎨 dans la barre du haut pour revenir en mode Sidenav.</p>
+                </div>
+            </section>
 
             <!-- ======================================================== -->
             <!-- HEADER MOBILE                                              -->
@@ -4134,7 +4241,8 @@
 
         const toggleButtons = [
             document.getElementById('theme-toggle'),
-            document.getElementById('theme-toggle-mobile')
+            document.getElementById('theme-toggle-mobile'),
+            document.getElementById('theme-toggle-odoo')
         ].filter(Boolean);
 
 
@@ -4790,11 +4898,12 @@
         var root = document.documentElement;
         var controls = [
             document.getElementById('appearance-toggle'),
-            document.getElementById('appearance-toggle-mobile')
+            document.getElementById('appearance-toggle-mobile'),
+            document.getElementById('appearance-toggle-odoo')
         ].filter(Boolean);
 
         function normalizeAppearance(value) {
-            return value === 'modern' ? 'modern' : 'cockpit';
+            return value === 'modern' ? 'modern' : 'odoo';
         }
 
         function getAppearance() {
@@ -4804,8 +4913,8 @@
         function applyAppearance(value, persist) {
             var appearance = normalizeAppearance(value);
             var isModern = appearance === 'modern';
-            var currentLabel = isModern ? 'Moderne' : 'Cockpit';
-            var nextLabel = isModern ? 'Cockpit' : 'Moderne';
+            var currentLabel = isModern ? 'Sidenav' : 'Odoo';
+            var nextLabel = isModern ? 'Odoo' : 'Sidenav';
 
             root.setAttribute('data-appearance', appearance);
 
@@ -4834,7 +4943,7 @@
 
         controls.forEach(function (button) {
             button.addEventListener('click', function () {
-                applyAppearance(getAppearance() === 'modern' ? 'cockpit' : 'modern', true);
+                applyAppearance(getAppearance() === 'modern' ? 'odoo' : 'modern', true);
             });
         });
 
@@ -4844,7 +4953,7 @@
             get: getAppearance,
             set: function (value) { applyAppearance(value, true); },
             toggle: function () {
-                applyAppearance(getAppearance() === 'modern' ? 'cockpit' : 'modern', true);
+                applyAppearance(getAppearance() === 'modern' ? 'odoo' : 'modern', true);
             }
         };
 
@@ -4864,6 +4973,11 @@
     <script>
 
     function toggleSidebar() {
+
+        if (document.documentElement.getAttribute('data-appearance') === 'odoo') {
+            if (window.toggleOdooLauncher) window.toggleOdooLauncher();
+            return;
+        }
 
         const sidebar =
             document.getElementById(
@@ -5135,6 +5249,82 @@ window.FBFloatDock = {
 };
 document.addEventListener('DOMContentLoaded', function() { window.FBFloatDock.applySavedState(); });
 </script>
+
+    <script>
+    /* Lanceur d'applications — mode Odoo uniquement */
+    function fbOdooPositionLauncher() {
+        var launcher = document.getElementById('fb-odoo-launcher');
+        if (!launcher) return;
+        var banner = document.getElementById('pwa-install-banner');
+        var topbar = document.getElementById('fb-cockpit-topbar');
+        var h = 0;
+        if (banner && !banner.classList.contains('hidden')) h += banner.offsetHeight;
+        if (topbar) h += topbar.offsetHeight;
+        if (h > 0) launcher.style.top = h + 'px';
+    }
+    function fbOdooOpenLauncher() {
+        fbOdooPositionLauncher();
+        var launcher = document.getElementById('fb-odoo-launcher');
+        if (!launcher) return;
+        launcher.classList.remove('is-closed');
+        launcher.classList.add('is-open');
+        /* Une seule recherche : celle de la barre du haut (globale). */
+    }
+    function fbOdooCloseLauncher() {
+        var launcher = document.getElementById('fb-odoo-launcher');
+        if (launcher) { launcher.classList.remove('is-open'); launcher.classList.add('is-closed'); }
+        try { sessionStorage.setItem('fb-odoo-home-seen', '1'); } catch (e) {}
+    }
+    window.toggleOdooLauncher = function () {
+        var launcher = document.getElementById('fb-odoo-launcher');
+        if (!launcher) return;
+        if (launcher.classList.contains('is-closed')) fbOdooOpenLauncher(); else fbOdooCloseLauncher();
+    };
+    (function () {
+        var input = document.getElementById('fb-odoo-app-search');
+        var empty = document.getElementById('fb-odoo-apps-empty');
+        var launcher = document.getElementById('fb-odoo-launcher');
+        if (input && launcher) {
+            input.addEventListener('input', function () {
+                var q = input.value.trim().toLowerCase(), visible = 0;
+                launcher.querySelectorAll('.fb-odoo-app').forEach(function (app) {
+                    var show = !q || (app.getAttribute('data-search') || app.textContent).toLowerCase().indexOf(q) !== -1;
+                    app.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+                if (empty) empty.style.display = visible ? 'none' : 'block';
+            });
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    var first = launcher.querySelector('.fb-odoo-app:not([style*="none"])');
+                    if (first) first.click();
+                }
+            });
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') fbOdooCloseLauncher();
+        });
+        window.addEventListener('resize', fbOdooPositionLauncher);
+        fbOdooPositionLauncher();
+        document.addEventListener('fbpack:appearancechange', function (e) {
+            if (!e.detail) return;
+            if (e.detail.appearance === 'odoo') fbOdooOpenLauncher();
+            else fbOdooCloseLauncher();
+        });
+        if (launcher) {
+            launcher.querySelectorAll('.fb-odoo-app').forEach(function (app) {
+                app.addEventListener('click', function () { try { sessionStorage.setItem('fb-odoo-home-seen', '1'); } catch (e) {} });
+            });
+            /* 1re arrivée en mode Odoo : l'écran d'accueil Odoo (la grille) s'affiche. */
+            if (document.documentElement.getAttribute('data-appearance') === 'odoo') {
+                var seen = false;
+                try { seen = sessionStorage.getItem('fb-odoo-home-seen') === '1'; } catch (e) {}
+                if (!seen) fbOdooOpenLauncher(); else fbOdooCloseLauncher();
+            }
+        }
+    })();
+    </script>
+
 {% if user.is_authenticated %}
 {% include 'search/_global_search.html' %}
 {% include 'notifications/_notification_bell.html' %}

@@ -391,47 +391,82 @@ let submitAfterPieceCalculation = false;
  * → Densité + Microns + Grammage
  */
 function parseMaterialData(text) {
-    const n = (text || '').toUpperCase();
-    const data = { density: 0.91, mic: null, grm2: null, type: 'FILM' };
+    const n = (text || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const data = { density: 0.91, mic: null, grm2: null, type: 'FILM', densitySource: 'estimation standard' };
 
-    // 1. Famille & Densité
-    if (n.includes('KRAFT')) { data.density = 0.75; data.type = 'PAPIER'; }
-    else if (n.includes('COUCH') || n.includes('COUCHÉ')) { data.density = 1.15; data.type = 'PAPIER'; }
-    else if (n.includes('PAPIER') || n.includes('PAPER')) { data.density = 0.80; data.type = 'PAPIER'; }
-    else if (n.includes('ALU') || n.includes('ALUMINIUM')) { data.density = 2.70; }
-    else if (n.includes('PET') || n.includes('POLYESTER')) { data.density = 1.40; }
-    else if (n.includes('PEHD') || n.includes('HDPE')) { data.density = 0.95; }
-    else if (n.includes('PE ') || n.includes('LDPE') || n.includes('POLYETHYLENE') || n.includes('LLDPE')) {
-        data.density = (n.includes('BLANC') || n.includes('OPAQUE') || n.includes('TIO2') || n.includes('TIO²') || n.includes('TIO')) ? 1.00 : 0.92;
-    }
-    else if (n.includes('OPP') || n.includes('BOPP')) {
-        if (n.includes('BLANC') || n.includes('NACRE') || n.includes('NACRÉ') || n.includes('CAVIT')) data.density = 0.65;
-        else if (n.includes('MAT')) data.density = 0.75;
-        else data.density = 0.91; // Transparent / Métallisé
+    // Le micronage est d'abord lu dans le nom réel de la matière (ex. 20µ, 20MIC, 20 UM).
+    const micMatch = String(text || '').match(/(\d+(?:[.,]\d+)?)\s*(?:µ\s*m?|μ\s*m?|u\s*m?|mic(?:ron(?:s)?)?\b|my\b)/i);
+    if (micMatch) data.mic = parseFloat(String(micMatch[1]).replace(',', '.'));
+
+    // Grammage papier/carton explicite.
+    const grmMatch = String(text || '').match(/(\d+(?:[.,]\d+)?)\s*(?:g\/m[²2]|grm?\b|gsm\b)/i);
+    if (grmMatch) data.grm2 = parseFloat(String(grmMatch[1]).replace(',', '.'));
+
+    // Valeurs tirées de Densites_films_fournisseurs_page1.pdf.
+    // Clé: fournisseur/référence identifiés dans le nom + micronage.
+    const micKey = data.mic == null ? null : String(Math.round(data.mic));
+    const gulfPack = {
+        '15': 0.913, '18': 0.911, '20': 0.910, '25': 0.912,
+        '30': 0.910, '35': 0.911, '40': 0.910, '45': 0.911, '50': 0.910
+    };
+    const biaxialFR = {'15': 0.905, '18': 0.905, '20': 0.905, '25': 0.905, '30': 0.905, '40': 0.905};
+    const nodaPlast = {'20': 0.910, '25': 0.908, '30': 0.910, '40': 0.913};
+    const ashkal = {
+        '25': 0.960, // PE blanc Noodles
+        '30': 0.920, // PE transparent Sugar
+        '50': 0.940, // PE blanc High Rigid
+        '60': 0.920, // PE transparent Lilop (fiche: note FR 0,905; valeur du tableau 0,920)
+        '70': 0.940  // PE blanc High Rigid / Detergent
+    };
+    const esterPet = {'8': 1.389, '9': 1.389};
+    let pdfDensity = null;
+
+    if (n.includes('GULF PACK') || n.includes('GULFPACK')) {
+        if ((n.includes('BLANC') || n.includes('WHITE')) && (n.includes('CAVIT') || n.includes('LW350')) && micKey === '38') {
+            pdfDensity = 0.620;
+        } else if (n.includes('TRANSPARENT') || n.includes('METALL') || n.includes('MAT') || n.includes('MATTE') || n.includes('HF101') || n.includes('HF504')) {
+            // Confirmation utilisateur : GulfPack MAT = même densité que le transparent.
+            // Pour le métallisé, l'aluminium est négligeable en masse selon le PDF.
+            pdfDensity = gulfPack[micKey];
+        }
+    } else if ((n.includes('BIAXIAL') || n.includes('BIAXIAL FILMS')) && n.includes('TRANSPARENT')) {
+        // Valeur française prioritaire quand disponible; 35µ existe seulement sur la fiche EN.
+        pdfDensity = biaxialFR[micKey] ?? (micKey === '35' ? 0.910 : null);
+    } else if (n.includes('NODAPLAST') || n.includes('NODA PLAST')) {
+        if (n.includes('TRANSPARENT') || n.includes('NS2G')) pdfDensity = nodaPlast[micKey];
+    } else if (n.includes('ASHKAL') || n.includes('LFWPMD') || n.includes('LFTPMD') || n.includes('LFWPHR') || n.includes('LFWPHD') || n.includes('LFTLMD')) {
+        pdfDensity = ashkal[micKey];
+    } else if ((n.includes('ESTER') || n.includes('EC141') || n.includes('EC114')) && (n.includes('PET') || n.includes('POLYESTER'))) {
+        pdfDensity = esterPet[micKey];
     }
 
-    // 2. Micronage (20µ, 20 u, 20mic, 20 my, 20 µm)
-    const micMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(µ|u|mic|micron|my|um)/i);
-    if (micMatch) {
-        data.mic = parseFloat(String(micMatch[1]).replace(',', '.'));
+    if (pdfDensity != null) {
+        data.density = pdfDensity;
+        data.densitySource = 'fiche fournisseur intégrée';
+    } else {
+        // Fallback historique pour les matières sans ligne correspondante dans le PDF.
+        if (n.includes('KRAFT')) { data.density = 0.75; data.type = 'PAPIER'; }
+        else if (n.includes('COUCH')) { data.density = 1.15; data.type = 'PAPIER'; }
+        else if (n.includes('PAPIER') || n.includes('PAPER')) { data.density = 0.80; data.type = 'PAPIER'; }
+        else if (n.includes('ALU') || n.includes('ALUMINIUM')) { data.density = 2.70; }
+        else if (n.includes('PET') || n.includes('POLYESTER')) { data.density = 1.40; }
+        else if (n.includes('PEHD') || n.includes('HDPE')) { data.density = 0.95; }
+        else if (n.includes('PE ') || n.includes('LDPE') || n.includes('POLYETHYLENE') || n.includes('LLDPE')) {
+            data.density = (n.includes('BLANC') || n.includes('OPAQUE') || n.includes('TIO2') || n.includes('TIO')) ? 1.00 : 0.92;
+        } else if (n.includes('OPP') || n.includes('BOPP')) {
+            if (n.includes('BLANC') || n.includes('NACRE') || n.includes('CAVIT')) data.density = 0.65;
+            else if (n.includes('MAT')) data.density = 0.75;
+            else data.density = 0.91;
+        }
     }
 
-    // 3. Grammage (70g, 70 gr, 70g/m2)
-    const grmMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(g|gr|grm|g\/m2|g\/m²)/i);
-    if (grmMatch) {
-        data.grm2 = parseFloat(String(grmMatch[1]).replace(',', '.'));
-    }
-
-    // 4. Fallback chiffre isolé ("BOPP 20", "Kraft 70")
+    // Secours pour les anciennes désignations sans unité explicite.
     if (!data.mic && !data.grm2) {
-        const numMatch = text.match(/(?:^|\s|-|_|:)(\d{2,3})(?:\s|-|_|$)/);
+        const numMatch = String(text || '').match(/(?:^|\s|-|_|:)(\d{2,3})(?:\s|-|_|$)/);
         if (numMatch) {
             const val = parseFloat(numMatch[1]);
-            if (data.type === 'PAPIER' && val >= 30) {
-                data.grm2 = val;
-            } else if (val >= 6 && val <= 250) {
-                data.mic = val;
-            }
+            if (data.type === 'PAPIER' && val >= 30) data.grm2 = val;
+            else if (val >= 6 && val <= 250) data.mic = val;
         }
     }
     return data;
@@ -488,8 +523,16 @@ function updateCalcType() {
 
 /** Filtre strict : Films & Papiers uniquement (comme Ordonnancement) */
 function generateFilteredOptions() {
-    const matSelect = document.querySelector('select[name$="-material"]');
-    if (!matSelect) return '<option value="">-- Sélectionnez une matière --</option>';
+    // Cherche d'abord le vrai select Material du formset (id/name Django),
+    // en choisissant celui qui possède le plus de choix si plusieurs lignes existent.
+    const formSelects = Array.from(document.querySelectorAll('#lignes-tbody select'));
+    const materialSelects = formSelects.filter(el =>
+        /(^|[-_])material($|[-_])/i.test((el.name || '') + ' ' + (el.id || ''))
+    ).sort((a, b) => b.options.length - a.options.length);
+    const matSelect = materialSelects[0] || null;
+    if (!matSelect || !matSelect.options || matSelect.options.length <= 1) {
+        return '<option value="">-- Aucune matière disponible dans les lignes de commande --</option>';
+    }
 
     let options = '<option value="">-- Sélectionnez une matière --</option>';
     let matchCount = 0;

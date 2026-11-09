@@ -23,7 +23,95 @@
         color: #c084fc;
         border: 1px solid rgba(168, 85, 247, 0.3);
     }
+
+    /* Layout isolé : aucun contenu de la synthèse ne peut élargir toute la page. */
+    #synthese-production {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: clip;
+    }
+    #synthese-production *,
+    #synthese-production *::before,
+    #synthese-production *::after { box-sizing: border-box; }
+    #synthese-production .glass-card { min-width: 0; max-width: 100%; }
+    #synthese-production h1,
+    #synthese-production h2,
+    #synthese-production h3,
+    #synthese-production p,
+    #synthese-production strong,
+    #synthese-production span { overflow-wrap: anywhere; }
+
+    /* Le flux reste horizontal sur grand écran, mais défile dans son propre panneau. */
+    #synthese-production .workflow-timeline {
+        display: flex;
+        flex-flow: row nowrap;
+        align-items: stretch;
+        gap: 1rem;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: visible;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x proximity;
+        padding: .4rem .15rem .9rem;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(16,185,129,.55) rgba(15,23,42,.65);
+    }
+    #synthese-production .workflow-timeline::-webkit-scrollbar { height: 8px; }
+    #synthese-production .workflow-timeline::-webkit-scrollbar-track {
+        background: rgba(15,23,42,.65); border-radius: 999px;
+    }
+    #synthese-production .workflow-timeline::-webkit-scrollbar-thumb {
+        background: rgba(16,185,129,.55); border-radius: 999px;
+    }
+    #synthese-production .workflow-step-card {
+        flex: 0 0 clamp(250px, 25vw, 320px);
+        width: clamp(250px, 25vw, 320px);
+        min-width: 0;
+        max-width: 320px;
+        scroll-snap-align: start;
+        overflow-wrap: anywhere;
+    }
+    #synthese-production .workflow-transfer { flex: 0 0 auto; min-width: 90px; }
+
+    /* Tablette/mobile : les étapes s'empilent, sans défilement horizontal de page. */
+    @media (max-width: 1023px) {
+        #synthese-production .workflow-timeline {
+            flex-direction: column;
+            overflow-x: visible;
+            overflow-y: visible;
+            scroll-snap-type: none;
+        }
+        #synthese-production .workflow-step-card {
+            flex: 1 1 auto;
+            width: 100%;
+            max-width: none;
+            min-width: 0;
+        }
+        #synthese-production .workflow-transfer {
+            width: 100%;
+            min-width: 0;
+            padding: .25rem .5rem;
+        }
+    }
+
+    @media (max-width: 640px) {
+        #synthese-production .page-actions { width: 100%; }
+        #synthese-production .page-actions a { flex: 1 1 100%; justify-content: center; }
+        #synthese-production .section-panel { padding: 1rem; }
+        #synthese-production .workflow-header-stats { width: 100%; text-align: left; }
+        #synthese-production .workflow-step-footer {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: .5rem;
+        }
+    }
 </style>
+
+<div id="synthese-production">
 
 <!-- EN-TÊTE DE PAGE -->
 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -35,7 +123,7 @@
             Visualisation des flux multi-machines (Impression ➔ Contrecollage ➔ Découpe), lead time, goulots d'étranglement et rendements par commande.
         </p>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="page-actions flex flex-wrap items-center gap-3">
         <!-- NOUVEAU: BOUTON EXPORT EXCEL -->
         <a href="{% url 'export_synthese_excel' %}?{{ request.GET.urlencode }}" class="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-black px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-500/20 flex items-center gap-2">
             <span>📊</span> Exporter Excel
@@ -106,7 +194,7 @@
 </div>
 
 <!-- VISUALISATION GRAPHIQUE DES ROUTES DE PRODUCTION (FLUX DE PRODUIT PAR COMMANDE / LOT) -->
-<div class="glass-card rounded-2xl p-6 mb-8 border-t-4 border-t-emerald-500">
+<div class="glass-card section-panel rounded-2xl p-6 mb-8 border-t-4 border-t-emerald-500">
     <div class="mb-6">
         <h2 class="text-xl font-black text-white flex items-center gap-2">
             <span>🔗</span> Flux de Production Séquentiel Multi-Machines par Commande
@@ -132,7 +220,7 @@
                     </p>
                 </div>
                 
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-right">
+                <div class="workflow-header-stats grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs text-right">
                     <div class="bg-slate-800/40 p-2 rounded-lg border border-slate-800">
                         <span class="text-gray-400 block text-[10px] uppercase">Rendement Global</span>
                         <strong class="text-emerald-400 text-sm font-black">{{ wf.rendement_global }}%</strong>
@@ -154,11 +242,11 @@
 
             <!-- Traçabilité & Chronologie de Passage Produit -->
             <div class="mt-6">
-                <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-start gap-4">
+                <div class="workflow-timeline">
                     {% for step in wf.steps %}
                     
                     <!-- Carte de l'Étape de production -->
-                    <div class="flex-1 bg-slate-950/60 rounded-xl p-4 border {% if wf.bottleneck_machine == step.machine %}border-red-500/50 bg-red-950/5{% else %}border-slate-800{% endif %} relative">
+                    <div class="workflow-step-card bg-slate-950/60 rounded-xl p-4 border {% if wf.bottleneck_machine == step.machine %}border-red-500/50 bg-red-950/5{% else %}border-slate-800{% endif %} relative">
                         {% if wf.bottleneck_machine == step.machine %}
                         <span class="absolute -top-3 right-3 bg-red-500/10 text-red-400 text-[9px] font-black px-2 py-0.5 rounded border border-red-500/30 flex items-center gap-1 uppercase tracking-wider animate-pulse">
                             🚨 Goulot d'étranglement
@@ -196,7 +284,7 @@
                             </div>
                         </div>
 
-                        <div class="mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
+                        <div class="workflow-step-footer mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
                             <span class="text-gray-400">Calage : <strong>{{ step.temps_calage_min }}m</strong> / Roulage : <strong>{{ step.temps_roulage_min }}m</strong></span>
                             <span class="text-red-400 font-bold">🗑️ {{ step.dechets_kg|floatformat:1 }} kg</span>
                         </div>
@@ -204,7 +292,7 @@
 
                     <!-- Visualisation du temps de transfert (Temps Mort d'attente inter-machines) -->
                     {% if step.transition_next %}
-                    <div class="flex flex-col items-center justify-center py-2 px-3 lg:py-0 text-center">
+                    <div class="workflow-transfer flex flex-col items-center justify-center py-2 px-3 lg:py-0 text-center">
                         <span class="text-xs text-yellow-400 font-black flex items-center gap-1 bg-yellow-950/40 px-2 py-1 rounded-lg border border-yellow-500/20">
                             ⏱️ Transfert : {{ step.transition_next }}
                         </span>
@@ -229,7 +317,7 @@
 </div>
 
 <!-- SECTION : DÉTAIL DES TEMPS & PLANNING A À Z -->
-<div class="glass-card rounded-2xl p-6 mb-8 border-t-4 border-t-cyan-500">
+<div class="glass-card section-panel rounded-2xl p-6 mb-8 border-t-4 border-t-cyan-500">
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
             <h2 class="text-xl font-bold text-white flex items-center gap-2">
@@ -518,4 +606,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+</div>
 {% endblock %}

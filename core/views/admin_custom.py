@@ -127,12 +127,15 @@ def admin_view(request):
         try:
             perms = u.module_permissions
             modules_actifs = perms.get_allowed_modules()
+            poste = perms.poste or ''
         except UserModulePermission.DoesNotExist:
             modules_actifs = []
+            poste = ''
         users_with_perms.append({
             'user': u,
             'modules_actifs': modules_actifs,
             'nb_modules': len(modules_actifs),
+            'poste': poste,
         })
 
     stats_modules = [
@@ -205,6 +208,10 @@ def admin_add_user(request):
     is_staff = request.POST.get('is_staff') == 'on' if request.user.is_superuser else False
     is_active = request.POST.get('is_active') == 'on'
     create_superuser = request.POST.get('create_superuser') == 'on'
+    poste = request.POST.get('poste', '').strip()
+    if len(poste) > 100:
+        messages.error(request, 'Le poste ne peut pas dépasser 100 caractères.')
+        return redirect('admin_view')
 
     if create_superuser:
         if not request.user.is_superuser:
@@ -248,7 +255,7 @@ def admin_add_user(request):
             u.is_active = is_active
             u.save()
 
-            perms = UserModulePermission.objects.create(user=u)
+            perms = UserModulePermission.objects.create(user=u, poste=poste)
             for module_code, _ in MODULES_LIST:
                 value = create_superuser or (
                     request.POST.get(f'module_{module_code}') == 'on' and module_code in managed
@@ -298,6 +305,10 @@ def admin_edit_user(request, user_id):
     password = request.POST.get('password', '').strip()  # peut être vide
     is_staff = request.POST.get('is_staff') == 'on' if request.user.is_superuser else u.is_staff
     is_active = request.POST.get('is_active') == 'on'
+    poste = request.POST.get('poste', '').strip()
+    if len(poste) > 100:
+        messages.error(request, 'Le poste ne peut pas dépasser 100 caractères.')
+        return redirect('admin_view')
 
     if not full_control and (password or (username and username != u.username) or email != u.email):
         messages.warning(
@@ -351,6 +362,7 @@ def admin_edit_user(request, user_id):
 
         # Modules ERP (indépendants du mot de passe).
         perms, _created = UserModulePermission.objects.get_or_create(user=u)
+        perms.poste = poste
         for module_code, _ in MODULES_LIST:
             if request.user.is_superuser or module_code in managed:
                 setattr(perms, f'can_access_{module_code}', request.POST.get(f'module_{module_code}') == 'on')

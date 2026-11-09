@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% load security_tags %}
+{% extends 'base.html' %}
 {% block content %}
 <div class="max-w-[1700px] mx-auto px-4 py-6 text-white">
   <header class="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -90,9 +90,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function(){
   if (!window.Chart) return;
-  const labels={{ trend_labels|json_embed }};
-  new Chart(document.getElementById('movementTrend'), {type:'line',data:{labels:labels,datasets:[{label:'Entrées (événements)',data:{{ entry_series|json_embed }},borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,.12)',tension:.3,fill:true},{label:'Sorties / pertes (événements)',data:{{ exit_series|json_embed }},borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,.10)',tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#cbd5e1'}}},scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,.10)'}},y:{beginAtZero:true,ticks:{color:'#94a3b8',precision:0},grid:{color:'rgba(148,163,184,.10)'}}}}});
-  new Chart(document.getElementById('familyValue'), {type:'doughnut',data:{labels:{{ family_labels|json_embed }},datasets:[{data:{{ family_values|json_embed }},backgroundColor:['#22d3ee','#f97316','#a78bfa','#facc15','#34d399','#fb7185','#60a5fa','#2dd4bf','#c084fc','#f87171'],borderColor:'#1b2d40',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#cbd5e1',boxWidth:12}}}}});
+  const labels={{ trend_labels|safe }};
+  new Chart(document.getElementById('movementTrend'), {type:'line',data:{labels:labels,datasets:[{label:'Entrées (événements)',data:{{ entry_series|safe }},borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,.12)',tension:.3,fill:true},{label:'Sorties / pertes (événements)',data:{{ exit_series|safe }},borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,.10)',tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#cbd5e1'}}},scales:{x:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,.10)'}},y:{beginAtZero:true,ticks:{color:'#94a3b8',precision:0},grid:{color:'rgba(148,163,184,.10)'}}}}});
+  new Chart(document.getElementById('familyValue'), {type:'doughnut',data:{labels:{{ family_labels|safe }},datasets:[{data:{{ family_values|safe }},backgroundColor:['#22d3ee','#f97316','#a78bfa','#facc15','#34d399','#fb7185','#60a5fa','#2dd4bf','#c084fc','#f87171'],borderColor:'#1b2d40',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#cbd5e1',boxWidth:12}}}}});
 });
 </script>
 {% endblock %}
