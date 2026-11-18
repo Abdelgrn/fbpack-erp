@@ -821,7 +821,10 @@
                                 {% elif mv.type == 'PERTE' %}<span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">⚠ Avarie / Perte</span>
                                 {% else %}<span class="text-[10px] bg-slate-600 text-gray-300 px-2 py-1 rounded">{{ mv.get_type_display }}</span>{% endif %}
                             </td>
-                            <td class="p-3 font-bold text-cyan-400">{{ mv.material.name }}</td>
+                            <td class="p-3 font-bold text-cyan-400">{{ mv.material.name }}
+                                {% if mv.material.code %}<span class="block text-[10px] font-mono font-normal text-gray-400">N° {{ mv.material.code }}</span>{% endif %}
+                                {% if mv.material.depot or mv.material.famille %}<span class="block text-[10px] font-normal text-gray-500">{{ mv.material.catalog_path }}</span>{% endif %}
+                            </td>
                             <td class="p-3 text-xs text-gray-400">{{ mv.lot.numero_lot|default:"—" }}</td>
                             <td class="p-3 font-bold font-mono {% if mv.type == 'ENTREE' or mv.type == 'RETOUR_INTERNE' %}text-emerald-400{% elif mv.type == 'AJUSTEMENT' %}text-purple-300{% else %}text-red-400{% endif %}">
                                 {% if mv.nombre_unites != None and mv.type == 'AJUSTEMENT' %}

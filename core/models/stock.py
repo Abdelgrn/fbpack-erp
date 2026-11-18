@@ -186,6 +186,58 @@ class Material(models.Model):
             return f"{int(self.metrage_standard) if self.metrage_standard.is_integer() else self.metrage_standard} m"
         return "—"
 
+    # --- Principe du catalogue Excel : la quantité est exprimée dans l'unité de l'article ---
+    @property
+    def unit_is_mass(self):
+        from core.services.stock_catalog import is_mass_unit
+        return is_mass_unit(self.unit)
+
+    @property
+    def needs_film_specs(self):
+        """Laize/micronage/métrage requis seulement pour les films au kilo (pas cartons, mandrins, pièces...)."""
+        from core.services.stock_catalog import needs_film_specs
+        return needs_film_specs(self.category, self.famille.name if self.famille_id else '', self.unit)
+
+    @property
+    def film_laize_default(self):
+        """Laize de l'article, sinon lue dans sa désignation (ex. « 760MM »)."""
+        if self.laize_mm:
+            return self.laize_mm
+        from core.services.stock_catalog import parse_film_dimensions
+        return parse_film_dimensions(self.name)[0]
+
+    @property
+    def is_paper(self):
+        from core.services.stock_catalog import is_paper
+        return is_paper(self.famille.name if self.famille_id else '', self.sous_famille.name if self.sous_famille_id else '', self.name)
+
+    @property
+    def film_grammage_default(self):
+        """Grammage du papier, sinon lu dans la désignation (ex. « 90G », « 80 GRS »)."""
+        if not self.is_paper:
+            return None
+        if self.grammage:
+            return self.grammage
+        from core.services.stock_catalog import parse_grammage
+        return parse_grammage(self.name)
+
+    @property
+    def film_micronage_default(self):
+        """Micronage de l'article, sinon lu dans sa désignation (ex. « 20MIC »)."""
+        if self.is_paper:
+            return None
+        if self.micronage_standard:
+            return self.micronage_standard
+        if self.grammage:
+            return None
+        from core.services.stock_catalog import parse_film_dimensions
+        return parse_film_dimensions(self.name)[1]
+
+    @property
+    def catalog_path(self):
+        parts = [o.name for o in (self.depot, self.famille, self.sous_famille) if o]
+        return ' › '.join(parts)
+
     def get_fefo_lots(self):
         return self.lots.filter(statut='CONFORME', quantite_restante__gt=0).order_by(
             F('date_expiration').asc(nulls_last=True),
@@ -303,6 +355,7 @@ class StockMovement(models.Model):
     motif = models.CharField("Motif / Référence", max_length=200, blank=True)
     laize_mm = models.PositiveIntegerField('Laize mouvement (mm)', null=True, blank=True)
     micronage = models.PositiveIntegerField('Micronage mouvement (µm)', null=True, blank=True)
+    grammage = models.FloatField('Grammage mouvement (g/m²)', null=True, blank=True)
     metrage = models.FloatField('Métrage mouvement (m)', null=True, blank=True)
     poids_kg = models.FloatField('Poids par article (kg)', null=True, blank=True)
     nombre_unites = models.PositiveIntegerField('Nombre d’articles', null=True, blank=True)
@@ -397,6 +450,10 @@ class StockPrintDocumentLine(models.Model):
     poids_kg = models.FloatField('Poids (kg)', null=True, blank=True)
     nombre_unites = models.PositiveIntegerField('Nombre d’unités', null=True, blank=True)
     unit_snapshot = models.CharField('Unité', max_length=20, blank=True)
+    code_snapshot = models.CharField('N°.Produit', max_length=100, blank=True, default='')
+    depot_snapshot = models.CharField('Dépôt', max_length=120, blank=True, default='')
+    famille_snapshot = models.CharField('Famille', max_length=120, blank=True, default='')
+    sous_famille_snapshot = models.CharField('Sous-famille', max_length=120, blank=True, default='')
     notes = models.CharField('Motif / observations', max_length=300, blank=True)
 
     def save(self, *args, **kwargs):
@@ -412,7 +469,7 @@ class StockPrintDocumentLine(models.Model):
         if self.micronage_snapshot is None:
             self.micronage_snapshot = movement.micronage if movement and movement.micronage is not None else (lot.micronage if lot and lot.micronage is not None else material.micronage_standard)
         if self.grammage_snapshot is None:
-            self.grammage_snapshot = lot.grammage if lot and lot.grammage is not None else material.grammage
+            self.grammage_snapshot = movement.grammage if movement and movement.grammage is not None else (lot.grammage if lot and lot.grammage is not None else material.grammage)
         if material.category == 'FILM' and self.metrage is None:
             if movement and movement.metrage is not None:
                 self.metrage = movement.metrage
@@ -433,6 +490,14 @@ class StockPrintDocumentLine(models.Model):
                 self.nombre_unites = lot.nombre_unites if lot and lot.nombre_unites is not None else material.nombre_unites
         if not self.unit_snapshot:
             self.unit_snapshot = material.unit
+        if not self.code_snapshot:
+            self.code_snapshot = material.code or ''
+        if not self.depot_snapshot and material.depot_id:
+            self.depot_snapshot = material.depot.name
+        if not self.famille_snapshot and material.famille_id:
+            self.famille_snapshot = material.famille.name
+        if not self.sous_famille_snapshot and material.sous_famille_id:
+            self.sous_famille_snapshot = material.sous_famille.name
         super().save(*args, **kwargs)
 
     class Meta:

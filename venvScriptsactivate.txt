@@ -1,6 +1,7 @@
 venv\Scripts\activate
 python manage.py makemigrations
 python manage.py migrate
+python manage.py test core.test_stock_catalog
 python manage.py runserver
 
 python manage.py shell

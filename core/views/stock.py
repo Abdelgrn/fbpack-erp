@@ -37,6 +37,7 @@ from core.services.stock_reservation import (
     lot_reserved_quantity, consume_of_reservations, restore_of_reservation_consumption,
     release_reservations_for_manual_issue, restore_manual_issue_reservations,
 )
+from core.services import stock_catalog as catalog
 from .helpers import highlight_search
 
 import logging
@@ -98,8 +99,20 @@ def _signed_nonzero_float(value, label):
     return float(number)
 
 
-def _document_characteristics(post_data, category):
-    """Valide les mesures saisies pour une ligne de retour ou d’avarie."""
+def _document_characteristics(post_data, category, material=None):
+    """Valide les mesures saisies pour une ligne de retour ou d’avarie.
+
+    Principe du catalogue : seules les bobines au kilo exigent laize/micronage/métrage;
+    un article compté en U, SAC, ML, ETQ... n'exige ni poids ni caractéristiques film.
+    """
+    if material is not None:
+        if not material.needs_film_specs:
+            category = 'NON_FILM'
+        if not material.unit_is_mass and not (post_data.get('poids_kg') or '').strip():
+            return {
+                'laize_mm_snapshot': None, 'micronage_snapshot': None, 'grammage_snapshot': None,
+                'metrage': None, 'poids_kg': None, 'nombre_unites': None,
+            }
     weight = _non_negative_float(post_data.get('poids_kg'), 'Poids (kg)')
     units_value = None
     if category == 'FILM':
@@ -114,20 +127,26 @@ def _document_characteristics(post_data, category):
         units_value = int(units_value)
     laize = None
     micronage = None
+    grammage = None
     if category == 'FILM':
         raw_laize = (post_data.get('laize_mm') or '').strip()
         raw_micronage = (post_data.get('micronage') or '').strip()
         parsed_laize = _non_negative_float(raw_laize, 'Laize (mm)')
-        parsed_micronage = _non_negative_float(raw_micronage, 'Micronage (µm)')
+        paper = material is not None and material.is_paper
+        # Papier : le même champ de saisie porte le grammage (g/m²) au lieu du micronage (µm).
+        parsed_micronage = _non_negative_float(raw_micronage, 'Grammage (g/m²)' if paper else 'Micronage (µm)')
         if not parsed_laize.is_integer():
             raise ValueError('La laize doit être un nombre entier de millimètres.')
-        if not parsed_micronage.is_integer():
+        if not paper and not parsed_micronage.is_integer():
             raise ValueError('Le micronage doit être un nombre entier de microns.')
         laize = int(parsed_laize)
-        micronage = int(parsed_micronage)
+        if paper:
+            grammage = parsed_micronage
+        else:
+            micronage = int(parsed_micronage)
     metrage = _non_negative_float(post_data.get('metrage'), 'Métrage (m)') if category == 'FILM' else None
     return {
-        'laize_mm_snapshot': laize, 'micronage_snapshot': micronage,
+        'laize_mm_snapshot': laize, 'micronage_snapshot': micronage, 'grammage_snapshot': grammage,
         'metrage': metrage, 'poids_kg': weight, 'nombre_unites': units_value,
     }
 
@@ -191,7 +210,7 @@ def clear_all_stock(request):
 class StockService:
     @staticmethod
     @transaction.atomic
-    def enregistrer_mouvement(type_mvt, material, quantite, lot=None, src=None, dst=None, of=None, machine=None, user=None, motif="", laize_mm=None, micronage=None, metrage=None, poids_kg=None, nombre_unites=None):
+    def enregistrer_mouvement(type_mvt, material, quantite, lot=None, src=None, dst=None, of=None, machine=None, user=None, motif="", laize_mm=None, micronage=None, metrage=None, poids_kg=None, nombre_unites=None, grammage=None):
         try:
             quantity_value = float(quantite)
             quantite_valide = math.isfinite(quantity_value) and (
@@ -306,7 +325,7 @@ class StockService:
             emplacement_source=src, emplacement_destination=dst,
             of=of, machine=machine, utilisateur=user, motif=motif,
             laize_mm=laize_mm, micronage=micronage, metrage=metrage,
-            poids_kg=poids_kg, nombre_unites=nombre_unites,
+            poids_kg=poids_kg, nombre_unites=nombre_unites, grammage=grammage,
         )
         if adjustment_lot_breakdown:
             mvt.notes = 'AJUSTEMENT_LOTS:' + json.dumps(adjustment_lot_breakdown)
@@ -628,7 +647,7 @@ def stock_advanced_view(request):
 
         # Les réceptions initiales/achats restent enregistrées en base et dans l'historique,
         # mais ne figurent pas dans le journal courant affiché.
-        mouvements_list = StockMovement.objects.select_related('material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur').exclude(type='ENTREE')
+        mouvements_list = StockMovement.objects.select_related('material', 'material__depot', 'material__famille', 'material__sous_famille', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur').exclude(type='ENTREE')
         mvt_from = request.GET.get('mvt_from')
         mvt_to = request.GET.get('mvt_to')
         mvt_type = request.GET.get('mvt_type')
@@ -648,10 +667,15 @@ def stock_advanced_view(request):
             mouvements_list = mouvements_list.filter(type=mvt_type)
         if mvt_cat:
             mouvements_list = mouvements_list.filter(material__category=mvt_cat)
+        mvt_depot, mvt_family = _clean_int_str(request.GET.get('mvt_depot', '')), _clean_int_str(request.GET.get('mvt_family', ''))
+        if mvt_depot:
+            mouvements_list = mouvements_list.filter(material__depot_id=mvt_depot)
+        if mvt_family:
+            mouvements_list = mouvements_list.filter(material__famille_id=mvt_family)
         if mvt_loc:
             mouvements_list = mouvements_list.filter(Q(emplacement_source_id=mvt_loc) | Q(emplacement_destination_id=mvt_loc))
         if mvt_q:
-            mouvements_list = mouvements_list.filter(Q(material__name__icontains=mvt_q) | Q(lot__numero_lot__icontains=mvt_q))
+            mouvements_list = mouvements_list.filter(Q(material__name__icontains=mvt_q) | Q(material__code__icontains=mvt_q) | Q(lot__numero_lot__icontains=mvt_q))
 
         paginator_mvt = Paginator(mouvements_list, 30)
         page_mvt_num = request.GET.get('page_mvt', 1)
@@ -939,8 +963,6 @@ def lot_add(request):
                 raise ValueError('La laize ne peut pas être négative.')
             if micronage is not None and micronage < 0:
                 raise ValueError('Le micronage ne peut pas être négatif.')
-            if nombre_unites is None or nombre_unites < 1:
-                raise ValueError('Saisissez un nombre d’unités supérieur à zéro.')
             if origine not in dict(Material.ORIGINE_CHOICES):
                 raise ValueError('Choisissez une origine valide (Importation ou Local).')
 
@@ -964,11 +986,19 @@ def lot_add(request):
                 return redirect('stock_advanced')
 
             category = material.category
-            material.poids_kg = quantite
+            lot_is_mass = material.unit_is_mass
+            if lot_is_mass:
+                if nombre_unites is None or nombre_unites < 1:
+                    raise ValueError('Saisissez un nombre d’unités supérieur à zéro.')
+            elif nombre_unites is None and float(quantite).is_integer():
+                # Article compté en U / SAC / ETQ... : la quantité reçue EST le nombre d'unités.
+                nombre_unites = int(quantite)
+            if lot_is_mass:
+                material.poids_kg = quantite
             material.nombre_unites = nombre_unites
             material.origine = origine
-            material_fields = ['poids_kg', 'nombre_unites', 'origine']
-            if category == 'FILM':
+            material_fields = ['nombre_unites', 'origine'] + (['poids_kg'] if lot_is_mass else [])
+            if category == 'FILM' and material.needs_film_specs:
                 if laize is not None:
                     material.laize_mm = laize
                     material_fields.append('laize_mm')
@@ -993,7 +1023,7 @@ def lot_add(request):
                 quantite_restante=0, prix_unitaire=prix,
                 statut=statut, notes=notes, laize=laize, longueur=longueur,
                 micronage=micronage, grammage=grammage, metrage=metrage,
-                poids_kg=quantite, nombre_unites=nombre_unites, origine=origine,
+                poids_kg=quantite if lot_is_mass else None, nombre_unites=nombre_unites, origine=origine,
                 created_by=request.user
             )
 
@@ -1112,7 +1142,8 @@ def mouvement_add(request):
                     if form_type == 'AJUSTEMENT'
                     else _positive_float(raw_quantity, f'Nombre d’articles ligne {index}')
                 )
-                if form_type != 'AJUSTEMENT' and not legacy_single and not quantity.is_integer():
+                # Article non pesé (U, SAC, ML, L...) : la quantité est saisie dans l'unité de l'article.
+                if form_type != 'AJUSTEMENT' and not legacy_single and material.unit_is_mass and not quantity.is_integer():
                     raise ValueError(f'Le nombre d’articles de la ligne {index} doit être un entier.')
                 lines.append((material, quantity, legacy_single, index - 1))
             if not lines:
@@ -1133,7 +1164,7 @@ def mouvement_add(request):
             for material, quantity, is_legacy, form_index in lines:
                 index = form_index
                 display_index = form_index + 1
-                laize = micronage = metrage = weight = None
+                laize = micronage = metrage = weight = grammage = None
                 number_of_items = None
                 if form_type == 'AJUSTEMENT':
                     # La variation signée est la seule quantité qui modifie le stock; les champs ci-dessous sont descriptifs.
@@ -1144,31 +1175,46 @@ def mouvement_add(request):
                         if not units_value.is_integer():
                             raise ValueError(f'Le nombre d’unités de la ligne {display_index} doit être un entier.')
                         number_of_items = int(units_value)
-                    if selected_category == 'FILM':
+                    if material.needs_film_specs:
                         try:
                             laize_value = _positive_float(laizes[index], f'Laize ligne {display_index}')
                             micronage_value = _positive_float(micronages[index], f'Micronage ligne {display_index}')
                             metrage = _positive_float(metragess[index], f'Métrage par article ligne {display_index}')
                         except IndexError:
                             raise ValueError(f'Renseignez la laize, le micronage et le métrage de la ligne {display_index}.')
-                        if not laize_value.is_integer() or not micronage_value.is_integer():
+                        if not laize_value.is_integer() or (not material.is_paper and not micronage_value.is_integer()):
                             raise ValueError('La laize et le micronage doivent être des nombres entiers.')
-                        laize, micronage = int(laize_value), int(micronage_value)
+                        laize = int(laize_value)
+                        if material.is_paper:
+                            grammage = micronage_value  # papier : champ réutilisé pour le grammage (g/m²)
+                        else:
+                            micronage = int(micronage_value)
+                elif not material.unit_is_mass:
+                    # Principe catalogue : quantité = nombre d'unités de l'article (U, SAC, ML...), sans poids.
+                    stock_quantity = quantity
+                    number_of_items = None
+                    raw_weight_line = weights[index].strip() if index < len(weights) else ''
+                    if raw_weight_line:
+                        weight = _non_negative_float(raw_weight_line, f'Poids ligne {display_index}') or None
                 else:
                     try:
                         weight = _positive_float(weights[index], f'Poids par article ligne {index + 1}')
                     except IndexError:
                         raise ValueError(f'Saisissez le poids par article de la ligne {display_index}.')
-                    if selected_category == 'FILM':
+                    if material.needs_film_specs:
                         try:
                             laize_value = _positive_float(laizes[index], f'Laize ligne {display_index}')
                             micronage_value = _positive_float(micronages[index], f'Micronage ligne {display_index}')
                             metrage = _positive_float(metragess[index], f'Métrage ligne {display_index}')
                         except IndexError:
                             raise ValueError(f'Renseignez la laize, le micronage et le métrage de la ligne {display_index}.')
-                        if not laize_value.is_integer() or not micronage_value.is_integer():
+                        if not laize_value.is_integer() or (not material.is_paper and not micronage_value.is_integer()):
                             raise ValueError('La laize et le micronage doivent être des nombres entiers.')
-                        laize, micronage = int(laize_value), int(micronage_value)
+                        laize = int(laize_value)
+                        if material.is_paper:
+                            grammage = micronage_value  # papier : champ réutilisé pour le grammage (g/m²)
+                        else:
+                            micronage = int(micronage_value)
                     if is_legacy:
                         # Compatibilité des anciens formulaires simples qui transmettaient déjà des kg.
                         stock_quantity = quantity
@@ -1178,7 +1224,7 @@ def mouvement_add(request):
                         if stock_quantity <= 0:
                             raise ValueError(f'Le poids total de la ligne {index + 1} doit être supérieur à zéro.')
                 lines_with_specs.append((material, stock_quantity, {
-                    'laize_mm': laize, 'micronage': micronage,
+                    'laize_mm': laize, 'micronage': micronage, 'grammage': grammage,
                     'metrage': metrage, 'poids_kg': weight,
                     'nombre_unites': number_of_items,
                 }))
@@ -1524,7 +1570,7 @@ def stock_movement_edit(request, id):
             number_of_items = None
             weight_per_item = None
             if movement_type == 'AJUSTEMENT':
-                quantity = _signed_nonzero_float(request.POST.get('quantity'), 'Variation (kg)')
+                quantity = _signed_nonzero_float(request.POST.get('quantity'), f'Variation ({material.unit})')
                 # Le formulaire de correction conserve les unités descriptives existantes pour un ajustement.
                 number_of_items = movement.nombre_unites
             elif unit_mode == 'articles':
@@ -1535,7 +1581,7 @@ def stock_movement_edit(request, id):
                 weight_per_item = _positive_float(request.POST.get('poids_kg'), 'Poids par article (kg)')
                 quantity = round(number_of_items * weight_per_item, 3)
             else:
-                quantity = _positive_float(request.POST.get('quantity'), 'Quantité (kg)')
+                quantity = _positive_float(request.POST.get('quantity'), f'Quantité ({material.unit})')
                 raw_weight = request.POST.get('poids_kg')
                 weight_per_item = _positive_float(raw_weight, 'Poids (kg)') if raw_weight else movement.poids_kg
             lot = StockLot.objects.filter(pk=request.POST.get('lot'), material=material).first() if request.POST.get('lot') else None
@@ -1587,7 +1633,7 @@ def stock_movement_edit(request, id):
                 user=request.user, motif=motif or f'Correction du mouvement #{old_id}',
                 laize_mm=movement.laize_mm, micronage=movement.micronage,
                 metrage=movement.metrage, poids_kg=weight_per_item,
-                nombre_unites=number_of_items,
+                nombre_unites=number_of_items, grammage=movement.grammage,
             )
             corrected.date = old_date
             corrected.save(update_fields=['date'])
@@ -1833,7 +1879,7 @@ def stock_return_create(request):
             material = get_object_or_404(Material, pk=request.POST.get('material'), is_archived=False)
             if material.category != universe:
                 raise ValueError('L’article sélectionné ne correspond pas à l’univers choisi.')
-            characteristics = _document_characteristics(request.POST, material.category)
+            characteristics = _document_characteristics(request.POST, material.category, material)
             quantity = _positive_float(request.POST.get('quantity'), 'Quantité')
             lot = StockLot.objects.filter(pk=request.POST.get('lot'), material=material).first() if request.POST.get('lot') else None
             src = StockLocation.objects.filter(pk=request.POST.get('src'), is_active=True).first() if request.POST.get('src') else None
@@ -1867,6 +1913,7 @@ def stock_return_create(request):
                     motif=f"{doc.get_kind_display()} {doc.reference}: {reason}",
                     laize_mm=characteristics['laize_mm_snapshot'],
                     micronage=characteristics['micronage_snapshot'],
+                    grammage=characteristics.get('grammage_snapshot'),
                     metrage=characteristics['metrage'], poids_kg=characteristics['poids_kg'],
                 )
                 doc.movements.add(movement)
@@ -1902,7 +1949,7 @@ def stock_damage_create(request):
             material = get_object_or_404(Material, pk=request.POST.get('material'), is_archived=False)
             if material.category != universe:
                 raise ValueError('L’article sélectionné ne correspond pas à l’univers choisi.')
-            characteristics = _document_characteristics(request.POST, material.category)
+            characteristics = _document_characteristics(request.POST, material.category, material)
             quantity = _positive_float(request.POST.get('quantity'), 'Quantité')
             lot = StockLot.objects.filter(pk=request.POST.get('lot'), material=material).first() if request.POST.get('lot') else None
             location = StockLocation.objects.filter(pk=request.POST.get('location'), is_active=True).first() if request.POST.get('location') else None
@@ -1919,6 +1966,7 @@ def stock_damage_create(request):
                     motif=f"Avarie {doc.reference}: {reason}",
                     laize_mm=characteristics['laize_mm_snapshot'],
                     micronage=characteristics['micronage_snapshot'],
+                    grammage=characteristics.get('grammage_snapshot'),
                     metrage=characteristics['metrage'], poids_kg=characteristics['poids_kg'],
                 )
                 doc.movements.add(movement)
@@ -2126,7 +2174,7 @@ def material_search_api(request):
     if len(query) < 1:
         return JsonResponse([], safe=False)
 
-    materials = Material.objects.filter(is_archived=False).filter(
+    materials = Material.objects.filter(is_archived=False).select_related('depot', 'famille', 'sous_famille').filter(
         Q(name__icontains=query) | Q(code__icontains=query)
     )[:10]
 
@@ -2138,6 +2186,9 @@ def material_search_api(request):
             'code': m.code,
             'stock': m.usable_quantity,
             'unit': m.unit,
+            'depot': m.depot.name if m.depot else '',
+            'famille': m.famille.name if m.famille else '',
+            'sous_famille': m.sous_famille.name if m.sous_famille else '',
             'thickness': m.thickness_or_grammage_display,
             'metrage': m.metrage_display
         })
@@ -2197,7 +2248,9 @@ def _find_six_column_stock_header(ws):
 
 
 def _catalog_option_from_import(kind, raw_value):
-    name = str(raw_value or '').strip()
+    name = catalog.clean_cell(raw_value)
+    if kind == 'UNIT':
+        name = catalog.canonical_unit_name(name)
     if not name:
         return None
     key = _stock_header_key(name)
@@ -2267,7 +2320,10 @@ def import_stock_view(request):
                     if qte_val == 0:
                         continue
                     
-                    mat = Material.objects.filter(code=raw_code).first() or Material.objects.filter(name=raw_produit).first()
+                    raw_code = catalog.clean_cell(raw_code)
+                    raw_produit = catalog.clean_cell(raw_produit)
+                    mat = (Material.objects.filter(code__iexact=raw_code).first() if raw_code else None) \
+                        or (Material.objects.filter(name__iexact=raw_produit).first() if raw_produit else None)
                     if not mat:
                         mat = Material.objects.create(
                             name=raw_produit or f"Import-{raw_code}", code=raw_code or '',
@@ -2288,29 +2344,44 @@ def import_stock_view(request):
             header_row, cols = _find_six_column_stock_header(ws)
             if header_row:
                 details.append(f"✅ Format articles reconnu (en-têtes ligne {header_row}, 6 colonnes).")
+                seen_codes = set()
+                defaulted_units = defaulted_families = duplicate_rows = 0
                 for row_idx in range(header_row + 1, ws.max_row + 1):
                     code_raw = ws.cell(row=row_idx, column=cols['code']).value
                     name_raw = ws.cell(row=row_idx, column=cols['name']).value
                     if not code_raw and not name_raw:
                         continue
                     try:
-                        code = str(code_raw).strip() if code_raw is not None else ''
-                        # Excel peut livrer un code numérique comme 123.0; éviter le suffixe .0.
-                        if isinstance(code_raw, float) and code_raw.is_integer():
-                            code = str(int(code_raw))
-                        name = str(name_raw or '').strip()
+                        # Excel peut livrer un code numérique comme 123.0; clean_cell évite le suffixe .0.
+                        code = catalog.clean_cell(code_raw)
+                        name = catalog.clean_cell(name_raw)
                         if not code or not name:
                             raise ValueError('N°.Produit et Désignation sont obligatoires.')
-                        unit_name = str(ws.cell(row=row_idx, column=cols['unit']).value or '').strip()
-                        depot_name = str(ws.cell(row=row_idx, column=cols['depot']).value or '').strip()
-                        family_name = str(ws.cell(row=row_idx, column=cols['family']).value or '').strip()
-                        subfamily_name = str(ws.cell(row=row_idx, column=cols['subfamily']).value or '').strip()
-                        if not all([unit_name, depot_name, family_name]):
-                            raise ValueError('N°.Produit, Désignation, Unité, Dépôt et Famille sont obligatoires; Sous Famille peut rester vide.')
+                        # Ligne d'en-tête répétée dans les données : ignorée.
+                        if catalog.key(code) in {'nproduit', 'noproduit', 'codeproduit'} and catalog.key(name) == 'designation':
+                            continue
+                        unit_name = catalog.canonical_unit_name(ws.cell(row=row_idx, column=cols['unit']).value)
+                        depot_name = catalog.clean_cell(ws.cell(row=row_idx, column=cols['depot']).value)
+                        family_name = catalog.clean_cell(ws.cell(row=row_idx, column=cols['family']).value)
+                        subfamily_name = catalog.clean_cell(ws.cell(row=row_idx, column=cols['subfamily']).value)
+                        if not depot_name:
+                            raise ValueError('N°.Produit, Désignation et Dépôt sont obligatoires; Unité, Famille et Sous Famille peuvent rester vides.')
+                        if catalog.key(code) in seen_codes:
+                            duplicate_rows += 1
+                            details.append(f"Ligne {row_idx} : ⚠️ code {code} déjà présent plus haut dans le fichier (la ligne met à jour le même article).")
+                        seen_codes.add(catalog.key(code))
+                        if not unit_name:
+                            unit_name = catalog.default_unit(catalog.technical_category(family_name, subfamily_name, name), family_name)
+                            defaulted_units += 1
+                            details.append(f"Ligne {row_idx} : ℹ️ unité vide pour {code} → « {unit_name} » par défaut (à vérifier).")
+                        if not family_name:
+                            defaulted_families += 1
                         unit_opt = _catalog_option_from_import('UNIT', unit_name)
                         depot_opt = _catalog_option_from_import('DEPOT', depot_name)
-                        family_opt = _catalog_option_from_import('FAMILY', family_name)
+                        family_opt = _catalog_option_from_import('FAMILY', family_name) if family_name else None
                         subfamily_opt = _catalog_option_from_import('SUBFAMILY', subfamily_name) if subfamily_name else None
+                        family_label = family_opt.name if family_opt else ''
+                        # Le catalogue (dépôt/famille/sous-famille) pilote la catégorie technique.
                         def optional_number(key, default=None):
                             if key not in cols:
                                 return default
@@ -2332,7 +2403,7 @@ def import_stock_view(request):
                             raise ValueError('Origine invalide : choisissez Importation ou Local.')
                         origin_value = 'IMPORTATION' if origin_key in {'importation', 'importe'} else ('LOCAL' if origin_key in {'local', 'locale'} else '')
                         designation_key = _stock_header_key(name)
-                        family_key = _stock_header_key(family_opt.name)
+                        family_key = _stock_header_key(family_label)
                         category_raw = ws.cell(row=row_idx, column=cols['category']).value if 'category' in cols else None
                         category_key = _stock_header_key(category_raw)
                         is_paper = any(token in designation_key + family_key + category_key for token in ('papier', 'kraft', 'couche'))
@@ -2341,6 +2412,11 @@ def import_stock_view(request):
                         else:
                             micronage_value = int(mic_gram) if mic_gram is not None else None
                             grammage_value = None
+                        parsed_laize, parsed_micronage = catalog.parse_film_dimensions(name)
+                        paper_item = catalog.is_paper(family_label, subfamily_name, name)
+                        parsed_grammage = catalog.parse_grammage(name) if paper_item else None
+                        if paper_item:
+                            parsed_micronage = None
                         if laize_value is not None and not laize_value.is_integer():
                             raise ValueError('La laize doit être un nombre entier en millimètres.')
                         if units_value is not None and not units_value.is_integer():
@@ -2350,9 +2426,14 @@ def import_stock_view(request):
                             material.name = name
                             material.unit = unit_opt.name
                             material.depot = depot_opt
-                            material.famille = family_opt
-                            material.sous_famille = subfamily_opt
-                            update_fields = ['name', 'unit', 'depot', 'famille', 'sous_famille']
+                            update_fields = ['name', 'unit', 'depot']
+                            # Une cellule vide du classeur n'efface pas une classification déjà saisie.
+                            if family_opt is not None:
+                                material.famille = family_opt
+                                update_fields.append('famille')
+                            if subfamily_opt is not None:
+                                material.sous_famille = subfamily_opt
+                                update_fields.append('sous_famille')
                             for field_name, val in [('micronage_standard', micronage_value), ('grammage', grammage_value), ('metrage_standard', metrage), ('laize_mm', laize_value), ('origine', origin_value), ('poids_kg', weight_value), ('nombre_unites', units_value)]:
                                 if field_name in {'micronage_standard', 'grammage'}:
                                     should_update = mic_gram is not None
@@ -2362,23 +2443,21 @@ def import_stock_view(request):
                                 if should_update:
                                     setattr(material, field_name, val)
                                     update_fields.append(field_name)
+                            # Laize / micronage absents de la fiche : lus dans la désignation (« 760MM », « 20MIC »).
+                            if not material.laize_mm and parsed_laize and 'laize_mm' not in update_fields:
+                                material.laize_mm = parsed_laize
+                                update_fields.append('laize_mm')
+                            if not material.grammage and not grammage_value and parsed_grammage and 'grammage' not in update_fields:
+                                material.grammage = parsed_grammage
+                                update_fields.append('grammage')
+                            if not material.micronage_standard and not material.grammage and not grammage_value and parsed_micronage and 'micronage_standard' not in update_fields:
+                                material.micronage_standard = parsed_micronage
+                                update_fields.append('micronage_standard')
                             material.save(update_fields=update_fields)
                             details.append(f"Ligne {row_idx} : ↻ article {code} mis à jour; les quantités, seuils et prix ERP sont conservés.")
                         else:
-                            family_key = _stock_header_key(family_opt.name)
-                            family_category = 'INK' if family_key == 'encres' else ('GLUE' if family_key == 'colle' else ('SOLV' if family_key == 'solvants' else 'FILM'))
                             raw_category = ws.cell(row=row_idx, column=cols['category']).value if 'category' in cols else None
-                            category_key = _stock_header_key(raw_category)
-                            if category_key in {'encre', 'encres', 'ink'}:
-                                technical_category = 'INK'
-                            elif category_key in {'colle', 'glue'}:
-                                technical_category = 'GLUE'
-                            elif category_key in {'solvant', 'solvants', 'solv'}:
-                                technical_category = 'SOLV'
-                            elif category_key in {'film', 'filmpapier', 'papier'}:
-                                technical_category = 'FILM'
-                            else:
-                                technical_category = family_category
+                            technical_category = catalog.technical_category(family_label, subfamily_name, name, raw_category)
                             initial_qty = optional_number('initial_quantity', 0) or 0
                             current_qty = optional_number('quantity', initial_qty) or 0
                             threshold = optional_number('threshold', 0) or 0
@@ -2396,8 +2475,8 @@ def import_stock_view(request):
                                     sous_famille=subfamily_opt, quantity=0,
                                     initial_quantity=initial_qty, min_threshold=threshold,
                                     price_per_unit=price, supplier=supplier_obj,
-                                    micronage_standard=micronage_value, grammage=grammage_value,
-                                    metrage_standard=metrage, laize_mm=int(laize_value) if laize_value is not None else None,
+                                    micronage_standard=micronage_value if (micronage_value is not None or grammage_value is not None) else parsed_micronage, grammage=grammage_value if grammage_value is not None else parsed_grammage,
+                                    metrage_standard=metrage, laize_mm=int(laize_value) if laize_value is not None else parsed_laize,
                                     origine=origin_value, poids_kg=weight_value, nombre_unites=int(units_value) if units_value is not None else None,
                                 )
                                 if current_qty > 0:
@@ -2419,6 +2498,8 @@ def import_stock_view(request):
                     except Exception as row_err:
                         error_count += 1
                         details.append(f"Ligne {row_idx} : ❌ {str(row_err)}")
+                if defaulted_units or defaulted_families or duplicate_rows:
+                    details.insert(1, f"📋 Contrôle du classeur : {defaulted_units} unité(s) vide(s) complétée(s), {defaulted_families} famille(s) vide(s) laissée(s) vide(s), {duplicate_rows} doublon(s) de code.")
             else:
                 details.append('ℹ️ En-têtes Excel à 6 colonnes non détectés : lecture du format historique 11 colonnes.')
                 for row_idx in range(2, ws.max_row + 1):
@@ -2532,7 +2613,7 @@ def download_template_stock(request):
     lists.sheet_state = 'hidden'
     instructions = wb.create_sheet('Instructions')
     instructions.append(['Importer le fichier dans le module Stock'])
-    instructions.append(['Colonnes obligatoires : N°.Produit, Désignation, Unité, Dépôt, Famille. Sous Famille et les colonnes 7 à 18 sont optionnelles.'])
+    instructions.append(['Colonnes obligatoires : N°.Produit, Désignation, Dépôt. Unité, Famille, Sous Famille et les colonnes 7 à 18 sont optionnelles (Unité vide = KG, ou U pour fournitures/pièces/étiquettes).'])
     instructions.append(['La ligne de titre « LISTE DES ARTICLES » est facultative; l’import repère les en-têtes dans les 15 premières lignes.'])
     instructions.append(['Si le code existe déjà, les champs descriptifs sont mis à jour; le stock, les seuils et les prix ne changent pas.'])
     instructions.append(['Pour un nouvel article, les colonnes optionnelles renseignées sont importées; les quantités, seuil et prix non fournis valent 0. Les listes de référence sont complétées automatiquement si une valeur est absente.'])
@@ -2600,7 +2681,7 @@ def export_search_results(request):
 @login_required
 @module_required('stock')
 def export_mouvements(request):
-    mouvements = StockMovement.objects.select_related('material', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur').all()
+    mouvements = StockMovement.objects.select_related('material', 'material__depot', 'material__famille', 'material__sous_famille', 'lot', 'emplacement_source', 'emplacement_destination', 'utilisateur').all()
     mvt_from = request.GET.get('mvt_from')
     mvt_to = request.GET.get('mvt_to')
     mvt_type = request.GET.get('mvt_type')
@@ -2620,15 +2701,20 @@ def export_mouvements(request):
         mouvements = mouvements.filter(type=mvt_type)
     if mvt_cat:
         mouvements = mouvements.filter(material__category=mvt_cat)
+    mvt_depot, mvt_family = _clean_int_str(request.GET.get('mvt_depot', '')), _clean_int_str(request.GET.get('mvt_family', ''))
+    if mvt_depot:
+        mouvements = mouvements.filter(material__depot_id=mvt_depot)
+    if mvt_family:
+        mouvements = mouvements.filter(material__famille_id=mvt_family)
     if mvt_loc:
         mouvements = mouvements.filter(Q(emplacement_source_id=mvt_loc) | Q(emplacement_destination_id=mvt_loc))
     if mvt_q:
-        mouvements = mouvements.filter(Q(material__name__icontains=mvt_q) | Q(lot__numero_lot__icontains=mvt_q))
+        mouvements = mouvements.filter(Q(material__name__icontains=mvt_q) | Q(material__code__icontains=mvt_q) | Q(lot__numero_lot__icontains=mvt_q))
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Mouvements Stock"
-    ws.append(['Date', 'Type', 'Matière', 'Code', 'Lot', 'Quantité (kg)', 'Source', 'Destination', 'Machine', 'OF', 'Utilisateur', 'Motif', 'Annulé'])
+    ws.append(['Date', 'Type', 'Matière', 'Code', 'Lot', 'Quantité', 'Source', 'Destination', 'Machine', 'OF', 'Utilisateur', 'Motif', 'Annulé', 'Unité', 'Dépôt', 'Famille', 'Sous Famille'])
     for mv in mouvements:
         ws.append([
             mv.date.strftime('%d/%m/%Y %H:%M') if mv.date else '',
@@ -2643,7 +2729,11 @@ def export_mouvements(request):
             xl_safe(str(mv.of)) if mv.of else '',
             xl_safe(mv.utilisateur.username) if mv.utilisateur else '',
             xl_safe(mv.motif or ''),
-            'OUI' if mv.annule else 'NON'
+            'OUI' if mv.annule else 'NON',
+            xl_safe(mv.material.unit) if mv.material else '',
+            xl_safe(mv.material.depot.name) if mv.material and mv.material.depot else '',
+            xl_safe(mv.material.famille.name) if mv.material and mv.material.famille else '',
+            xl_safe(mv.material.sous_famille.name) if mv.material and mv.material.sous_famille else '',
         ])
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="journal_mouvements.xlsx"'

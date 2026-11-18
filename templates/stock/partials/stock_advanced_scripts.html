@@ -663,8 +663,14 @@ function initMouvementStockValidation() {
             if (noResults) noResults.classList.toggle('hidden', !term || matchCount > 0);
             const item = select.selectedOptions[0];
             const selected = !!(item && item.value && category);
-            const isFilm = category === 'FILM';
+            // Principe catalogue : laize/micronage/métrage seulement pour les films au kilo; poids seulement pour les articles en kg.
+            const isMass = !(item && item.value && item.dataset.mass === '0');
+            const isFilm = category === 'FILM' && !(item && item.value && item.dataset.film === '0');
             const isAdjustment = typeSelect && typeSelect.value === 'AJUSTEMENT';
+            const qtyInputRow = row.querySelector('.mouvement-quantity-input');
+            const qtyLabelRow = row.querySelector('.mouvement-quantity-label');
+            if (qtyInputRow && !isAdjustment) { qtyInputRow.step = isMass ? '1' : 'any'; qtyInputRow.min = isMass ? '1' : '0.001'; }
+            if (qtyLabelRow && !isAdjustment) qtyLabelRow.textContent = isMass ? 'Nombre d’articles *' : 'Quantité (' + ((item && item.dataset.unit) || 'unité') + ') *';
             const showSpecs = !!category;
             if (detail) detail.classList.toggle('hidden', !showSpecs);
             row.querySelectorAll('.mouvement-film-field').forEach(function(field) {
@@ -678,19 +684,25 @@ function initMouvementStockValidation() {
             if (adjustmentUnitsInput) adjustmentUnitsInput.required = false;
             const weightField = row.querySelector('.mouvement-weight-field');
             if (weightField) {
-                weightField.classList.toggle('hidden', !category || isAdjustment);
+                weightField.classList.toggle('hidden', !category || isAdjustment || !isMass);
                 const input = weightField.querySelector('input');
-                if (input) input.required = selected && !isAdjustment;
+                if (input) input.required = selected && !isAdjustment && isMass;
             }
+            // Papier : le champ « Micronage » devient « Grammage (g/m²) » (laize + grammage au lieu de laize + micronage).
+            const isPaper = !!(selected && item.dataset.paper === '1');
+            const micLabel = row.querySelector('.mouvement-micronage-label');
+            if (micLabel) micLabel.textContent = isPaper ? 'Grammage (g/m²) *' : 'Micronage (µm) *';
+            const micInput = row.querySelector('[name="micronages"]');
+            if (micInput) { micInput.step = isPaper ? 'any' : '1'; micInput.placeholder = isPaper ? 'g/m²' : ''; }
             if (!selected) {
                 row.querySelectorAll('.mouvement-spec-input').forEach(function(input) { input.value = ''; });
                 return;
             }
-            const defaults = {laizes: item.dataset.laize, micronages: item.dataset.micronage, metrages: item.dataset.metrage, poids_kg: item.dataset.poids};
+            const defaults = {laizes: item.dataset.laize, micronages: isPaper ? item.dataset.grammage : item.dataset.micronage, metrages: item.dataset.metrage, poids_kg: item.dataset.poids};
             Object.entries(defaults).forEach(function(entry) {
                 const input = row.querySelector('[name="' + entry[0] + '"]');
                 if (!input) return;
-                if (isAdjustment && entry[0] === 'poids_kg') { input.value = ''; return; }
+                if ((isAdjustment || !isMass) && entry[0] === 'poids_kg') { input.value = ''; return; }
                 input.value = isFilm || entry[0] === 'poids_kg' ? (entry[1] || '') : '';
             });
             if (!isAdjustment && adjustmentUnitsInput) adjustmentUnitsInput.value = '';
@@ -707,13 +719,17 @@ function initMouvementStockValidation() {
         lineRows().forEach(function(row) {
             const input = row.querySelector('.mouvement-quantity-input');
             const label = row.querySelector('.mouvement-quantity-label');
+            const rowSelect = row.querySelector('.mouvement-material-select');
+            const rowOpt = rowSelect && rowSelect.options[rowSelect.selectedIndex];
+            const rowMass = !(rowOpt && rowOpt.value && rowOpt.dataset.mass === '0');
+            const rowUnit = (rowOpt && rowOpt.value && rowOpt.dataset.unit) || 'kg';
             if (input) {
-                input.min = isAdjustment ? '-999999999' : '1';
-                input.step = isAdjustment ? '0.001' : '1';
-                input.placeholder = isAdjustment ? '+/- kg' : '1';
+                input.min = isAdjustment ? '-999999999' : (rowMass ? '1' : '0.001');
+                input.step = isAdjustment ? '0.001' : (rowMass ? '1' : 'any');
+                input.placeholder = isAdjustment ? '+/- ' + rowUnit : '1';
                 if (!isAdjustment && Number(input.value) < 0) input.value = '';
             }
-            if (label) label.textContent = isAdjustment ? 'Variation (kg, + / −) *' : 'Nombre d’articles *';
+            if (label) label.textContent = isAdjustment ? 'Variation (' + rowUnit + ', + / −) *' : (rowMass ? 'Nombre d’articles *' : 'Quantité (' + rowUnit + ') *');
         });
         const hint = document.getElementById('mouvementQuantityHint');
         if (hint && isAdjustment) hint.textContent = 'Ajustement : la variation signée en kg modifie seule le stock. Le nombre d’unités est facultatif; pour Film/Papier, laize, micronage et métrage sont conservés à titre technique.';
@@ -772,13 +788,14 @@ function initMouvementStockValidation() {
             const quantityInput = row.querySelector('.mouvement-quantity-input');
             const selected = select && select.options[select.selectedIndex];
             const quantity = parseFloat(quantityInput && quantityInput.value) || 0;
-            const countValid = movementType === 'AJUSTEMENT' || (Number.isInteger(quantity) && quantity > 0);
+            const rowIsMass = !(selected && selected.dataset.mass === '0');
+            const countValid = movementType === 'AJUSTEMENT' || (rowIsMass ? (Number.isInteger(quantity) && quantity > 0) : quantity > 0);
             const weightInput = row.querySelector('[name="poids_kg"]');
             const weightEach = parseFloat(weightInput && weightInput.value) || 0;
             const unitCountInput = row.querySelector('[name="nombre_unites"]');
             const unitCountValue = unitCountInput && unitCountInput.value ? Number(unitCountInput.value) : null;
             const invalidUnitCount = movementType === 'AJUSTEMENT' && unitCountValue !== null && (!Number.isInteger(unitCountValue) || unitCountValue <= 0);
-            const invalidQuantity = movementType === 'AJUSTEMENT' ? (quantity === 0 || invalidUnitCount) : (!countValid || weightEach <= 0);
+            const invalidQuantity = movementType === 'AJUSTEMENT' ? (quantity === 0 || invalidUnitCount) : (!countValid || (rowIsMass && weightEach <= 0));
             if (!select || !select.value || invalidQuantity) {
                 e.preventDefault();
                 alert(movementType === 'AJUSTEMENT' ? 'Chaque ajustement doit contenir une matière et une variation en kg différente de zéro; le nombre d’unités, s’il est saisi, doit être un entier positif.' : 'Chaque ligne doit contenir une matière, un nombre entier d’articles et un poids par article positif.');
@@ -787,7 +804,7 @@ function initMouvementStockValidation() {
             }
             if (movementType === 'SORTIE') {
                 const previous = totals.get(select.value) || {quantity: 0, stock: parseFloat(selected.dataset.stock) || 0, unit: selected.dataset.unit || 'kg', name: selected.text.split('(')[0].trim()};
-                previous.quantity += quantity * weightEach;
+                previous.quantity += rowIsMass ? quantity * weightEach : quantity;
                 totals.set(select.value, previous);
             }
         }
@@ -817,6 +834,19 @@ function initLotReceptionFields() {
             const field = document.getElementById(id);
             if (field) field.classList.toggle('hidden', !isFilmPaper);
         });
+        // Unité de l'article choisi : pas de « nombre d'unités » obligatoire pour un article non pesé.
+        const opt = materialSelect && materialSelect.options[materialSelect.selectedIndex];
+        const hasOpt = !!(opt && opt.value);
+        const mass = !hasOpt || opt.dataset.mass !== '0';
+        const unit = hasOpt && opt.dataset.unit ? opt.dataset.unit : 'kg';
+        const qLabel = document.getElementById('lotQuantiteLabel');
+        if (qLabel) qLabel.textContent = mass ? 'Poids net / quantité reçue (kg) *' : 'Quantité reçue (' + unit + ') *';
+        const uInput = document.getElementById('lotNombreUnitesInput');
+        const uLabel = document.getElementById('lotNombreUnitesLabel');
+        if (uInput) { uInput.required = mass; uInput.placeholder = mass ? '' : 'Facultatif'; }
+        if (uLabel) uLabel.textContent = mass ? 'Nombre d’unités *' : 'Nombre d’unités (facultatif)';
+        const filmOff = hasOpt && opt.dataset.film === '0';
+        if (filmOff) ['lotLaizeField', 'lotMicronageField', 'lotGrammageField', 'lotMetrageField'].forEach(function(id) { const f = document.getElementById(id); if (f) f.classList.add('hidden'); });
     }
     if (categorySelect) categorySelect.addEventListener('change', syncFields);
     if (materialSelect) materialSelect.addEventListener('change', function() {
